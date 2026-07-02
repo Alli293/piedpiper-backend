@@ -6,7 +6,7 @@ API REST para gestión de huella de carbono con autenticación JWT, roles y func
 
 ## Requisitos previos
 
-- **Java 21 (JDK)**
+- **Java 21 (JDK temurin-21 Eclipse Temurin 21.0.11)**
 - **Maven 3.9+** (o Maven integrado en IDE)
 - **Docker + Docker Compose**
 - **Postman** (opcional para pruebas de API)
@@ -31,7 +31,7 @@ El proyecto incluye un `docker-compose.yml` para levantar PostgreSQL localmente.
 Ejecutar:
 
 ```
-docker compose-f docker/docker-compose.yml up-d
+docker compose -f docker/docker-compose.yml up -d
 ```
 
 ---
@@ -49,6 +49,63 @@ JWT_EXPIRATION
 GEMINI_API_KEY
 ```
 
+#### Ejemplo de variables de entorno
+
+| Variable | Descripción | Ejemplo |
+|---|---|---|
+| `DB_URL` | URL de conexión JDBC a PostgreSQL | `jdbc:postgresql://localhost:5432/carbonhub` |
+| `DB_USER` | Usuario de la base de datos | `carbonhub` |
+| `DB_PASSWORD` | Password del usuario de la base de datos | `carbonhub` |
+| `JWT_SECRET` | Clave secreta para firmar los JWT (Base64, mínimo 256 bits) | `your_jwt_secret_here` |
+| `JWT_EXPIRATION` | Tiempo de expiración del token en milisegundos | `3600000` (1 hora) |
+| `GEMINI_API_KEY` | API Key de Google Gemini (Spring AI) | `your_gemini_api_key_here` |
+
+> ⚠️ **Importante:** `JWT_SECRET` y `GEMINI_API_KEY` son credenciales sensibles. El valor real de cada una debe compartirse por un canal privado del equipo.
+
+
+#### Configuración en IntelliJ
+
+Como la mayoría del equipo usa IntelliJ, hay dos formas de configurar estas variables:
+
+**Opción A: Desde Run → Edit Configurations**
+
+1. Ir a **Run → Edit Configurations…**
+2. Seleccionar la configuración de la clase principal (`Application`).
+3. En el campo **Environment variables**, hacer clic en el ícono al final del campo para abrir el editor.
+4. Agregar cada variable en formato `NOMBRE=valor`, una por línea. Ejemplo:
+
+   ```
+   DB_URL=jdbc:postgresql://localhost:5432/carbonhub
+   DB_USER=carbonhub
+   DB_PASSWORD=carbonhub
+   JWT_EXPIRATION=3600000
+   JWT_SECRET=<valor real, pedirlo al equipo>
+   GEMINI_API_KEY=<valor real, pedirlo al equipo>
+   ```
+
+5. Aplicar y correr normalmente.
+
+**Opción B: Usando un archivo `.env` con el plugin EnvFile**
+
+1. Instalar el plugin **EnvFile** desde **File → Settings → Plugins**, buscarlo e instalarlo (requiere reiniciar IntelliJ).
+2. Crear un archivo `.env` en la raíz del proyecto (mismo nivel que `pom.xml`), usando el siguiente formato como base y completando los valores reales:
+
+   ```
+   DB_URL=jdbc:postgresql://localhost:5432/carbonhub
+   DB_USER=carbonhub
+   DB_PASSWORD=carbonhub
+   JWT_EXPIRATION=3600000
+   JWT_SECRET=<valor real, pedirlo al equipo>
+   GEMINI_API_KEY=<valor real, pedirlo al equipo>
+   ```
+
+3. Ir a **Run → Edit Configurations…** y seleccionar la configuración de la app.
+4. Marcar el checkbox **Enable EnvFile**.
+5. Hacer clic en **+** y seleccionar el archivo `.env` creado.
+6. Aplicar y correr. IntelliJ carga las variables automáticamente desde ese archivo en cada ejecución.
+
+> ⚠️ El archivo `.env` real **nunca se sube al repositorio**.
+
 ---
 
 ### 4. Ejecutar el proyecto
@@ -58,7 +115,7 @@ Desde IDE:
 - Ejecutar la clase principal:
 
     ```
-    CarbonHubApplication.java
+    Application.java
     ```
 
 ---
@@ -113,7 +170,7 @@ security.jwt.expiration-time=${JWT_EXPIRATION}
 
 ```
 spring.ai.google.genai.api-key=${GEMINI_API_KEY}
-spring.ai.google.genai.chat.model=gemini-3.5-flash
+spring.ai.google.genai.chat.options.model=gemini-3.5-flash
 ```
 
 ---
@@ -136,3 +193,4 @@ spring.ai.google.genai.chat.model=gemini-3.5-flash
 - El proyecto requiere variables de entorno para arrancar correctamente.
 - PostgreSQL debe estar activo antes de ejecutar la aplicación.
 - Spring AI requiere API Key válida de Google Gemini.
+- `JWT_SECRET` y `GEMINI_API_KEY` son credenciales sensibles: nunca deben publicarse en el README, ni en commits. Compartirlas por un canal privado del equipo.
