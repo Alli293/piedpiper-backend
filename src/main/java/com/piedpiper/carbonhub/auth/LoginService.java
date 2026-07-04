@@ -14,7 +14,6 @@ import com.piedpiper.carbonhub.user.UsuarioRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -40,7 +39,6 @@ public class LoginService {
         this.jwtService = jwtService;
     }
 
-    @Transactional
     public AuthResponse login(LoginRequest request) {
         if (request.metodo() == MetodoAuth.GOOGLE) {
             return loginGoogle(request);
