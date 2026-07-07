@@ -36,6 +36,9 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
+      - name: Give execution permission to mvnw
+        run: chmod +x mvnw
+
       - name: Run tests
         env:
           DB_URL: jdbc:postgresql://localhost:5432/carbonhub_test
