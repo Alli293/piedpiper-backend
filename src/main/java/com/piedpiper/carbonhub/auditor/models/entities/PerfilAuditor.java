@@ -20,7 +20,7 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 @Entity
-@Table(name = "perfiles_auditor")
+@Table(name = "auditores")
 @Getter
 @Setter
 @Builder
