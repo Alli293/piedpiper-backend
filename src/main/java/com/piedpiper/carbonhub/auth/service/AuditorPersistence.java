@@ -38,8 +38,8 @@ public class AuditorPersistence {
         Usuario auditor = Usuario.builder()
                 .googleSub(claims.getSub())
                 .email(claims.getEmail())
-                .nombre(Usuario.recortarNombre(
-                        claims.getName() != null ? claims.getName() : request.getNombreCompleto()))
+                .nombre(Usuario.recortarNombre(claims.getGivenName()))
+                .apellidos(Usuario.recortarNombre(claims.getFamilyName()))
                 .rol(Rol.AUDITOR_CERTIFICADO)
                 .estado(EstadoUsuario.PENDIENTE_VALIDACION)
                 .metodoAuth(MetodoAuth.GOOGLE)

@@ -49,6 +49,9 @@ public class Usuario {
     @Column(length = NOMBRE_MAX)
     private String nombre;
 
+    @Column(length = NOMBRE_MAX)
+    private String apellidos;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 40)
     private Rol rol;

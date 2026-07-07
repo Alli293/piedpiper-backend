@@ -13,4 +13,6 @@ public class GoogleClaims {
     private String email;
     private boolean emailVerified;
     private String name;
+    private String givenName;
+    private String familyName;
 }

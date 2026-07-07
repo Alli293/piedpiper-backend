@@ -117,7 +117,7 @@ class LoginServiceTest {
     @Test
     void googleSinCuentaLanza404() {
         when(googleTokenVerifier.verificar("token"))
-                .thenReturn(new GoogleClaims("sub-x", "nuevo@gmail.com", true, "Nuevo"));
+                .thenReturn(new GoogleClaims("sub-x", "nuevo@gmail.com", true, "Nuevo", "Nuevo", "Perez"));
         when(usuarioRepository.findByGoogleSub("sub-x")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.login(

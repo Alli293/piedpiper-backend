@@ -56,7 +56,7 @@ class RegistroAuditorServiceTest {
     @Test
     void solicitudExitosaPersisteYEnviaCorreo() {
         when(googleTokenVerifier.verificar("token"))
-                .thenReturn(new GoogleClaims("sub-1", "ana@gmail.com", true, "Ana"));
+                .thenReturn(new GoogleClaims("sub-1", "ana@gmail.com", true, "Ana", "Ana", "Perez"));
         when(usuarioRepository.existsByGoogleSub("sub-1")).thenReturn(false);
         when(usuarioRepository.existsByEmail("ana@gmail.com")).thenReturn(false);
         when(storage.guardar(any())).thenReturn("/uploads/cert.pdf", "/uploads/id.pdf");
@@ -70,7 +70,7 @@ class RegistroAuditorServiceTest {
     @Test
     void certificacionVencidaLanza422YNoGuardaArchivos() {
         when(googleTokenVerifier.verificar("token"))
-                .thenReturn(new GoogleClaims("sub-1", "ana@gmail.com", true, "Ana"));
+                .thenReturn(new GoogleClaims("sub-1", "ana@gmail.com", true, "Ana", "Ana", "Perez"));
         when(usuarioRepository.existsByGoogleSub("sub-1")).thenReturn(false);
         when(usuarioRepository.existsByEmail("ana@gmail.com")).thenReturn(false);
 
@@ -86,7 +86,7 @@ class RegistroAuditorServiceTest {
     @Test
     void subDuplicadoLanza409() {
         when(googleTokenVerifier.verificar("token"))
-                .thenReturn(new GoogleClaims("sub-1", "ana@gmail.com", true, "Ana"));
+                .thenReturn(new GoogleClaims("sub-1", "ana@gmail.com", true, "Ana", "Ana", "Perez"));
         when(usuarioRepository.existsByGoogleSub("sub-1")).thenReturn(true);
 
         assertThatThrownBy(() ->
@@ -100,7 +100,7 @@ class RegistroAuditorServiceTest {
     @Test
     void falloAlPersistirRevierteYBorraArchivos() {
         when(googleTokenVerifier.verificar("token"))
-                .thenReturn(new GoogleClaims("sub-1", "ana@gmail.com", true, "Ana"));
+                .thenReturn(new GoogleClaims("sub-1", "ana@gmail.com", true, "Ana", "Ana", "Perez"));
         when(usuarioRepository.existsByGoogleSub("sub-1")).thenReturn(false);
         when(usuarioRepository.existsByEmail("ana@gmail.com")).thenReturn(false);
         when(storage.guardar(any())).thenReturn("/uploads/cert.pdf", "/uploads/id.pdf");

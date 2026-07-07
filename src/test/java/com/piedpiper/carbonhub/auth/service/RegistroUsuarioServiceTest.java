@@ -43,7 +43,7 @@ class RegistroUsuarioServiceTest {
     @Test
     void registroExitosoCreaUsuarioIndividualYEmiteToken() {
         when(googleTokenVerifier.verificar("token-google"))
-                .thenReturn(new GoogleClaims("sub-1", "ana@gmail.com", true, "Ana"));
+                .thenReturn(new GoogleClaims("sub-1", "ana@gmail.com", true, "Ana", "Ana", "Perez"));
         when(usuarioRepository.existsByGoogleSub("sub-1")).thenReturn(false);
         when(usuarioRepository.existsByEmail("ana@gmail.com")).thenReturn(false);
         when(usuarioRepository.saveAndFlush(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
@@ -55,6 +55,8 @@ class RegistroUsuarioServiceTest {
         verify(usuarioRepository).saveAndFlush(captor.capture());
         assertThat(captor.getValue().getRol()).isEqualTo(Rol.USUARIO_INDIVIDUAL);
         assertThat(captor.getValue().getEstado()).isEqualTo(EstadoUsuario.ACTIVO);
+        assertThat(captor.getValue().getNombre()).isEqualTo("Ana");
+        assertThat(captor.getValue().getApellidos()).isEqualTo("Perez");
         assertThat(response.getToken()).isEqualTo("jwt-app");
         assertThat(response.getRedirect()).isEqualTo("/perfil/configuracion-inicial");
     }
@@ -62,7 +64,7 @@ class RegistroUsuarioServiceTest {
     @Test
     void correoNoVerificadoLanza422YNoPersiste() {
         when(googleTokenVerifier.verificar("token-google"))
-                .thenReturn(new GoogleClaims("sub-1", "ana@gmail.com", false, "Ana"));
+                .thenReturn(new GoogleClaims("sub-1", "ana@gmail.com", false, "Ana", "Ana", "Perez"));
 
         assertThatThrownBy(() -> service.registrar(request()))
                 .isInstanceOf(ApiException.class)
@@ -74,7 +76,7 @@ class RegistroUsuarioServiceTest {
     @Test
     void subDuplicadoLanza409YNoPersiste() {
         when(googleTokenVerifier.verificar("token-google"))
-                .thenReturn(new GoogleClaims("sub-1", "ana@gmail.com", true, "Ana"));
+                .thenReturn(new GoogleClaims("sub-1", "ana@gmail.com", true, "Ana", "Ana", "Perez"));
         when(usuarioRepository.existsByGoogleSub("sub-1")).thenReturn(true);
 
         assertThatThrownBy(() -> service.registrar(request()))

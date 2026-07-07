@@ -48,7 +48,7 @@ class RegistroEmpresaServiceTest {
     @Test
     void registroExitosoCreaEmpresaYAdministrador() {
         when(googleTokenVerifier.verificar("token"))
-                .thenReturn(new GoogleClaims("sub-1", "rep@gmail.com", true, "Rep"));
+                .thenReturn(new GoogleClaims("sub-1", "rep@gmail.com", true, "Rep", "Rep", "Empresa"));
         when(usuarioRepository.existsByGoogleSub("sub-1")).thenReturn(false);
         when(usuarioRepository.existsByEmail("rep@gmail.com")).thenReturn(false);
         when(empresaRepository.existsByCorreoCorporativoIgnoreCase("info@acme.com")).thenReturn(false);
@@ -68,7 +68,7 @@ class RegistroEmpresaServiceTest {
     @Test
     void correoCorporativoDuplicadoLanza409YNoPersiste() {
         when(googleTokenVerifier.verificar("token"))
-                .thenReturn(new GoogleClaims("sub-1", "rep@gmail.com", true, "Rep"));
+                .thenReturn(new GoogleClaims("sub-1", "rep@gmail.com", true, "Rep", "Rep", "Empresa"));
         when(usuarioRepository.existsByGoogleSub("sub-1")).thenReturn(false);
         when(usuarioRepository.existsByEmail("rep@gmail.com")).thenReturn(false);
         when(empresaRepository.existsByCorreoCorporativoIgnoreCase("info@acme.com")).thenReturn(true);
@@ -84,7 +84,7 @@ class RegistroEmpresaServiceTest {
     @Test
     void representanteDuplicadoLanza409YNoPersiste() {
         when(googleTokenVerifier.verificar("token"))
-                .thenReturn(new GoogleClaims("sub-1", "rep@gmail.com", true, "Rep"));
+                .thenReturn(new GoogleClaims("sub-1", "rep@gmail.com", true, "Rep", "Rep", "Empresa"));
         when(usuarioRepository.existsByGoogleSub("sub-1")).thenReturn(true);
 
         assertThatThrownBy(() -> service.registrar(request()))

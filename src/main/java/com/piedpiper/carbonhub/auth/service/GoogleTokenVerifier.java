@@ -71,10 +71,13 @@ public class GoogleTokenVerifier {
             String email = claims.getStringClaim("email");
             Boolean emailVerified = claims.getBooleanClaim("email_verified");
             String name = claims.getStringClaim("name");
+            String givenName = claims.getStringClaim("given_name");
+            String familyName = claims.getStringClaim("family_name");
             if (sub == null || email == null) {
                 throw ApiException.tokenInvalido();
             }
-            return new GoogleClaims(sub, email, Boolean.TRUE.equals(emailVerified), name);
+            return new GoogleClaims(sub, email, Boolean.TRUE.equals(emailVerified), name,
+                    givenName, familyName);
         } catch (java.text.ParseException e) {
             throw ApiException.tokenInvalido();
         }
