@@ -4,9 +4,6 @@ import com.piedpiper.carbonhub.auth.models.dtos.AuthResponseDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.RegistroEmpresaRequestDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.GoogleClaims;
 import com.piedpiper.carbonhub.exceptions.ApiException;
-import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
-import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
-import com.piedpiper.carbonhub.empresa.models.enums.SectorIndustrial;
 import com.piedpiper.carbonhub.user.models.enums.Rol;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
@@ -31,8 +28,6 @@ class RegistroEmpresaServiceTest {
     @Mock
     private GoogleTokenVerifier googleTokenVerifier;
     @Mock
-    private EmpresaRepository empresaRepository;
-    @Mock
     private UsuarioRepository usuarioRepository;
     @Mock
     private JwtService jwtService;
@@ -41,18 +36,15 @@ class RegistroEmpresaServiceTest {
     private RegistroEmpresaService service;
 
     private RegistroEmpresaRequestDTO request() {
-        return new RegistroEmpresaRequestDTO("token", "Acme", SectorIndustrial.SERVICIOS, "CR",
-                12, "info@acme.com", true);
+        return new RegistroEmpresaRequestDTO("token", true);
     }
 
     @Test
-    void registroExitosoCreaEmpresaYAdministrador() {
+    void registroExitosoCreaUsuarioAdministrador() {
         when(googleTokenVerifier.verificar("token"))
                 .thenReturn(new GoogleClaims("sub-1", "rep@gmail.com", true, "Rep", "Rep", "Empresa"));
         when(usuarioRepository.existsByGoogleSub("sub-1")).thenReturn(false);
         when(usuarioRepository.existsByEmail("rep@gmail.com")).thenReturn(false);
-        when(empresaRepository.existsByCorreoCorporativoIgnoreCase("info@acme.com")).thenReturn(false);
-        when(empresaRepository.save(any(Empresa.class))).thenAnswer(i -> i.getArgument(0));
         when(usuarioRepository.save(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
         when(jwtService.generar(any(Usuario.class))).thenReturn("jwt-app");
 
@@ -61,24 +53,9 @@ class RegistroEmpresaServiceTest {
         ArgumentCaptor<Usuario> captor = ArgumentCaptor.forClass(Usuario.class);
         verify(usuarioRepository).save(captor.capture());
         assertThat(captor.getValue().getRol()).isEqualTo(Rol.ADMINISTRADOR_EMPRESA);
-        assertThat(captor.getValue().getEmpresa()).isNotNull();
+        assertThat(captor.getValue().isConfiguracionCompleta()).isFalse();
+        assertThat(captor.getValue().getEmpresa()).isNull();
         assertThat(response.getRedirect()).isEqualTo("/empresa/configuracion-inicial");
-    }
-
-    @Test
-    void correoCorporativoDuplicadoLanza409YNoPersiste() {
-        when(googleTokenVerifier.verificar("token"))
-                .thenReturn(new GoogleClaims("sub-1", "rep@gmail.com", true, "Rep", "Rep", "Empresa"));
-        when(usuarioRepository.existsByGoogleSub("sub-1")).thenReturn(false);
-        when(usuarioRepository.existsByEmail("rep@gmail.com")).thenReturn(false);
-        when(empresaRepository.existsByCorreoCorporativoIgnoreCase("info@acme.com")).thenReturn(true);
-
-        assertThatThrownBy(() -> service.registrar(request()))
-                .isInstanceOf(ApiException.class)
-                .extracting(e -> ((ApiException) e).getStatus())
-                .isEqualTo(HttpStatus.CONFLICT);
-        verify(empresaRepository, never()).save(any());
-        verify(usuarioRepository, never()).save(any());
     }
 
     @Test
@@ -91,6 +68,6 @@ class RegistroEmpresaServiceTest {
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.CONFLICT);
-        verify(empresaRepository, never()).save(any());
+        verify(usuarioRepository, never()).save(any());
     }
 }

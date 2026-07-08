@@ -71,6 +71,10 @@ public class Usuario {
     @JoinColumn(name = "empresa_id")
     private Empresa empresa;
 
+    @Column(name = "configuracion_completa", nullable = false)
+    @Builder.Default
+    private boolean configuracionCompleta = false;
+
     @Column(name = "intentos_fallidos", nullable = false)
     @Builder.Default
     private int intentosFallidos = 0;

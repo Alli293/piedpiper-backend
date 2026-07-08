@@ -6,7 +6,6 @@ import com.piedpiper.carbonhub.auth.models.dtos.GoogleClaims;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
 import com.piedpiper.carbonhub.user.models.enums.MetodoAuth;
-import com.piedpiper.carbonhub.user.models.enums.Rol;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 import org.springframework.http.HttpStatus;
@@ -110,19 +109,6 @@ public class LoginService {
     private AuthResponseDTO emitir(Usuario usuario) {
         String token = jwtService.generar(usuario);
         return new AuthResponseDTO(token, usuario.getRol().name(), usuario.getEstado().name(),
-                redirect(usuario));
-    }
-
-    private String redirect(Usuario usuario) {
-        if (usuario.getRol() == Rol.AUDITOR_CERTIFICADO
-                && usuario.getEstado() == EstadoUsuario.PENDIENTE_VALIDACION) {
-            return "/auditor/validacion-pendiente";
-        }
-        return switch (usuario.getRol()) {
-            case ADMINISTRADOR_EMPRESA -> "/empresa/panel";
-            case AUDITOR_CERTIFICADO -> "/auditor/panel";
-            case ADMINISTRADOR_PLATAFORMA -> "/admin/panel";
-            default -> "/panel";
-        };
+                RedirectResolver.paraUsuario(usuario));
     }
 }

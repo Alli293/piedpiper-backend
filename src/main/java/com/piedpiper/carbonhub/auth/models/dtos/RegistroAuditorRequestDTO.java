@@ -1,7 +1,7 @@
 package com.piedpiper.carbonhub.auth.models.dtos;
 
-import java.time.LocalDate;
-
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -11,11 +11,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class RegistroAuditorRequestDTO {
 
+    @NotBlank(message = "El token de Google es obligatorio.")
     private String idToken;
-    private String nombreCompleto;
-    private String numeroCertificacion;
-    private String entidadCertificadora;
-    private LocalDate fechaVigenciaCert;
-    private Integer aniosExperiencia;
+
+    @AssertTrue(message = "Debes aceptar los Términos y Condiciones y la Política de Privacidad.")
     private boolean aceptaTerminos;
 }

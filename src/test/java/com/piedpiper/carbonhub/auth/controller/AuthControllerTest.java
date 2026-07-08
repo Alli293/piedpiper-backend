@@ -19,13 +19,11 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -53,9 +51,7 @@ class AuthControllerTest {
     @MockitoBean
     private UsuarioRepository usuarioRepository;
 
-    private static final String EMPRESA_JSON = "{\"idToken\":\"t\",\"nombreEmpresa\":\"Acme\","
-            + "\"sectorIndustrial\":\"SERVICIOS\",\"pais\":\"CR\",\"cantidadEmpleados\":10,"
-            + "\"correoCorporativo\":\"info@acme.com\",\"aceptaTerminos\":true}";
+    private static final String REGISTRO_JSON = "{\"idToken\":\"t\",\"aceptaTerminos\":true}";
 
     @Test
     void registroUsuarioValidoDevuelve201() throws Exception {
@@ -64,7 +60,7 @@ class AuthControllerTest {
 
         mockMvc.perform(post("/api/auth/registro/usuario")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"idToken\":\"t\",\"aceptaTerminos\":true}"))
+                        .content(REGISTRO_JSON))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.token").value("jwt"));
     }
@@ -83,7 +79,7 @@ class AuthControllerTest {
 
         mockMvc.perform(post("/api/auth/registro/usuario")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"idToken\":\"t\",\"aceptaTerminos\":true}"))
+                        .content(REGISTRO_JSON))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -93,7 +89,7 @@ class AuthControllerTest {
 
         mockMvc.perform(post("/api/auth/registro/usuario")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"idToken\":\"t\",\"aceptaTerminos\":true}"))
+                        .content(REGISTRO_JSON))
                 .andExpect(status().isUnprocessableEntity());
     }
 
@@ -104,7 +100,7 @@ class AuthControllerTest {
 
         mockMvc.perform(post("/api/auth/registro/usuario")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"idToken\":\"t\",\"aceptaTerminos\":true}"))
+                        .content(REGISTRO_JSON))
                 .andExpect(status().isConflict());
     }
 
@@ -116,9 +112,9 @@ class AuthControllerTest {
 
         mockMvc.perform(post("/api/auth/registro/empresa")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(EMPRESA_JSON))
+                        .content(REGISTRO_JSON))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.token").value("jwt"));
+                .andExpect(jsonPath("$.redirect").value("/empresa/configuracion-inicial"));
     }
 
     @Test
@@ -127,19 +123,8 @@ class AuthControllerTest {
 
         mockMvc.perform(post("/api/auth/registro/empresa")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(EMPRESA_JSON))
+                        .content(REGISTRO_JSON))
                 .andExpect(status().isUnauthorized());
-    }
-
-    @Test
-    void registroEmpresaCorreoCorporativoDuplicadoDevuelve409() throws Exception {
-        when(registroEmpresaService.registrar(any())).thenThrow(ApiException.cuentaDuplicada(
-                "Ya existe una empresa registrada con este correo corporativo."));
-
-        mockMvc.perform(post("/api/auth/registro/empresa")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(EMPRESA_JSON))
-                .andExpect(status().isConflict());
     }
 
     @Test
@@ -149,48 +134,30 @@ class AuthControllerTest {
 
         mockMvc.perform(post("/api/auth/registro/empresa")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(EMPRESA_JSON))
+                        .content(REGISTRO_JSON))
                 .andExpect(status().isConflict());
     }
 
     @Test
     void registroAuditorValidoDevuelve201() throws Exception {
-        when(registroAuditorService.registrar(any(), any(), any()))
-                .thenReturn("Tu solicitud fue recibida y está en revisión.");
+        when(registroAuditorService.registrar(any()))
+                .thenReturn(new AuthResponseDTO("jwt", "AUDITOR_CERTIFICADO", "ACTIVO",
+                        "/auditor/configuracion-inicial"));
 
-        mockMvc.perform(multipart("/api/auth/registro/auditor")
-                        .file(new MockMultipartFile("docCertificado", "cert.pdf",
-                                "application/pdf", new byte[]{1, 2, 3}))
-                        .file(new MockMultipartFile("docIdentificacion", "id.pdf",
-                                "application/pdf", new byte[]{1, 2, 3}))
-                        .param("idToken", "t")
-                        .param("nombreCompleto", "Ana Perez")
-                        .param("numeroCertificacion", "CERT-123")
-                        .param("entidadCertificadora", "IEC")
-                        .param("fechaVigenciaCert", "2030-01-01")
-                        .param("aniosExperiencia", "5")
-                        .param("aceptaTerminos", "true"))
+        mockMvc.perform(post("/api/auth/registro/auditor")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(REGISTRO_JSON))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.mensaje").value("Tu solicitud fue recibida y está en revisión."));
+                .andExpect(jsonPath("$.redirect").value("/auditor/configuracion-inicial"));
     }
 
     @Test
     void registroAuditorTokenInvalidoDevuelve401() throws Exception {
-        when(registroAuditorService.registrar(any(), any(), any()))
-                .thenThrow(ApiException.tokenInvalido());
+        when(registroAuditorService.registrar(any())).thenThrow(ApiException.tokenInvalido());
 
-        mockMvc.perform(multipart("/api/auth/registro/auditor")
-                        .file(new MockMultipartFile("docCertificado", "cert.pdf",
-                                "application/pdf", new byte[]{1, 2, 3}))
-                        .file(new MockMultipartFile("docIdentificacion", "id.pdf",
-                                "application/pdf", new byte[]{1, 2, 3}))
-                        .param("idToken", "t")
-                        .param("nombreCompleto", "Ana Perez")
-                        .param("numeroCertificacion", "CERT-123")
-                        .param("entidadCertificadora", "IEC")
-                        .param("fechaVigenciaCert", "2030-01-01")
-                        .param("aniosExperiencia", "5")
-                        .param("aceptaTerminos", "true"))
+        mockMvc.perform(post("/api/auth/registro/auditor")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(REGISTRO_JSON))
                 .andExpect(status().isUnauthorized());
     }
 
