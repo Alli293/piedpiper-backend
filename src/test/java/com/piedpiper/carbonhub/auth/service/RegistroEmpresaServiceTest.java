@@ -69,4 +69,16 @@ class RegistroEmpresaServiceTest {
                 .isEqualTo(HttpStatus.CONFLICT);
         verify(usuarioRepository, never()).save(any());
     }
+
+    @Test
+    void correoNoVerificadoLanza422YNoPersiste() {
+        when(googleTokenVerifier.verificar("token"))
+                .thenReturn(new GoogleClaims("sub-1", "rep@gmail.com", false, "Rep", "Rep", "Empresa"));
+
+        assertThatThrownBy(() -> service.registrar(request()))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        verify(usuarioRepository, never()).save(any());
+    }
 }

@@ -33,6 +33,9 @@ public class RegistroEmpresaService {
     public AuthResponseDTO registrar(RegistroEmpresaRequestDTO request) {
         GoogleClaims claims = googleTokenVerifier.verificar(request.getIdToken());
 
+        if (!claims.isEmailVerified()) {
+            throw ApiException.correoNoVerificado();
+        }
         if (usuarioRepository.existsByGoogleSub(claims.getSub())
                 || usuarioRepository.existsByEmail(claims.getEmail())) {
             throw ApiException.cuentaDuplicada(
