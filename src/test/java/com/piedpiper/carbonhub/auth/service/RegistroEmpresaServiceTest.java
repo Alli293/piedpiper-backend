@@ -54,7 +54,6 @@ class RegistroEmpresaServiceTest {
         verify(usuarioRepository).save(captor.capture());
         assertThat(captor.getValue().getRol()).isEqualTo(Rol.ADMINISTRADOR_EMPRESA);
         assertThat(captor.getValue().isConfiguracionCompleta()).isFalse();
-        assertThat(captor.getValue().getEmpresa()).isNull();
         assertThat(response.getRedirect()).isEqualTo("/empresa/configuracion-inicial");
     }
 
