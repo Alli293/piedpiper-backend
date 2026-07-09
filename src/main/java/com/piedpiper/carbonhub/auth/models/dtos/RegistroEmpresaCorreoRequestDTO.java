@@ -1,5 +1,7 @@
 package com.piedpiper.carbonhub.auth.models.dtos;
 
+import com.piedpiper.carbonhub.empresa.models.enums.SectorIndustrial;
+
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -20,10 +22,13 @@ public class RegistroEmpresaCorreoRequestDTO {
     @Size(min = 2, max = 150, message = "Ingresa el nombre de la empresa.")
     private String nombreEmpresa;
 
-    // TODO: cambiar a com.piedpiper.carbonhub.empresa.models.enums.SectorIndustrial
-    // cuando se mergee el PR del companero que lo define.
-    @NotBlank(message = "Selecciona una opción válida")
-    private String sectorIndustrial;
+    @NotBlank(message = "Ingresa la cédula jurídica de la empresa.")
+    @Pattern(regexp = "^\\d-\\d{3}-\\d{6}$",
+            message = "Formato de cédula jurídica inválido (ej. 3-101-123456).")
+    private String cedulaJuridica;
+
+    @NotNull(message = "Selecciona una opción válida")
+    private SectorIndustrial sectorIndustrial;
 
     @NotBlank(message = "Selecciona una opción válida")
     private String pais;

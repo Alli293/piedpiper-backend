@@ -1,5 +1,7 @@
 package com.piedpiper.carbonhub.auth.models.dtos;
 
+import com.piedpiper.carbonhub.empresa.models.enums.SectorIndustrial;
+
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -30,7 +32,7 @@ class RegistroEmpresaCorreoRequestDTOTest {
 
     private RegistroEmpresaCorreoRequestDTO dtoValido() {
         return new RegistroEmpresaCorreoRequestDTO(
-                "Acme S.A.", "MANUFACTURA", "CR", 50,
+                "Acme S.A.", "3-101-123456", SectorIndustrial.MANUFACTURA, "CR", 50,
                 "contacto@acme.com", "Ana Perez", "admin@acme.com",
                 "clave123", "clave123", true);
     }
@@ -65,6 +67,28 @@ class RegistroEmpresaCorreoRequestDTOTest {
         assertThat(violaciones)
                 .extracting(ConstraintViolation::getMessage)
                 .contains("Ingresa el nombre de la empresa.");
+    }
+
+    @Test
+    void cedulaJuridicaFormatoInvalido_generaViolacion() {
+        RegistroEmpresaCorreoRequestDTO dto = dtoValido();
+        dto.setCedulaJuridica("3101123456");
+
+        Set<ConstraintViolation<RegistroEmpresaCorreoRequestDTO>> violaciones = validator.validate(dto);
+
+        assertThat(violaciones)
+                .extracting(ConstraintViolation::getMessage)
+                .contains("Formato de cédula jurídica inválido (ej. 3-101-123456).");
+    }
+
+    @Test
+    void cedulaJuridicaFormatoValido_noGeneraViolacion() {
+        RegistroEmpresaCorreoRequestDTO dto = dtoValido();
+        dto.setCedulaJuridica("3-101-123456");
+
+        Set<ConstraintViolation<RegistroEmpresaCorreoRequestDTO>> violaciones = validator.validate(dto);
+
+        assertThat(violaciones).isEmpty();
     }
 
     @Test
