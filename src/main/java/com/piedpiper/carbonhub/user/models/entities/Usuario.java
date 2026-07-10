@@ -85,6 +85,12 @@ public class Usuario {
     @JoinColumn(name = "empresa_id")
     private Empresa empresa;
 
+    @Column(name = "token_verificacion")
+    private String tokenVerificacion;
+
+    @Column(name = "token_verificacion_expiracion")
+    private Instant tokenVerificacionExpiracion;
+
     public static String recortarNombre(String nombre) {
         if (nombre == null) {
             return null;

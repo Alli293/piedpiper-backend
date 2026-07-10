@@ -14,7 +14,8 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 
 class EmailVerificacionServiceStubTest {
 
-    private final EmailVerificacionServiceStub servicio = new EmailVerificacionServiceStub();
+    private final EmailVerificacionServiceStub servicio =
+            new EmailVerificacionServiceStub("http://localhost:4200/verificar-correo");
     private ListAppender<ILoggingEvent> logAppender;
     private Logger logger;
 
@@ -33,20 +34,22 @@ class EmailVerificacionServiceStubTest {
 
     @Test
     void enviarCorreoVerificacion_noLanzaExcepcion() {
-        assertThatCode(() -> servicio.enviarCorreoVerificacion("Ana Perez", "ana.perez@example.com"))
+        assertThatCode(() -> servicio.enviarCorreoVerificacion(
+                "Ana Perez", "ana.perez@example.com", "token-123"))
                 .doesNotThrowAnyException();
     }
 
     @Test
-    void enviarCorreoVerificacion_registraElEnvioEnElLog() {
-        servicio.enviarCorreoVerificacion("Ana Perez", "ana.perez@example.com");
+    void enviarCorreoVerificacion_registraElEnvioEnElLogConLaUrlCompleta() {
+        servicio.enviarCorreoVerificacion("Ana Perez", "ana.perez@example.com", "token-123");
 
         assertThat(logAppender.list)
                 .anySatisfy(evento -> {
                     assertThat(evento.getLevel()).isEqualTo(Level.INFO);
                     assertThat(evento.getFormattedMessage())
                             .contains("Ana Perez")
-                            .contains("ana.perez@example.com");
+                            .contains("ana.perez@example.com")
+                            .contains("http://localhost:4200/verificar-correo?token=token-123");
                 });
     }
 }

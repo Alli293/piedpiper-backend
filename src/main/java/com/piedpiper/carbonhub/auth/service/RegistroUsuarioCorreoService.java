@@ -3,6 +3,7 @@ package com.piedpiper.carbonhub.auth.service;
 import com.piedpiper.carbonhub.auth.models.dtos.RegistroPendienteResponseDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.RegistroUsuarioCorreoRequestDTO;
 import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.notification.TokenVerificacionGenerator;
 import com.piedpiper.carbonhub.notification.service.EmailVerificacionService;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
@@ -38,6 +39,9 @@ public class RegistroUsuarioCorreoService {
                     "Ya existe una cuenta con este correo. ¿Deseas iniciar sesión?");
         }
 
+        String token = TokenVerificacionGenerator.generar();
+        Instant expiracion = TokenVerificacionGenerator.calcularExpiracion();
+
         Usuario usuario = Usuario.builder()
                 .nombre(Usuario.recortarNombre(request.getNombre()))
                 .apellidos(Usuario.recortarNombre(request.getApellidos()))
@@ -47,6 +51,8 @@ public class RegistroUsuarioCorreoService {
                 .metodoAuth(MetodoAuth.CORREO)
                 .estado(EstadoUsuario.PENDIENTE_VERIFICACION)
                 .fechaRegistro(Instant.now())
+                .tokenVerificacion(token)
+                .tokenVerificacionExpiracion(expiracion)
                 .build();
 
         try {
@@ -59,7 +65,7 @@ public class RegistroUsuarioCorreoService {
                     "Ocurrió un error al crear tu cuenta. Por favor, intenta nuevamente.");
         }
 
-        emailVerificacionService.enviarCorreoVerificacion(usuario.getNombre(), usuario.getEmail());
+        emailVerificacionService.enviarCorreoVerificacion(usuario.getNombre(), usuario.getEmail(), token);
 
         return new RegistroPendienteResponseDTO(
                 "Te enviamos un correo de verificación a tu bandeja de entrada.",

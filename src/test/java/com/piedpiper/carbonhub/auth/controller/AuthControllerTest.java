@@ -9,6 +9,7 @@ import com.piedpiper.carbonhub.auth.service.RegistroEmpresaCorreoService;
 import com.piedpiper.carbonhub.auth.service.RegistroEmpresaService;
 import com.piedpiper.carbonhub.auth.service.RegistroUsuarioCorreoService;
 import com.piedpiper.carbonhub.auth.service.RegistroUsuarioService;
+import com.piedpiper.carbonhub.auth.service.VerificarCorreoService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 import org.junit.jupiter.api.Test;
@@ -56,6 +57,8 @@ class AuthControllerTest {
     private RegistroUsuarioCorreoService registroUsuarioCorreoService;
     @MockitoBean
     private RegistroEmpresaCorreoService registroEmpresaCorreoService;
+    @MockitoBean
+    private VerificarCorreoService verificarCorreoService;
 
     private static final String REGISTRO_JSON = "{\"idToken\":\"t\",\"aceptaTerminos\":true}";
 

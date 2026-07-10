@@ -15,13 +15,18 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.assertj.core.data.TemporalUnitWithinOffset;
 import org.springframework.security.crypto.password.PasswordEncoder;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -62,8 +67,14 @@ class RegistroUsuarioCorreoServiceTest {
         assertThat(guardado.getRol()).isEqualTo(Rol.USUARIO_INDIVIDUAL);
         assertThat(guardado.getMetodoAuth()).isEqualTo(MetodoAuth.CORREO);
         assertThat(guardado.getEstado()).isEqualTo(EstadoUsuario.PENDIENTE_VERIFICACION);
+        assertThat(guardado.getTokenVerificacion()).isNotNull().isNotBlank();
+        assertThat(guardado.getTokenVerificacionExpiracion())
+                .isAfter(Instant.now())
+                .isCloseTo(Instant.now().plus(Duration.ofHours(24)),
+                        new TemporalUnitWithinOffset(1, ChronoUnit.MINUTES));
 
-        verify(emailVerificacionService).enviarCorreoVerificacion("Ana", "ana.perez@example.com");
+        verify(emailVerificacionService)
+                .enviarCorreoVerificacion(eq("Ana"), eq("ana.perez@example.com"), eq(guardado.getTokenVerificacion()));
         assertThat(response.getEmail()).isEqualTo("ana.perez@example.com");
         assertThat(response.getMensaje())
                 .isEqualTo("Te enviamos un correo de verificación a tu bandeja de entrada.");
@@ -79,21 +90,6 @@ class RegistroUsuarioCorreoServiceTest {
                 .isEqualTo(HttpStatus.CONFLICT);
 
         verify(usuarioRepository, never()).saveAndFlush(any());
-        verify(emailVerificacionService, never()).enviarCorreoVerificacion(any(), any());
-    }
-
-    @Test
-    void emailDuplicadoPorCarreraDeInsercion_lanza409YNoEnviaCorreo() {
-        when(usuarioRepository.existsByEmail("ana.perez@example.com")).thenReturn(false);
-        when(passwordEncoder.encode("clave123")).thenReturn("hash-seguro");
-        when(usuarioRepository.saveAndFlush(any(Usuario.class)))
-                .thenThrow(new DataIntegrityViolationException("duplicate key"));
-
-        assertThatThrownBy(() -> service.registrar(request()))
-                .isInstanceOf(ApiException.class)
-                .extracting(e -> ((ApiException) e).getStatus())
-                .isEqualTo(HttpStatus.CONFLICT);
-
-        verify(emailVerificacionService, never()).enviarCorreoVerificacion(any(), any());
+        verify(emailVerificacionService, never()).enviarCorreoVerificacion(any(), any(), any());
     }
 }

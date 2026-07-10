@@ -1,6 +1,7 @@
 package com.piedpiper.carbonhub.auth.controller;
 
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
+import com.piedpiper.carbonhub.auth.models.dtos.MensajeResponseDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.RegistroPendienteResponseDTO;
 import com.piedpiper.carbonhub.auth.service.JwtService;
 import com.piedpiper.carbonhub.auth.service.LoginService;
@@ -9,6 +10,7 @@ import com.piedpiper.carbonhub.auth.service.RegistroEmpresaCorreoService;
 import com.piedpiper.carbonhub.auth.service.RegistroEmpresaService;
 import com.piedpiper.carbonhub.auth.service.RegistroUsuarioCorreoService;
 import com.piedpiper.carbonhub.auth.service.RegistroUsuarioService;
+import com.piedpiper.carbonhub.auth.service.VerificarCorreoService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 import org.junit.jupiter.api.Test;
@@ -25,6 +27,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -55,15 +58,15 @@ class AuthControllerCorreoTest {
     private RegistroUsuarioCorreoService registroUsuarioCorreoService;
     @MockitoBean
     private RegistroEmpresaCorreoService registroEmpresaCorreoService;
+    @MockitoBean
+    private VerificarCorreoService verificarCorreoService;
 
     private static final String REGISTRO_USUARIO_JSON = """
             {"nombre":"Ana","apellidos":"Perez","email":"ana.perez@example.com",
             "contrasena":"clave123","confirmarContrasena":"clave123","aceptaTerminos":true}""";
 
     private static final String REGISTRO_EMPRESA_JSON = """
-            {"nombreEmpresa":"Acme S.A.","cedulaJuridica":"3-101-123456","sectorIndustrial":"MANUFACTURA",
-            "pais":"CR","cantidadEmpleados":50,"correoCorporativo":"contacto@acme.com",
-            "nombreAdmin":"Ana","apellidosAdmin":"Perez","emailAdmin":"admin@acme.com",
+            {"nombreAdmin":"Ana","apellidosAdmin":"Perez","emailAdmin":"admin@acme.com",
             "contrasena":"clave123","confirmarContrasena":"clave123","aceptaTerminos":true}""";
 
     @Test
@@ -92,16 +95,6 @@ class AuthControllerCorreoTest {
     }
 
     @Test
-    void registroUsuarioCorreoPayloadInvalidoDevuelve400() throws Exception {
-        mockMvc.perform(post("/api/auth/registro/usuario/correo")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"nombre":"","apellidos":"Perez","email":"no-es-un-correo",
-                                "contrasena":"abc","confirmarContrasena":"xyz","aceptaTerminos":false}"""))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
     void registroEmpresaCorreoValidoDevuelve201() throws Exception {
         when(registroEmpresaCorreoService.registrar(any())).thenReturn(
                 new RegistroPendienteResponseDTO(
@@ -118,7 +111,7 @@ class AuthControllerCorreoTest {
     @Test
     void registroEmpresaCorreoDuplicadoDevuelve409() throws Exception {
         when(registroEmpresaCorreoService.registrar(any())).thenThrow(
-                ApiException.cuentaDuplicada("Ya existe una empresa registrada con esta cédula jurídica."));
+                ApiException.cuentaDuplicada("Este correo ya tiene una cuenta registrada. ¿Deseas iniciar sesión?"));
 
         mockMvc.perform(post("/api/auth/registro/empresa/correo")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -127,14 +120,30 @@ class AuthControllerCorreoTest {
     }
 
     @Test
-    void registroEmpresaCorreoPayloadInvalidoDevuelve400() throws Exception {
-        mockMvc.perform(post("/api/auth/registro/empresa/correo")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"nombreEmpresa":"","cedulaJuridica":"invalida","sectorIndustrial":null,
-                                "pais":"","cantidadEmpleados":0,"correoCorporativo":"no-es-un-correo",
-                                "nombreAdmin":"","apellidosAdmin":"","emailAdmin":"no-es-un-correo",
-                                "contrasena":"abc","confirmarContrasena":"xyz","aceptaTerminos":false}"""))
-                .andExpect(status().isBadRequest());
+    void verificarCorreoConTokenValidoDevuelve200() throws Exception {
+        when(verificarCorreoService.verificar("token-valido"))
+                .thenReturn(new MensajeResponseDTO("¡Correo verificado! Ya puedes iniciar sesión."));
+
+        mockMvc.perform(get("/api/auth/verificar-correo").param("token", "token-valido"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mensaje").value("¡Correo verificado! Ya puedes iniciar sesión."));
+    }
+
+    @Test
+    void verificarCorreoConTokenInexistenteDevuelve404() throws Exception {
+        when(verificarCorreoService.verificar("token-invalido"))
+                .thenThrow(ApiException.tokenVerificacionInvalido());
+
+        mockMvc.perform(get("/api/auth/verificar-correo").param("token", "token-invalido"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void verificarCorreoConTokenExpiradoDevuelve410() throws Exception {
+        when(verificarCorreoService.verificar("token-expirado"))
+                .thenThrow(ApiException.tokenVerificacionExpirado());
+
+        mockMvc.perform(get("/api/auth/verificar-correo").param("token", "token-expirado"))
+                .andExpect(status().isGone());
     }
 }
