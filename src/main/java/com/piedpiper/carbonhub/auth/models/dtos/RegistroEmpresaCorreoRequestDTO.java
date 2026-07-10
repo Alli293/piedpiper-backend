@@ -16,6 +16,9 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+// TODO: al construir el Usuario en el service, usar Usuario.recortarNombre() para el mismo
+// recorte a 150 caracteres que se aplica a los claims de Google, y EstadoUsuario.PENDIENTE_VERIFICACION
+// como estado inicial (no PENDIENTE_VALIDACION, que es solo para auditor).
 public class RegistroEmpresaCorreoRequestDTO {
 
     @NotBlank(message = "Ingresa el nombre de la empresa.")
@@ -45,6 +48,10 @@ public class RegistroEmpresaCorreoRequestDTO {
     @NotBlank(message = "Ingresa el nombre del administrador.")
     @Size(min = 2, max = 100, message = "Ingresa el nombre del administrador.")
     private String nombreAdmin;
+
+    @NotBlank(message = "Ingresa los apellidos del administrador.")
+    @Size(min = 2, max = 100, message = "Ingresa los apellidos del administrador.")
+    private String apellidosAdmin;
 
     @NotBlank(message = "Ingresa un correo electrónico válido")
     @Email(message = "Ingresa un correo electrónico válido")

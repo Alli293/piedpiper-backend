@@ -17,6 +17,7 @@ import lombok.NoArgsConstructor;
 
 import java.text.Normalizer;
 import java.time.Instant;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 @Entity
@@ -32,8 +33,8 @@ public class Empresa {
     private static final Pattern GUIONES_EXTREMOS = Pattern.compile("^-+|-+$");
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
     @Column(nullable = false)
     private String nombreEmpresa;

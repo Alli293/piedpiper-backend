@@ -30,7 +30,7 @@ class RegistroUsuarioCorreoRequestDTOTest {
 
     private RegistroUsuarioCorreoRequestDTO dtoValido() {
         return new RegistroUsuarioCorreoRequestDTO(
-                "Ana Perez", "ana.perez@example.com", "clave123", "clave123", true);
+                "Ana", "Perez", "ana.perez@example.com", "clave123", "clave123", true);
     }
 
     @Test
@@ -42,27 +42,51 @@ class RegistroUsuarioCorreoRequestDTOTest {
     }
 
     @Test
-    void nombreCompletoVacio_generaViolacion() {
+    void nombreVacio_generaViolacion() {
         RegistroUsuarioCorreoRequestDTO dto = dtoValido();
-        dto.setNombreCompleto("");
+        dto.setNombre("");
 
         Set<ConstraintViolation<RegistroUsuarioCorreoRequestDTO>> violaciones = validator.validate(dto);
 
         assertThat(violaciones)
                 .extracting(ConstraintViolation::getMessage)
-                .contains("El nombre debe tener al menos 2 caracteres.");
+                .contains("Ingresa tu nombre.");
     }
 
     @Test
-    void nombreCompletoMuyCorto_generaViolacion() {
+    void nombreMuyCorto_generaViolacion() {
         RegistroUsuarioCorreoRequestDTO dto = dtoValido();
-        dto.setNombreCompleto("A");
+        dto.setNombre("A");
 
         Set<ConstraintViolation<RegistroUsuarioCorreoRequestDTO>> violaciones = validator.validate(dto);
 
         assertThat(violaciones)
                 .extracting(ConstraintViolation::getMessage)
-                .contains("El nombre debe tener al menos 2 caracteres.");
+                .contains("Ingresa tu nombre.");
+    }
+
+    @Test
+    void apellidosVacio_generaViolacion() {
+        RegistroUsuarioCorreoRequestDTO dto = dtoValido();
+        dto.setApellidos("");
+
+        Set<ConstraintViolation<RegistroUsuarioCorreoRequestDTO>> violaciones = validator.validate(dto);
+
+        assertThat(violaciones)
+                .extracting(ConstraintViolation::getMessage)
+                .contains("Ingresa tus apellidos.");
+    }
+
+    @Test
+    void apellidosMuyCorto_generaViolacion() {
+        RegistroUsuarioCorreoRequestDTO dto = dtoValido();
+        dto.setApellidos("A");
+
+        Set<ConstraintViolation<RegistroUsuarioCorreoRequestDTO>> violaciones = validator.validate(dto);
+
+        assertThat(violaciones)
+                .extracting(ConstraintViolation::getMessage)
+                .contains("Ingresa tus apellidos.");
     }
 
     @Test

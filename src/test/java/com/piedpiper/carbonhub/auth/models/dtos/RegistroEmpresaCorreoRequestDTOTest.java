@@ -33,7 +33,7 @@ class RegistroEmpresaCorreoRequestDTOTest {
     private RegistroEmpresaCorreoRequestDTO dtoValido() {
         return new RegistroEmpresaCorreoRequestDTO(
                 "Acme S.A.", "3-101-123456", SectorIndustrial.MANUFACTURA, "CR", 50,
-                "contacto@acme.com", "Ana Perez", "admin@acme.com",
+                "contacto@acme.com", "Ana", "Perez", "admin@acme.com",
                 "clave123", "clave123", true);
     }
 
@@ -137,6 +137,30 @@ class RegistroEmpresaCorreoRequestDTOTest {
         assertThat(violaciones)
                 .extracting(ConstraintViolation::getMessage)
                 .contains("Ingresa el nombre del administrador.");
+    }
+
+    @Test
+    void apellidosAdminVacio_generaViolacion() {
+        RegistroEmpresaCorreoRequestDTO dto = dtoValido();
+        dto.setApellidosAdmin("");
+
+        Set<ConstraintViolation<RegistroEmpresaCorreoRequestDTO>> violaciones = validator.validate(dto);
+
+        assertThat(violaciones)
+                .extracting(ConstraintViolation::getMessage)
+                .contains("Ingresa los apellidos del administrador.");
+    }
+
+    @Test
+    void apellidosAdminMuyCorto_generaViolacion() {
+        RegistroEmpresaCorreoRequestDTO dto = dtoValido();
+        dto.setApellidosAdmin("A");
+
+        Set<ConstraintViolation<RegistroEmpresaCorreoRequestDTO>> violaciones = validator.validate(dto);
+
+        assertThat(violaciones)
+                .extracting(ConstraintViolation::getMessage)
+                .contains("Ingresa los apellidos del administrador.");
     }
 
     @Test
