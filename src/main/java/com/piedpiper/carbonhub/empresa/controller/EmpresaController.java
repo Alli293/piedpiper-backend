@@ -31,13 +31,4 @@ public class EmpresaController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(configuracionInicialEmpresaService.completarPaso2(usuarioId, request));
     }
-
-    // PENDIENTE: conexion de subida de documentos (Paso 3 del wizard,
-    // cedula juridica + personeria juridica en PDF). Almacenamiento local
-    // por ahora (decision: no usar S3 todavia). Implementar cuando se
-    // resuelva el mecanismo de storage.
-    @PostMapping("/configuracion-inicial/documentos")
-    public ResponseEntity<Void> subirDocumentos() {
-        throw new UnsupportedOperationException("Pendiente de implementar");
-    }
 }
