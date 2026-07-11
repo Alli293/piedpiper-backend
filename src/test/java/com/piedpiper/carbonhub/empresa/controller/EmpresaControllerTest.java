@@ -51,8 +51,9 @@ class EmpresaControllerTest {
 
     @Test
     void completarConfiguracionInicialValidoDevuelve201() throws Exception {
-        when(configuracionInicialEmpresaService.completarPaso2(any(), any())).thenReturn(
-                new ConfiguracionInicialEmpresaResponseDTO(UUID.randomUUID(), "Acme S.A.", "acme-s-a", true));
+        when(configuracionInicialEmpresaService.completarConfiguracionEmpresa(any(), any())).thenReturn(
+                new ConfiguracionInicialEmpresaResponseDTO(
+                        UUID.randomUUID(), "Acme S.A.", "acme-s-a", true, true));
 
         mockMvc.perform(post("/api/empresas/configuracion-inicial")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -64,7 +65,7 @@ class EmpresaControllerTest {
 
     @Test
     void rolIncorrectoDevuelve403() throws Exception {
-        when(configuracionInicialEmpresaService.completarPaso2(any(), any())).thenThrow(
+        when(configuracionInicialEmpresaService.completarConfiguracionEmpresa(any(), any())).thenThrow(
                 ApiException.accesoDenegado("Solo el administrador de una empresa puede completar este paso."));
 
         mockMvc.perform(post("/api/empresas/configuracion-inicial")
@@ -74,19 +75,22 @@ class EmpresaControllerTest {
     }
 
     @Test
-    void yaCompletadoDevuelve409() throws Exception {
-        when(configuracionInicialEmpresaService.completarPaso2(any(), any())).thenThrow(
-                ApiException.cuentaDuplicada("Ya completaste la configuración inicial de tu empresa."));
+    void yaCompletadoDevuelve200ConDatosDeLaEmpresaExistente() throws Exception {
+        when(configuracionInicialEmpresaService.completarConfiguracionEmpresa(any(), any())).thenReturn(
+                new ConfiguracionInicialEmpresaResponseDTO(
+                        UUID.randomUUID(), "Acme Existente S.A.", "acme-existente-s-a", true, false));
 
         mockMvc.perform(post("/api/empresas/configuracion-inicial")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(REQUEST_JSON))
-                .andExpect(status().isConflict());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nombreEmpresa").value("Acme Existente S.A."))
+                .andExpect(jsonPath("$.slug").value("acme-existente-s-a"));
     }
 
     @Test
     void cedulaJuridicaDuplicadaDevuelve409() throws Exception {
-        when(configuracionInicialEmpresaService.completarPaso2(any(), any())).thenThrow(
+        when(configuracionInicialEmpresaService.completarConfiguracionEmpresa(any(), any())).thenThrow(
                 ApiException.cuentaDuplicada("Ya existe una empresa registrada con esta cédula jurídica."));
 
         mockMvc.perform(post("/api/empresas/configuracion-inicial")

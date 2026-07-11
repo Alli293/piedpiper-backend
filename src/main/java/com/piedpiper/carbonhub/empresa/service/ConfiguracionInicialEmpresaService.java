@@ -9,6 +9,9 @@ import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.models.enums.Rol;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,6 +20,8 @@ import java.util.UUID;
 
 @Service
 public class ConfiguracionInicialEmpresaService {
+
+    private static final Logger log = LoggerFactory.getLogger(ConfiguracionInicialEmpresaService.class);
 
     private final EmpresaRepository empresaRepository;
     private final UsuarioRepository usuarioRepository;
@@ -28,7 +33,7 @@ public class ConfiguracionInicialEmpresaService {
     }
 
     @Transactional
-    public ConfiguracionInicialEmpresaResponseDTO completarPaso2(
+    public ConfiguracionInicialEmpresaResponseDTO completarConfiguracionEmpresa(
             UUID usuarioId, ConfiguracionInicialEmpresaRequestDTO request) {
         Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> ApiException.errorInterno(
@@ -40,8 +45,10 @@ public class ConfiguracionInicialEmpresaService {
         }
 
         if (usuario.getEmpresa() != null) {
-            throw ApiException.cuentaDuplicada(
-                    "Ya completaste la configuración inicial de tu empresa.");
+            Empresa empresaExistente = usuario.getEmpresa();
+            return new ConfiguracionInicialEmpresaResponseDTO(
+                    empresaExistente.getId(), empresaExistente.getNombreEmpresa(),
+                    empresaExistente.getSlug(), true, false);
         }
 
         if (empresaRepository.existsByCedulaJuridica(request.getCedulaJuridica())) {
@@ -69,7 +76,18 @@ public class ConfiguracionInicialEmpresaService {
                 .estado(EstadoEmpresa.ACTIVO)
                 .fechaRegistro(Instant.now())
                 .build();
-        Empresa empresaGuardada = empresaRepository.saveAndFlush(empresa);
+
+        Empresa empresaGuardada;
+        try {
+            empresaGuardada = empresaRepository.saveAndFlush(empresa);
+        } catch (DataIntegrityViolationException e) {
+            throw ApiException.cuentaDuplicada(
+                    "Ya existe una empresa con esa cédula jurídica o correo corporativo.");
+        } catch (Exception e) {
+            log.error("Error inesperado al registrar la configuración inicial de la empresa", e);
+            throw ApiException.errorInterno(
+                    "Ocurrió un error al registrar la empresa. Por favor, intenta nuevamente.");
+        }
 
         usuario.setEmpresa(empresaGuardada);
         // TODO: no marcar configuracionCompleta=true todavia -- falta el Paso 3
@@ -78,7 +96,7 @@ public class ConfiguracionInicialEmpresaService {
         usuarioRepository.saveAndFlush(usuario);
 
         return new ConfiguracionInicialEmpresaResponseDTO(
-                empresaGuardada.getId(), empresaGuardada.getNombreEmpresa(), slug, true);
+                empresaGuardada.getId(), empresaGuardada.getNombreEmpresa(), slug, true, true);
     }
 
     private String generarSlugUnico(String nombreEmpresa) {

@@ -20,7 +20,7 @@ public class ConfiguracionInicialEmpresaRequestDTO {
     @Size(min = 2, max = 150, message = "Ingresa el nombre legal de la empresa.")
     private String nombreEmpresa;
 
-    @NotBlank(message = "Formato de cédula jurídica inválido (ej. 3-101-123456).")
+    @NotBlank(message = "Ingresa la cédula jurídica de la empresa.")
     @Pattern(regexp = "^\\d-\\d{3}-\\d{6}$",
             message = "Formato de cédula jurídica inválido (ej. 3-101-123456).")
     private String cedulaJuridica;

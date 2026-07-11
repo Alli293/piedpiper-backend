@@ -12,9 +12,6 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-// TODO: al construir el Usuario en el service, usar Usuario.recortarNombre() para el mismo
-// recorte a 150 caracteres que se aplica a los claims de Google, y EstadoUsuario.PENDIENTE_VERIFICACION
-// como estado inicial (no PENDIENTE_VALIDACION, que es solo para auditor).
 public class RegistroUsuarioCorreoRequestDTO {
 
     public static final String PATRON_CONTRASENA = "^(?=.*[A-Za-z])(?=.*\\d).{8,}$";

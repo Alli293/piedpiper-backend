@@ -10,6 +10,8 @@ import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
 import com.piedpiper.carbonhub.user.models.enums.MetodoAuth;
 import com.piedpiper.carbonhub.user.models.enums.Rol;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -19,6 +21,8 @@ import java.time.Instant;
 
 @Service
 public class RegistroEmpresaCorreoService {
+
+    private static final Logger log = LoggerFactory.getLogger(RegistroEmpresaCorreoService.class);
 
     private final UsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;
@@ -62,6 +66,7 @@ public class RegistroEmpresaCorreoService {
             throw ApiException.cuentaDuplicada(
                     "Este correo ya tiene una cuenta registrada. ¿Deseas iniciar sesión?");
         } catch (Exception e) {
+            log.error("Error inesperado al registrar empresa por correo", e);
             throw ApiException.errorInterno(
                     "Ocurrió un error al registrar la empresa. Por favor, intenta nuevamente.");
         }

@@ -15,6 +15,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 
 import java.util.Optional;
@@ -54,7 +55,7 @@ class ConfiguracionInicialEmpresaServiceTest {
     }
 
     @Test
-    void completarPaso2Exitoso_creaEmpresaConCorreoDelUsuarioYVinculaAlAdmin() {
+    void completarConfiguracionExitoso_creaEmpresaConCorreoDelUsuarioYVinculaAlAdmin() {
         Usuario admin = admin();
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(admin));
         when(empresaRepository.existsByCedulaJuridica("3-101-123456")).thenReturn(false);
@@ -63,7 +64,8 @@ class ConfiguracionInicialEmpresaServiceTest {
         when(empresaRepository.saveAndFlush(any(Empresa.class))).thenAnswer(i -> i.getArgument(0));
         when(usuarioRepository.saveAndFlush(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
 
-        ConfiguracionInicialEmpresaResponseDTO response = service.completarPaso2(USUARIO_ID, request());
+        ConfiguracionInicialEmpresaResponseDTO response =
+                service.completarConfiguracionEmpresa(USUARIO_ID, request());
 
         ArgumentCaptor<Empresa> empresaCaptor = ArgumentCaptor.forClass(Empresa.class);
         verify(empresaRepository).saveAndFlush(empresaCaptor.capture());
@@ -78,6 +80,7 @@ class ConfiguracionInicialEmpresaServiceTest {
         assertThat(response.getEmpresaId()).isEqualTo(empresaGuardada.getId());
         assertThat(response.getSlug()).isEqualTo("acme-s-a");
         assertThat(response.isDocumentosPendientes()).isTrue();
+        assertThat(response.isRecienCreada()).isTrue();
     }
 
     @Test
@@ -86,7 +89,7 @@ class ConfiguracionInicialEmpresaServiceTest {
         usuario.setRol(Rol.USUARIO_INDIVIDUAL);
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario));
 
-        assertThatThrownBy(() -> service.completarPaso2(USUARIO_ID, request()))
+        assertThatThrownBy(() -> service.completarConfiguracionEmpresa(USUARIO_ID, request()))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.FORBIDDEN);
@@ -95,12 +98,35 @@ class ConfiguracionInicialEmpresaServiceTest {
     }
 
     @Test
-    void usuarioYaTieneEmpresa_lanza409Idempotente() {
+    void usuarioYaTieneEmpresa_devuelve200ConDatosExistentes() {
+        Empresa empresaExistente = Empresa.builder()
+                .id(UUID.randomUUID())
+                .nombreEmpresa("Acme Existente S.A.")
+                .slug("acme-existente-s-a")
+                .build();
         Usuario usuario = admin();
-        usuario.setEmpresa(Empresa.builder().build());
+        usuario.setEmpresa(empresaExistente);
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario));
 
-        assertThatThrownBy(() -> service.completarPaso2(USUARIO_ID, request()))
+        ConfiguracionInicialEmpresaResponseDTO response =
+                service.completarConfiguracionEmpresa(USUARIO_ID, request());
+
+        assertThat(response.getEmpresaId()).isEqualTo(empresaExistente.getId());
+        assertThat(response.getNombreEmpresa()).isEqualTo("Acme Existente S.A.");
+        assertThat(response.getSlug()).isEqualTo("acme-existente-s-a");
+        assertThat(response.isDocumentosPendientes()).isTrue();
+        assertThat(response.isRecienCreada()).isFalse();
+
+        verify(empresaRepository, never()).saveAndFlush(any());
+        verify(usuarioRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void cedulaJuridicaDuplicada_lanza409YNoPersiste() {
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(admin()));
+        when(empresaRepository.existsByCedulaJuridica("3-101-123456")).thenReturn(true);
+
+        assertThatThrownBy(() -> service.completarConfiguracionEmpresa(USUARIO_ID, request()))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.CONFLICT);
@@ -109,15 +135,19 @@ class ConfiguracionInicialEmpresaServiceTest {
     }
 
     @Test
-    void cedulaJuridicaDuplicada_lanza409YNoPersiste() {
+    void condicionDeCarreraAlGuardarEmpresa_lanza409YNoVinculaUsuario() {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(admin()));
-        when(empresaRepository.existsByCedulaJuridica("3-101-123456")).thenReturn(true);
+        when(empresaRepository.existsByCedulaJuridica("3-101-123456")).thenReturn(false);
+        when(empresaRepository.existsByCorreoCorporativo("admin@acme.com")).thenReturn(false);
+        when(empresaRepository.existsBySlug("acme-s-a")).thenReturn(false);
+        when(empresaRepository.saveAndFlush(any(Empresa.class)))
+                .thenThrow(new DataIntegrityViolationException("duplicate key"));
 
-        assertThatThrownBy(() -> service.completarPaso2(USUARIO_ID, request()))
+        assertThatThrownBy(() -> service.completarConfiguracionEmpresa(USUARIO_ID, request()))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.CONFLICT);
 
-        verify(empresaRepository, never()).saveAndFlush(any());
+        verify(usuarioRepository, never()).saveAndFlush(any());
     }
 }

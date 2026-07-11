@@ -28,7 +28,9 @@ public class EmpresaController {
     public ResponseEntity<ConfiguracionInicialEmpresaResponseDTO> completarConfiguracionInicial(
             @Valid @RequestBody ConfiguracionInicialEmpresaRequestDTO request) {
         UUID usuarioId = UUID.fromString(SecurityContextHolder.getContext().getAuthentication().getName());
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(configuracionInicialEmpresaService.completarPaso2(usuarioId, request));
+        ConfiguracionInicialEmpresaResponseDTO response =
+                configuracionInicialEmpresaService.completarConfiguracionEmpresa(usuarioId, request);
+        HttpStatus status = response.isRecienCreada() ? HttpStatus.CREATED : HttpStatus.OK;
+        return ResponseEntity.status(status).body(response);
     }
 }

@@ -15,4 +15,5 @@ public class ConfiguracionInicialEmpresaResponseDTO {
     private String nombreEmpresa;
     private String slug;
     private boolean documentosPendientes;
+    private boolean recienCreada;
 }
