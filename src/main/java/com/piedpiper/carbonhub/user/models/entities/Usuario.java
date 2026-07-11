@@ -1,8 +1,11 @@
 package com.piedpiper.carbonhub.user.models.entities;
 
 import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
+import com.piedpiper.carbonhub.user.models.enums.Idioma;
 import com.piedpiper.carbonhub.user.models.enums.MetodoAuth;
+import com.piedpiper.carbonhub.user.models.enums.Moneda;
 import com.piedpiper.carbonhub.user.models.enums.Rol;
+import com.piedpiper.carbonhub.user.models.enums.Unidades;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -66,6 +69,20 @@ public class Usuario {
     @Column(name = "configuracion_completa", nullable = false)
     @Builder.Default
     private boolean configuracionCompleta = false;
+
+    // Preferencias de interfaz (PP-31). Se almacenan como texto para que un
+    // valor que deje de estar soportado pueda resolverse al default sin error.
+    @Column(length = 20)
+    @Builder.Default
+    private String idioma = Idioma.POR_DEFECTO.name();
+
+    @Column(length = 20)
+    @Builder.Default
+    private String moneda = Moneda.POR_DEFECTO.name();
+
+    @Column(length = 20)
+    @Builder.Default
+    private String unidades = Unidades.POR_DEFECTO.name();
 
     @Column(name = "intentos_fallidos", nullable = false)
     @Builder.Default

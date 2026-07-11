@@ -37,4 +37,13 @@ public class ApiException extends RuntimeException {
     public static ApiException errorInterno(String mensaje) {
         return new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, mensaje);
     }
+
+    public static ApiException preferenciaInvalida(String campo) {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "El valor de '" + campo + "' no está dentro de las opciones soportadas.");
+    }
+
+    public static ApiException usuarioNoEncontrado() {
+        return new ApiException(HttpStatus.NOT_FOUND, "No se encontró el usuario.");
+    }
 }
