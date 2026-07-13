@@ -9,8 +9,10 @@ import com.piedpiper.carbonhub.emision.models.enums.MetodoTransporte;
 import com.piedpiper.carbonhub.emision.models.enums.UnidadDistancia;
 import com.piedpiper.carbonhub.emision.models.enums.UnidadElectricidad;
 import com.piedpiper.carbonhub.emision.models.enums.UnidadPeso;
+import com.piedpiper.carbonhub.emision.service.EmisionConsultaService;
 import com.piedpiper.carbonhub.emision.service.EmisionElectricidadService;
 import com.piedpiper.carbonhub.emision.service.EmisionEnvioService;
+import com.piedpiper.carbonhub.emision.service.EmisionVueloService;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.junit.jupiter.api.Test;
@@ -60,6 +62,10 @@ class EmisionControllerTest {
     private EmisionElectricidadService emisionElectricidadService;
     @MockitoBean
     private EmisionEnvioService emisionEnvioService;
+    @MockitoBean
+    private EmisionVueloService emisionVueloService;
+    @MockitoBean
+    private EmisionConsultaService emisionConsultaService;
     @MockitoBean
     private JwtService jwtService;
     @MockitoBean
@@ -157,5 +163,35 @@ class EmisionControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(ENVIO_REQUEST_VALIDO))
                 .andExpect(status().isForbidden());
+    }
+
+    // --- Tests para /api/emisiones/vuelo ---
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void registroVueloValidoDevuelve201() throws Exception {
+        String request = "{\"passengers\":2,\"distanceUnit\":\"km\",\"fechaActividad\":\"2026-07-01\","
+                + "\"legs\":[{\"departureAirport\":\"SFO\",\"destinationAirport\":\"YYZ\","
+                + "\"cabinClass\":\"economy\"}]}";
+        EmisionResponseDTO response = new EmisionResponseDTO();
+        response.setCarbonKg(new BigDecimal("237.5"));
+        when(emisionVueloService.registrar(any(), any())).thenReturn(response);
+
+        mockMvc.perform(post("/api/emisiones/vuelo")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.carbonKg").value(237.5));
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void registroVueloSinTrayectosDevuelve400() throws Exception {
+        String request = "{\"passengers\":2,\"fechaActividad\":\"2026-07-01\",\"legs\":[]}";
+
+        mockMvc.perform(post("/api/emisiones/vuelo")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isBadRequest());
     }
 }
