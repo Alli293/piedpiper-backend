@@ -11,6 +11,7 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(
@@ -26,7 +27,7 @@ public class LimiteEmisiones {
     private Long id;
 
     @Column(name = "empresa_id", nullable = false)
-    private Long empresaId;
+    private UUID empresaId;
 
     @Column(nullable = false)
     private Integer anio;
@@ -46,11 +47,11 @@ public class LimiteEmisiones {
     public LimiteEmisiones() {
     }
 
-    public LimiteEmisiones(Long empresaId, Integer anio, BigDecimal limiteMt) {
+    public LimiteEmisiones(UUID empresaId, Integer anio, BigDecimal limiteMt) {
         this(empresaId, anio, limiteMt, null);
     }
 
-    public LimiteEmisiones(Long empresaId, Integer anio, BigDecimal limiteMt, String justificacion) {
+    public LimiteEmisiones(UUID empresaId, Integer anio, BigDecimal limiteMt, String justificacion) {
         this.empresaId = empresaId;
         this.anio = anio;
         this.limiteMt = limiteMt;
@@ -77,11 +78,11 @@ public class LimiteEmisiones {
         this.id = id;
     }
 
-    public Long getEmpresaId() {
+    public UUID getEmpresaId() {
         return empresaId;
     }
 
-    public void setEmpresaId(Long empresaId) {
+    public void setEmpresaId(UUID empresaId) {
         this.empresaId = empresaId;
     }
 

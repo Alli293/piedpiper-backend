@@ -2,10 +2,11 @@ package com.piedpiper.carbonhub.limite.models.dtos;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 public record LimiteEmisionesResponseDTO(
         Long id,
-        Long empresaId,
+        UUID empresaId,
         Integer anio,
         BigDecimal limiteMt,
         String justificacion,

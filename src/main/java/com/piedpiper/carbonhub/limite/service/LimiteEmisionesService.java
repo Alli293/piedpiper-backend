@@ -7,6 +7,7 @@ import com.piedpiper.carbonhub.limite.repository.LimiteEmisionesRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,7 +21,7 @@ public class LimiteEmisionesService {
     }
 
     @Transactional
-    public LimiteEmisionesResponseDTO guardarLimite(Long empresaId, LimiteEmisionesRequestDTO request) {
+    public LimiteEmisionesResponseDTO guardarLimite(UUID empresaId, LimiteEmisionesRequestDTO request) {
         LimiteEmisiones limite = repository
                 .findByEmpresaIdAndAnio(empresaId, request.anio())
                 .map(existing -> {
@@ -39,19 +40,19 @@ public class LimiteEmisionesService {
     }
 
     @Transactional(readOnly = true)
-    public Optional<LimiteEmisionesResponseDTO> obtenerLimite(Long empresaId, Integer anio) {
+    public Optional<LimiteEmisionesResponseDTO> obtenerLimite(UUID empresaId, Integer anio) {
         return repository.findByEmpresaIdAndAnio(empresaId, anio).map(this::toDto);
     }
 
     @Transactional(readOnly = true)
-    public List<LimiteEmisionesResponseDTO> listarLimites(Long empresaId) {
+    public List<LimiteEmisionesResponseDTO> listarLimites(UUID empresaId) {
         return repository.findAllByEmpresaIdOrderByAnioDesc(empresaId).stream()
                 .map(this::toDto)
                 .toList();
     }
 
     @Transactional
-    public void eliminarLimite(Long empresaId, Integer anio) {
+    public void eliminarLimite(UUID empresaId, Integer anio) {
         LimiteEmisiones limite = repository.findByEmpresaIdAndAnio(empresaId, anio)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Limite no encontrado."));
         repository.delete(limite);

@@ -11,6 +11,7 @@ import com.piedpiper.carbonhub.limite.repository.LimiteEmisionesRepository;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -20,7 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class LimiteEmisionesServiceTest {
-    private static final Long EMPRESA_ID = 7L;
+    private static final UUID EMPRESA_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
 
     @Mock
     private LimiteEmisionesRepository repository;

@@ -1,10 +1,8 @@
 package com.piedpiper.carbonhub.exceptions;
 
 import com.piedpiper.carbonhub.common.ApiErrorDTO;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -46,22 +44,6 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorDTO> handleBadRequest(Exception ex) {
         return ResponseEntity.badRequest().body(ApiErrorDTO.of(HttpStatus.BAD_REQUEST.value(),
                 "La solicitud contiene datos inválidos o incompletos."));
-    }
-
-    @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ApiErrorDTO> handleAccessDenied(AccessDeniedException ex) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiErrorDTO.of(
-                HttpStatus.FORBIDDEN.value(),
-                "No tiene permiso para modificar el limite de la empresa."
-        ));
-    }
-
-    @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<ApiErrorDTO> handleDataIntegrity(DataIntegrityViolationException ex) {
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiErrorDTO.of(
-                HttpStatus.CONFLICT.value(),
-                "Conflicto al guardar el limite. Intente nuevamente."
-        ));
     }
 
     @ExceptionHandler(Exception.class)
