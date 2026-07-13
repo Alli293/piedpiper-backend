@@ -57,11 +57,13 @@ public class ClimatiqClient {
                                             Map<String, Object> parameters) {
         ClimatiqEstimateRequest request = new ClimatiqEstimateRequest(emissionFactor, parameters);
         try {
-            return restClient.post()
+            ClimatiqEstimateResponse response = restClient.post()
                     .uri("/data/v1/estimate")
                     .body(request)
                     .retrieve()
                     .body(ClimatiqEstimateResponse.class);
+            validarRespuesta(response);
+            return response;
         } catch (HttpClientErrorException.BadRequest | HttpClientErrorException.UnprocessableEntity e) {
             throw ApiException.calculoInvalido(extraerMensaje(e));
         } catch (HttpClientErrorException.Unauthorized | HttpClientErrorException.Forbidden e) {
@@ -72,6 +74,13 @@ public class ClimatiqClient {
             throw ApiException.calculoSaturado();
         } catch (HttpServerErrorException | ResourceAccessException e) {
             throw ApiException.calculoNoDisponible();
+        }
+    }
+
+    private void validarRespuesta(ClimatiqEstimateResponse response) {
+        if (response == null || response.co2e() == null || response.emissionFactor() == null
+                || response.emissionFactor().id() == null) {
+            throw ApiException.calculoRespuestaInvalida();
         }
     }
 

@@ -47,8 +47,12 @@ public class EmisionElectricidadService {
     }
 
     public EmisionResponseDTO registrar(RegistrarElectricidadRequestDTO request, UUID usuarioId) {
-        usuarioRepository.findById(usuarioId)
+        Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> ApiException.errorInterno("No se pudo identificar al usuario autenticado."));
+
+        if (usuario.getEmpresa() == null) {
+            throw ApiException.empresaNoConfigurada();
+        }
 
         ClimatiqEstimateResponse estimacion = climatiqClient.estimar(
                 new ClimatiqEmissionFactorSelector(ACTIVITY_ID, DATA_VERSION, REGION_COSTA_RICA),
@@ -56,10 +60,15 @@ public class EmisionElectricidadService {
                         "energy", request.getElectricityValue(),
                         "energy_unit", climatiqUnidad(request.getElectricityUnit())));
 
+        if (!"kg".equalsIgnoreCase(estimacion.co2eUnit())) {
+            throw ApiException.calculoUnidadNoSoportada(estimacion.co2eUnit());
+        }
+
         BigDecimal carbonKg = estimacion.co2e();
         BigDecimal carbonMt = carbonKg.divide(BigDecimal.valueOf(1000), 3, RoundingMode.HALF_UP);
 
         EmisionElectricidad emision = EmisionElectricidad.builder()
+                .empresaId(usuario.getEmpresa().getId())
                 .titulo(request.getTitulo())
                 .fechaActividad(request.getFechaActividad())
                 .electricityValue(request.getElectricityValue())

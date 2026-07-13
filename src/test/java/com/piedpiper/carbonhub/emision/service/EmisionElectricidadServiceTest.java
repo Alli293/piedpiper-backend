@@ -3,10 +3,12 @@ package com.piedpiper.carbonhub.emision.service;
 import com.piedpiper.carbonhub.emision.mappers.EmisionElectricidadMapper;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.RegistrarElectricidadRequestDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.climatiq.ClimatiqEmissionFactorSelector;
 import com.piedpiper.carbonhub.emision.models.dtos.climatiq.ClimatiqEstimateResponse;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionElectricidad;
 import com.piedpiper.carbonhub.emision.models.enums.UnidadElectricidad;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
+import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
@@ -47,6 +49,7 @@ class EmisionElectricidadServiceTest {
     private EmisionElectricidadService service;
 
     private static final UUID USUARIO_ID = UUID.randomUUID();
+    private static final UUID EMPRESA_ID = UUID.randomUUID();
 
     private RegistrarElectricidadRequestDTO requestValido() {
         return new RegistrarElectricidadRequestDTO(
@@ -55,6 +58,11 @@ class EmisionElectricidadServiceTest {
     }
 
     private Usuario usuario() {
+        Empresa empresa = Empresa.builder().id(EMPRESA_ID).build();
+        return Usuario.builder().id(USUARIO_ID).empresa(empresa).build();
+    }
+
+    private Usuario usuarioSinEmpresa() {
         return Usuario.builder().id(USUARIO_ID).build();
     }
 
@@ -84,7 +92,56 @@ class EmisionElectricidadServiceTest {
         assertThat(guardada.getCarbonMt()).isEqualByComparingTo("0.028");
         assertThat(guardada.getFactorEmisionId()).isEqualTo("climatiq-factor-id");
         assertThat(guardada.getCreatedByUserId()).isEqualTo(USUARIO_ID);
+        assertThat(guardada.getEmpresaId()).isEqualTo(EMPRESA_ID);
         assertThat(response.getCarbonKg()).isEqualByComparingTo("27.85");
+    }
+
+    @Test
+    void enviaSelectorConActivityIdDataVersionYRegionCorrectos() {
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
+        when(climatiqClient.estimar(any(), any())).thenReturn(estimacion(new BigDecimal("27.85")));
+        when(emisionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(emisionElectricidadMapper.toDto(any())).thenReturn(new EmisionResponseDTO());
+
+        service.registrar(requestValido(), USUARIO_ID);
+
+        ArgumentCaptor<ClimatiqEmissionFactorSelector> selectorCaptor =
+                ArgumentCaptor.forClass(ClimatiqEmissionFactorSelector.class);
+        verify(climatiqClient).estimar(selectorCaptor.capture(), any());
+        ClimatiqEmissionFactorSelector selector = selectorCaptor.getValue();
+
+        assertThat(selector.activityId()).isEqualTo("electricity-supply_grid-source_supplier_mix-use_na");
+        assertThat(selector.dataVersion()).isEqualTo("^6");
+        assertThat(selector.region()).isEqualTo("CR");
+    }
+
+    @Test
+    void usuarioSinEmpresaNoPuedeRegistrar() {
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuarioSinEmpresa()));
+
+        assertThatThrownBy(() -> service.registrar(requestValido(), USUARIO_ID))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+
+        verify(emisionRepository, never()).save(any());
+    }
+
+    @Test
+    void unidadDeCo2eDistintaDeKgNoInvocaGuardado() {
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
+        ClimatiqEstimateResponse.EmissionFactor factor =
+                new ClimatiqEstimateResponse.EmissionFactor(
+                        "climatiq-factor-id", "electricity-supply_grid-source_supplier_mix-use_na", "CR", 2024);
+        when(climatiqClient.estimar(any(), any()))
+                .thenReturn(new ClimatiqEstimateResponse(new BigDecimal("27.85"), "t", factor));
+
+        assertThatThrownBy(() -> service.registrar(requestValido(), USUARIO_ID))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.BAD_GATEWAY);
+
+        verify(emisionRepository, never()).save(any());
     }
 
     @Test
