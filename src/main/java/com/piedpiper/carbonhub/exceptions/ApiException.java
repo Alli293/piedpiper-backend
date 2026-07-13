@@ -37,4 +37,18 @@ public class ApiException extends RuntimeException {
     public static ApiException errorInterno(String mensaje) {
         return new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, mensaje);
     }
+
+    public static ApiException tokenVerificacionInvalido() {
+        return new ApiException(HttpStatus.NOT_FOUND,
+                "El enlace de verificación no es válido.");
+    }
+
+    public static ApiException tokenVerificacionExpirado() {
+        return new ApiException(HttpStatus.GONE,
+                "El enlace de verificación expiró. Solicita uno nuevo.");
+    }
+
+    public static ApiException accesoDenegado(String mensaje) {
+        return new ApiException(HttpStatus.FORBIDDEN, mensaje);
+    }
 }
