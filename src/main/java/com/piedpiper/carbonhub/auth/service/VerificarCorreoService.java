@@ -2,6 +2,7 @@ package com.piedpiper.carbonhub.auth.service;
 
 import com.piedpiper.carbonhub.auth.models.dtos.MensajeResponseDTO;
 import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.notification.TokenVerificacionGenerator;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
@@ -21,7 +22,8 @@ public class VerificarCorreoService {
 
     @Transactional
     public MensajeResponseDTO verificar(String token) {
-        Usuario usuario = usuarioRepository.findByTokenVerificacion(token)
+        String tokenHash = TokenVerificacionGenerator.hash(token);
+        Usuario usuario = usuarioRepository.findByTokenVerificacionHash(tokenHash)
                 .orElseThrow(ApiException::tokenVerificacionInvalido);
 
         if (usuario.getEstado() == EstadoUsuario.ACTIVO) {
@@ -34,7 +36,7 @@ public class VerificarCorreoService {
         }
 
         usuario.setEstado(EstadoUsuario.ACTIVO);
-        usuario.setTokenVerificacion(null);
+        usuario.setTokenVerificacionHash(null);
         usuario.setTokenVerificacionExpiracion(null);
         usuarioRepository.saveAndFlush(usuario);
 

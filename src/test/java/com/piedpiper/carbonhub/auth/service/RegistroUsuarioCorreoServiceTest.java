@@ -3,6 +3,7 @@ package com.piedpiper.carbonhub.auth.service;
 import com.piedpiper.carbonhub.auth.models.dtos.RegistroPendienteResponseDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.RegistroUsuarioCorreoRequestDTO;
 import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.notification.TokenVerificacionGenerator;
 import com.piedpiper.carbonhub.notification.service.EmailVerificacionService;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
@@ -67,14 +68,18 @@ class RegistroUsuarioCorreoServiceTest {
         assertThat(guardado.getRol()).isEqualTo(Rol.USUARIO_INDIVIDUAL);
         assertThat(guardado.getMetodoAuth()).isEqualTo(MetodoAuth.CORREO);
         assertThat(guardado.getEstado()).isEqualTo(EstadoUsuario.PENDIENTE_VERIFICACION);
-        assertThat(guardado.getTokenVerificacion()).isNotNull().isNotBlank();
+        assertThat(guardado.getTokenVerificacionHash()).isNotNull().isNotBlank();
         assertThat(guardado.getTokenVerificacionExpiracion())
                 .isAfter(Instant.now())
                 .isCloseTo(Instant.now().plus(Duration.ofHours(24)),
                         new TemporalUnitWithinOffset(1, ChronoUnit.MINUTES));
 
+        ArgumentCaptor<String> tokenPlanoCaptor = ArgumentCaptor.forClass(String.class);
         verify(emailVerificacionService)
-                .enviarCorreoVerificacion(eq("Ana"), eq("ana.perez@example.com"), eq(guardado.getTokenVerificacion()));
+                .enviarCorreoVerificacion(eq("Ana"), eq("ana.perez@example.com"), tokenPlanoCaptor.capture());
+        String tokenPlano = tokenPlanoCaptor.getValue();
+        assertThat(tokenPlano).isNotEqualTo(guardado.getTokenVerificacionHash());
+        assertThat(TokenVerificacionGenerator.hash(tokenPlano)).isEqualTo(guardado.getTokenVerificacionHash());
         assertThat(response.getEmail()).isEqualTo("ana.perez@example.com");
         assertThat(response.getMensaje())
                 .isEqualTo("Te enviamos un correo de verificación a tu bandeja de entrada.");

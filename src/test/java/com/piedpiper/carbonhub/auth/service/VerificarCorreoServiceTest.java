@@ -2,6 +2,7 @@ package com.piedpiper.carbonhub.auth.service;
 
 import com.piedpiper.carbonhub.auth.models.dtos.MensajeResponseDTO;
 import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.notification.TokenVerificacionGenerator;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
@@ -33,13 +34,13 @@ class VerificarCorreoServiceTest {
     @InjectMocks
     private VerificarCorreoService service;
 
-    private Usuario usuarioPendiente(String token, Instant expiracion) {
+    private Usuario usuarioPendiente(String tokenPlano, Instant expiracion) {
         return Usuario.builder()
                 .email("ana.perez@example.com")
                 .nombre("Ana")
                 .apellidos("Perez")
                 .estado(EstadoUsuario.PENDIENTE_VERIFICACION)
-                .tokenVerificacion(token)
+                .tokenVerificacionHash(TokenVerificacionGenerator.hash(tokenPlano))
                 .tokenVerificacionExpiracion(expiracion)
                 .build();
     }
@@ -47,7 +48,8 @@ class VerificarCorreoServiceTest {
     @Test
     void tokenValido_activaLaCuentaYLimpiaElToken() {
         Usuario usuario = usuarioPendiente("token-valido", Instant.now().plus(Duration.ofHours(1)));
-        when(usuarioRepository.findByTokenVerificacion("token-valido")).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByTokenVerificacionHash(TokenVerificacionGenerator.hash("token-valido")))
+                .thenReturn(Optional.of(usuario));
         when(usuarioRepository.saveAndFlush(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
 
         MensajeResponseDTO response = service.verificar("token-valido");
@@ -56,14 +58,15 @@ class VerificarCorreoServiceTest {
         verify(usuarioRepository).saveAndFlush(captor.capture());
         Usuario guardado = captor.getValue();
         assertThat(guardado.getEstado()).isEqualTo(EstadoUsuario.ACTIVO);
-        assertThat(guardado.getTokenVerificacion()).isNull();
+        assertThat(guardado.getTokenVerificacionHash()).isNull();
         assertThat(guardado.getTokenVerificacionExpiracion()).isNull();
         assertThat(response.getMensaje()).isEqualTo("¡Correo verificado! Ya puedes iniciar sesión.");
     }
 
     @Test
     void tokenInexistente_lanza404YNoPersiste() {
-        when(usuarioRepository.findByTokenVerificacion("token-inexistente")).thenReturn(Optional.empty());
+        when(usuarioRepository.findByTokenVerificacionHash(TokenVerificacionGenerator.hash("token-inexistente")))
+                .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.verificar("token-inexistente"))
                 .isInstanceOf(ApiException.class)
@@ -76,7 +79,8 @@ class VerificarCorreoServiceTest {
     @Test
     void tokenExpirado_lanza410YNoActivaLaCuenta() {
         Usuario usuario = usuarioPendiente("token-expirado", Instant.now().minus(Duration.ofMinutes(1)));
-        when(usuarioRepository.findByTokenVerificacion("token-expirado")).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByTokenVerificacionHash(TokenVerificacionGenerator.hash("token-expirado")))
+                .thenReturn(Optional.of(usuario));
 
         assertThatThrownBy(() -> service.verificar("token-expirado"))
                 .isInstanceOf(ApiException.class)
@@ -91,7 +95,8 @@ class VerificarCorreoServiceTest {
     void usuarioYaActivo_respondeExitoYNoRelanzaError() {
         Usuario usuario = usuarioPendiente("token-ya-usado", Instant.now().plus(Duration.ofHours(1)));
         usuario.setEstado(EstadoUsuario.ACTIVO);
-        when(usuarioRepository.findByTokenVerificacion("token-ya-usado")).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByTokenVerificacionHash(TokenVerificacionGenerator.hash("token-ya-usado")))
+                .thenReturn(Optional.of(usuario));
 
         MensajeResponseDTO response = service.verificar("token-ya-usado");
 

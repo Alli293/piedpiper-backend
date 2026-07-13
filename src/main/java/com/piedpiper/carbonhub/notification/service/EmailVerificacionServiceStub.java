@@ -17,7 +17,6 @@ public class EmailVerificacionServiceStub implements EmailVerificacionService {
         this.verificarCorreoUrl = verificarCorreoUrl;
     }
 
-    // TODO: reemplazar cuando PP-33 este disponible (envio real por SMTP/proveedor externo).
     @Override
     public void enviarCorreoVerificacion(String nombreDestinatario, String email, String token) {
         String enlace = verificarCorreoUrl + "?token=" + token;

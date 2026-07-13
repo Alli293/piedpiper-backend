@@ -85,8 +85,8 @@ public class Usuario {
     @JoinColumn(name = "empresa_id")
     private Empresa empresa;
 
-    @Column(name = "token_verificacion")
-    private String tokenVerificacion;
+    @Column(name = "token_verificacion_hash", unique = true)
+    private String tokenVerificacionHash;
 
     @Column(name = "token_verificacion_expiracion")
     private Instant tokenVerificacionExpiracion;

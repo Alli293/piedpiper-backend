@@ -55,7 +55,7 @@ public class RegistroUsuarioCorreoService {
                 .metodoAuth(MetodoAuth.CORREO)
                 .estado(EstadoUsuario.PENDIENTE_VERIFICACION)
                 .fechaRegistro(Instant.now())
-                .tokenVerificacion(token)
+                .tokenVerificacionHash(TokenVerificacionGenerator.hash(token))
                 .tokenVerificacionExpiracion(expiracion)
                 .build();
 

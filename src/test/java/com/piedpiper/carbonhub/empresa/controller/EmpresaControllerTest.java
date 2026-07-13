@@ -15,10 +15,13 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.http.MediaType;
-import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -32,7 +35,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         excludeFilters = @ComponentScan.Filter(
                 type = FilterType.ASSIGNABLE_TYPE, classes = SecurityConfig.class))
 @AutoConfigureMockMvc(addFilters = false)
-@WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
 class EmpresaControllerTest {
 
     @Autowired
@@ -49,6 +51,10 @@ class EmpresaControllerTest {
             {"nombreEmpresa":"Acme S.A.","cedulaJuridica":"3-101-123456","sectorIndustrial":"MANUFACTURA",
             "pais":"CR","cantidadEmpleados":50,"descripcion":"Empresa de prueba."}""";
 
+    private static final String USUARIO_ID = "41ce47ab-a46c-4306-8c46-2688dc97fa73";
+    private static final Authentication AUTHENTICATION = new UsernamePasswordAuthenticationToken(
+            USUARIO_ID, null, List.of(new SimpleGrantedAuthority("ROLE_ADMINISTRADOR_EMPRESA")));
+
     @Test
     void completarConfiguracionInicialValidoDevuelve201() throws Exception {
         when(configuracionInicialEmpresaService.completarConfiguracionEmpresa(any(), any())).thenReturn(
@@ -56,6 +62,7 @@ class EmpresaControllerTest {
                         UUID.randomUUID(), "Acme S.A.", "acme-s-a", true, true));
 
         mockMvc.perform(post("/api/empresas/configuracion-inicial")
+                        .principal(AUTHENTICATION)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(REQUEST_JSON))
                 .andExpect(status().isCreated())
@@ -69,6 +76,7 @@ class EmpresaControllerTest {
                 ApiException.accesoDenegado("Solo el administrador de una empresa puede completar este paso."));
 
         mockMvc.perform(post("/api/empresas/configuracion-inicial")
+                        .principal(AUTHENTICATION)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(REQUEST_JSON))
                 .andExpect(status().isForbidden());
@@ -81,6 +89,7 @@ class EmpresaControllerTest {
                         UUID.randomUUID(), "Acme Existente S.A.", "acme-existente-s-a", true, false));
 
         mockMvc.perform(post("/api/empresas/configuracion-inicial")
+                        .principal(AUTHENTICATION)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(REQUEST_JSON))
                 .andExpect(status().isOk())
@@ -94,6 +103,7 @@ class EmpresaControllerTest {
                 ApiException.cuentaDuplicada("Ya existe una empresa registrada con esta cédula jurídica."));
 
         mockMvc.perform(post("/api/empresas/configuracion-inicial")
+                        .principal(AUTHENTICATION)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(REQUEST_JSON))
                 .andExpect(status().isConflict());

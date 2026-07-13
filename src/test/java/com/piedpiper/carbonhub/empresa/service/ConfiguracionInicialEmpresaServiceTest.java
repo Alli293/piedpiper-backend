@@ -59,7 +59,6 @@ class ConfiguracionInicialEmpresaServiceTest {
         Usuario admin = admin();
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(admin));
         when(empresaRepository.existsByCedulaJuridica("3-101-123456")).thenReturn(false);
-        when(empresaRepository.existsByCorreoCorporativo("admin@acme.com")).thenReturn(false);
         when(empresaRepository.existsBySlug("acme-s-a")).thenReturn(false);
         when(empresaRepository.saveAndFlush(any(Empresa.class))).thenAnswer(i -> i.getArgument(0));
         when(usuarioRepository.saveAndFlush(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
@@ -138,7 +137,6 @@ class ConfiguracionInicialEmpresaServiceTest {
     void condicionDeCarreraAlGuardarEmpresa_lanza409YNoVinculaUsuario() {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(admin()));
         when(empresaRepository.existsByCedulaJuridica("3-101-123456")).thenReturn(false);
-        when(empresaRepository.existsByCorreoCorporativo("admin@acme.com")).thenReturn(false);
         when(empresaRepository.existsBySlug("acme-s-a")).thenReturn(false);
         when(empresaRepository.saveAndFlush(any(Empresa.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate key"));

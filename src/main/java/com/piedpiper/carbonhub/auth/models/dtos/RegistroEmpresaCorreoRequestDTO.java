@@ -30,6 +30,7 @@ public class RegistroEmpresaCorreoRequestDTO {
     @NotBlank(message = "La contraseña debe tener al menos 8 caracteres, con una letra y un número.")
     @Pattern(regexp = RegistroUsuarioCorreoRequestDTO.PATRON_CONTRASENA,
             message = "La contraseña debe tener al menos 8 caracteres, con una letra y un número.")
+    @Size(max = 72, message = "La contraseña no puede exceder 72 caracteres.")
     private String contrasena;
 
     @NotBlank(message = "Debes confirmar tu contraseña.")

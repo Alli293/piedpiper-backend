@@ -3,6 +3,7 @@ package com.piedpiper.carbonhub.auth.service;
 import com.piedpiper.carbonhub.auth.models.dtos.RegistroEmpresaCorreoRequestDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.RegistroPendienteResponseDTO;
 import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.notification.TokenVerificacionGenerator;
 import com.piedpiper.carbonhub.notification.service.EmailVerificacionService;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
@@ -68,14 +69,18 @@ class RegistroEmpresaCorreoServiceTest {
         assertThat(admin.getMetodoAuth()).isEqualTo(MetodoAuth.CORREO);
         assertThat(admin.getEstado()).isEqualTo(EstadoUsuario.PENDIENTE_VERIFICACION);
         assertThat(admin.isConfiguracionCompleta()).isFalse();
-        assertThat(admin.getTokenVerificacion()).isNotNull().isNotBlank();
+        assertThat(admin.getTokenVerificacionHash()).isNotNull().isNotBlank();
         assertThat(admin.getTokenVerificacionExpiracion())
                 .isAfter(Instant.now())
                 .isCloseTo(Instant.now().plus(Duration.ofHours(24)),
                         new TemporalUnitWithinOffset(1, ChronoUnit.MINUTES));
 
+        ArgumentCaptor<String> tokenPlanoCaptor = ArgumentCaptor.forClass(String.class);
         verify(emailVerificacionService)
-                .enviarCorreoVerificacion(eq("Ana"), eq("admin@acme.com"), eq(admin.getTokenVerificacion()));
+                .enviarCorreoVerificacion(eq("Ana"), eq("admin@acme.com"), tokenPlanoCaptor.capture());
+        String tokenPlano = tokenPlanoCaptor.getValue();
+        assertThat(tokenPlano).isNotEqualTo(admin.getTokenVerificacionHash());
+        assertThat(TokenVerificacionGenerator.hash(tokenPlano)).isEqualTo(admin.getTokenVerificacionHash());
         assertThat(response.getEmail()).isEqualTo("admin@acme.com");
         assertThat(response.getMensaje())
                 .isEqualTo("Te enviamos un correo de verificación a tu bandeja de entrada.");

@@ -57,10 +57,6 @@ public class ConfiguracionInicialEmpresaService {
         }
 
         String correoCorporativo = usuario.getEmail();
-        if (empresaRepository.existsByCorreoCorporativo(correoCorporativo)) {
-            throw ApiException.cuentaDuplicada(
-                    "Ya existe una empresa registrada con este correo corporativo.");
-        }
 
         String slug = generarSlugUnico(request.getNombreEmpresa());
 
@@ -90,9 +86,6 @@ public class ConfiguracionInicialEmpresaService {
         }
 
         usuario.setEmpresa(empresaGuardada);
-        // TODO: no marcar configuracionCompleta=true todavia -- falta el Paso 3
-        // (subida de documentos: cedula juridica y personeria juridica) antes de
-        // considerar la configuracion inicial 100% completa.
         usuarioRepository.saveAndFlush(usuario);
 
         return new ConfiguracionInicialEmpresaResponseDTO(

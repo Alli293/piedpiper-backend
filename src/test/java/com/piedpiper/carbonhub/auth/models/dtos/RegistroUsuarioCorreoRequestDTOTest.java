@@ -55,4 +55,17 @@ class RegistroUsuarioCorreoRequestDTOTest {
                         "Las contraseñas no coinciden.",
                         "Debes aceptar los Términos y Condiciones y la Política de Privacidad.");
     }
+
+    @Test
+    void contrasenaConMasDe72Caracteres_violaLimiteMaximo() {
+        String contrasenaLarga = "a1".repeat(37);
+        RegistroUsuarioCorreoRequestDTO dto = new RegistroUsuarioCorreoRequestDTO(
+                "Ana", "Perez", "ana.perez@example.com", contrasenaLarga, contrasenaLarga, true);
+
+        Set<ConstraintViolation<RegistroUsuarioCorreoRequestDTO>> violaciones = validator.validate(dto);
+
+        assertThat(violaciones)
+                .extracting(ConstraintViolation::getMessage)
+                .contains("La contraseña no puede exceder 72 caracteres.");
+    }
 }

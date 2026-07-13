@@ -54,9 +54,8 @@ public class RegistroEmpresaCorreoService {
                 .rol(Rol.ADMINISTRADOR_EMPRESA)
                 .metodoAuth(MetodoAuth.CORREO)
                 .estado(EstadoUsuario.PENDIENTE_VERIFICACION)
-                .configuracionCompleta(false)
                 .fechaRegistro(Instant.now())
-                .tokenVerificacion(token)
+                .tokenVerificacionHash(TokenVerificacionGenerator.hash(token))
                 .tokenVerificacionExpiracion(expiracion)
                 .build();
 
