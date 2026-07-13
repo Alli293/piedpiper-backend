@@ -1,13 +1,18 @@
 package com.piedpiper.carbonhub.emision.controller;
 
+import com.piedpiper.carbonhub.emision.models.dtos.EmisionElectricidadResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionEnvioResponseDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.EmisionFlotaResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.RegistrarElectricidadRequestDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.RegistrarEnvioRequestDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.RegistrarFlotaRequestDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.RegistrarVueloRequestDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.TipoVehiculoResponseDTO;
 import com.piedpiper.carbonhub.emision.service.EmisionConsultaService;
 import com.piedpiper.carbonhub.emision.service.EmisionElectricidadService;
 import com.piedpiper.carbonhub.emision.service.EmisionEnvioService;
+import com.piedpiper.carbonhub.emision.service.EmisionFlotaService;
 import com.piedpiper.carbonhub.emision.service.EmisionVueloService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 
@@ -34,15 +39,18 @@ import java.util.UUID;
 public class EmisionController {
 
     private final EmisionElectricidadService emisionElectricidadService;
+    private final EmisionFlotaService emisionFlotaService;
     private final EmisionEnvioService emisionEnvioService;
     private final EmisionVueloService emisionVueloService;
     private final EmisionConsultaService emisionConsultaService;
 
     public EmisionController(EmisionElectricidadService emisionElectricidadService,
+                             EmisionFlotaService emisionFlotaService,
                              EmisionEnvioService emisionEnvioService,
                              EmisionVueloService emisionVueloService,
                              EmisionConsultaService emisionConsultaService) {
         this.emisionElectricidadService = emisionElectricidadService;
+        this.emisionFlotaService = emisionFlotaService;
         this.emisionEnvioService = emisionEnvioService;
         this.emisionVueloService = emisionVueloService;
         this.emisionConsultaService = emisionConsultaService;
@@ -62,10 +70,25 @@ public class EmisionController {
 
     @PostMapping("/electricidad")
     @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
-    public ResponseEntity<EmisionResponseDTO> registrarElectricidad(
+    public ResponseEntity<EmisionElectricidadResponseDTO> registrarElectricidad(
             @Valid @RequestBody RegistrarElectricidadRequestDTO request) {
         UUID usuarioId = usuarioIdAutenticado();
-        EmisionResponseDTO response = emisionElectricidadService.registrar(request, usuarioId);
+        EmisionElectricidadResponseDTO response = emisionElectricidadService.registrar(request, usuarioId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @GetMapping("/flota/tipos-vehiculo")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
+    public ResponseEntity<List<TipoVehiculoResponseDTO>> listarTiposVehiculo() {
+        return ResponseEntity.ok(emisionFlotaService.listarTiposVehiculo());
+    }
+
+    @PostMapping("/flota")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
+    public ResponseEntity<EmisionFlotaResponseDTO> registrarFlota(
+            @Valid @RequestBody RegistrarFlotaRequestDTO request) {
+        UUID usuarioId = usuarioIdAutenticado();
+        EmisionFlotaResponseDTO response = emisionFlotaService.registrar(request, usuarioId);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 

@@ -1,12 +1,15 @@
 package com.piedpiper.carbonhub.emision.service;
 
-import com.piedpiper.carbonhub.emision.mappers.EmisionElectricidadMapper;
-import com.piedpiper.carbonhub.emision.models.dtos.EmisionElectricidadResponseDTO;
-import com.piedpiper.carbonhub.emision.models.dtos.RegistrarElectricidadRequestDTO;
+import com.piedpiper.carbonhub.emision.mappers.EmisionFlotaMapper;
+import com.piedpiper.carbonhub.emision.models.dtos.EmisionFlotaResponseDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.RegistrarFlotaRequestDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.TipoVehiculoResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.climatiq.ClimatiqEmissionFactorSelector;
 import com.piedpiper.carbonhub.emision.models.dtos.climatiq.ClimatiqEstimateResponse;
-import com.piedpiper.carbonhub.emision.models.entities.EmisionElectricidad;
-import com.piedpiper.carbonhub.emision.models.enums.UnidadElectricidad;
+import com.piedpiper.carbonhub.emision.models.entities.EmisionFlota;
+import com.piedpiper.carbonhub.emision.models.enums.Combustible;
+import com.piedpiper.carbonhub.emision.models.enums.TipoVehiculo;
+import com.piedpiper.carbonhub.emision.models.enums.UnidadDistancia;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.exceptions.ApiException;
@@ -23,6 +26,8 @@ import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -34,7 +39,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class EmisionElectricidadServiceTest {
+class EmisionFlotaServiceTest {
 
     @Mock
     private ClimatiqClient climatiqClient;
@@ -43,18 +48,18 @@ class EmisionElectricidadServiceTest {
     @Mock
     private UsuarioRepository usuarioRepository;
     @Mock
-    private EmisionElectricidadMapper emisionElectricidadMapper;
+    private EmisionFlotaMapper emisionFlotaMapper;
 
     @InjectMocks
-    private EmisionElectricidadService service;
+    private EmisionFlotaService service;
 
     private static final UUID USUARIO_ID = UUID.randomUUID();
     private static final UUID EMPRESA_ID = UUID.randomUUID();
 
-    private RegistrarElectricidadRequestDTO requestValido() {
-        return new RegistrarElectricidadRequestDTO(
-                "Consumo oficina central", new BigDecimal("500"), UnidadElectricidad.KWH,
-                LocalDate.now());
+    private RegistrarFlotaRequestDTO requestValido() {
+        return new RegistrarFlotaRequestDTO(
+                "Recorrido Toyota Corolla", TipoVehiculo.AUTOMOVIL, Combustible.GASOLINA,
+                new BigDecimal("100"), UnidadDistancia.KM, LocalDate.now());
     }
 
     private Usuario usuario() {
@@ -69,50 +74,98 @@ class EmisionElectricidadServiceTest {
     private ClimatiqEstimateResponse estimacion(BigDecimal carbonKg) {
         ClimatiqEstimateResponse.EmissionFactor factor =
                 new ClimatiqEstimateResponse.EmissionFactor(
-                        "climatiq-factor-id", "electricity-supply_grid-source_supplier_mix-use_na", "CR", 2024);
+                        "climatiq-factor-id",
+                        "passenger_vehicle-vehicle_type_car-fuel_source_gasoline-engine_size_na-vehicle_age_na"
+                                + "-vehicle_weight_na",
+                        "DE", 2024);
         return new ClimatiqEstimateResponse(carbonKg, "kg", factor);
     }
 
     @Test
     void registroExitosoPersisteConCarbonKg() {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
-        when(climatiqClient.estimar(any(), any())).thenReturn(estimacion(new BigDecimal("27.85")));
+        when(climatiqClient.estimar(any(), any())).thenReturn(estimacion(new BigDecimal("22.85")));
         when(emisionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        EmisionElectricidadResponseDTO responseEsperado = new EmisionElectricidadResponseDTO();
-        responseEsperado.setCarbonKg(new BigDecimal("27.85"));
-        when(emisionElectricidadMapper.toDto(any())).thenReturn(responseEsperado);
+        EmisionFlotaResponseDTO responseEsperado = new EmisionFlotaResponseDTO();
+        responseEsperado.setCarbonKg(new BigDecimal("22.85"));
+        when(emisionFlotaMapper.toDto(any())).thenReturn(responseEsperado);
 
-        EmisionElectricidadResponseDTO response = service.registrar(requestValido(), USUARIO_ID);
+        EmisionFlotaResponseDTO response = service.registrar(requestValido(), USUARIO_ID);
 
-        ArgumentCaptor<EmisionElectricidad> captor = ArgumentCaptor.forClass(EmisionElectricidad.class);
+        ArgumentCaptor<EmisionFlota> captor = ArgumentCaptor.forClass(EmisionFlota.class);
         verify(emisionRepository).save(captor.capture());
-        EmisionElectricidad guardada = captor.getValue();
+        EmisionFlota guardada = captor.getValue();
 
-        assertThat(guardada.getCarbonKg()).isEqualByComparingTo("27.85");
-        assertThat(guardada.getCarbonMt()).isEqualByComparingTo("0.028");
+        assertThat(guardada.getCarbonKg()).isEqualByComparingTo("22.85");
+        assertThat(guardada.getCarbonMt()).isEqualByComparingTo("0.023");
         assertThat(guardada.getFactorEmisionId()).isEqualTo("climatiq-factor-id");
+        assertThat(guardada.getTipoVehiculo()).isEqualTo(TipoVehiculo.AUTOMOVIL);
+        assertThat(guardada.getCombustible()).isEqualTo(Combustible.GASOLINA);
+        assertThat(guardada.getDistanceValue()).isEqualByComparingTo("100");
+        assertThat(guardada.getDistanceUnit()).isEqualTo(UnidadDistancia.KM);
         assertThat(guardada.getCreatedByUserId()).isEqualTo(USUARIO_ID);
         assertThat(guardada.getEmpresaId()).isEqualTo(EMPRESA_ID);
-        assertThat(response.getCarbonKg()).isEqualByComparingTo("27.85");
+        assertThat(response.getCarbonKg()).isEqualByComparingTo("22.85");
     }
 
     @Test
-    void enviaSelectorConActivityIdDataVersionYRegionCorrectos() {
+    void enviaSelectorConActivityIdFijoSegunTipoYCombustible() {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
-        when(climatiqClient.estimar(any(), any())).thenReturn(estimacion(new BigDecimal("27.85")));
+        when(climatiqClient.estimar(any(), any())).thenReturn(estimacion(new BigDecimal("22.85")));
         when(emisionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        when(emisionElectricidadMapper.toDto(any())).thenReturn(new EmisionElectricidadResponseDTO());
+        when(emisionFlotaMapper.toDto(any())).thenReturn(new EmisionFlotaResponseDTO());
 
         service.registrar(requestValido(), USUARIO_ID);
 
         ArgumentCaptor<ClimatiqEmissionFactorSelector> selectorCaptor =
                 ArgumentCaptor.forClass(ClimatiqEmissionFactorSelector.class);
-        verify(climatiqClient).estimar(selectorCaptor.capture(), any());
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, Object>> parametersCaptor = ArgumentCaptor.forClass(Map.class);
+        verify(climatiqClient).estimar(selectorCaptor.capture(), parametersCaptor.capture());
         ClimatiqEmissionFactorSelector selector = selectorCaptor.getValue();
 
-        assertThat(selector.activityId()).isEqualTo("electricity-supply_grid-source_supplier_mix-use_na");
+        assertThat(selector.activityId()).isEqualTo(
+                "passenger_vehicle-vehicle_type_car-fuel_source_gasoline-engine_size_na-vehicle_age_na"
+                        + "-vehicle_weight_na");
         assertThat(selector.dataVersion()).isEqualTo("^6");
-        assertThat(selector.region()).isEqualTo("CR");
+        assertThat(selector.region()).isEqualTo("DE");
+        assertThat(parametersCaptor.getValue())
+                .containsEntry("distance", new BigDecimal("100"))
+                .containsEntry("distance_unit", "km");
+    }
+
+    @Test
+    void combinacionTipoVehiculoCombustibleInvalidaNoInvocaClimatiqNiGuardado() {
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
+        RegistrarFlotaRequestDTO request = new RegistrarFlotaRequestDTO(
+                "Recorrido camión", TipoVehiculo.CAMION_PESADO, Combustible.DIESEL,
+                new BigDecimal("100"), UnidadDistancia.KM, LocalDate.now());
+
+        assertThatThrownBy(() -> service.registrar(request, USUARIO_ID))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+
+        verify(climatiqClient, never()).estimar(any(), any());
+        verify(emisionRepository, never()).save(any());
+    }
+
+    @Test
+    void listarTiposVehiculoDevuelveLosCombustiblesValidosPorTipo() {
+        List<TipoVehiculoResponseDTO> tipos = service.listarTiposVehiculo();
+
+        assertThat(tipos).hasSize(TipoVehiculo.values().length);
+        TipoVehiculoResponseDTO camionPesado = tipos.stream()
+                .filter(t -> t.getId().equals("CAMION_PESADO"))
+                .findFirst().orElseThrow();
+        assertThat(camionPesado.getCombustibles()).hasSize(1);
+        assertThat(camionPesado.getCombustibles().get(0).getId()).isEqualTo("PROMEDIO");
+
+        TipoVehiculoResponseDTO automovil = tipos.stream()
+                .filter(t -> t.getId().equals("AUTOMOVIL"))
+                .findFirst().orElseThrow();
+        assertThat(automovil.getCombustibles()).extracting(c -> c.getId())
+                .contains("PROMEDIO", "GASOLINA", "DIESEL", "PHEV", "BEV");
     }
 
     @Test
@@ -132,9 +185,12 @@ class EmisionElectricidadServiceTest {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
         ClimatiqEstimateResponse.EmissionFactor factor =
                 new ClimatiqEstimateResponse.EmissionFactor(
-                        "climatiq-factor-id", "electricity-supply_grid-source_supplier_mix-use_na", "CR", 2024);
+                        "climatiq-factor-id",
+                        "passenger_vehicle-vehicle_type_car-fuel_source_gasoline-engine_size_na-vehicle_age_na"
+                                + "-vehicle_weight_na",
+                        "DE", 2024);
         when(climatiqClient.estimar(any(), any()))
-                .thenReturn(new ClimatiqEstimateResponse(new BigDecimal("27.85"), "t", factor));
+                .thenReturn(new ClimatiqEstimateResponse(new BigDecimal("22.85"), "t", factor));
 
         assertThatThrownBy(() -> service.registrar(requestValido(), USUARIO_ID))
                 .isInstanceOf(ApiException.class)
@@ -161,7 +217,7 @@ class EmisionElectricidadServiceTest {
     void errorDeValidacionDelCalculoNoInvocaGuardado() {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
         when(climatiqClient.estimar(any(), any()))
-                .thenThrow(ApiException.calculoInvalido("valor fuera de rango"));
+                .thenThrow(ApiException.calculoInvalido("vehículo fuera de catálogo"));
 
         assertThatThrownBy(() -> service.registrar(requestValido(), USUARIO_ID))
                 .isInstanceOf(ApiException.class)

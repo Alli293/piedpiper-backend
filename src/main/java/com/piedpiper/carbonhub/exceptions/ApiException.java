@@ -143,4 +143,9 @@ public class ApiException extends RuntimeException {
         return new ApiException(HttpStatus.CONFLICT,
                 "Esta invitación ya fue utilizada.");
     }
+
+    public static ApiException combinacionVehiculoInvalida() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Seleccione un combustible válido para este tipo de vehículo.");
+    }
 }

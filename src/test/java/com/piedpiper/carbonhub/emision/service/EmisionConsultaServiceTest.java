@@ -2,6 +2,7 @@ package com.piedpiper.carbonhub.emision.service;
 
 import com.piedpiper.carbonhub.emision.mappers.EmisionElectricidadMapper;
 import com.piedpiper.carbonhub.emision.mappers.EmisionVueloMapper;
+import com.piedpiper.carbonhub.emision.models.dtos.EmisionElectricidadResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionResponseDTO;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionElectricidad;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
@@ -51,7 +52,7 @@ class EmisionConsultaServiceTest {
                 .id(EMISION_ID)
                 .empresaId(EMPRESA_ID)
                 .build();
-        EmisionResponseDTO dto = new EmisionResponseDTO();
+        EmisionElectricidadResponseDTO dto = new EmisionElectricidadResponseDTO();
         dto.setId(EMISION_ID);
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
         when(emisionRepository.findAllByEmpresaIdOrderByCreatedAtDesc(EMPRESA_ID))
