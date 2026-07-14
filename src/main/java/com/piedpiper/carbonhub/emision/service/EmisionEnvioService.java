@@ -6,6 +6,7 @@ import com.piedpiper.carbonhub.emision.models.dtos.RegistrarEnvioRequestDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.climatiq.ClimatiqEmissionFactorSelector;
 import com.piedpiper.carbonhub.emision.models.dtos.climatiq.ClimatiqEstimateResponse;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionEnvio;
+import com.piedpiper.carbonhub.emision.models.enums.MetodoTransporte;
 import com.piedpiper.carbonhub.emision.models.enums.UnidadDistancia;
 import com.piedpiper.carbonhub.emision.models.enums.UnidadPeso;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
@@ -24,8 +25,12 @@ import java.util.UUID;
 @Service
 public class EmisionEnvioService {
 
-    private static final String ACTIVITY_ID =
-            "freight_vehicle-vehicle_type_hgv_all_diesel-fuel_source_na-distance_na-weight_na";
+    private static final Map<MetodoTransporte, String> ACTIVITY_IDS = Map.of(
+            MetodoTransporte.TRUCK, "freight_vehicle-vehicle_type_hgv_all_diesel-fuel_source_na-distance_na-weight_na",
+            MetodoTransporte.SHIP, "freight_vessel-vessel_type_bulk_carrier-fuel_source_na-distance_na-weight_na",
+            MetodoTransporte.TRAIN, "freight_train-train_type_freight_train-fuel_source_na-distance_na-weight_na",
+            MetodoTransporte.PLANE, "freight_flight-route_type_na-distance_na-weight_na"
+    );
     private static final String DATA_VERSION = "^1";
     private static final String REGION = "CR";
 
@@ -53,7 +58,8 @@ public class EmisionEnvioService {
         }
 
         ClimatiqEstimateResponse estimacion = climatiqClient.estimar(
-                new ClimatiqEmissionFactorSelector(ACTIVITY_ID, DATA_VERSION, REGION),
+                new ClimatiqEmissionFactorSelector(
+                        ACTIVITY_IDS.get(request.getTransportMethod()), DATA_VERSION, REGION),
                 Map.of(
                         "weight", request.getWeightValue(),
                         "weight_unit", climatiqWeightUnit(request.getWeightUnit()),

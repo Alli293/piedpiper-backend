@@ -149,4 +149,13 @@ class EmisionControllerTest {
                         .content(ENVIO_REQUEST_VALIDO))
                 .andExpect(status().isForbidden());
     }
+
+    @Test
+    @WithMockUser(username = "db2ed1e7-6719-4595-844e-68efffe146cf", roles = "USUARIO_GENERAL")
+    void usuarioGeneralEnvioDevuelve403() throws Exception {
+        mockMvc.perform(post("/api/emisiones/envio")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(ENVIO_REQUEST_VALIDO))
+                .andExpect(status().isForbidden());
+    }
 }

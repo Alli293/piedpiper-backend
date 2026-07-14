@@ -24,6 +24,7 @@ import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -179,5 +180,40 @@ class EmisionEnvioServiceTest {
 
         assertThat(guardada.getCarbonKg()).isEqualByComparingTo("1234.567");
         assertThat(guardada.getCarbonMt()).isEqualByComparingTo("1.235");
+    }
+
+    @Test
+    void cadaMetodoTransporteUsaActivityIdDistinto() {
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
+        when(climatiqClient.estimar(any(ClimatiqEmissionFactorSelector.class), any(Map.class)))
+                .thenReturn(estimacion(new BigDecimal("10")));
+        when(emisionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(emisionEnvioMapper.toDto(any())).thenReturn(new EmisionEnvioResponseDTO());
+
+        ArgumentCaptor<ClimatiqEmissionFactorSelector> selectorCaptor =
+                ArgumentCaptor.forClass(ClimatiqEmissionFactorSelector.class);
+
+        for (MetodoTransporte metodo : MetodoTransporte.values()) {
+            RegistrarEnvioRequestDTO request = new RegistrarEnvioRequestDTO(
+                    "Envío " + metodo.name(), new BigDecimal("100"), UnidadPeso.KG,
+                    new BigDecimal("200"), UnidadDistancia.KM, metodo, LocalDate.now());
+
+            service.registrar(request, USUARIO_ID);
+        }
+
+        verify(climatiqClient, org.mockito.Mockito.times(4))
+                .estimar(selectorCaptor.capture(), any(Map.class));
+
+        List<String> activityIds = selectorCaptor.getAllValues().stream()
+                .map(ClimatiqEmissionFactorSelector::activityId)
+                .toList();
+
+        // All 4 methods should produce distinct activity IDs
+        assertThat(activityIds).hasSize(4);
+        assertThat(activityIds).doesNotHaveDuplicates();
+        assertThat(activityIds).anyMatch(id -> id.contains("hgv"));      // TRUCK
+        assertThat(activityIds).anyMatch(id -> id.contains("vessel"));   // SHIP
+        assertThat(activityIds).anyMatch(id -> id.contains("train"));    // TRAIN
+        assertThat(activityIds).anyMatch(id -> id.contains("flight"));   // PLANE
     }
 }
