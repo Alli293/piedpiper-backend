@@ -2,8 +2,10 @@ package com.piedpiper.carbonhub.auth.controller;
 
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
 import com.piedpiper.carbonhub.auth.models.dtos.AuthResponseDTO;
+import com.piedpiper.carbonhub.auth.models.dtos.RegistroPendienteResponseDTO;
 import com.piedpiper.carbonhub.auth.service.JwtService;
 import com.piedpiper.carbonhub.auth.service.LoginService;
+import com.piedpiper.carbonhub.auth.service.RegistroAuditorCorreoService;
 import com.piedpiper.carbonhub.auth.service.RegistroAuditorService;
 import com.piedpiper.carbonhub.auth.service.RegistroEmpresaCorreoService;
 import com.piedpiper.carbonhub.auth.service.RegistroEmpresaService;
@@ -47,6 +49,8 @@ class AuthControllerTest {
     private RegistroEmpresaService registroEmpresaService;
     @MockitoBean
     private RegistroAuditorService registroAuditorService;
+    @MockitoBean
+    private RegistroAuditorCorreoService registroAuditorCorreoService;
     @MockitoBean
     private LoginService loginService;
     @MockitoBean
@@ -213,5 +217,40 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"metodo\":\"GOOGLE\",\"idToken\":\"t\"}"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void registroAuditorCorreoValidoDevuelve201() throws Exception {
+        when(registroAuditorCorreoService.registrar(any()))
+                .thenReturn(new RegistroPendienteResponseDTO(
+                        "Registro exitoso. Revisa tu correo para verificar tu cuenta.",
+                        "auditor@example.com"));
+
+        String body = """
+                {"nombre":"Carlos","apellidos":"Ramirez","email":"auditor@example.com",\
+                "contrasena":"segura123","confirmarContrasena":"segura123","aceptaTerminos":true}""";
+
+        mockMvc.perform(post("/api/auth/registro/auditor/correo")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.email").value("auditor@example.com"))
+                .andExpect(jsonPath("$.mensaje").value("Registro exitoso. Revisa tu correo para verificar tu cuenta."));
+    }
+
+    @Test
+    void registroAuditorCorreoDuplicadoDevuelve409() throws Exception {
+        when(registroAuditorCorreoService.registrar(any()))
+                .thenThrow(ApiException.cuentaDuplicada(
+                        "Ya existe una cuenta con este correo. ¿Deseas iniciar sesión?"));
+
+        String body = """
+                {"nombre":"Carlos","apellidos":"Ramirez","email":"auditor@example.com",\
+                "contrasena":"segura123","confirmarContrasena":"segura123","aceptaTerminos":true}""";
+
+        mockMvc.perform(post("/api/auth/registro/auditor/correo")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isConflict());
     }
 }
