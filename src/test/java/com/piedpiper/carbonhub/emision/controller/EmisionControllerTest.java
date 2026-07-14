@@ -13,6 +13,7 @@ import com.piedpiper.carbonhub.emision.service.EmisionConsultaService;
 import com.piedpiper.carbonhub.emision.service.EmisionElectricidadService;
 import com.piedpiper.carbonhub.emision.service.EmisionEnvioService;
 import com.piedpiper.carbonhub.emision.service.EmisionVueloService;
+import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.junit.jupiter.api.Test;
@@ -34,11 +35,18 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -73,6 +81,10 @@ class EmisionControllerTest {
 
     private static final String REQUEST_VALIDO = "{\"titulo\":\"Consumo oficina central\","
             + "\"electricityValue\":500,\"electricityUnit\":\"kwh\",\"fechaActividad\":\"2026-07-01\"}";
+    private static final String VUELO_REQUEST_VALIDO = "{\"passengers\":2,\"distanceUnit\":\"km\","
+            + "\"fechaActividad\":\"2026-07-01\","
+            + "\"legs\":[{\"departureAirport\":\"SFO\",\"destinationAirport\":\"YYZ\","
+            + "\"cabinClass\":\"economy\"}]}";
 
     @Test
     @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
@@ -169,17 +181,112 @@ class EmisionControllerTest {
 
     @Test
     @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void listarEmisionesDevuelve200() throws Exception {
+        EmisionResponseDTO response = new EmisionResponseDTO();
+        response.setId(UUID.randomUUID());
+        response.setCategoria(CategoriaEmision.VUELO);
+        response.setTitulo("Viaje aereo SFO-YYZ");
+        response.setCarbonKg(new BigDecimal("237.5"));
+        when(emisionConsultaService.listar(any())).thenReturn(List.of(response));
+
+        mockMvc.perform(get("/api/emisiones"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].categoria").value("VUELO"))
+                .andExpect(jsonPath("$[0].carbonKg").value(237.5));
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void obtenerEmisionDevuelve200() throws Exception {
+        UUID id = UUID.randomUUID();
+        EmisionResponseDTO response = new EmisionResponseDTO();
+        response.setId(id);
+        response.setCategoria(CategoriaEmision.VUELO);
+        response.setTitulo("Viaje aereo SFO-YYZ");
+        when(emisionConsultaService.obtener(eq(id), any())).thenReturn(response);
+
+        mockMvc.perform(get("/api/emisiones/{id}", id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(id.toString()))
+                .andExpect(jsonPath("$.categoria").value("VUELO"));
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void obtenerEmisionNoEncontradaDevuelve404() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(emisionConsultaService.obtener(eq(id), any()))
+                .thenThrow(ApiException.recursoNoEncontrado("No se encontro la emision solicitada."));
+
+        mockMvc.perform(get("/api/emisiones/{id}", id))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void actualizarVueloDevuelve200() throws Exception {
+        UUID id = UUID.randomUUID();
+        EmisionResponseDTO response = new EmisionResponseDTO();
+        response.setId(id);
+        response.setCarbonKg(new BigDecimal("237.5"));
+        when(emisionVueloService.actualizar(eq(id), any(), any())).thenReturn(response);
+
+        mockMvc.perform(put("/api/emisiones/vuelo/{id}", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VUELO_REQUEST_VALIDO))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.carbonKg").value(237.5));
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void eliminarEmisionDevuelve204() throws Exception {
+        UUID id = UUID.randomUUID();
+
+        mockMvc.perform(delete("/api/emisiones/{id}", id))
+                .andExpect(status().isNoContent());
+
+        verify(emisionConsultaService).eliminar(eq(id), any());
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void eliminarEmisionNoEncontradaDevuelve404() throws Exception {
+        UUID id = UUID.randomUUID();
+        doThrow(ApiException.recursoNoEncontrado("No se encontro la emision solicitada."))
+                .when(emisionConsultaService).eliminar(eq(id), any());
+
+        mockMvc.perform(delete("/api/emisiones/{id}", id))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUser(username = "db2ed1e7-6719-4595-844e-68efffe146cf", roles = "AUDITOR_CERTIFICADO")
+    void endpointsNuevosConRolNoAutorizadoDevuelven403() throws Exception {
+        UUID id = UUID.randomUUID();
+
+        mockMvc.perform(get("/api/emisiones"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/emisiones/{id}", id))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(put("/api/emisiones/vuelo/{id}", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VUELO_REQUEST_VALIDO))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(delete("/api/emisiones/{id}", id))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
     void registroVueloValidoDevuelve201() throws Exception {
-        String request = "{\"passengers\":2,\"distanceUnit\":\"km\",\"fechaActividad\":\"2026-07-01\","
-                + "\"legs\":[{\"departureAirport\":\"SFO\",\"destinationAirport\":\"YYZ\","
-                + "\"cabinClass\":\"economy\"}]}";
         EmisionResponseDTO response = new EmisionResponseDTO();
         response.setCarbonKg(new BigDecimal("237.5"));
         when(emisionVueloService.registrar(any(), any())).thenReturn(response);
 
         mockMvc.perform(post("/api/emisiones/vuelo")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(request))
+                        .content(VUELO_REQUEST_VALIDO))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.carbonKg").value(237.5));
     }
@@ -212,6 +319,19 @@ class EmisionControllerTest {
     @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
     void registroVueloConUnidadDistanciaInvalidaDevuelve400() throws Exception {
         String request = "{\"passengers\":2,\"distanceUnit\":\"league\",\"fechaActividad\":\"2026-07-01\","
+                + "\"legs\":[{\"departureAirport\":\"SFO\",\"destinationAirport\":\"YYZ\","
+                + "\"cabinClass\":\"economy\"}]}";
+
+        mockMvc.perform(post("/api/emisiones/vuelo")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void registroVueloConDemasiadosPasajerosDevuelve400() throws Exception {
+        String request = "{\"passengers\":1001,\"distanceUnit\":\"km\",\"fechaActividad\":\"2026-07-01\","
                 + "\"legs\":[{\"departureAirport\":\"SFO\",\"destinationAirport\":\"YYZ\","
                 + "\"cabinClass\":\"economy\"}]}";
 
