@@ -1,6 +1,6 @@
 package com.piedpiper.carbonhub.emision.mappers;
 
-import com.piedpiper.carbonhub.emision.models.dtos.EmisionResponseDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.VueloResponseDTO;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionVuelo;
 
 import org.mapstruct.Mapper;
@@ -11,5 +11,5 @@ public interface EmisionVueloMapper {
 
     @Mapping(target = "electricityValue", ignore = true)
     @Mapping(target = "electricityUnit", ignore = true)
-    EmisionResponseDTO toDto(EmisionVuelo emision);
+    VueloResponseDTO toDto(EmisionVuelo emision);
 }
