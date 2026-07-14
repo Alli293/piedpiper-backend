@@ -47,7 +47,8 @@ class LimiteEmisionesServiceTest {
         verify(repository).save(captor.capture());
         assertThat(captor.getValue().getEmpresaId()).isEqualTo(EMPRESA_ID);
         assertThat(captor.getValue().getJustificacion()).isEqualTo("Meta anual");
-        assertThat(response.limiteMt()).isEqualByComparingTo("50.0000");
+        assertThat(response.getLimiteMt()).isEqualByComparingTo("50.0000");
+        assertThat(response.getMensaje()).isEqualTo("Limite vigente del anio 2026: 50.0000 t CO2e.");
     }
 
     @Test
@@ -67,7 +68,7 @@ class LimiteEmisionesServiceTest {
         verify(repository).save(existing);
         assertThat(existing.getLimiteMt()).isEqualByComparingTo("40.0000");
         assertThat(existing.getJustificacion()).isEqualTo("Meta actualizada");
-        assertThat(response.limiteMt()).isEqualByComparingTo("40.0000");
+        assertThat(response.getLimiteMt()).isEqualByComparingTo("40.0000");
     }
 
     @Test
@@ -86,7 +87,7 @@ class LimiteEmisionesServiceTest {
         ArgumentCaptor<LimiteEmisiones> captor = ArgumentCaptor.forClass(LimiteEmisiones.class);
         verify(repository).save(captor.capture());
         assertThat(captor.getValue().getJustificacion()).isNull();
-        assertThat(response.justificacion()).isNull();
+        assertThat(response.getJustificacion()).isNull();
     }
 
     @Test
@@ -102,7 +103,8 @@ class LimiteEmisionesServiceTest {
         List<LimiteEmisionesResponseDTO> response = service.listarLimites(EMPRESA_ID);
 
         assertThat(response).hasSize(1);
-        assertThat(response.getFirst().justificacion()).isEqualTo("Meta anual");
+        assertThat(response.getFirst().getJustificacion()).isEqualTo("Meta anual");
+        assertThat(response.getFirst().getMensaje()).isNull();
     }
 
     @Test

@@ -23,31 +23,32 @@ public class LimiteEmisionesService {
     @Transactional
     public LimiteEmisionesResponseDTO guardarLimite(UUID empresaId, LimiteEmisionesRequestDTO request) {
         LimiteEmisiones limite = repository
-                .findByEmpresaIdAndAnio(empresaId, request.anio())
+                .findByEmpresaIdAndAnio(empresaId, request.getAnio())
                 .map(existing -> {
-                    existing.setLimiteMt(request.limiteMt());
-                    existing.setJustificacion(normalizarJustificacion(request.justificacion()));
+                    existing.setLimiteMt(request.getLimiteMt());
+                    existing.setJustificacion(normalizarJustificacion(request.getJustificacion()));
                     return existing;
                 })
                 .orElseGet(() -> new LimiteEmisiones(
                         empresaId,
-                        request.anio(),
-                        request.limiteMt(),
-                        normalizarJustificacion(request.justificacion())
+                        request.getAnio(),
+                        request.getLimiteMt(),
+                        normalizarJustificacion(request.getJustificacion())
                 ));
 
-        return toDto(repository.save(limite));
+        return toDto(repository.save(limite), true);
     }
 
     @Transactional(readOnly = true)
     public Optional<LimiteEmisionesResponseDTO> obtenerLimite(UUID empresaId, Integer anio) {
-        return repository.findByEmpresaIdAndAnio(empresaId, anio).map(this::toDto);
+        return repository.findByEmpresaIdAndAnio(empresaId, anio)
+                .map(limite -> toDto(limite, true));
     }
 
     @Transactional(readOnly = true)
     public List<LimiteEmisionesResponseDTO> listarLimites(UUID empresaId) {
         return repository.findAllByEmpresaIdOrderByAnioDesc(empresaId).stream()
-                .map(this::toDto)
+                .map(limite -> toDto(limite, false))
                 .toList();
     }
 
@@ -58,16 +59,20 @@ public class LimiteEmisionesService {
         repository.delete(limite);
     }
 
-    private LimiteEmisionesResponseDTO toDto(LimiteEmisiones limite) {
+    private LimiteEmisionesResponseDTO toDto(LimiteEmisiones limite, boolean incluirMensaje) {
         return new LimiteEmisionesResponseDTO(
                 limite.getId(),
                 limite.getEmpresaId(),
                 limite.getAnio(),
                 limite.getLimiteMt(),
                 limite.getJustificacion(),
-                "Limite vigente del anio " + limite.getAnio() + ": " + limite.getLimiteMt() + " t CO2e.",
+                incluirMensaje ? mensajeLimite(limite) : null,
                 limite.getActualizadoEn()
         );
+    }
+
+    private String mensajeLimite(LimiteEmisiones limite) {
+        return "Limite vigente del anio " + limite.getAnio() + ": " + limite.getLimiteMt() + " t CO2e.";
     }
 
     private String normalizarJustificacion(String justificacion) {
