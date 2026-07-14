@@ -165,12 +165,28 @@ class PreferenciasUsuarioServiceTest {
     }
 
     @Test
-    void usuarioNoEncontrado_lanzaErrorInterno() {
+    void usuarioNoEncontrado_rechazaCon403() {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.obtenerPreferencias(USUARIO_ID))
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> assertThat(((ApiException) ex).getStatus())
-                        .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR));
+                        .isEqualTo(HttpStatus.FORBIDDEN));
+    }
+
+    @Test
+    void variosValoresInvalidos_reportaTodosLosErroresEnUnSolo422() {
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
+
+        assertThatThrownBy(() -> service.actualizarPreferencias(
+                USUARIO_ID, new PreferenciasUsuarioRequestDTO("FRANCES", "EUR", "IMPERIAL")))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("idioma")
+                .hasMessageContaining("moneda")
+                .hasMessageContaining("unidades")
+                .satisfies(ex -> assertThat(((ApiException) ex).getStatus())
+                        .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY));
+
+        verify(usuarioRepository, never()).saveAndFlush(any(Usuario.class));
     }
 }

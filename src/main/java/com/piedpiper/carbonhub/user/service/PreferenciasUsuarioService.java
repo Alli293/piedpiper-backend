@@ -8,12 +8,15 @@ import com.piedpiper.carbonhub.user.models.enums.Idioma;
 import com.piedpiper.carbonhub.user.models.enums.Moneda;
 import com.piedpiper.carbonhub.user.models.enums.UnidadesMedida;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
-import org.springframework.dao.DataAccessException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -41,19 +44,27 @@ public class PreferenciasUsuarioService {
             UUID usuarioId, PreferenciasUsuarioRequestDTO request) {
         Usuario usuario = buscarUsuario(usuarioId);
 
-        Idioma idioma = Idioma.desde(request.getIdioma())
-                .orElseThrow(() -> ApiException.valorNoSoportado(
-                        "El idioma seleccionado no está soportado."));
-        Moneda moneda = Moneda.desde(request.getMoneda())
-                .orElseThrow(() -> ApiException.valorNoSoportado(
-                        "La moneda seleccionada no está soportada."));
-        UnidadesMedida unidades = UnidadesMedida.desde(request.getUnidades())
-                .orElseThrow(() -> ApiException.valorNoSoportado(
-                        "El sistema de unidades seleccionado no está soportado."));
+        Optional<Idioma> idioma = Idioma.desde(request.getIdioma());
+        Optional<Moneda> moneda = Moneda.desde(request.getMoneda());
+        Optional<UnidadesMedida> unidades = UnidadesMedida.desde(request.getUnidades());
 
-        usuario.setIdioma(idioma.name());
-        usuario.setMoneda(moneda.name());
-        usuario.setUnidades(unidades.name());
+        List<String> errores = new ArrayList<>();
+        if (idioma.isEmpty()) {
+            errores.add("El idioma seleccionado no está soportado.");
+        }
+        if (moneda.isEmpty()) {
+            errores.add("La moneda seleccionada no está soportada.");
+        }
+        if (unidades.isEmpty()) {
+            errores.add("El sistema de unidades seleccionado no está soportado.");
+        }
+        if (!errores.isEmpty()) {
+            throw ApiException.valorNoSoportado(String.join(" ", errores));
+        }
+
+        usuario.setIdioma(idioma.get().name());
+        usuario.setMoneda(moneda.get().name());
+        usuario.setUnidades(unidades.get().name());
 
         try {
             usuarioRepository.saveAndFlush(usuario);
@@ -63,12 +74,12 @@ public class PreferenciasUsuarioService {
                     "No se pudieron guardar tus preferencias. Intenta nuevamente.");
         }
 
-        return PreferenciasUsuarioResponseDTO.de(idioma, moneda, unidades);
+        return PreferenciasUsuarioResponseDTO.de(idioma.get(), moneda.get(), unidades.get());
     }
 
     private Usuario buscarUsuario(UUID usuarioId) {
         return usuarioRepository.findById(usuarioId)
-                .orElseThrow(() -> ApiException.errorInterno(
+                .orElseThrow(() -> ApiException.accesoDenegado(
                         "No se pudo identificar al usuario autenticado."));
     }
 }

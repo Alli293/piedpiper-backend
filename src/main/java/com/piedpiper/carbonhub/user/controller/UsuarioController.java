@@ -1,5 +1,6 @@
 package com.piedpiper.carbonhub.user.controller;
 
+import com.piedpiper.carbonhub.common.Autenticaciones;
 import com.piedpiper.carbonhub.user.models.dtos.PreferenciasUsuarioRequestDTO;
 import com.piedpiper.carbonhub.user.models.dtos.PreferenciasUsuarioResponseDTO;
 import com.piedpiper.carbonhub.user.service.PreferenciasUsuarioService;
@@ -27,7 +28,7 @@ public class UsuarioController {
     @GetMapping
     public ResponseEntity<PreferenciasUsuarioResponseDTO> obtenerPreferencias(
             Authentication authentication) {
-        UUID usuarioId = UUID.fromString(authentication.getName());
+        UUID usuarioId = Autenticaciones.usuarioId(authentication);
         return ResponseEntity.ok(preferenciasUsuarioService.obtenerPreferencias(usuarioId));
     }
 
@@ -35,7 +36,7 @@ public class UsuarioController {
     public ResponseEntity<PreferenciasUsuarioResponseDTO> actualizarPreferencias(
             Authentication authentication,
             @Valid @RequestBody PreferenciasUsuarioRequestDTO request) {
-        UUID usuarioId = UUID.fromString(authentication.getName());
+        UUID usuarioId = Autenticaciones.usuarioId(authentication);
         return ResponseEntity.ok(
                 preferenciasUsuarioService.actualizarPreferencias(usuarioId, request));
     }
