@@ -263,6 +263,33 @@ class InvitacionServiceTest {
     }
 
     @Test
+    void validarParaAceptarExpiradaPersisteElEstadoExpirada() {
+        Invitacion vencida = invitacion(EstadoInvitacion.ENVIADA, Instant.now().minus(1, ChronoUnit.HOURS));
+        when(invitacionRepository.findByTokenHash(any())).thenReturn(Optional.of(vencida));
+
+        assertThatThrownBy(() -> service.validarParaAceptar("token-plano"))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.GONE);
+
+        ArgumentCaptor<Invitacion> captor = ArgumentCaptor.forClass(Invitacion.class);
+        verify(invitacionRepository).save(captor.capture());
+        assertThat(captor.getValue().getEstado()).isEqualTo(EstadoInvitacion.EXPIRADA);
+    }
+
+    @Test
+    void marcarAceptadaGuardaElEstadoYLaFechaDeAceptacion() {
+        Invitacion enviada = invitacion(EstadoInvitacion.ENVIADA, Instant.now().plus(1, ChronoUnit.DAYS));
+
+        service.marcarAceptada(enviada);
+
+        ArgumentCaptor<Invitacion> captor = ArgumentCaptor.forClass(Invitacion.class);
+        verify(invitacionRepository).save(captor.capture());
+        assertThat(captor.getValue().getEstado()).isEqualTo(EstadoInvitacion.ACEPTADA);
+        assertThat(captor.getValue().getFechaAceptacion()).isNotNull();
+    }
+
+    @Test
     void resolverTokenRevocadoLanza409YNoLoConfundeConInexistente() {
         Invitacion revocada = invitacion(EstadoInvitacion.REVOCADA, Instant.now().plus(1, ChronoUnit.DAYS));
         when(invitacionRepository.findByTokenHash(any())).thenReturn(Optional.of(revocada));

@@ -56,6 +56,9 @@ public class Invitacion {
     @Column(name = "fecha_expiracion", nullable = false)
     private Instant fechaExpiracion;
 
+    @Column(name = "fecha_aceptacion")
+    private Instant fechaAceptacion;
+
     public boolean expirada(Instant ahora) {
         return fechaExpiracion.isBefore(ahora);
     }

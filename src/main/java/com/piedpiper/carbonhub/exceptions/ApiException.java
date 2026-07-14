@@ -131,4 +131,10 @@ public class ApiException extends RuntimeException {
         return new ApiException(HttpStatus.CONFLICT,
                 "Esta invitación ya fue utilizada.");
     }
+
+    public static ApiException invitacionCorreoNoCoincide() {
+        return new ApiException(HttpStatus.FORBIDDEN,
+                "La cuenta de Google que seleccionaste no corresponde al correo de esta invitación. "
+                        + "Inicia sesión con la cuenta indicada.");
+    }
 }

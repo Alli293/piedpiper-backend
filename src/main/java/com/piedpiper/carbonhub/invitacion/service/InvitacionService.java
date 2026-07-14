@@ -120,6 +120,13 @@ public class InvitacionService {
 
     @Transactional
     public InvitacionPublicaResponseDTO resolver(String token) {
+        Invitacion invitacion = validarParaAceptar(token);
+        return new InvitacionPublicaResponseDTO(
+                invitacion.getEmail(), invitacion.getEmpresa().getNombreEmpresa());
+    }
+
+    @Transactional
+    public Invitacion validarParaAceptar(String token) {
         Invitacion invitacion = invitacionRepository
                 .findByTokenHash(TokenVerificacionGenerator.hash(token))
                 .orElseThrow(ApiException::invitacionInvalida);
@@ -135,9 +142,14 @@ public class InvitacionService {
             invitacionRepository.save(invitacion);
             throw ApiException.invitacionExpirada();
         }
+        return invitacion;
+    }
 
-        return new InvitacionPublicaResponseDTO(
-                invitacion.getEmail(), invitacion.getEmpresa().getNombreEmpresa());
+    @Transactional
+    public void marcarAceptada(Invitacion invitacion) {
+        invitacion.setEstado(EstadoInvitacion.ACEPTADA);
+        invitacion.setFechaAceptacion(Instant.now());
+        invitacionRepository.save(invitacion);
     }
 
     private Usuario validarAdministrador(UUID usuarioId) {
