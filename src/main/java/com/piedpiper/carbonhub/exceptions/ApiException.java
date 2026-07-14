@@ -114,12 +114,17 @@ public class ApiException extends RuntimeException {
 
     public static ApiException invitacionInvalida() {
         return new ApiException(HttpStatus.NOT_FOUND,
-                "El enlace de invitación no es válido.");
+                "Este enlace de invitación no es válido.");
+    }
+
+    public static ApiException invitacionNoDisponible() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Esta invitación ya no está disponible. Solicita una nueva al administrador de tu empresa.");
     }
 
     public static ApiException invitacionExpirada() {
         return new ApiException(HttpStatus.GONE,
-                "El enlace de invitación expiró. Solicita una nueva invitación.");
+                "Esta invitación ha expirado. Solicita una nueva al administrador de tu empresa.");
     }
 
     public static ApiException invitacionYaUtilizada() {

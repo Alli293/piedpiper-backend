@@ -118,7 +118,7 @@ public class InvitacionService {
         return aDto(invitacion, ahora);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public InvitacionPublicaResponseDTO resolver(String token) {
         Invitacion invitacion = invitacionRepository
                 .findByTokenHash(TokenVerificacionGenerator.hash(token))
@@ -128,9 +128,11 @@ public class InvitacionService {
             throw ApiException.invitacionYaUtilizada();
         }
         if (invitacion.getEstado() != EstadoInvitacion.ENVIADA) {
-            throw ApiException.invitacionInvalida();
+            throw ApiException.invitacionNoDisponible();
         }
         if (invitacion.expirada(Instant.now())) {
+            invitacion.setEstado(EstadoInvitacion.EXPIRADA);
+            invitacionRepository.save(invitacion);
             throw ApiException.invitacionExpirada();
         }
 
