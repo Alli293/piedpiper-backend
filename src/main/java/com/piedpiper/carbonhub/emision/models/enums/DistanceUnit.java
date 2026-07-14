@@ -28,6 +28,6 @@ public enum DistanceUnit {
                 return unit;
             }
         }
-        throw new IllegalArgumentException("Seleccione una unidad valida.");
+        throw new IllegalArgumentException("Seleccione una unidad válida.");
     }
 }

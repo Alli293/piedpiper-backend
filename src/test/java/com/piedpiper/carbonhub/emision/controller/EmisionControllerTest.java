@@ -194,4 +194,30 @@ class EmisionControllerTest {
                         .content(request))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void registroVueloConCabinaInvalidaDevuelve400() throws Exception {
+        String request = "{\"passengers\":2,\"distanceUnit\":\"km\",\"fechaActividad\":\"2026-07-01\","
+                + "\"legs\":[{\"departureAirport\":\"SFO\",\"destinationAirport\":\"YYZ\","
+                + "\"cabinClass\":\"first\"}]}";
+
+        mockMvc.perform(post("/api/emisiones/vuelo")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void registroVueloConUnidadDistanciaInvalidaDevuelve400() throws Exception {
+        String request = "{\"passengers\":2,\"distanceUnit\":\"league\",\"fechaActividad\":\"2026-07-01\","
+                + "\"legs\":[{\"departureAirport\":\"SFO\",\"destinationAirport\":\"YYZ\","
+                + "\"cabinClass\":\"economy\"}]}";
+
+        mockMvc.perform(post("/api/emisiones/vuelo")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isBadRequest());
+    }
 }

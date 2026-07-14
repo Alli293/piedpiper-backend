@@ -55,7 +55,7 @@ public class EmisionConsultaService {
 
     private Emision buscarPropia(UUID id, UUID usuarioId) {
         return emisionRepository.findByIdAndEmpresaId(id, empresaId(usuarioId))
-                .orElseThrow(() -> ApiException.recursoNoEncontrado("No se encontro la emision solicitada."));
+                .orElseThrow(() -> ApiException.recursoNoEncontrado("No se encontró la emisión solicitada."));
     }
 
     private UUID empresaId(UUID usuarioId) {
@@ -74,6 +74,6 @@ public class EmisionConsultaService {
         if (emision instanceof EmisionElectricidad electricidad) {
             return emisionElectricidadMapper.toDto(electricidad);
         }
-        throw ApiException.errorInterno("Tipo de emision no soportado.");
+        throw ApiException.errorInterno("Tipo de emisión no soportado.");
     }
 }

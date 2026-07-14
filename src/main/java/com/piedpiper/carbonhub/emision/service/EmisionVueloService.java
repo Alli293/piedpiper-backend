@@ -67,7 +67,7 @@ public class EmisionVueloService {
         EmisionVuelo emision = emisionRepository.findByIdAndEmpresaId(id, empresaId(usuario))
                 .filter(EmisionVuelo.class::isInstance)
                 .map(EmisionVuelo.class::cast)
-                .orElseThrow(() -> ApiException.recursoNoEncontrado("No se encontro el vuelo solicitado."));
+                .orElseThrow(() -> ApiException.recursoNoEncontrado("No se encontró el vuelo solicitado."));
 
         aplicarDatos(emision, request, Instant.now());
         emision = emisionRepository.save(emision);
@@ -113,7 +113,7 @@ public class EmisionVueloService {
     private String titulo(List<RegistrarVueloRequestDTO.LegDTO> legs) {
         RegistrarVueloRequestDTO.LegDTO first = legs.get(0);
         RegistrarVueloRequestDTO.LegDTO last = legs.get(legs.size() - 1);
-        return "Viaje aereo " + normalizarIata(first.getDepartureAirport())
+        return "Viaje aéreo " + normalizarIata(first.getDepartureAirport())
                 + "-" + normalizarIata(last.getDestinationAirport());
     }
 
