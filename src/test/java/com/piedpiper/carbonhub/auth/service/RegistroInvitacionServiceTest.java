@@ -73,7 +73,7 @@ class RegistroInvitacionServiceTest {
         when(invitacionService.validarParaAceptar("token-invitacion")).thenReturn(invitacion);
         when(googleTokenVerifier.verificar("id-token")).thenReturn(claims("colab@correo.com", true));
         when(usuarioRepository.existsByGoogleSub("sub-1")).thenReturn(false);
-        when(usuarioRepository.existsByEmail("colab@correo.com")).thenReturn(false);
+        when(usuarioRepository.existsByEmailIgnoreCase("colab@correo.com")).thenReturn(false);
         when(usuarioRepository.saveAndFlush(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
         when(jwtService.generar(any(Usuario.class))).thenReturn("jwt-app");
 
@@ -107,7 +107,7 @@ class RegistroInvitacionServiceTest {
         when(invitacionService.validarParaAceptar("token-invitacion")).thenReturn(invitacion());
         when(googleTokenVerifier.verificar("id-token")).thenReturn(claims("Colab@Correo.com", true));
         when(usuarioRepository.existsByGoogleSub(any())).thenReturn(false);
-        when(usuarioRepository.existsByEmail(any())).thenReturn(false);
+        when(usuarioRepository.existsByEmailIgnoreCase(any())).thenReturn(false);
         when(usuarioRepository.saveAndFlush(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
         when(jwtService.generar(any(Usuario.class))).thenReturn("jwt-app");
 

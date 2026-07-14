@@ -118,14 +118,14 @@ public class InvitacionService {
         return aDto(invitacion, ahora);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public InvitacionPublicaResponseDTO resolver(String token) {
         Invitacion invitacion = validarParaAceptar(token);
         return new InvitacionPublicaResponseDTO(
                 invitacion.getEmail(), invitacion.getEmpresa().getNombreEmpresa());
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public Invitacion validarParaAceptar(String token) {
         Invitacion invitacion = invitacionRepository
                 .findByTokenHash(TokenVerificacionGenerator.hash(token))
@@ -134,12 +134,10 @@ public class InvitacionService {
         if (invitacion.getEstado() == EstadoInvitacion.ACEPTADA) {
             throw ApiException.invitacionYaUtilizada();
         }
-        if (invitacion.getEstado() != EstadoInvitacion.ENVIADA) {
+        if (invitacion.getEstado() == EstadoInvitacion.REVOCADA) {
             throw ApiException.invitacionNoDisponible();
         }
-        if (invitacion.expirada(Instant.now())) {
-            invitacion.setEstado(EstadoInvitacion.EXPIRADA);
-            invitacionRepository.save(invitacion);
+        if (invitacion.estadoEfectivo(Instant.now()) == EstadoInvitacion.EXPIRADA) {
             throw ApiException.invitacionExpirada();
         }
         return invitacion;

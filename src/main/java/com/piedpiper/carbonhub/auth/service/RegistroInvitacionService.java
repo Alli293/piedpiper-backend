@@ -48,7 +48,7 @@ public class RegistroInvitacionService {
             throw ApiException.invitacionCorreoNoCoincide();
         }
         if (usuarioRepository.existsByGoogleSub(claims.getSub())
-                || usuarioRepository.existsByEmail(claims.getEmail())) {
+                || usuarioRepository.existsByEmailIgnoreCase(claims.getEmail())) {
             throw ApiException.cuentaDuplicada(
                     "Este correo ya tiene una cuenta en CarbonHub. ¿Deseas iniciar sesión?");
         }
