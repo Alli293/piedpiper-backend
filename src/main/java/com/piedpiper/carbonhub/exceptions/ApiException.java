@@ -51,4 +51,8 @@ public class ApiException extends RuntimeException {
     public static ApiException accesoDenegado(String mensaje) {
         return new ApiException(HttpStatus.FORBIDDEN, mensaje);
     }
+
+    public static ApiException valorNoSoportado(String mensaje) {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, mensaje);
+    }
 }

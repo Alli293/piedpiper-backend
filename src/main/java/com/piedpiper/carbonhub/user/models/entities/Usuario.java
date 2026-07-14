@@ -2,8 +2,11 @@ package com.piedpiper.carbonhub.user.models.entities;
 
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
+import com.piedpiper.carbonhub.user.models.enums.Idioma;
 import com.piedpiper.carbonhub.user.models.enums.MetodoAuth;
+import com.piedpiper.carbonhub.user.models.enums.Moneda;
 import com.piedpiper.carbonhub.user.models.enums.Rol;
+import com.piedpiper.carbonhub.user.models.enums.UnidadesMedida;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -90,6 +93,21 @@ public class Usuario {
 
     @Column(name = "token_verificacion_expiracion")
     private Instant tokenVerificacionExpiracion;
+
+    // Preferencias de interfaz. Se almacenan como texto (y no como @Enumerated)
+    // para que un valor que deje de estar soportado no rompa el mapeo JPA:
+    // el servicio lo resuelve contra el catálogo y aplica el valor por defecto.
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private String idioma = Idioma.POR_DEFECTO.name();
+
+    @Column(nullable = false, length = 10)
+    @Builder.Default
+    private String moneda = Moneda.POR_DEFECTO.name();
+
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private String unidades = UnidadesMedida.POR_DEFECTO.name();
 
     public static String recortarNombre(String nombre) {
         if (nombre == null) {
