@@ -28,6 +28,6 @@ public enum CabinClass {
                 return cabinClass;
             }
         }
-        throw new IllegalArgumentException("Seleccione una clase valida.");
+        throw new IllegalArgumentException("Seleccione una clase válida.");
     }
 }

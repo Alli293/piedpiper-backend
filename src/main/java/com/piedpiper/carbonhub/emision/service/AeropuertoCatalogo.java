@@ -48,7 +48,9 @@ final class AeropuertoCatalogo {
         Aeropuerto aeropuerto = AEROPUERTOS.get(iata);
         if (aeropuerto == null) {
             throw ApiException.calculoVueloInvalido(
-                    "No tenemos coordenadas locales para el aeropuerto " + iata + ".");
+                    "No tenemos coordenadas locales para el aeropuerto " + iata
+                            + ". El catálogo local cubre aeropuertos frecuentes del alcance actual; "
+                            + "contacte al administrador si necesita registrar otro código IATA.");
         }
         return aeropuerto;
     }

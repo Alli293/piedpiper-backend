@@ -42,12 +42,12 @@ public class RegistrarVueloRequestDTO {
     @AllArgsConstructor
     public static class LegDTO {
 
-        @NotBlank(message = "Ingrese un codigo IATA de 3 letras.")
-        @Pattern(regexp = "^[A-Za-z]{3}$", message = "Ingrese un codigo IATA de 3 letras.")
+        @NotBlank(message = "Ingrese un código IATA de 3 letras.")
+        @Pattern(regexp = "^[A-Za-z]{3}$", message = "Ingrese un código IATA de 3 letras.")
         private String departureAirport;
 
-        @NotBlank(message = "Ingrese un codigo IATA de 3 letras.")
-        @Pattern(regexp = "^[A-Za-z]{3}$", message = "Ingrese un codigo IATA de 3 letras.")
+        @NotBlank(message = "Ingrese un código IATA de 3 letras.")
+        @Pattern(regexp = "^[A-Za-z]{3}$", message = "Ingrese un código IATA de 3 letras.")
         private String destinationAirport;
 
         private CabinClass cabinClass = CabinClass.ECONOMY;
