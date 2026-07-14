@@ -2,10 +2,15 @@ package com.piedpiper.carbonhub.emision.controller;
 
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
 import com.piedpiper.carbonhub.auth.service.JwtService;
+import com.piedpiper.carbonhub.emision.models.dtos.EmisionEnvioResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionResponseDTO;
 import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
+import com.piedpiper.carbonhub.emision.models.enums.MetodoTransporte;
+import com.piedpiper.carbonhub.emision.models.enums.UnidadDistancia;
 import com.piedpiper.carbonhub.emision.models.enums.UnidadElectricidad;
+import com.piedpiper.carbonhub.emision.models.enums.UnidadPeso;
 import com.piedpiper.carbonhub.emision.service.EmisionElectricidadService;
+import com.piedpiper.carbonhub.emision.service.EmisionEnvioService;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.junit.jupiter.api.Test;
@@ -53,6 +58,8 @@ class EmisionControllerTest {
 
     @MockitoBean
     private EmisionElectricidadService emisionElectricidadService;
+    @MockitoBean
+    private EmisionEnvioService emisionEnvioService;
     @MockitoBean
     private JwtService jwtService;
     @MockitoBean
@@ -108,6 +115,47 @@ class EmisionControllerTest {
         mockMvc.perform(post("/api/emisiones/electricidad")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(REQUEST_VALIDO))
+                .andExpect(status().isForbidden());
+    }
+
+    // --- Tests para /api/emisiones/envio ---
+
+    private static final String ENVIO_REQUEST_VALIDO = "{\"titulo\":\"Envío de mercancía\","
+            + "\"weightValue\":200,\"weightUnit\":\"KG\",\"distanceValue\":500,"
+            + "\"distanceUnit\":\"KM\",\"transportMethod\":\"TRUCK\",\"fechaActividad\":\"2026-07-01\"}";
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void registroEnvioValidoComoAdministradorEmpresaDevuelve201() throws Exception {
+        EmisionEnvioResponseDTO response = new EmisionEnvioResponseDTO(UUID.randomUUID(), CategoriaEmision.ENVIO,
+                "Envío de mercancía", LocalDate.now(), new BigDecimal("200"), UnidadPeso.KG,
+                new BigDecimal("500"), UnidadDistancia.KM, MetodoTransporte.TRUCK,
+                new BigDecimal("35.50"), new BigDecimal("0.036"), "ci-estimate-id", Instant.now(), Instant.now());
+        when(emisionEnvioService.registrar(any(), any())).thenReturn(response);
+
+        mockMvc.perform(post("/api/emisiones/envio")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(ENVIO_REQUEST_VALIDO))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.carbonKg").value(35.50))
+                .andExpect(jsonPath("$.transportMethod").value("TRUCK"));
+    }
+
+    @Test
+    @WithMockUser(username = "db2ed1e7-6719-4595-844e-68efffe146cf", roles = "AUDITOR_CERTIFICADO")
+    void rolNoAutorizadoEnvioDevuelve403() throws Exception {
+        mockMvc.perform(post("/api/emisiones/envio")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(ENVIO_REQUEST_VALIDO))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "db2ed1e7-6719-4595-844e-68efffe146cf", roles = "USUARIO_GENERAL")
+    void usuarioGeneralEnvioDevuelve403() throws Exception {
+        mockMvc.perform(post("/api/emisiones/envio")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(ENVIO_REQUEST_VALIDO))
                 .andExpect(status().isForbidden());
     }
 }
