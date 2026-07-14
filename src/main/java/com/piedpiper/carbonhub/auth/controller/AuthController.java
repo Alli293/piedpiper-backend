@@ -1,6 +1,7 @@
 package com.piedpiper.carbonhub.auth.controller;
 
 import com.piedpiper.carbonhub.auth.service.LoginService;
+import com.piedpiper.carbonhub.auth.service.RegistroAuditorCorreoService;
 import com.piedpiper.carbonhub.auth.service.RegistroAuditorService;
 import com.piedpiper.carbonhub.auth.service.RegistroEmpresaCorreoService;
 import com.piedpiper.carbonhub.auth.service.RegistroEmpresaService;
@@ -11,6 +12,7 @@ import com.piedpiper.carbonhub.auth.service.VerificarCorreoService;
 import com.piedpiper.carbonhub.auth.models.dtos.AuthResponseDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.LoginRequestDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.MensajeResponseDTO;
+import com.piedpiper.carbonhub.auth.models.dtos.RegistroAuditorCorreoRequestDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.RegistroAuditorRequestDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.RegistroEmpresaCorreoRequestDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.RegistroEmpresaRequestDTO;
@@ -34,6 +36,7 @@ public class AuthController {
     private final RegistroUsuarioService registroUsuarioService;
     private final RegistroEmpresaService registroEmpresaService;
     private final RegistroAuditorService registroAuditorService;
+    private final RegistroAuditorCorreoService registroAuditorCorreoService;
     private final LoginService loginService;
     private final RegistroUsuarioCorreoService registroUsuarioCorreoService;
     private final RegistroEmpresaCorreoService registroEmpresaCorreoService;
@@ -42,6 +45,7 @@ public class AuthController {
     public AuthController(RegistroUsuarioService registroUsuarioService,
                           RegistroEmpresaService registroEmpresaService,
                           RegistroAuditorService registroAuditorService,
+                          RegistroAuditorCorreoService registroAuditorCorreoService,
                           LoginService loginService,
                           RegistroUsuarioCorreoService registroUsuarioCorreoService,
                           RegistroEmpresaCorreoService registroEmpresaCorreoService,
@@ -49,6 +53,7 @@ public class AuthController {
         this.registroUsuarioService = registroUsuarioService;
         this.registroEmpresaService = registroEmpresaService;
         this.registroAuditorService = registroAuditorService;
+        this.registroAuditorCorreoService = registroAuditorCorreoService;
         this.loginService = loginService;
         this.registroUsuarioCorreoService = registroUsuarioCorreoService;
         this.registroEmpresaCorreoService = registroEmpresaCorreoService;
@@ -93,6 +98,13 @@ public class AuthController {
             @Valid @RequestBody RegistroEmpresaCorreoRequestDTO request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(registroEmpresaCorreoService.registrar(request));
+    }
+
+    @PostMapping("/registro/auditor/correo")
+    public ResponseEntity<RegistroPendienteResponseDTO> registrarAuditorCorreo(
+            @Valid @RequestBody RegistroAuditorCorreoRequestDTO request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(registroAuditorCorreoService.registrar(request));
     }
 
     @GetMapping("/verificar-correo")

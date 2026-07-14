@@ -47,6 +47,7 @@ DB_PASSWORD
 JWT_SECRET
 JWT_EXPIRATION
 GEMINI_API_KEY
+CLIMATIQ_API_KEY
 ```
 
 #### Ejemplo de variables de entorno
@@ -59,8 +60,9 @@ GEMINI_API_KEY
 | `JWT_SECRET` | Clave secreta para firmar los JWT (Base64, mínimo 256 bits) | `your_jwt_secret_here` |
 | `JWT_EXPIRATION` | Tiempo de expiración del token en milisegundos | `3600000` (1 hora) |
 | `GEMINI_API_KEY` | API Key de Google Gemini (Spring AI) | `your_gemini_api_key_here` |
+| `CLIMATIQ_API_KEY` | API Key de Climatiq (climatiq.io) | `your_climatiq_api_key_here` |
 
-> ⚠️ **Importante:** `JWT_SECRET` y `GEMINI_API_KEY` son credenciales sensibles. El valor real de cada una debe compartirse por un canal privado del equipo.
+> ⚠️ **Importante:** `JWT_SECRET`, `GEMINI_API_KEY` y `CLIMATIQ_API_KEY` son credenciales sensibles. El valor real de cada una debe compartirse por un canal privado del equipo.
 
 
 #### Configuración en IntelliJ

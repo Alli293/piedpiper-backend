@@ -86,6 +86,7 @@ public class ConfiguracionInicialEmpresaService {
         }
 
         usuario.setEmpresa(empresaGuardada);
+        usuario.setConfiguracionCompleta(true);
         usuarioRepository.saveAndFlush(usuario);
 
         return new ConfiguracionInicialEmpresaResponseDTO(

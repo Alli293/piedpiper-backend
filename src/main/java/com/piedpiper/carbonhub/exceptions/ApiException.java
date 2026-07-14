@@ -54,5 +54,39 @@ public class ApiException extends RuntimeException {
 
     public static ApiException valorNoSoportado(String mensaje) {
         return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, mensaje);
+      
+    public static ApiException calculoInvalido(String mensajeServicio) {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "No se pudo calcular la huella: " + mensajeServicio + ". Verifique los datos ingresados.");
+    }
+
+    public static ApiException calculoConfiguracion() {
+        return new ApiException(HttpStatus.BAD_GATEWAY,
+                "Error de configuración del servicio de cálculo. Contacte al administrador.");
+    }
+
+    public static ApiException calculoSaturado() {
+        return new ApiException(HttpStatus.TOO_MANY_REQUESTS,
+                "El servicio de cálculo está temporalmente saturado. Intente de nuevo en unos minutos.");
+    }
+
+    public static ApiException calculoNoDisponible() {
+        return new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
+                "No se pudo conectar con el servicio de cálculo de huella. Intente nuevamente más tarde.");
+    }
+
+    public static ApiException calculoRespuestaInvalida() {
+        return new ApiException(HttpStatus.BAD_GATEWAY,
+                "El servicio de cálculo devolvió una respuesta incompleta. Intente nuevamente más tarde.");
+    }
+
+    public static ApiException calculoUnidadNoSoportada(String unidad) {
+        return new ApiException(HttpStatus.BAD_GATEWAY,
+                "El servicio de cálculo devolvió una unidad no soportada (" + unidad + ").");
+    }
+
+    public static ApiException empresaNoConfigurada() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "Debes completar la configuración de tu empresa antes de registrar emisiones.");
     }
 }
