@@ -2,7 +2,9 @@ package com.piedpiper.carbonhub.emision.models.dtos;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
-import com.piedpiper.carbonhub.emision.models.enums.UnidadElectricidad;
+import com.piedpiper.carbonhub.emision.models.enums.MetodoTransporte;
+import com.piedpiper.carbonhub.emision.models.enums.UnidadDistancia;
+import com.piedpiper.carbonhub.emision.models.enums.UnidadPeso;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -17,14 +19,17 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class EmisionResponseDTO {
+public class EmisionEnvioResponseDTO {
 
     private UUID id;
     private CategoriaEmision categoria;
     private String titulo;
     private LocalDate fechaActividad;
-    private BigDecimal electricityValue;
-    private UnidadElectricidad electricityUnit;
+    private BigDecimal weightValue;
+    private UnidadPeso weightUnit;
+    private BigDecimal distanceValue;
+    private UnidadDistancia distanceUnit;
+    private MetodoTransporte transportMethod;
     private BigDecimal carbonKg;
     private BigDecimal carbonMt;
     private String factorEmisionId;

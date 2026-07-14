@@ -1,8 +1,11 @@
 package com.piedpiper.carbonhub.emision.controller;
 
+import com.piedpiper.carbonhub.emision.models.dtos.EmisionEnvioResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.RegistrarElectricidadRequestDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.RegistrarEnvioRequestDTO;
 import com.piedpiper.carbonhub.emision.service.EmisionElectricidadService;
+import com.piedpiper.carbonhub.emision.service.EmisionEnvioService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 
 import jakarta.validation.Valid;
@@ -23,9 +26,12 @@ import java.util.UUID;
 public class EmisionController {
 
     private final EmisionElectricidadService emisionElectricidadService;
+    private final EmisionEnvioService emisionEnvioService;
 
-    public EmisionController(EmisionElectricidadService emisionElectricidadService) {
+    public EmisionController(EmisionElectricidadService emisionElectricidadService,
+                             EmisionEnvioService emisionEnvioService) {
         this.emisionElectricidadService = emisionElectricidadService;
+        this.emisionEnvioService = emisionEnvioService;
     }
 
     @PostMapping("/electricidad")
@@ -34,6 +40,15 @@ public class EmisionController {
             @Valid @RequestBody RegistrarElectricidadRequestDTO request) {
         UUID usuarioId = usuarioIdAutenticado();
         EmisionResponseDTO response = emisionElectricidadService.registrar(request, usuarioId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping("/envio")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
+    public ResponseEntity<EmisionEnvioResponseDTO> registrarEnvio(
+            @Valid @RequestBody RegistrarEnvioRequestDTO request) {
+        UUID usuarioId = usuarioIdAutenticado();
+        EmisionEnvioResponseDTO response = emisionEnvioService.registrar(request, usuarioId);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
