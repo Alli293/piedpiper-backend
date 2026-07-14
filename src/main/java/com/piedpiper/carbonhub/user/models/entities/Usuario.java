@@ -94,18 +94,15 @@ public class Usuario {
     @Column(name = "token_verificacion_expiracion")
     private Instant tokenVerificacionExpiracion;
 
-    // Preferencias de interfaz. Se almacenan como texto (y no como @Enumerated)
-    // para que un valor que deje de estar soportado no rompa el mapeo JPA:
-    // el servicio lo resuelve contra el catálogo y aplica el valor por defecto.
-    @Column(nullable = false, length = 20)
+    @Column(length = 20)
     @Builder.Default
     private String idioma = Idioma.POR_DEFECTO.name();
 
-    @Column(nullable = false, length = 10)
+    @Column(length = 10)
     @Builder.Default
     private String moneda = Moneda.POR_DEFECTO.name();
 
-    @Column(nullable = false, length = 20)
+    @Column(length = 20)
     @Builder.Default
     private String unidades = UnidadesMedida.POR_DEFECTO.name();
 

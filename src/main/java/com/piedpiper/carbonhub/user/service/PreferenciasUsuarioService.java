@@ -8,6 +8,7 @@ import com.piedpiper.carbonhub.user.models.enums.Idioma;
 import com.piedpiper.carbonhub.user.models.enums.Moneda;
 import com.piedpiper.carbonhub.user.models.enums.UnidadesMedida;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
+import org.springframework.dao.DataAccessException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -26,10 +27,6 @@ public class PreferenciasUsuarioService {
         this.usuarioRepository = usuarioRepository;
     }
 
-    /**
-     * Lee las preferencias almacenadas en el perfil. Si un valor almacenado
-     * dejó de estar soportado, se resuelve al valor por defecto sin error.
-     */
     @Transactional(readOnly = true)
     public PreferenciasUsuarioResponseDTO obtenerPreferencias(UUID usuarioId) {
         Usuario usuario = buscarUsuario(usuarioId);
@@ -39,10 +36,6 @@ public class PreferenciasUsuarioService {
                 UnidadesMedida.desde(usuario.getUnidades()).orElse(UnidadesMedida.POR_DEFECTO));
     }
 
-    /**
-     * Persiste las preferencias del usuario. Solo acepta valores del catálogo
-     * soportado; un valor fuera de catálogo se rechaza con 422.
-     */
     @Transactional
     public PreferenciasUsuarioResponseDTO actualizarPreferencias(
             UUID usuarioId, PreferenciasUsuarioRequestDTO request) {
@@ -64,7 +57,7 @@ public class PreferenciasUsuarioService {
 
         try {
             usuarioRepository.saveAndFlush(usuario);
-        } catch (Exception e) {
+        } catch (DataAccessException e) {
             log.error("Error inesperado al guardar las preferencias del usuario {}", usuarioId, e);
             throw ApiException.errorInterno(
                     "No se pudieron guardar tus preferencias. Intenta nuevamente.");

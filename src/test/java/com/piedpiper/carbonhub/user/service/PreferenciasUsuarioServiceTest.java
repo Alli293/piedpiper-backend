@@ -136,6 +136,21 @@ class PreferenciasUsuarioServiceTest {
     }
 
     @Test
+    void valorAlmacenadoNulo_aplicaElDefaultSinError() {
+        Usuario usuario = usuario();
+        usuario.setIdioma(null);
+        usuario.setMoneda(null);
+        usuario.setUnidades(null);
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario));
+
+        PreferenciasUsuarioResponseDTO response = service.obtenerPreferencias(USUARIO_ID);
+
+        assertThat(response.getIdioma()).isEqualTo("ESPANOL");
+        assertThat(response.getMoneda()).isEqualTo("CRC");
+        assertThat(response.getUnidades()).isEqualTo("METRICO");
+    }
+
+    @Test
     void fallaDePersistencia_lanza500ConMensajeDeReintento() {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
         when(usuarioRepository.saveAndFlush(any(Usuario.class)))

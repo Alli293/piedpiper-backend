@@ -1,6 +1,7 @@
 package com.piedpiper.carbonhub.user.models.enums;
 
-import java.util.Arrays;
+import com.piedpiper.carbonhub.common.Catalogos;
+
 import java.util.Optional;
 
 public enum Idioma {
@@ -10,12 +11,6 @@ public enum Idioma {
     public static final Idioma POR_DEFECTO = ESPANOL;
 
     public static Optional<Idioma> desde(String valor) {
-        if (valor == null) {
-            return Optional.empty();
-        }
-        String normalizado = valor.trim();
-        return Arrays.stream(values())
-                .filter(idioma -> idioma.name().equalsIgnoreCase(normalizado))
-                .findFirst();
+        return Catalogos.desde(Idioma.class, valor);
     }
 }
