@@ -52,6 +52,10 @@ public class ApiException extends RuntimeException {
         return new ApiException(HttpStatus.FORBIDDEN, mensaje);
     }
 
+    public static ApiException valorNoSoportado(String mensaje) {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, mensaje);
+    }
+  
     public static ApiException calculoInvalido(String mensajeServicio) {
         return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
                 "No se pudo calcular la huella: " + mensajeServicio + ". Verifique los datos ingresados.");
