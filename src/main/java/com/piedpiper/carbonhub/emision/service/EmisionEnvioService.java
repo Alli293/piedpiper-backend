@@ -48,6 +48,10 @@ public class EmisionEnvioService {
         Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> ApiException.errorInterno("No se pudo identificar al usuario autenticado."));
 
+        if (usuario.getEmpresa() == null) {
+            throw ApiException.empresaNoConfigurada();
+        }
+
         ClimatiqEstimateResponse estimacion = climatiqClient.estimar(
                 new ClimatiqEmissionFactorSelector(ACTIVITY_ID, DATA_VERSION, REGION),
                 Map.of(
@@ -56,6 +60,10 @@ public class EmisionEnvioService {
                         "distance", request.getDistanceValue(),
                         "distance_unit", climatiqDistanceUnit(request.getDistanceUnit())));
 
+        if (!"kg".equalsIgnoreCase(estimacion.co2eUnit())) {
+            throw ApiException.calculoUnidadNoSoportada(estimacion.co2eUnit());
+        }
+
         BigDecimal carbonKg = estimacion.co2e();
         if (carbonKg == null) {
             throw ApiException.errorInterno("El servicio de cálculo no devolvió un resultado válido.");
@@ -63,6 +71,7 @@ public class EmisionEnvioService {
         BigDecimal carbonMt = carbonKg.divide(BigDecimal.valueOf(1000), 3, RoundingMode.HALF_UP);
 
         EmisionEnvio emision = EmisionEnvio.builder()
+                .empresaId(usuario.getEmpresa().getId())
                 .titulo(request.getTitulo())
                 .fechaActividad(request.getFechaActividad())
                 .weightValue(request.getWeightValue())
@@ -70,7 +79,6 @@ public class EmisionEnvioService {
                 .distanceValue(request.getDistanceValue())
                 .distanceUnit(request.getDistanceUnit())
                 .transportMethod(request.getTransportMethod())
-                // TODO: asignar empresaId desde usuario cuando la entidad Usuario tenga el campo (deuda técnica)
                 .carbonKg(carbonKg)
                 .carbonMt(carbonMt)
                 .factorEmisionId(estimacion.emissionFactor().id())

@@ -61,7 +61,11 @@ class EmisionEnvioServiceTest {
     }
 
     private Usuario usuario() {
-        return Usuario.builder().id(USUARIO_ID).build();
+        com.piedpiper.carbonhub.empresa.models.entities.Empresa empresa =
+                com.piedpiper.carbonhub.empresa.models.entities.Empresa.builder()
+                        .id(UUID.randomUUID())
+                        .build();
+        return Usuario.builder().id(USUARIO_ID).empresa(empresa).build();
     }
 
     private ClimatiqEstimateResponse estimacion(BigDecimal co2e) {
@@ -108,6 +112,20 @@ class EmisionEnvioServiceTest {
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+
+        verify(climatiqClient, never()).estimar(any(), any());
+        verify(emisionRepository, never()).save(any());
+    }
+
+    @Test
+    void usuarioSinEmpresaLanza422() {
+        Usuario sinEmpresa = Usuario.builder().id(USUARIO_ID).build();
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(sinEmpresa));
+
+        assertThatThrownBy(() -> service.registrar(requestValido(), USUARIO_ID))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
 
         verify(climatiqClient, never()).estimar(any(), any());
         verify(emisionRepository, never()).save(any());
