@@ -22,7 +22,10 @@ final class CatalogoVehiculoFlota {
     }
 
     static List<Combustible> combustiblesValidos(TipoVehiculo tipoVehiculo) {
-        return List.copyOf(ACTIVITY_IDS.get(tipoVehiculo).keySet());
+        return Optional.ofNullable(ACTIVITY_IDS.get(tipoVehiculo))
+                .map(porCombustible -> List.copyOf(porCombustible.keySet()))
+                .orElseThrow(() -> new IllegalStateException(
+                        "Tipo de vehículo sin catálogo de combustibles: " + tipoVehiculo));
     }
 
     static Optional<String> activityId(TipoVehiculo tipoVehiculo, Combustible combustible) {

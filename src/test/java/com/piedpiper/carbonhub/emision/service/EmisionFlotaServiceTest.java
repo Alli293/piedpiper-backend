@@ -135,6 +135,27 @@ class EmisionFlotaServiceTest {
     }
 
     @Test
+    void enviaDistanceUnitMiCuandoSeSeleccionaMillas() {
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
+        when(climatiqClient.estimar(any(), any())).thenReturn(estimacion(new BigDecimal("22.85")));
+        when(emisionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(emisionFlotaMapper.toDto(any())).thenReturn(new EmisionFlotaResponseDTO());
+
+        RegistrarFlotaRequestDTO request = new RegistrarFlotaRequestDTO(
+                "Recorrido Toyota Corolla", TipoVehiculo.AUTOMOVIL, Combustible.GASOLINA,
+                new BigDecimal("100"), UnidadDistancia.MI, LocalDate.now());
+
+        service.registrar(request, USUARIO_ID);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, Object>> parametersCaptor = ArgumentCaptor.forClass(Map.class);
+        verify(climatiqClient).estimar(any(), parametersCaptor.capture());
+        assertThat(parametersCaptor.getValue())
+                .containsEntry("distance", new BigDecimal("100"))
+                .containsEntry("distance_unit", "mi");
+    }
+
+    @Test
     void combinacionTipoVehiculoCombustibleInvalidaNoInvocaClimatiqNiGuardado() {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
         RegistrarFlotaRequestDTO request = new RegistrarFlotaRequestDTO(

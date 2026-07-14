@@ -34,11 +34,11 @@ public class RegistrarFlotaRequestDTO {
 
     @NotNull(message = "Ingrese una distancia mayor que 0.")
     @DecimalMin(value = "0", inclusive = false, message = "Ingrese una distancia mayor que 0.")
-    @Digits(integer = 12, fraction = 3, message = "Ingrese una distancia mayor que 0.")
+    @Digits(integer = 9, fraction = 3, message = "Ingrese una distancia mayor que 0.")
     private BigDecimal distanceValue;
 
     @NotNull(message = "Seleccione una unidad válida.")
-    private UnidadDistancia distanceUnit = UnidadDistancia.KM;
+    private UnidadDistancia distanceUnit;
 
     @NotNull(message = "Ingrese una fecha para este registro. ")
     @PastOrPresent(message = "La fecha no puede ser posterior a hoy.")
