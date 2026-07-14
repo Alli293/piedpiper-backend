@@ -90,4 +90,49 @@ public class ApiException extends RuntimeException {
         return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
                 "Debes completar la configuración de tu empresa antes de registrar emisiones.");
     }
+
+    public static ApiException invitacionCorreoYaEnEmpresa() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Esta persona ya forma parte de tu empresa.");
+    }
+
+    public static ApiException invitacionPendiente() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Ya existe una invitación pendiente para este correo.");
+    }
+
+    public static ApiException invitacionSinEmpresa() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "Debes completar la configuración de tu empresa antes de invitar colaboradores.");
+    }
+
+    public static ApiException invitacionNoEncontrada() {
+        return new ApiException(HttpStatus.NOT_FOUND,
+                "La invitación no existe.");
+    }
+
+    public static ApiException invitacionNoRevocable() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Solo se pueden revocar invitaciones pendientes.");
+    }
+
+    public static ApiException invitacionInvalida() {
+        return new ApiException(HttpStatus.NOT_FOUND,
+                "Este enlace de invitación no es válido.");
+    }
+
+    public static ApiException invitacionNoDisponible() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Esta invitación ya no está disponible. Solicita una nueva al administrador de tu empresa.");
+    }
+
+    public static ApiException invitacionExpirada() {
+        return new ApiException(HttpStatus.GONE,
+                "Esta invitación ha expirado. Solicita una nueva al administrador de tu empresa.");
+    }
+
+    public static ApiException invitacionYaUtilizada() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Esta invitación ya fue utilizada.");
+    }
 }
