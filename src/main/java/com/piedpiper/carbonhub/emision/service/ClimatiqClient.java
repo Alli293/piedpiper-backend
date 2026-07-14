@@ -4,8 +4,6 @@ import com.piedpiper.carbonhub.emision.models.dtos.climatiq.ClimatiqEmissionFact
 import com.piedpiper.carbonhub.emision.models.dtos.climatiq.ClimatiqErrorResponse;
 import com.piedpiper.carbonhub.emision.models.dtos.climatiq.ClimatiqEstimateRequest;
 import com.piedpiper.carbonhub.emision.models.dtos.climatiq.ClimatiqEstimateResponse;
-import com.piedpiper.carbonhub.emision.models.dtos.climatiq.ClimatiqTravelDistanceRequest;
-import com.piedpiper.carbonhub.emision.models.dtos.climatiq.ClimatiqTravelDistanceResponse;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 
 import org.slf4j.Logger;
@@ -63,10 +61,6 @@ public class ClimatiqClient {
         ClimatiqEstimateResponse response = post("/data/v1/estimate", request, ClimatiqEstimateResponse.class);
         validarRespuesta(response);
         return response;
-    }
-
-    public ClimatiqTravelDistanceResponse estimarDistanciaViaje(ClimatiqTravelDistanceRequest request) {
-        return post("/travel/v1/distance", request, ClimatiqTravelDistanceResponse.class);
     }
 
     private <T> T post(String uri, Object request, Class<T> responseType) {

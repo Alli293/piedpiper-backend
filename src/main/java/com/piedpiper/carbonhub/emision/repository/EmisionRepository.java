@@ -14,7 +14,7 @@ public interface EmisionRepository extends JpaRepository<Emision, UUID> {
 
     Page<Emision> findByEmpresaId(UUID empresaId, Pageable pageable);
 
-    List<Emision> findAllByCreatedByUserIdOrderByCreatedAtDesc(UUID createdByUserId);
+    List<Emision> findAllByEmpresaIdOrderByCreatedAtDesc(UUID empresaId);
 
-    Optional<Emision> findByIdAndCreatedByUserId(UUID id, UUID createdByUserId);
+    Optional<Emision> findByIdAndEmpresaId(UUID id, UUID empresaId);
 }
