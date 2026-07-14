@@ -3,6 +3,7 @@ package com.piedpiper.carbonhub.emision.service;
 import com.piedpiper.carbonhub.emision.mappers.EmisionVueloMapper;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.RegistrarVueloRequestDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.VueloResponseDTO;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionVuelo;
 import com.piedpiper.carbonhub.emision.models.enums.CabinClass;
 import com.piedpiper.carbonhub.emision.models.enums.DistanceUnit;
@@ -73,7 +74,7 @@ class EmisionVueloServiceTest {
     void registroExitosoCalculaCadaLegYPersisteCarbonKg() {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
         when(emisionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        EmisionResponseDTO responseEsperado = new EmisionResponseDTO();
+        VueloResponseDTO responseEsperado = new VueloResponseDTO();
         responseEsperado.setCarbonKg(new BigDecimal("2364.788"));
         when(emisionVueloMapper.toDto(any())).thenReturn(responseEsperado);
 
@@ -117,7 +118,7 @@ class EmisionVueloServiceTest {
     void registroRespetaUnidadMillasDelRequest() {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
         when(emisionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        when(emisionVueloMapper.toDto(any())).thenReturn(new EmisionResponseDTO());
+        when(emisionVueloMapper.toDto(any())).thenReturn(new VueloResponseDTO());
         RegistrarVueloRequestDTO request = requestValido();
         request.setDistanceUnit(DistanceUnit.MI);
 
@@ -141,7 +142,7 @@ class EmisionVueloServiceTest {
         when(emisionRepository.findByIdAndEmpresaId(emisionId, EMPRESA_ID))
                 .thenReturn(Optional.of(existente));
         when(emisionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        when(emisionVueloMapper.toDto(any())).thenReturn(new EmisionResponseDTO());
+        when(emisionVueloMapper.toDto(any())).thenReturn(new VueloResponseDTO());
 
         service.actualizar(emisionId, requestValido(), USUARIO_ID);
 
