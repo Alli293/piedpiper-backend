@@ -9,13 +9,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class EnvioCorreoInvitacionTest {
+class EnvioCorreoInvitacionServiceTest {
 
     @Test
     void envioExitosoNoReintenta() throws Exception {
         AtomicInteger intentos = new AtomicInteger();
         EmailInvitacionService email = (destinatario, empresa, token) -> intentos.incrementAndGet();
-        EnvioCorreoInvitacion envio = new EnvioCorreoInvitacion(email, 5);
+        EnvioCorreoInvitacionService envio = new EnvioCorreoInvitacionService(email, 5);
 
         envio.enviar("colab@correo.com", "Acme S.A.", "token");
         Thread.sleep(50);
@@ -30,7 +30,7 @@ class EnvioCorreoInvitacionTest {
             latch.countDown();
             throw new IllegalStateException("smtp caido");
         };
-        EnvioCorreoInvitacion envio = new EnvioCorreoInvitacion(email, 5);
+        EnvioCorreoInvitacionService envio = new EnvioCorreoInvitacionService(email, 5);
 
         envio.enviar("colab@correo.com", "Acme S.A.", "token");
 
@@ -47,7 +47,7 @@ class EnvioCorreoInvitacionTest {
                 throw new IllegalStateException("smtp caido");
             }
         };
-        EnvioCorreoInvitacion envio = new EnvioCorreoInvitacion(email, 5);
+        EnvioCorreoInvitacionService envio = new EnvioCorreoInvitacionService(email, 5);
 
         envio.enviar("colab@correo.com", "Acme S.A.", "token");
 

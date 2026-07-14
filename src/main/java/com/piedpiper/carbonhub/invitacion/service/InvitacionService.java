@@ -13,10 +13,13 @@ import com.piedpiper.carbonhub.user.models.enums.Rol;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 @Service
@@ -26,24 +29,24 @@ public class InvitacionService {
 
     private final InvitacionRepository invitacionRepository;
     private final UsuarioRepository usuarioRepository;
-    private final EnvioCorreoInvitacion envioCorreoInvitacion;
+    private final EnvioCorreoInvitacionService envioCorreoInvitacionService;
 
     public InvitacionService(InvitacionRepository invitacionRepository,
                              UsuarioRepository usuarioRepository,
-                             EnvioCorreoInvitacion envioCorreoInvitacion) {
+                             EnvioCorreoInvitacionService envioCorreoInvitacionService) {
         this.invitacionRepository = invitacionRepository;
         this.usuarioRepository = usuarioRepository;
-        this.envioCorreoInvitacion = envioCorreoInvitacion;
+        this.envioCorreoInvitacionService = envioCorreoInvitacionService;
     }
 
     @Transactional
     public InvitacionResponseDTO emitir(UUID usuarioId, InvitacionRequestDTO request) {
         Usuario administrador = validarAdministrador(usuarioId);
         UUID empresaId = administrador.getEmpresa().getId();
-        String email = request.getEmail().trim();
+        String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
         Instant ahora = Instant.now();
 
-        usuarioRepository.findByEmail(email).ifPresent(usuario -> {
+        usuarioRepository.findByEmailIgnoreCase(email).ifPresent(usuario -> {
             if (usuario.getEmpresa() != null && empresaId.equals(usuario.getEmpresa().getId())) {
                 throw ApiException.invitacionCorreoYaEnEmpresa();
             }
@@ -67,9 +70,22 @@ public class InvitacionService {
 
         invitacion = invitacionRepository.save(invitacion);
 
-        envioCorreoInvitacion.enviar(email, administrador.getEmpresa().getNombreEmpresa(), token);
+        enviarTrasCommit(email, administrador.getEmpresa().getNombreEmpresa(), token);
 
         return aDto(invitacion, ahora);
+    }
+
+    private void enviarTrasCommit(String email, String nombreEmpresa, String token) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    envioCorreoInvitacionService.enviar(email, nombreEmpresa, token);
+                }
+            });
+        } else {
+            envioCorreoInvitacionService.enviar(email, nombreEmpresa, token);
+        }
     }
 
     @Transactional(readOnly = true)

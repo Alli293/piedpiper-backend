@@ -42,7 +42,7 @@ class InvitacionServiceTest {
     @Mock
     private UsuarioRepository usuarioRepository;
     @Mock
-    private EnvioCorreoInvitacion envioCorreoInvitacion;
+    private EnvioCorreoInvitacionService envioCorreoInvitacionService;
 
     @InjectMocks
     private InvitacionService service;
@@ -73,7 +73,7 @@ class InvitacionServiceTest {
     @Test
     void emitirCreaInvitacionConExpiracionDeSieteDiasYEnviaCorreo() {
         when(usuarioRepository.findById(ADMIN_ID)).thenReturn(Optional.of(administrador()));
-        when(usuarioRepository.findByEmail("colab@correo.com")).thenReturn(Optional.empty());
+        when(usuarioRepository.findByEmailIgnoreCase("colab@correo.com")).thenReturn(Optional.empty());
         when(invitacionRepository.existsByEmpresaIdAndEmailIgnoreCaseAndEstadoAndFechaExpiracionAfter(
                 eq(EMPRESA_ID), eq("colab@correo.com"), eq(EstadoInvitacion.ENVIADA), any()))
                 .thenReturn(false);
@@ -90,7 +90,7 @@ class InvitacionServiceTest {
         assertThat(guardada.getFechaExpiracion())
                 .isCloseTo(guardada.getFechaEmision().plus(7, ChronoUnit.DAYS),
                         org.assertj.core.api.Assertions.within(1, ChronoUnit.MINUTES));
-        verify(envioCorreoInvitacion).enviar(eq("colab@correo.com"), eq("Acme S.A."), any());
+        verify(envioCorreoInvitacionService).enviar(eq("colab@correo.com"), eq("Acme S.A."), any());
         assertThat(response.getEstado()).isEqualTo("ENVIADA");
     }
 
@@ -98,7 +98,7 @@ class InvitacionServiceTest {
     void emitirConCorreoDeUsuarioDeLaMismaEmpresaLanza409YNoPersiste() {
         Usuario existente = Usuario.builder().id(UUID.randomUUID()).empresa(empresa()).build();
         when(usuarioRepository.findById(ADMIN_ID)).thenReturn(Optional.of(administrador()));
-        when(usuarioRepository.findByEmail("colab@correo.com")).thenReturn(Optional.of(existente));
+        when(usuarioRepository.findByEmailIgnoreCase("colab@correo.com")).thenReturn(Optional.of(existente));
 
         assertThatThrownBy(() -> service.emitir(ADMIN_ID, new InvitacionRequestDTO("colab@correo.com")))
                 .isInstanceOf(ApiException.class)
@@ -108,9 +108,23 @@ class InvitacionServiceTest {
     }
 
     @Test
+    void emitirNormalizaElCorreoYDetectaAlUsuarioAunConDistintaCapitalizacion() {
+        Usuario existente = Usuario.builder().id(UUID.randomUUID()).empresa(empresa()).build();
+        when(usuarioRepository.findById(ADMIN_ID)).thenReturn(Optional.of(administrador()));
+        when(usuarioRepository.findByEmailIgnoreCase("colab@correo.com"))
+                .thenReturn(Optional.of(existente));
+
+        assertThatThrownBy(() -> service.emitir(ADMIN_ID, new InvitacionRequestDTO("  Colab@Correo.COM  ")))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.CONFLICT);
+        verify(invitacionRepository, never()).save(any());
+    }
+
+    @Test
     void emitirConInvitacionPendienteLanza409YNoPersiste() {
         when(usuarioRepository.findById(ADMIN_ID)).thenReturn(Optional.of(administrador()));
-        when(usuarioRepository.findByEmail("colab@correo.com")).thenReturn(Optional.empty());
+        when(usuarioRepository.findByEmailIgnoreCase("colab@correo.com")).thenReturn(Optional.empty());
         when(invitacionRepository.existsByEmpresaIdAndEmailIgnoreCaseAndEstadoAndFechaExpiracionAfter(
                 eq(EMPRESA_ID), eq("colab@correo.com"), eq(EstadoInvitacion.ENVIADA), any()))
                 .thenReturn(true);

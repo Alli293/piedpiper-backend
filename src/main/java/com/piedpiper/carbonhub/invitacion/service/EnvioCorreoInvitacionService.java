@@ -13,16 +13,16 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 @Component
-public class EnvioCorreoInvitacion {
+public class EnvioCorreoInvitacionService {
 
-    private static final Logger log = LoggerFactory.getLogger(EnvioCorreoInvitacion.class);
+    private static final Logger log = LoggerFactory.getLogger(EnvioCorreoInvitacionService.class);
     private static final int MAX_REINTENTOS = 3;
 
     private final EmailInvitacionService emailInvitacionService;
     private final long intervaloReintentoMs;
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
-    public EnvioCorreoInvitacion(EmailInvitacionService emailInvitacionService,
+    public EnvioCorreoInvitacionService(EmailInvitacionService emailInvitacionService,
                                  @Value("${invitacion.reintento-intervalo-ms:300000}") long intervaloReintentoMs) {
         this.emailInvitacionService = emailInvitacionService;
         this.intervaloReintentoMs = intervaloReintentoMs;
