@@ -33,7 +33,7 @@ public class RegistrarVueloRequestDTO {
 
     private DistanceUnit distanceUnit = DistanceUnit.KM;
 
-    @NotNull(message = "La fecha no puede ser posterior a hoy.")
+    @NotNull(message = "Ingrese la fecha del vuelo.")
     @PastOrPresent(message = "La fecha no puede ser posterior a hoy.")
     private LocalDate fechaActividad;
 

@@ -7,6 +7,7 @@ import com.piedpiper.carbonhub.emision.models.entities.EmisionVuelo;
 import com.piedpiper.carbonhub.emision.models.enums.CabinClass;
 import com.piedpiper.carbonhub.emision.models.enums.DistanceUnit;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
+import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
@@ -37,6 +38,7 @@ import static org.mockito.Mockito.when;
 class EmisionVueloServiceTest {
 
     private static final UUID USUARIO_ID = UUID.randomUUID();
+    private static final UUID EMPRESA_ID = UUID.randomUUID();
 
     @Spy
     private EmisionVueloLocalCalculator calculator = new EmisionVueloLocalCalculator();
@@ -61,7 +63,10 @@ class EmisionVueloServiceTest {
     }
 
     private Usuario usuario() {
-        return Usuario.builder().id(USUARIO_ID).build();
+        return Usuario.builder()
+                .id(USUARIO_ID)
+                .empresa(Empresa.builder().id(EMPRESA_ID).build())
+                .build();
     }
 
     @Test
@@ -80,6 +85,8 @@ class EmisionVueloServiceTest {
 
         assertThat(guardada.getCarbonKg()).isEqualByComparingTo("2364.788");
         assertThat(guardada.getCarbonMt()).isEqualByComparingTo("2.365");
+        assertThat(guardada.getEmpresaId()).isEqualTo(EMPRESA_ID);
+        assertThat(guardada.getCreatedByUserId()).isEqualTo(USUARIO_ID);
         assertThat(guardada.getDistanceUnit()).isEqualTo(DistanceUnit.KM);
         assertThat(guardada.getDistanceValue()).isEqualByComparingTo("7908.990");
         assertThat(guardada.getFactorEmisionId()).isEqualTo("local-flight-distance-v1");
@@ -102,6 +109,60 @@ class EmisionVueloServiceTest {
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+
+        verify(emisionRepository, never()).save(any());
+    }
+
+    @Test
+    void registroRespetaUnidadMillasDelRequest() {
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
+        when(emisionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(emisionVueloMapper.toDto(any())).thenReturn(new EmisionResponseDTO());
+        RegistrarVueloRequestDTO request = requestValido();
+        request.setDistanceUnit(DistanceUnit.MI);
+
+        service.registrar(request, USUARIO_ID);
+
+        ArgumentCaptor<EmisionVuelo> captor = ArgumentCaptor.forClass(EmisionVuelo.class);
+        verify(emisionRepository).save(captor.capture());
+        assertThat(captor.getValue().getDistanceUnit()).isEqualTo(DistanceUnit.MI);
+        assertThat(captor.getValue().getDistanceValue()).isEqualByComparingTo("4914.417");
+    }
+
+    @Test
+    void actualizarVueloUsaEmpresaDelUsuarioYRecalculaDatos() {
+        UUID emisionId = UUID.randomUUID();
+        EmisionVuelo existente = EmisionVuelo.builder()
+                .id(emisionId)
+                .empresaId(EMPRESA_ID)
+                .createdByUserId(UUID.randomUUID())
+                .build();
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
+        when(emisionRepository.findByIdAndEmpresaId(emisionId, EMPRESA_ID))
+                .thenReturn(Optional.of(existente));
+        when(emisionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(emisionVueloMapper.toDto(any())).thenReturn(new EmisionResponseDTO());
+
+        service.actualizar(emisionId, requestValido(), USUARIO_ID);
+
+        verify(emisionRepository).findByIdAndEmpresaId(emisionId, EMPRESA_ID);
+        ArgumentCaptor<EmisionVuelo> captor = ArgumentCaptor.forClass(EmisionVuelo.class);
+        verify(emisionRepository).save(captor.capture());
+        assertThat(captor.getValue().getLegs()).hasSize(2);
+        assertThat(captor.getValue().getCarbonKg()).isEqualByComparingTo("2364.788");
+    }
+
+    @Test
+    void actualizarVueloDeOtraEmpresaDevuelve404() {
+        UUID emisionId = UUID.randomUUID();
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
+        when(emisionRepository.findByIdAndEmpresaId(emisionId, EMPRESA_ID))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.actualizar(emisionId, requestValido(), USUARIO_ID))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.NOT_FOUND);
 
         verify(emisionRepository, never()).save(any());
     }

@@ -9,6 +9,7 @@ import com.piedpiper.carbonhub.emision.models.enums.CabinClass;
 import com.piedpiper.carbonhub.emision.models.enums.DistanceUnit;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ import java.util.UUID;
 public class EmisionVueloService {
 
     private static final BigDecimal KG_PER_METRIC_TON = BigDecimal.valueOf(1000);
+    private static final BigDecimal MILES_PER_KILOMETER = new BigDecimal("0.621371");
 
     private final EmisionVueloLocalCalculator calculator;
     private final EmisionRepository emisionRepository;
@@ -42,13 +44,14 @@ public class EmisionVueloService {
 
     @Transactional
     public EmisionResponseDTO registrar(RegistrarVueloRequestDTO request, UUID usuarioId) {
-        usuarioRepository.findById(usuarioId)
+        Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> ApiException.errorInterno("No se pudo identificar al usuario autenticado."));
 
         Instant now = Instant.now();
         EmisionVuelo emision = EmisionVuelo.builder()
                 .createdAt(now)
                 .createdByUserId(usuarioId)
+                .empresaId(empresaId(usuario))
                 .build();
 
         aplicarDatos(emision, request, now);
@@ -58,10 +61,10 @@ public class EmisionVueloService {
 
     @Transactional
     public EmisionResponseDTO actualizar(UUID id, RegistrarVueloRequestDTO request, UUID usuarioId) {
-        usuarioRepository.findById(usuarioId)
+        Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> ApiException.errorInterno("No se pudo identificar al usuario autenticado."));
 
-        EmisionVuelo emision = emisionRepository.findByIdAndCreatedByUserId(id, usuarioId)
+        EmisionVuelo emision = emisionRepository.findByIdAndEmpresaId(id, empresaId(usuario))
                 .filter(EmisionVuelo.class::isInstance)
                 .map(EmisionVuelo.class::cast)
                 .orElseThrow(() -> ApiException.recursoNoEncontrado("No se encontro el vuelo solicitado."));
@@ -83,12 +86,13 @@ public class EmisionVueloService {
                 .map(EmisionVueloLocalCalculator.Resultado::distanceKm)
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
                 .setScale(3, RoundingMode.HALF_UP);
+        DistanceUnit distanceUnit = request.getDistanceUnit() == null ? DistanceUnit.KM : request.getDistanceUnit();
 
         emision.setTitulo(titulo(request.getLegs()));
         emision.setFechaActividad(request.getFechaActividad());
         emision.setPassengers(request.getPassengers());
-        emision.setDistanceUnit(DistanceUnit.KM);
-        emision.setDistanceValue(distanceKm);
+        emision.setDistanceUnit(distanceUnit);
+        emision.setDistanceValue(convertirDistancia(distanceKm, distanceUnit));
         emision.setCarbonKg(carbonKg);
         emision.setCarbonMt(carbonKg.divide(KG_PER_METRIC_TON, 3, RoundingMode.HALF_UP));
         emision.setFactorEmisionId("local-flight-distance-v1");
@@ -124,5 +128,19 @@ public class EmisionVueloService {
                         normalizarIata(leg.getDestinationAirport()),
                         leg.getCabinClass() == null ? CabinClass.ECONOMY : leg.getCabinClass()))
                 .toList();
+    }
+
+    private UUID empresaId(Usuario usuario) {
+        if (usuario.getEmpresa() == null || usuario.getEmpresa().getId() == null) {
+            throw ApiException.accesoDenegado("El usuario autenticado no pertenece a una empresa.");
+        }
+        return usuario.getEmpresa().getId();
+    }
+
+    private BigDecimal convertirDistancia(BigDecimal distanceKm, DistanceUnit distanceUnit) {
+        if (distanceUnit == DistanceUnit.MI) {
+            return distanceKm.multiply(MILES_PER_KILOMETER).setScale(3, RoundingMode.HALF_UP);
+        }
+        return distanceKm;
     }
 }
