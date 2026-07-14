@@ -5,12 +5,14 @@ import com.piedpiper.carbonhub.emision.models.enums.DistanceUnit;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -25,9 +27,11 @@ public class RegistrarVueloRequestDTO {
 
     @NotNull(message = "Ingrese al menos 1 pasajero.")
     @Min(value = 1, message = "Ingrese al menos 1 pasajero.")
+    @Max(value = 1000, message = "Ingrese como máximo 1000 pasajeros.")
     private Integer passengers;
 
     @NotEmpty(message = "Agregue al menos un trayecto.")
+    @Size(max = 10, message = "Ingrese como máximo 10 trayectos.")
     @Valid
     private List<LegDTO> legs;
 

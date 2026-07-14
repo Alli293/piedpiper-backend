@@ -6,6 +6,7 @@ import java.util.Map;
 
 final class AeropuertoCatalogo {
 
+    // TODO(PP-futuro): mover este catálogo a configuración o BD cuando se amplíe cobertura.
     private static final Map<String, Aeropuerto> AEROPUERTOS = Map.ofEntries(
             Map.entry("SJO", new Aeropuerto(9.9939, -84.2088)),
             Map.entry("LIR", new Aeropuerto(10.5933, -85.5444)),
