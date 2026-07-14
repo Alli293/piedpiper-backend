@@ -5,6 +5,7 @@ import com.piedpiper.carbonhub.auth.models.dtos.MensajeResponseDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.RegistroPendienteResponseDTO;
 import com.piedpiper.carbonhub.auth.service.JwtService;
 import com.piedpiper.carbonhub.auth.service.LoginService;
+import com.piedpiper.carbonhub.auth.service.RegistroAuditorCorreoService;
 import com.piedpiper.carbonhub.auth.service.RegistroAuditorService;
 import com.piedpiper.carbonhub.auth.service.RegistroEmpresaCorreoService;
 import com.piedpiper.carbonhub.auth.service.RegistroEmpresaService;
@@ -48,6 +49,8 @@ class AuthControllerCorreoTest {
     private RegistroEmpresaService registroEmpresaService;
     @MockitoBean
     private RegistroAuditorService registroAuditorService;
+    @MockitoBean
+    private RegistroAuditorCorreoService registroAuditorCorreoService;
     @MockitoBean
     private LoginService loginService;
     @MockitoBean
