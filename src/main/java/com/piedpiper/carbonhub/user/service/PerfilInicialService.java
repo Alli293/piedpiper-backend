@@ -56,7 +56,7 @@ public class PerfilInicialService {
             throw ApiException.accesoDenegado(
                     "No puedes modificar los datos de la empresa con tu rol.");
         }
-        if (request.getEmpresa() != null && usuario.getEmpresa() == null) {
+        if (usuario.getRol() == Rol.ADMINISTRADOR_EMPRESA && usuario.getEmpresa() == null) {
             throw ApiException.accesoDenegado(
                     "Aún no tienes una empresa asociada. Completa primero el registro de la empresa.");
         }

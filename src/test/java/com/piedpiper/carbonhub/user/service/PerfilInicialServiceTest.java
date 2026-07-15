@@ -188,6 +188,20 @@ class PerfilInicialServiceTest {
     }
 
     @Test
+    void adminSinEmpresa_soloPreferencias_rechazaCon403SinMarcarCompletado() {
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario(Rol.ADMINISTRADOR_EMPRESA)));
+
+        assertThatThrownBy(() -> service.completar(USUARIO_ID, requestBasico()))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("empresa")
+                .satisfies(ex -> assertThat(((ApiException) ex).getStatus())
+                        .isEqualTo(HttpStatus.FORBIDDEN));
+
+        verify(usuarioRepository, never()).saveAndFlush(any(Usuario.class));
+        verify(empresaRepository, never()).saveAndFlush(any(Empresa.class));
+    }
+
+    @Test
     void fallaDePersistencia_lanza500ConMensajeDeReintento() {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario(Rol.USUARIO_INDIVIDUAL)));
         when(usuarioRepository.saveAndFlush(any(Usuario.class)))
@@ -222,6 +236,18 @@ class PerfilInicialServiceTest {
 
         PerfilInicialResponseDTO response = service.obtener(USUARIO_ID);
 
+        assertThat(response.getRedirect()).isEqualTo("/perfil/configuracion-inicial");
+    }
+
+    @Test
+    void obtener_adminConEmpresaPeroPerfilIncompleto_redirigeALaConfiguracionInicialDelPerfil() {
+        Usuario admin = usuario(Rol.ADMINISTRADOR_EMPRESA);
+        admin.setEmpresa(empresa());
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(admin));
+
+        PerfilInicialResponseDTO response = service.obtener(USUARIO_ID);
+
+        assertThat(response.isConfiguracionCompleta()).isFalse();
         assertThat(response.getRedirect()).isEqualTo("/perfil/configuracion-inicial");
     }
 
