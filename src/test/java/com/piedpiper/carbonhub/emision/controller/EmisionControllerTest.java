@@ -179,10 +179,22 @@ class EmisionControllerTest {
     @Test
     @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
     void registroEnvioValidoComoAdministradorEmpresaDevuelve201() throws Exception {
-        EmisionEnvioResponseDTO response = new EmisionEnvioResponseDTO(UUID.randomUUID(), CategoriaEmision.ENVIO,
-                "Envío de mercancía", LocalDate.now(), new BigDecimal("200"), UnidadPeso.KG,
-                new BigDecimal("500"), UnidadDistancia.KM, MetodoTransporte.TRUCK,
-                new BigDecimal("35.50"), new BigDecimal("0.036"), "ci-estimate-id", Instant.now(), Instant.now());
+        EmisionEnvioResponseDTO response = EmisionEnvioResponseDTO.builder()
+                .id(UUID.randomUUID())
+                .categoria(CategoriaEmision.ENVIO)
+                .titulo("Envío de mercancía")
+                .fechaActividad(LocalDate.now())
+                .weightValue(new BigDecimal("200"))
+                .weightUnit(UnidadPeso.KG)
+                .distanceValue(new BigDecimal("500"))
+                .distanceUnit(UnidadDistancia.KM)
+                .transportMethod(MetodoTransporte.TRUCK)
+                .carbonKg(new BigDecimal("35.50"))
+                .carbonMt(new BigDecimal("0.036"))
+                .factorEmisionId("ci-estimate-id")
+                .estimatedAt(Instant.now())
+                .createdAt(Instant.now())
+                .build();
         when(emisionEnvioService.registrar(any(), any())).thenReturn(response);
 
         mockMvc.perform(post("/api/emisiones/envio")
