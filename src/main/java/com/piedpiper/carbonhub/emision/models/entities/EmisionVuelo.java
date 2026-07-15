@@ -35,7 +35,7 @@ public class EmisionVuelo extends Emision {
     @Column(name = "distance_unit", length = 10)
     private UnidadDistancia distanceUnit;
 
-    @Column(name = "distance_value", precision = 14, scale = 3)
+    @Column(name = "distance_value", precision = 12, scale = 3)
     private BigDecimal distanceValue;
 
     @OneToMany(mappedBy = "emisionVuelo", cascade = CascadeType.ALL, orphanRemoval = true)

@@ -202,7 +202,9 @@ class EmisionControllerTest {
                         .content(ENVIO_REQUEST_VALIDO))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.carbonKg").value(35.50))
-                .andExpect(jsonPath("$.transportMethod").value("TRUCK"));
+                .andExpect(jsonPath("$.transportMethod").value("TRUCK"))
+                // UnidadDistancia se serializa con @JsonValue: "km", no "KM"
+                .andExpect(jsonPath("$.distanceUnit").value("km"));
     }
 
     @Test
@@ -254,7 +256,9 @@ class EmisionControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(REQUEST_FLOTA_VALIDO))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.carbonKg").value(18.9));
+                .andExpect(jsonPath("$.carbonKg").value(18.9))
+                .andExpect(jsonPath("$.tipoVehiculo").value("AUTOMOVIL"))
+                .andExpect(jsonPath("$.distanceUnit").value("km"));
     }
 
     @Test
@@ -285,11 +289,29 @@ class EmisionControllerTest {
 
     @Test
     @WithMockUser(username = "db2ed1e7-6719-4595-844e-68efffe146cf", roles = "USUARIO_GENERAL")
-    void usuarioGeneralEnvioDevuelve403() throws Exception {
+    void registroEnvioValidoComoUsuarioGeneralDevuelve201() throws Exception {
+        EmisionEnvioResponseDTO response = EmisionEnvioResponseDTO.builder()
+                .id(UUID.randomUUID())
+                .categoria(CategoriaEmision.ENVIO)
+                .titulo("Envío de mercancía")
+                .fechaActividad(LocalDate.now())
+                .weightValue(new BigDecimal("200"))
+                .weightUnit(UnidadPeso.KG)
+                .distanceValue(new BigDecimal("500"))
+                .distanceUnit(UnidadDistancia.KM)
+                .transportMethod(MetodoTransporte.TRUCK)
+                .carbonKg(new BigDecimal("35.50"))
+                .carbonMt(new BigDecimal("0.036"))
+                .factorEmisionId("ci-estimate-id")
+                .estimatedAt(Instant.now())
+                .createdAt(Instant.now())
+                .build();
+        when(emisionEnvioService.registrar(any(), any())).thenReturn(response);
+
         mockMvc.perform(post("/api/emisiones/envio")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(ENVIO_REQUEST_VALIDO))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isCreated());
     }
 
     // --- Tests para /api/emisiones/vuelo ---

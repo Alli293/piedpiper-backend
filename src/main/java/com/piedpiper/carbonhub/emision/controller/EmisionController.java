@@ -93,7 +93,7 @@ public class EmisionController {
     }
 
     @PostMapping("/envio")
-    @PreAuthorize("hasRole('ADMINISTRADOR_EMPRESA')")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
     public ResponseEntity<EmisionEnvioResponseDTO> registrarEnvio(
             @Valid @RequestBody RegistrarEnvioRequestDTO request) {
         UUID usuarioId = usuarioIdAutenticado();
