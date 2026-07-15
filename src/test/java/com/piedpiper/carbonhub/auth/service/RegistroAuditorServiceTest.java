@@ -54,7 +54,7 @@ class RegistroAuditorServiceTest {
         verify(usuarioRepository).save(captor.capture());
         assertThat(captor.getValue().getRol()).isEqualTo(Rol.AUDITOR_CERTIFICADO);
         assertThat(captor.getValue().isConfiguracionCompleta()).isFalse();
-        assertThat(response.getRedirect()).isEqualTo("/auditor/configuracion-inicial");
+        assertThat(response.getRedirect()).isEqualTo("/perfil/configuracion-inicial");
     }
 
     @Test
