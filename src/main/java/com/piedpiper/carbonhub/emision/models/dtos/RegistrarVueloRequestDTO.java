@@ -1,7 +1,7 @@
 package com.piedpiper.carbonhub.emision.models.dtos;
 
 import com.piedpiper.carbonhub.emision.models.enums.CabinClass;
-import com.piedpiper.carbonhub.emision.models.enums.DistanceUnit;
+import com.piedpiper.carbonhub.emision.models.enums.UnidadDistancia;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
@@ -35,7 +35,7 @@ public class RegistrarVueloRequestDTO {
     @Valid
     private List<LegDTO> legs;
 
-    private DistanceUnit distanceUnit = DistanceUnit.KM;
+    private UnidadDistancia distanceUnit = UnidadDistancia.KM;
 
     @NotNull(message = "Ingrese la fecha del vuelo.")
     @PastOrPresent(message = "La fecha no puede ser posterior a hoy.")

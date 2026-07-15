@@ -1,6 +1,6 @@
 package com.piedpiper.carbonhub.emision.models.dtos;
 
-import com.piedpiper.carbonhub.emision.models.enums.DistanceUnit;
+import com.piedpiper.carbonhub.emision.models.enums.UnidadDistancia;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -18,6 +18,6 @@ public class VueloResponseDTO extends EmisionResponseDTO {
 
     private Integer passengers;
     private List<VueloLegResponseDTO> legs;
-    private DistanceUnit distanceUnit;
+    private UnidadDistancia distanceUnit;
     private BigDecimal distanceValue;
 }

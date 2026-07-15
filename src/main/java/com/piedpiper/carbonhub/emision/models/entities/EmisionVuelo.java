@@ -1,7 +1,7 @@
 package com.piedpiper.carbonhub.emision.models.entities;
 
 import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
-import com.piedpiper.carbonhub.emision.models.enums.DistanceUnit;
+import com.piedpiper.carbonhub.emision.models.enums.UnidadDistancia;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -33,7 +33,7 @@ public class EmisionVuelo extends Emision {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "distance_unit", length = 10)
-    private DistanceUnit distanceUnit;
+    private UnidadDistancia distanceUnit;
 
     @Column(name = "distance_value", precision = 14, scale = 3)
     private BigDecimal distanceValue;

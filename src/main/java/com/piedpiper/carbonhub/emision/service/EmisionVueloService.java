@@ -6,7 +6,7 @@ import com.piedpiper.carbonhub.emision.models.dtos.RegistrarVueloRequestDTO;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionVuelo;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionVueloLeg;
 import com.piedpiper.carbonhub.emision.models.enums.CabinClass;
-import com.piedpiper.carbonhub.emision.models.enums.DistanceUnit;
+import com.piedpiper.carbonhub.emision.models.enums.UnidadDistancia;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
@@ -86,7 +86,7 @@ public class EmisionVueloService {
                 .map(EmisionVueloLocalCalculator.Resultado::distanceKm)
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
                 .setScale(3, RoundingMode.HALF_UP);
-        DistanceUnit distanceUnit = request.getDistanceUnit() == null ? DistanceUnit.KM : request.getDistanceUnit();
+        UnidadDistancia distanceUnit = request.getDistanceUnit() == null ? UnidadDistancia.KM : request.getDistanceUnit();
 
         emision.setTitulo(titulo(request.getLegs()));
         emision.setFechaActividad(request.getFechaActividad());
@@ -137,8 +137,8 @@ public class EmisionVueloService {
         return usuario.getEmpresa().getId();
     }
 
-    private BigDecimal convertirDistancia(BigDecimal distanceKm, DistanceUnit distanceUnit) {
-        if (distanceUnit == DistanceUnit.MI) {
+    private BigDecimal convertirDistancia(BigDecimal distanceKm, UnidadDistancia distanceUnit) {
+        if (distanceUnit == UnidadDistancia.MI) {
             return distanceKm.multiply(MILES_PER_KILOMETER).setScale(3, RoundingMode.HALF_UP);
         }
         return distanceKm;
