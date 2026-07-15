@@ -6,7 +6,7 @@ import com.piedpiper.carbonhub.emision.models.dtos.RegistrarVueloRequestDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.VueloResponseDTO;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionVuelo;
 import com.piedpiper.carbonhub.emision.models.enums.CabinClass;
-import com.piedpiper.carbonhub.emision.models.enums.DistanceUnit;
+import com.piedpiper.carbonhub.emision.models.enums.UnidadDistancia;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.exceptions.ApiException;
@@ -59,7 +59,7 @@ class EmisionVueloServiceTest {
                 List.of(
                         new RegistrarVueloRequestDTO.LegDTO("sfo", "YYZ", CabinClass.ECONOMY),
                         new RegistrarVueloRequestDTO.LegDTO("YYZ", "SFO", CabinClass.PREMIUM)),
-                DistanceUnit.KM,
+                UnidadDistancia.KM,
                 LocalDate.of(2026, 7, 1));
     }
 
@@ -88,7 +88,7 @@ class EmisionVueloServiceTest {
         assertThat(guardada.getCarbonMt()).isEqualByComparingTo("2.365");
         assertThat(guardada.getEmpresaId()).isEqualTo(EMPRESA_ID);
         assertThat(guardada.getCreatedByUserId()).isEqualTo(USUARIO_ID);
-        assertThat(guardada.getDistanceUnit()).isEqualTo(DistanceUnit.KM);
+        assertThat(guardada.getDistanceUnit()).isEqualTo(UnidadDistancia.KM);
         assertThat(guardada.getDistanceValue()).isEqualByComparingTo("7908.990");
         assertThat(guardada.getFactorEmisionId()).isEqualTo("local-flight-distance-v1");
         assertThat(guardada.getLegs()).hasSize(2);
@@ -103,7 +103,7 @@ class EmisionVueloServiceTest {
         RegistrarVueloRequestDTO request = new RegistrarVueloRequestDTO(
                 1,
                 List.of(new RegistrarVueloRequestDTO.LegDTO("ZZZ", "SFO", CabinClass.ECONOMY)),
-                DistanceUnit.KM,
+                UnidadDistancia.KM,
                 LocalDate.of(2026, 7, 1));
 
         assertThatThrownBy(() -> service.registrar(request, USUARIO_ID))
@@ -120,13 +120,13 @@ class EmisionVueloServiceTest {
         when(emisionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(emisionVueloMapper.toDto(any())).thenReturn(new VueloResponseDTO());
         RegistrarVueloRequestDTO request = requestValido();
-        request.setDistanceUnit(DistanceUnit.MI);
+        request.setDistanceUnit(UnidadDistancia.MI);
 
         service.registrar(request, USUARIO_ID);
 
         ArgumentCaptor<EmisionVuelo> captor = ArgumentCaptor.forClass(EmisionVuelo.class);
         verify(emisionRepository).save(captor.capture());
-        assertThat(captor.getValue().getDistanceUnit()).isEqualTo(DistanceUnit.MI);
+        assertThat(captor.getValue().getDistanceUnit()).isEqualTo(UnidadDistancia.MI);
         assertThat(captor.getValue().getDistanceValue()).isEqualByComparingTo("4914.417");
     }
 
