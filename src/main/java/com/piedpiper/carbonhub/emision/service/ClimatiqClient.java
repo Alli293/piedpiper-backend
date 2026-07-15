@@ -24,10 +24,8 @@ import java.time.Duration;
 import java.util.Map;
 
 /**
- * Cliente genérico para el endpoint de cálculo explícito de Climatiq (POST /data/v1/estimate).
- * Es intencionalmente independiente de categoría: cada servicio de emisión (electricidad, y más
- * adelante flota/vuelo/envío) arma su propio {@link ClimatiqEmissionFactorSelector} y su propio
- * mapa de {@code parameters}, y reutiliza este mismo cliente para llamar a Climatiq y traducir errores.
+ * Cliente genérico para el endpoint de cálculo explícito de Climatiq
+ * (POST /data/v1/estimate).
  */
 @Component
 public class ClimatiqClient {
@@ -57,22 +55,18 @@ public class ClimatiqClient {
 
     public ClimatiqEstimateResponse estimar(ClimatiqEmissionFactorSelector emissionFactor,
                                             Map<String, Object> parameters) {
-        ClimatiqEstimateRequest request = new ClimatiqEstimateRequest(emissionFactor, parameters);
-        ClimatiqEstimateResponse response = post("/data/v1/estimate", request, ClimatiqEstimateResponse.class);
-        validarRespuesta(response);
-        return response;
-    }
-
-    private <T> T post(String uri, Object request, Class<T> responseType) {
         if (!apiKeyConfigurada) {
             throw ApiException.calculoConfiguracion();
         }
+        ClimatiqEstimateRequest request = new ClimatiqEstimateRequest(emissionFactor, parameters);
         try {
-            return restClient.post()
-                    .uri(uri)
+            ClimatiqEstimateResponse response = restClient.post()
+                    .uri("/data/v1/estimate")
                     .body(request)
                     .retrieve()
-                    .body(responseType);
+                    .body(ClimatiqEstimateResponse.class);
+            validarRespuesta(response);
+            return response;
         } catch (HttpClientErrorException.BadRequest | HttpClientErrorException.UnprocessableEntity e) {
             throw ApiException.calculoInvalido(extraerMensaje(e));
         } catch (HttpClientErrorException.Unauthorized | HttpClientErrorException.Forbidden e) {

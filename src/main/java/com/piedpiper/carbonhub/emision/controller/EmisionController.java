@@ -51,13 +51,13 @@ public class EmisionController {
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
     public ResponseEntity<List<EmisionResponseDTO>> listar() {
-        return ResponseEntity.ok(emisionConsultaService.listar(usuarioId()));
+        return ResponseEntity.ok(emisionConsultaService.listar(usuarioIdAutenticado()));
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
     public ResponseEntity<EmisionResponseDTO> obtener(@PathVariable UUID id) {
-        return ResponseEntity.ok(emisionConsultaService.obtener(id, usuarioId()));
+        return ResponseEntity.ok(emisionConsultaService.obtener(id, usuarioIdAutenticado()));
     }
 
     @PostMapping("/electricidad")
@@ -82,7 +82,7 @@ public class EmisionController {
     @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
     public ResponseEntity<EmisionResponseDTO> registrarVuelo(
             @Valid @RequestBody RegistrarVueloRequestDTO request) {
-        EmisionResponseDTO response = emisionVueloService.registrar(request, usuarioId());
+        EmisionResponseDTO response = emisionVueloService.registrar(request, usuarioIdAutenticado());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -91,13 +91,13 @@ public class EmisionController {
     public ResponseEntity<EmisionResponseDTO> actualizarVuelo(
             @PathVariable UUID id,
             @Valid @RequestBody RegistrarVueloRequestDTO request) {
-        return ResponseEntity.ok(emisionVueloService.actualizar(id, request, usuarioId()));
+        return ResponseEntity.ok(emisionVueloService.actualizar(id, request, usuarioIdAutenticado()));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
     public ResponseEntity<Void> eliminar(@PathVariable UUID id) {
-        emisionConsultaService.eliminar(id, usuarioId());
+        emisionConsultaService.eliminar(id, usuarioIdAutenticado());
         return ResponseEntity.noContent().build();
     }
 
@@ -108,9 +108,5 @@ public class EmisionController {
         } catch (IllegalArgumentException e) {
             throw ApiException.errorInterno("No se pudo identificar al usuario autenticado.");
         }
-    }
-
-    private UUID usuarioId() {
-        return UUID.fromString(SecurityContextHolder.getContext().getAuthentication().getName());
     }
 }
