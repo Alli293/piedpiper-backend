@@ -9,6 +9,7 @@ import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
 import com.piedpiper.carbonhub.user.models.enums.MetodoAuth;
 import com.piedpiper.carbonhub.user.models.enums.Rol;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
+import com.piedpiper.carbonhub.user.service.PerfilInicialService;
 import com.piedpiper.carbonhub.user.service.PreferenciasUsuarioService;
 import io.jsonwebtoken.Claims;
 import org.junit.jupiter.api.Test;
@@ -38,6 +39,8 @@ class UsuarioControllerSecurityTest {
 
     @MockitoBean
     private PreferenciasUsuarioService preferenciasUsuarioService;
+    @MockitoBean
+    private PerfilInicialService perfilInicialService;
     @MockitoBean
     private JwtService jwtService;
     @MockitoBean
