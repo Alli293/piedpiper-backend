@@ -24,10 +24,8 @@ import java.time.Duration;
 import java.util.Map;
 
 /**
- * Cliente genérico para el endpoint de cálculo explícito de Climatiq (POST /data/v1/estimate).
- * Es intencionalmente independiente de categoría: cada servicio de emisión (electricidad, y más
- * adelante flota/vuelo/envío) arma su propio {@link ClimatiqEmissionFactorSelector} y su propio
- * mapa de {@code parameters}, y reutiliza este mismo cliente para llamar a Climatiq y traducir errores.
+ * Cliente genérico para el endpoint de cálculo explícito de Climatiq
+ * (POST /data/v1/estimate).
  */
 @Component
 public class ClimatiqClient {
@@ -35,11 +33,13 @@ public class ClimatiqClient {
     private static final Logger log = LoggerFactory.getLogger(ClimatiqClient.class);
 
     private final RestClient restClient;
+    private final boolean apiKeyConfigurada;
 
     public ClimatiqClient(
             @Value("${climatiq.url-base}") String urlBase,
             @Value("${climatiq.clave-api}") String claveApi,
             @Value("${climatiq.tiempo-espera-ms}") int tiempoEsperaMs) {
+        this.apiKeyConfigurada = claveApi != null && !claveApi.isBlank();
         ClientHttpRequestFactorySettings settings = ClientHttpRequestFactorySettings.defaults()
                 .withConnectTimeout(Duration.ofMillis(tiempoEsperaMs))
                 .withReadTimeout(Duration.ofMillis(tiempoEsperaMs));
@@ -55,6 +55,9 @@ public class ClimatiqClient {
 
     public ClimatiqEstimateResponse estimar(ClimatiqEmissionFactorSelector emissionFactor,
                                             Map<String, Object> parameters) {
+        if (!apiKeyConfigurada) {
+            throw ApiException.calculoConfiguracion();
+        }
         ClimatiqEstimateRequest request = new ClimatiqEstimateRequest(emissionFactor, parameters);
         try {
             ClimatiqEstimateResponse response = restClient.post()
