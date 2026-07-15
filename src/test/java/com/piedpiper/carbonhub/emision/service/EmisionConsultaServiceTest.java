@@ -1,9 +1,18 @@
 package com.piedpiper.carbonhub.emision.service;
 
 import com.piedpiper.carbonhub.emision.mappers.EmisionElectricidadMapper;
+import com.piedpiper.carbonhub.emision.mappers.EmisionEnvioMapper;
+import com.piedpiper.carbonhub.emision.mappers.EmisionFlotaMapper;
 import com.piedpiper.carbonhub.emision.mappers.EmisionVueloMapper;
+import com.piedpiper.carbonhub.emision.models.dtos.EmisionElectricidadResponseDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.EmisionEnvioResponseDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.EmisionFlotaResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionResponseDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.VueloResponseDTO;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionElectricidad;
+import com.piedpiper.carbonhub.emision.models.entities.EmisionEnvio;
+import com.piedpiper.carbonhub.emision.models.entities.EmisionFlota;
+import com.piedpiper.carbonhub.emision.models.entities.EmisionVuelo;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.exceptions.ApiException;
@@ -41,6 +50,10 @@ class EmisionConsultaServiceTest {
     private EmisionElectricidadMapper emisionElectricidadMapper;
     @Mock
     private EmisionVueloMapper emisionVueloMapper;
+    @Mock
+    private EmisionEnvioMapper emisionEnvioMapper;
+    @Mock
+    private EmisionFlotaMapper emisionFlotaMapper;
 
     @InjectMocks
     private EmisionConsultaService service;
@@ -51,7 +64,7 @@ class EmisionConsultaServiceTest {
                 .id(EMISION_ID)
                 .empresaId(EMPRESA_ID)
                 .build();
-        EmisionResponseDTO dto = new EmisionResponseDTO();
+        EmisionElectricidadResponseDTO dto = new EmisionElectricidadResponseDTO();
         dto.setId(EMISION_ID);
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
         when(emisionRepository.findAllByEmpresaIdOrderByCreatedAtDesc(EMPRESA_ID))
@@ -62,6 +75,42 @@ class EmisionConsultaServiceTest {
 
         assertThat(response).containsExactly(dto);
         verify(emisionRepository).findAllByEmpresaIdOrderByCreatedAtDesc(EMPRESA_ID);
+    }
+
+    @Test
+    void listarMapeaLasCuatroCategoriasDeEmision() {
+        EmisionElectricidad electricidad = EmisionElectricidad.builder().empresaId(EMPRESA_ID).build();
+        EmisionVuelo vuelo = EmisionVuelo.builder().empresaId(EMPRESA_ID).build();
+        EmisionEnvio envio = EmisionEnvio.builder().empresaId(EMPRESA_ID).build();
+        EmisionFlota flota = EmisionFlota.builder().empresaId(EMPRESA_ID).build();
+
+        EmisionElectricidadResponseDTO electricidadDto = new EmisionElectricidadResponseDTO();
+        VueloResponseDTO vueloDto = new VueloResponseDTO();
+        EmisionEnvioResponseDTO envioDto = new EmisionEnvioResponseDTO();
+        EmisionFlotaResponseDTO flotaDto = new EmisionFlotaResponseDTO();
+
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
+        when(emisionRepository.findAllByEmpresaIdOrderByCreatedAtDesc(EMPRESA_ID))
+                .thenReturn(List.of(electricidad, vuelo, envio, flota));
+        when(emisionElectricidadMapper.toDto(electricidad)).thenReturn(electricidadDto);
+        when(emisionVueloMapper.toDto(vuelo)).thenReturn(vueloDto);
+        when(emisionEnvioMapper.toDto(envio)).thenReturn(envioDto);
+        when(emisionFlotaMapper.toDto(flota)).thenReturn(flotaDto);
+
+        List<EmisionResponseDTO> response = service.listar(USUARIO_ID);
+
+        assertThat(response).containsExactly(electricidadDto, vueloDto, envioDto, flotaDto);
+    }
+
+    @Test
+    void obtenerMapeaUnaEmisionDeFlota() {
+        EmisionFlota flota = EmisionFlota.builder().id(EMISION_ID).empresaId(EMPRESA_ID).build();
+        EmisionFlotaResponseDTO flotaDto = new EmisionFlotaResponseDTO();
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
+        when(emisionRepository.findByIdAndEmpresaId(EMISION_ID, EMPRESA_ID)).thenReturn(Optional.of(flota));
+        when(emisionFlotaMapper.toDto(flota)).thenReturn(flotaDto);
+
+        assertThat(service.obtener(EMISION_ID, USUARIO_ID)).isSameAs(flotaDto);
     }
 
     @Test

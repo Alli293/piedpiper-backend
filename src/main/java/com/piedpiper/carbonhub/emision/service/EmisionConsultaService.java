@@ -1,10 +1,14 @@
 package com.piedpiper.carbonhub.emision.service;
 
 import com.piedpiper.carbonhub.emision.mappers.EmisionElectricidadMapper;
+import com.piedpiper.carbonhub.emision.mappers.EmisionEnvioMapper;
+import com.piedpiper.carbonhub.emision.mappers.EmisionFlotaMapper;
 import com.piedpiper.carbonhub.emision.mappers.EmisionVueloMapper;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionResponseDTO;
 import com.piedpiper.carbonhub.emision.models.entities.Emision;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionElectricidad;
+import com.piedpiper.carbonhub.emision.models.entities.EmisionEnvio;
+import com.piedpiper.carbonhub.emision.models.entities.EmisionFlota;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionVuelo;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
@@ -24,15 +28,21 @@ public class EmisionConsultaService {
     private final UsuarioRepository usuarioRepository;
     private final EmisionElectricidadMapper emisionElectricidadMapper;
     private final EmisionVueloMapper emisionVueloMapper;
+    private final EmisionEnvioMapper emisionEnvioMapper;
+    private final EmisionFlotaMapper emisionFlotaMapper;
 
     public EmisionConsultaService(EmisionRepository emisionRepository,
                                   UsuarioRepository usuarioRepository,
                                   EmisionElectricidadMapper emisionElectricidadMapper,
-                                  EmisionVueloMapper emisionVueloMapper) {
+                                  EmisionVueloMapper emisionVueloMapper,
+                                  EmisionEnvioMapper emisionEnvioMapper,
+                                  EmisionFlotaMapper emisionFlotaMapper) {
         this.emisionRepository = emisionRepository;
         this.usuarioRepository = usuarioRepository;
         this.emisionElectricidadMapper = emisionElectricidadMapper;
         this.emisionVueloMapper = emisionVueloMapper;
+        this.emisionEnvioMapper = emisionEnvioMapper;
+        this.emisionFlotaMapper = emisionFlotaMapper;
     }
 
     @Transactional(readOnly = true)
@@ -73,6 +83,12 @@ public class EmisionConsultaService {
         }
         if (emision instanceof EmisionElectricidad electricidad) {
             return emisionElectricidadMapper.toDto(electricidad);
+        }
+        if (emision instanceof EmisionEnvio envio) {
+            return emisionEnvioMapper.toDto(envio);
+        }
+        if (emision instanceof EmisionFlota flota) {
+            return emisionFlotaMapper.toDto(flota);
         }
         throw ApiException.errorInterno("Tipo de emisión no soportado.");
     }
