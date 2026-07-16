@@ -88,6 +88,7 @@ class EmisionVueloServiceTest {
         assertThat(guardada.getCarbonMt()).isEqualByComparingTo("2.365");
         assertThat(guardada.getEmpresaId()).isEqualTo(EMPRESA_ID);
         assertThat(guardada.getCreatedByUserId()).isEqualTo(USUARIO_ID);
+        assertThat(guardada.getTitulo()).isEqualTo("Viaje a\u00e9reo SFO-YYZ-SFO");
         assertThat(guardada.getDistanceUnit()).isEqualTo(UnidadDistancia.KM);
         assertThat(guardada.getDistanceValue()).isEqualByComparingTo("7908.990");
         assertThat(guardada.getFactorEmisionId()).isEqualTo("local-flight-distance-v1");
@@ -150,6 +151,7 @@ class EmisionVueloServiceTest {
         ArgumentCaptor<EmisionVuelo> captor = ArgumentCaptor.forClass(EmisionVuelo.class);
         verify(emisionRepository).save(captor.capture());
         assertThat(captor.getValue().getLegs()).hasSize(2);
+        assertThat(captor.getValue().getTitulo()).isEqualTo("Viaje a\u00e9reo SFO-YYZ-SFO");
         assertThat(captor.getValue().getCarbonKg()).isEqualByComparingTo("2364.788");
     }
 
