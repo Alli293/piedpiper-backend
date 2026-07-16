@@ -1,7 +1,7 @@
 package com.piedpiper.carbonhub.emision.service;
 
 import com.piedpiper.carbonhub.emision.mappers.EmisionElectricidadMapper;
-import com.piedpiper.carbonhub.emision.models.dtos.EmisionResponseDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.EmisionElectricidadResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.RegistrarElectricidadRequestDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.climatiq.ClimatiqEmissionFactorSelector;
 import com.piedpiper.carbonhub.emision.models.dtos.climatiq.ClimatiqEstimateResponse;
@@ -46,7 +46,7 @@ public class EmisionElectricidadService {
         this.emisionElectricidadMapper = emisionElectricidadMapper;
     }
 
-    public EmisionResponseDTO registrar(RegistrarElectricidadRequestDTO request, UUID usuarioId) {
+    public EmisionElectricidadResponseDTO registrar(RegistrarElectricidadRequestDTO request, UUID usuarioId) {
         Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> ApiException.errorInterno("No se pudo identificar al usuario autenticado."));
 

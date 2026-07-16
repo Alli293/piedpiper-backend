@@ -1,8 +1,8 @@
 package com.piedpiper.carbonhub.emision.models.dtos;
 
-import com.piedpiper.carbonhub.emision.models.enums.MetodoTransporte;
+import com.piedpiper.carbonhub.emision.models.enums.Combustible;
+import com.piedpiper.carbonhub.emision.models.enums.TipoVehiculo;
 import com.piedpiper.carbonhub.emision.models.enums.UnidadDistancia;
-import com.piedpiper.carbonhub.emision.models.enums.UnidadPeso;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -15,11 +15,10 @@ import java.math.BigDecimal;
 @Setter
 @SuperBuilder
 @NoArgsConstructor
-public class EmisionEnvioResponseDTO extends EmisionResponseDTO {
+public class EmisionFlotaResponseDTO extends EmisionResponseDTO {
 
-    private BigDecimal weightValue;
-    private UnidadPeso weightUnit;
+    private TipoVehiculo tipoVehiculo;
+    private Combustible combustible;
     private BigDecimal distanceValue;
     private UnidadDistancia distanceUnit;
-    private MetodoTransporte transportMethod;
 }
