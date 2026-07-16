@@ -26,8 +26,9 @@ public class LimiteEmisionesService {
 
     @Transactional
     public LimiteEmisionesResponseDTO guardarLimite(UUID empresaId, LimiteEmisionesRequestDTO request) {
-        LimiteEmisiones limite = repository
-                .findByEmpresaIdAndAnio(empresaId, request.getAnio())
+        Optional<LimiteEmisiones> existente = repository.findByEmpresaIdAndAnio(empresaId, request.getAnio());
+        boolean esNueva = existente.isEmpty();
+        LimiteEmisiones limite = existente
                 .map(existing -> {
                     existing.setLimiteMt(request.getLimiteMt());
                     existing.setJustificacion(normalizarJustificacion(request.getJustificacion()));
@@ -41,7 +42,9 @@ public class LimiteEmisionesService {
                 ));
 
         try {
-            return toDto(repository.save(limite), true);
+            LimiteEmisionesResponseDTO dto = toDto(repository.save(limite), true);
+            dto.setRecienCreada(esNueva);
+            return dto;
         } catch (DataIntegrityViolationException e) {
             throw ApiException.limiteConflicto();
         }

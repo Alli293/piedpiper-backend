@@ -59,7 +59,7 @@ class LimiteEmisionesControllerTest {
 
     @Test
     @WithMockUser(username = USUARIO_ID, authorities = "ROLE_ADMINISTRADOR_EMPRESA")
-    void postValidoRetornaOkParaAdministradorEmpresa() throws Exception {
+    void postValidoRetornaCreatedCuandoCreaLimite() throws Exception {
         LimiteEmisionesRequestDTO request = new LimiteEmisionesRequestDTO(
                 2026,
                 new BigDecimal("50.0000"),
@@ -74,7 +74,36 @@ class LimiteEmisionesControllerTest {
                         new BigDecimal("50.0000"),
                         "Meta anual",
                         "Limite vigente del anio 2026: 50.0000 t CO2e.",
-                        null
+                        null,
+                        true
+                ));
+
+        mockMvc.perform(post("/api/limites")
+                        .principal(authentication("ROLE_ADMINISTRADOR_EMPRESA"))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_ADMINISTRADOR_EMPRESA")
+    void postValidoRetornaOkCuandoActualizaLimite() throws Exception {
+        LimiteEmisionesRequestDTO request = new LimiteEmisionesRequestDTO(
+                2026,
+                new BigDecimal("50.0000"),
+                "Meta anual"
+        );
+        when(empresaAutenticadaService.obtenerEmpresaId(any())).thenReturn(EMPRESA_ID);
+        when(service.guardarLimite(eq(EMPRESA_ID), any(LimiteEmisionesRequestDTO.class)))
+                .thenReturn(new LimiteEmisionesResponseDTO(
+                        1L,
+                        EMPRESA_ID,
+                        2026,
+                        new BigDecimal("50.0000"),
+                        "Meta anual",
+                        "Limite vigente del anio 2026: 50.0000 t CO2e.",
+                        null,
+                        false
                 ));
 
         mockMvc.perform(post("/api/limites")

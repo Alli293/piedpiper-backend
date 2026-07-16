@@ -18,4 +18,5 @@ public class LimiteEmisionesResponseDTO {
     private String justificacion;
     private String mensaje;
     private LocalDateTime actualizadoEn;
+    private boolean recienCreada;
 }

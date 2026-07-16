@@ -72,6 +72,7 @@ class LimiteEmisionesServiceTest {
         assertThat(captor.getValue().getJustificacion()).isEqualTo("Meta anual");
         assertThat(response.getLimiteMt()).isEqualByComparingTo("50.0000");
         assertThat(response.getMensaje()).isEqualTo("Limite vigente del anio 2026: 50.0000 t CO2e.");
+        assertThat(response.isRecienCreada()).isTrue();
     }
 
     @Test
@@ -93,6 +94,7 @@ class LimiteEmisionesServiceTest {
         assertThat(existing.getLimiteMt()).isEqualByComparingTo("40.0000");
         assertThat(existing.getJustificacion()).isEqualTo("Meta actualizada");
         assertThat(response.getLimiteMt()).isEqualByComparingTo("40.0000");
+        assertThat(response.isRecienCreada()).isFalse();
     }
 
     @Test

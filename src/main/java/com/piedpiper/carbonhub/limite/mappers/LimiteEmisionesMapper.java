@@ -10,5 +10,6 @@ import org.mapstruct.Mapping;
 public interface LimiteEmisionesMapper {
 
     @Mapping(target = "mensaje", ignore = true)
+    @Mapping(target = "recienCreada", ignore = true)
     LimiteEmisionesResponseDTO toDto(LimiteEmisiones limite);
 }
