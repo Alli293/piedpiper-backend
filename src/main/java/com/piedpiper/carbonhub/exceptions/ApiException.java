@@ -148,4 +148,9 @@ public class ApiException extends RuntimeException {
         return new ApiException(HttpStatus.BAD_REQUEST,
                 "Seleccione un combustible válido para este tipo de vehículo.");
     }
+
+    public static ApiException limiteConflicto() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Conflicto al guardar el limite. Intente nuevamente.");
+    }
 }

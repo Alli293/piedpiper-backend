@@ -167,7 +167,8 @@ class EmisionControllerTest {
         mockMvc.perform(post("/api/emisiones/electricidad")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(REQUEST_VALIDO))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("No tiene permisos para realizar esta acción."));
     }
 
     // --- Tests para /api/emisiones/envio ---
@@ -213,7 +214,8 @@ class EmisionControllerTest {
         mockMvc.perform(post("/api/emisiones/envio")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(ENVIO_REQUEST_VALIDO))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("No tiene permisos para realizar esta acción."));
     }
 
     // --- Tests para /api/emisiones/flota ---
@@ -429,24 +431,30 @@ class EmisionControllerTest {
         mockMvc.perform(post("/api/emisiones/flota")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(REQUEST_FLOTA_VALIDO))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("No tiene permisos para realizar esta acción."));
     }
 
     @Test
     @WithMockUser(username = "db2ed1e7-6719-4595-844e-68efffe146cf", roles = "AUDITOR_CERTIFICADO")
     void endpointsNuevosConRolNoAutorizadoDevuelven403() throws Exception {
         UUID id = UUID.randomUUID();
+        String mensajeEsperado = "No tiene permisos para realizar esta acción.";
 
         mockMvc.perform(get("/api/emisiones"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value(mensajeEsperado));
         mockMvc.perform(get("/api/emisiones/{id}", id))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value(mensajeEsperado));
         mockMvc.perform(put("/api/emisiones/vuelo/{id}", id)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(VUELO_REQUEST_VALIDO))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value(mensajeEsperado));
         mockMvc.perform(delete("/api/emisiones/{id}", id))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value(mensajeEsperado));
     }
 
     @Test

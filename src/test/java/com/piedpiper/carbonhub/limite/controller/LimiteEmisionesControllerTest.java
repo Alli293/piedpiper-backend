@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -35,8 +36,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @Import({
         SecurityConfig.class,
         GlobalExceptionHandler.class,
-        LimiteSecurityConfig.class,
-        LimiteEmisionesExceptionHandler.class
+        LimiteSecurityConfig.class
 })
 class LimiteEmisionesControllerTest {
     private static final UUID EMPRESA_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
@@ -108,7 +108,8 @@ class LimiteEmisionesControllerTest {
         mockMvc.perform(post("/api/limites")
                         .contentType("application/json")
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("No tiene permisos para realizar esta acción."));
 
         verifyNoInteractions(service);
     }

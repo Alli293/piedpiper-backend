@@ -1,9 +1,11 @@
 package com.piedpiper.carbonhub.limite.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.limite.models.dtos.LimiteEmisionesRequestDTO;
 import com.piedpiper.carbonhub.limite.models.dtos.LimiteEmisionesResponseDTO;
 import com.piedpiper.carbonhub.limite.models.entities.LimiteEmisiones;
@@ -18,6 +20,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 
 @ExtendWith(MockitoExtension.class)
 class LimiteEmisionesServiceTest {
@@ -88,6 +92,23 @@ class LimiteEmisionesServiceTest {
         verify(repository).save(captor.capture());
         assertThat(captor.getValue().getJustificacion()).isNull();
         assertThat(response.getJustificacion()).isNull();
+    }
+
+    @Test
+    void guardarLimiteConflictoDeDatos_lanza409() {
+        LimiteEmisionesRequestDTO request = new LimiteEmisionesRequestDTO(
+                2026,
+                new BigDecimal("50.0000"),
+                "Meta anual"
+        );
+        when(repository.findByEmpresaIdAndAnio(EMPRESA_ID, 2026)).thenReturn(Optional.empty());
+        when(repository.save(org.mockito.ArgumentMatchers.any(LimiteEmisiones.class)))
+                .thenThrow(new DataIntegrityViolationException("duplicate key"));
+
+        assertThatThrownBy(() -> service.guardarLimite(EMPRESA_ID, request))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.CONFLICT);
     }
 
     @Test
