@@ -7,6 +7,7 @@ import com.piedpiper.carbonhub.invitacion.service.InvitacionService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -20,6 +21,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/empresas/invitaciones")
+@PreAuthorize("hasRole('ADMINISTRADOR_EMPRESA')")
 public class InvitacionController {
 
     private final InvitacionService invitacionService;

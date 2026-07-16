@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/limites")
-@PreAuthorize("hasAuthority('ROLE_ADMINISTRADOR_EMPRESA')")
+@PreAuthorize("hasRole('ADMINISTRADOR_EMPRESA')")
 public class LimiteEmisionesController {
     private final LimiteEmisionesService service;
     private final EmpresaAutenticadaService empresaAutenticadaService;
