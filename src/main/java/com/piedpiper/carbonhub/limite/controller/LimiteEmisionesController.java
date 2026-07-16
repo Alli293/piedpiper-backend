@@ -68,6 +68,6 @@ public class LimiteEmisionesController {
     }
 
     private UUID empresaId(Authentication authentication) {
-        return empresaAutenticadaService.obtenerEmpresaId(authentication.getName());
+        return empresaAutenticadaService.obtenerEmpresaId(authentication);
     }
 }

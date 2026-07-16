@@ -14,7 +14,7 @@ import com.piedpiper.carbonhub.emision.service.EmisionElectricidadService;
 import com.piedpiper.carbonhub.emision.service.EmisionEnvioService;
 import com.piedpiper.carbonhub.emision.service.EmisionFlotaService;
 import com.piedpiper.carbonhub.emision.service.EmisionVueloService;
-import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.common.Autenticaciones;
 
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -126,10 +126,6 @@ public class EmisionController {
 
     private UUID usuarioIdAutenticado() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        try {
-            return UUID.fromString(authentication.getName());
-        } catch (IllegalArgumentException e) {
-            throw ApiException.errorInterno("No se pudo identificar al usuario autenticado.");
-        }
+        return Autenticaciones.usuarioId(authentication);
     }
 }

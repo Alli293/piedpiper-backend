@@ -96,7 +96,7 @@ public class ApiException extends RuntimeException {
 
     public static ApiException empresaNoConfigurada() {
         return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
-                "Debes completar la configuración de tu empresa antes de registrar emisiones.");
+                "Debes completar la configuración de tu empresa antes de realizar esta acción.");
     }
 
     public static ApiException invitacionCorreoYaEnEmpresa() {

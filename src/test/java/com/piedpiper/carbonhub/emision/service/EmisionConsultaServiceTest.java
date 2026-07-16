@@ -142,6 +142,17 @@ class EmisionConsultaServiceTest {
         verify(emisionRepository).delete(emision);
     }
 
+    @Test
+    void listarConUsuarioSinEmpresaDevuelve422() {
+        Usuario usuarioSinEmpresa = Usuario.builder().id(USUARIO_ID).build();
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuarioSinEmpresa));
+
+        assertThatThrownBy(() -> service.listar(USUARIO_ID))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
     private Usuario usuario() {
         return Usuario.builder()
                 .id(USUARIO_ID)

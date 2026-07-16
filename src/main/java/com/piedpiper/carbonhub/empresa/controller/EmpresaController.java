@@ -1,5 +1,6 @@
 package com.piedpiper.carbonhub.empresa.controller;
 
+import com.piedpiper.carbonhub.common.Autenticaciones;
 import com.piedpiper.carbonhub.empresa.models.dtos.ConfiguracionInicialEmpresaRequestDTO;
 import com.piedpiper.carbonhub.empresa.models.dtos.ConfiguracionInicialEmpresaResponseDTO;
 import com.piedpiper.carbonhub.empresa.service.ConfiguracionInicialEmpresaService;
@@ -28,7 +29,7 @@ public class EmpresaController {
     public ResponseEntity<ConfiguracionInicialEmpresaResponseDTO> completarConfiguracionInicial(
             Authentication authentication,
             @Valid @RequestBody ConfiguracionInicialEmpresaRequestDTO request) {
-        UUID usuarioId = UUID.fromString(authentication.getName());
+        UUID usuarioId = Autenticaciones.usuarioId(authentication);
         ConfiguracionInicialEmpresaResponseDTO response =
                 configuracionInicialEmpresaService.completarConfiguracionEmpresa(usuarioId, request);
         HttpStatus status = response.isRecienCreada() ? HttpStatus.CREATED : HttpStatus.OK;

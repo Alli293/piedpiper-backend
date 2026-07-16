@@ -70,6 +70,10 @@ class EmisionVueloServiceTest {
                 .build();
     }
 
+    private Usuario usuarioSinEmpresa() {
+        return Usuario.builder().id(USUARIO_ID).build();
+    }
+
     @Test
     void registroExitosoCalculaCadaLegYPersisteCarbonKg() {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
@@ -153,6 +157,18 @@ class EmisionVueloServiceTest {
         assertThat(captor.getValue().getLegs()).hasSize(2);
         assertThat(captor.getValue().getTitulo()).isEqualTo("Viaje a\u00e9reo SFO-YYZ-SFO");
         assertThat(captor.getValue().getCarbonKg()).isEqualByComparingTo("2364.788");
+    }
+
+    @Test
+    void usuarioSinEmpresaNoPuedeRegistrar() {
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuarioSinEmpresa()));
+
+        assertThatThrownBy(() -> service.registrar(requestValido(), USUARIO_ID))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+
+        verify(emisionRepository, never()).save(any());
     }
 
     @Test

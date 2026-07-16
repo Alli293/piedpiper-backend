@@ -65,7 +65,7 @@ class LimiteEmisionesControllerTest {
                 new BigDecimal("50.0000"),
                 "Meta anual"
         );
-        when(empresaAutenticadaService.obtenerEmpresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
+        when(empresaAutenticadaService.obtenerEmpresaId(any())).thenReturn(EMPRESA_ID);
         when(service.guardarLimite(eq(EMPRESA_ID), any(LimiteEmisionesRequestDTO.class)))
                 .thenReturn(new LimiteEmisionesResponseDTO(
                         1L,
@@ -117,7 +117,7 @@ class LimiteEmisionesControllerTest {
     @Test
     @WithMockUser(username = USUARIO_ID, authorities = "ROLE_ADMINISTRADOR_EMPRESA")
     void getListadoRetornaOkParaAdministradorEmpresa() throws Exception {
-        when(empresaAutenticadaService.obtenerEmpresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
+        when(empresaAutenticadaService.obtenerEmpresaId(any())).thenReturn(EMPRESA_ID);
         when(service.listarLimites(EMPRESA_ID)).thenReturn(java.util.List.of());
 
         mockMvc.perform(get("/api/limites")
@@ -128,7 +128,7 @@ class LimiteEmisionesControllerTest {
     @Test
     @WithMockUser(username = USUARIO_ID, authorities = "ROLE_ADMINISTRADOR_EMPRESA")
     void deleteRetornaNoContentParaAdministradorEmpresa() throws Exception {
-        when(empresaAutenticadaService.obtenerEmpresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
+        when(empresaAutenticadaService.obtenerEmpresaId(any())).thenReturn(EMPRESA_ID);
 
         mockMvc.perform(delete("/api/limites/2026")
                         .principal(authentication("ROLE_ADMINISTRADOR_EMPRESA")))
