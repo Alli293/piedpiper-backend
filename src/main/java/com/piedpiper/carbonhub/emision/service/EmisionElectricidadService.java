@@ -13,6 +13,7 @@ import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -46,6 +47,7 @@ public class EmisionElectricidadService {
         this.emisionElectricidadMapper = emisionElectricidadMapper;
     }
 
+    @Transactional
     public EmisionElectricidadResponseDTO registrar(RegistrarElectricidadRequestDTO request, UUID usuarioId) {
         Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> ApiException.errorInterno("No se pudo identificar al usuario autenticado."));
