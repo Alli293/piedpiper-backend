@@ -17,9 +17,19 @@ public interface EmisionRepository extends JpaRepository<Emision, UUID> {
             from Emision e
             left join fetch treat(e as EmisionVuelo).legs
             where e.empresaId = :empresaId
-            order by e.createdAt desc
+              and (:categoria is null
+                   or (:categoria = 'ELECTRICIDAD' and type(e) = EmisionElectricidad)
+                   or (:categoria = 'FLOTA' and type(e) = EmisionFlota)
+                   or (:categoria = 'VUELO' and type(e) = EmisionVuelo)
+                   or (:categoria = 'ENVIO' and type(e) = EmisionEnvio))
+              and (:anio is null or year(e.fechaActividad) = :anio)
+              and (:mes is null or month(e.fechaActividad) = :mes)
+            order by e.fechaActividad desc, e.createdAt desc
             """)
-    List<Emision> findAllByEmpresaIdOrderByCreatedAtDesc(@Param("empresaId") UUID empresaId);
+    List<Emision> findAllByEmpresaIdWithFilters(@Param("empresaId") UUID empresaId,
+                                                 @Param("categoria") String categoria,
+                                                 @Param("anio") Integer anio,
+                                                 @Param("mes") Integer mes);
 
     Optional<Emision> findByIdAndEmpresaId(UUID id, UUID empresaId);
 }
