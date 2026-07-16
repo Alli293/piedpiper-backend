@@ -112,9 +112,9 @@ public class EmisionVueloService {
 
     private String titulo(List<RegistrarVueloRequestDTO.LegDTO> legs) {
         RegistrarVueloRequestDTO.LegDTO first = legs.get(0);
-        RegistrarVueloRequestDTO.LegDTO last = legs.get(legs.size() - 1);
-        return "Viaje aéreo " + normalizarIata(first.getDepartureAirport())
-                + "-" + normalizarIata(last.getDestinationAirport());
+        StringBuilder ruta = new StringBuilder(normalizarIata(first.getDepartureAirport()));
+        legs.forEach(leg -> ruta.append("-").append(normalizarIata(leg.getDestinationAirport())));
+        return "Viaje aéreo " + ruta;
     }
 
     private String normalizarIata(String value) {
