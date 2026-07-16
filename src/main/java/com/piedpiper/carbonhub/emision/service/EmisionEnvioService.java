@@ -20,6 +20,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -60,9 +61,11 @@ public class EmisionEnvioService {
             throw ApiException.empresaNoConfigurada();
         }
 
+        String activityId = Optional.ofNullable(ACTIVITY_IDS.get(request.getTransportMethod()))
+                .orElseThrow(ApiException::metodoTransporteNoSoportado);
+
         ClimatiqEstimateResponse estimacion = climatiqClient.estimar(
-                new ClimatiqEmissionFactorSelector(
-                        ACTIVITY_IDS.get(request.getTransportMethod()), DATA_VERSION, null),
+                new ClimatiqEmissionFactorSelector(activityId, DATA_VERSION, null),
                 Map.of(
                         "weight", convertirPesoAToneladas(request.getWeightValue(), request.getWeightUnit()),
                         "weight_unit", "t",
