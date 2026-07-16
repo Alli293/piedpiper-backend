@@ -52,6 +52,14 @@ public class ApiException extends RuntimeException {
         return new ApiException(HttpStatus.FORBIDDEN, mensaje);
     }
 
+    public static ApiException valorNoSoportado(String mensaje) {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, mensaje);
+    }
+
+    public static ApiException recursoNoEncontrado(String mensaje) {
+        return new ApiException(HttpStatus.NOT_FOUND, mensaje);
+    }
+
     public static ApiException calculoInvalido(String mensajeServicio) {
         return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
                 "No se pudo calcular la huella: " + mensajeServicio + ". Verifique los datos ingresados.");
@@ -80,6 +88,10 @@ public class ApiException extends RuntimeException {
     public static ApiException calculoUnidadNoSoportada(String unidad) {
         return new ApiException(HttpStatus.BAD_GATEWAY,
                 "El servicio de cálculo devolvió una unidad no soportada (" + unidad + ").");
+    }
+
+    public static ApiException calculoVueloInvalido(String mensaje) {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, mensaje);
     }
 
     public static ApiException empresaNoConfigurada() {
@@ -136,5 +148,10 @@ public class ApiException extends RuntimeException {
         return new ApiException(HttpStatus.FORBIDDEN,
                 "La cuenta de Google que seleccionaste no corresponde al correo de esta invitación. "
                         + "Inicia sesión con la cuenta indicada.");
+    }
+
+    public static ApiException combinacionVehiculoInvalida() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Seleccione un combustible válido para este tipo de vehículo.");
     }
 }

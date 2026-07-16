@@ -1,7 +1,7 @@
 package com.piedpiper.carbonhub.emision.service;
 
 import com.piedpiper.carbonhub.emision.mappers.EmisionElectricidadMapper;
-import com.piedpiper.carbonhub.emision.models.dtos.EmisionResponseDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.EmisionElectricidadResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.RegistrarElectricidadRequestDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.climatiq.ClimatiqEmissionFactorSelector;
 import com.piedpiper.carbonhub.emision.models.dtos.climatiq.ClimatiqEstimateResponse;
@@ -78,11 +78,11 @@ class EmisionElectricidadServiceTest {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
         when(climatiqClient.estimar(any(), any())).thenReturn(estimacion(new BigDecimal("27.85")));
         when(emisionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        EmisionResponseDTO responseEsperado = new EmisionResponseDTO();
+        EmisionElectricidadResponseDTO responseEsperado = new EmisionElectricidadResponseDTO();
         responseEsperado.setCarbonKg(new BigDecimal("27.85"));
         when(emisionElectricidadMapper.toDto(any())).thenReturn(responseEsperado);
 
-        EmisionResponseDTO response = service.registrar(requestValido(), USUARIO_ID);
+        EmisionElectricidadResponseDTO response = service.registrar(requestValido(), USUARIO_ID);
 
         ArgumentCaptor<EmisionElectricidad> captor = ArgumentCaptor.forClass(EmisionElectricidad.class);
         verify(emisionRepository).save(captor.capture());
@@ -101,7 +101,7 @@ class EmisionElectricidadServiceTest {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
         when(climatiqClient.estimar(any(), any())).thenReturn(estimacion(new BigDecimal("27.85")));
         when(emisionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        when(emisionElectricidadMapper.toDto(any())).thenReturn(new EmisionResponseDTO());
+        when(emisionElectricidadMapper.toDto(any())).thenReturn(new EmisionElectricidadResponseDTO());
 
         service.registrar(requestValido(), USUARIO_ID);
 
