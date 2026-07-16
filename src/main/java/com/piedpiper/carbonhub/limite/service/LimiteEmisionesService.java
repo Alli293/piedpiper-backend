@@ -1,5 +1,6 @@
 package com.piedpiper.carbonhub.limite.service;
 
+import com.piedpiper.carbonhub.limite.mappers.LimiteEmisionesMapper;
 import com.piedpiper.carbonhub.limite.models.dtos.LimiteEmisionesRequestDTO;
 import com.piedpiper.carbonhub.limite.models.dtos.LimiteEmisionesResponseDTO;
 import com.piedpiper.carbonhub.limite.models.entities.LimiteEmisiones;
@@ -16,9 +17,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class LimiteEmisionesService {
     private final LimiteEmisionesRepository repository;
+    private final LimiteEmisionesMapper limiteEmisionesMapper;
 
-    public LimiteEmisionesService(LimiteEmisionesRepository repository) {
+    public LimiteEmisionesService(LimiteEmisionesRepository repository, LimiteEmisionesMapper limiteEmisionesMapper) {
         this.repository = repository;
+        this.limiteEmisionesMapper = limiteEmisionesMapper;
     }
 
     @Transactional
@@ -65,15 +68,11 @@ public class LimiteEmisionesService {
     }
 
     private LimiteEmisionesResponseDTO toDto(LimiteEmisiones limite, boolean incluirMensaje) {
-        return new LimiteEmisionesResponseDTO(
-                limite.getId(),
-                limite.getEmpresaId(),
-                limite.getAnio(),
-                limite.getLimiteMt(),
-                limite.getJustificacion(),
-                incluirMensaje ? mensajeLimite(limite) : null,
-                limite.getActualizadoEn()
-        );
+        LimiteEmisionesResponseDTO dto = limiteEmisionesMapper.toDto(limite);
+        if (incluirMensaje) {
+            dto.setMensaje(mensajeLimite(limite));
+        }
+        return dto;
     }
 
     private String mensajeLimite(LimiteEmisiones limite) {
