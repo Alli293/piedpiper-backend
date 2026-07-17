@@ -14,7 +14,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.piedpiper.carbonhub.auth.config.JwtAuthenticationFilter;
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
 import com.piedpiper.carbonhub.exceptions.GlobalExceptionHandler;
-import com.piedpiper.carbonhub.limite.config.LimiteSecurityConfig;
 import com.piedpiper.carbonhub.limite.service.EmpresaAutenticadaService;
 import com.piedpiper.carbonhub.limite.models.dtos.LimiteEmisionesRequestDTO;
 import com.piedpiper.carbonhub.limite.models.dtos.LimiteEmisionesResponseDTO;
@@ -35,8 +34,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @AutoConfigureMockMvc(addFilters = false)
 @Import({
         SecurityConfig.class,
-        GlobalExceptionHandler.class,
-        LimiteSecurityConfig.class
+        GlobalExceptionHandler.class
 })
 class LimiteEmisionesControllerTest {
     private static final UUID EMPRESA_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");

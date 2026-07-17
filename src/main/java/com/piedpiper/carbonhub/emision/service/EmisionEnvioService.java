@@ -79,9 +79,6 @@ public class EmisionEnvioService {
         }
 
         BigDecimal carbonKg = estimacion.co2e();
-        if (carbonKg == null) {
-            throw ApiException.errorInterno("El servicio de cálculo no devolvió un resultado válido.");
-        }
         BigDecimal carbonMt = carbonKg.divide(BigDecimal.valueOf(1000), 3, RoundingMode.HALF_UP);
 
         EmisionEnvio emision = EmisionEnvio.builder()

@@ -32,7 +32,6 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -142,23 +141,6 @@ class EmisionEnvioServiceTest {
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
-
-        verify(emisionRepository, never()).save(any());
-    }
-
-    @Test
-    void co2eNuloLanzaExcepcion() {
-        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
-        when(climatiqClient.estimar(any(ClimatiqEmissionFactorSelector.class), any(Map.class)))
-                .thenReturn(estimacion(null));
-
-        assertThatThrownBy(() -> service.registrar(requestValido(), USUARIO_ID))
-                .isInstanceOf(ApiException.class)
-                .satisfies(e -> {
-                    ApiException apiEx = (ApiException) e;
-                    assertThat(apiEx.getStatus()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
-                    assertThat(apiEx.getMessage()).contains("no devolvió un resultado válido");
-                });
 
         verify(emisionRepository, never()).save(any());
     }
