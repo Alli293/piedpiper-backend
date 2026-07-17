@@ -11,6 +11,7 @@ import com.piedpiper.carbonhub.validacion.models.dtos.SolicitudPendienteResponse
 import com.piedpiper.carbonhub.validacion.models.dtos.SolicitudResueltaResponseDTO;
 import com.piedpiper.carbonhub.validacion.models.entities.RegistroAuditoriaInterna;
 import com.piedpiper.carbonhub.validacion.models.entities.SolicitudValidacion;
+import com.piedpiper.carbonhub.validacion.models.enums.DecisionSolicitud;
 import com.piedpiper.carbonhub.validacion.models.enums.EstadoSolicitud;
 import com.piedpiper.carbonhub.validacion.repository.RegistroAuditoriaInternaRepository;
 import com.piedpiper.carbonhub.validacion.repository.SolicitudValidacionRepository;
@@ -111,19 +112,17 @@ public class ValidacionAuditorService {
     }
 
     private boolean validarDecision(DecisionSolicitudRequestDTO request) {
-        String decision = request.getDecision() == null ? "" : request.getDecision().trim();
-        if (!DECISION_APROBADO.equals(decision) && !DECISION_RECHAZADO.equals(decision)) {
-            throw ApiException.valorNoSoportado("La decisión debe ser 'aprobado' o 'rechazado'.");
-        }
-        boolean aprobado = DECISION_APROBADO.equals(decision);
-        if (!aprobado) {
+        DecisionSolicitud decision = DecisionSolicitud.desde(request.getDecision())
+                .orElseThrow(() -> ApiException.valorNoSoportado(
+                        "La decisión debe ser 'aprobado' o 'rechazado'."));
+        if (decision == DecisionSolicitud.RECHAZADO) {
             String motivo = request.getMotivoRechazo() == null ? "" : request.getMotivoRechazo().trim();
             if (motivo.length() < MOTIVO_MIN || motivo.length() > SolicitudValidacion.MOTIVO_MAX) {
                 throw ApiException.valorNoSoportado(
                         "El motivo de rechazo debe tener entre 10 y 500 caracteres.");
             }
         }
-        return aprobado;
+        return decision == DecisionSolicitud.APROBADO;
     }
 
     private void enviarCorreoTrasCommit(String nombre, String email, boolean aprobado, String motivo) {

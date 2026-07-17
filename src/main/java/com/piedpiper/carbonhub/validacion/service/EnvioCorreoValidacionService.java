@@ -23,7 +23,7 @@ public class EnvioCorreoValidacionService {
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
     public EnvioCorreoValidacionService(EmailValidacionAuditorService emailValidacionAuditorService,
-                                        @Value("${invitacion.reintento-intervalo-ms:300000}") long intervaloReintentoMs) {
+                                        @Value("${validacion.reintento-intervalo-ms:300000}") long intervaloReintentoMs) {
         this.emailValidacionAuditorService = emailValidacionAuditorService;
         this.intervaloReintentoMs = intervaloReintentoMs;
     }
