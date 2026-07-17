@@ -7,7 +7,6 @@ import com.piedpiper.carbonhub.ima.service.ImaService;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -30,8 +29,7 @@ public class ImaController {
     @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
     public ResponseEntity<ImaResponseDTO> obtenerIma(
             @RequestParam(required = false) Integer anio,
-            @RequestParam(required = false) Integer mes,
-            Authentication authentication) {
+            @RequestParam(required = false) Integer mes) {
 
         LocalDate hoy = LocalDate.now();
 
@@ -60,7 +58,8 @@ public class ImaController {
                     "El período no puede ser futuro.");
         }
 
-        UUID usuarioId = Autenticaciones.usuarioId(authentication);
+        UUID usuarioId = Autenticaciones.usuarioId(
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication());
         ImaResponseDTO response = imaService.obtenerIma(anio, mes, usuarioId);
         return ResponseEntity.ok(response);
     }
