@@ -29,11 +29,13 @@ public class EmisionEnvioService {
 
     private static final Map<MetodoTransporte, String> ACTIVITY_IDS = Map.of(
             MetodoTransporte.TRUCK, "freight_vehicle-vehicle_type_commercial_truck-fuel_source_na-vehicle_weight_na-percentage_load_na",
-            MetodoTransporte.SHIP, "freight_vessel-vessel_type_bulk_carrier-fuel_source_na-vessel_length_na-percentage_load_na",
-            MetodoTransporte.TRAIN, "freight_train-train_type_freight_train-fuel_source_na-distance_na-weight_na",
-            MetodoTransporte.PLANE, "freight_flight-route_type_na-distance_na-weight_na"
+            MetodoTransporte.SHIP, "sea_freight-vessel_type_bulk_and_general_cargo-route_type_coastal-vessel_length_na"
+                    + "-tonnage_gt_10dwkt_lt_20_dwkt-fuel_source_na-load_type_na-distance_uplift_na",
+            MetodoTransporte.TRAIN, "freight_train-route_type_domestic-fuel_type_diesel",
+            MetodoTransporte.PLANE, "freight_flight-route_type_air_transport_freight_services-distance_na-weight_na"
+                    + "-rf_na-method_na-aircraft_type_na-distance_uplift_na"
     );
-    private static final String DATA_VERSION = "^21";
+    private static final String DATA_VERSION = "^6";
 
     private static final BigDecimal GRAMS_PER_TONNE = new BigDecimal("1000000");
     private static final BigDecimal LBS_PER_TONNE = new BigDecimal("2204.623");

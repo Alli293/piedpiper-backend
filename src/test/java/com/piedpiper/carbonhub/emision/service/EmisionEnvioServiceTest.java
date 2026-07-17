@@ -193,9 +193,9 @@ class EmisionEnvioServiceTest {
         // All 4 methods should produce distinct activity IDs
         assertThat(activityIds).hasSize(4);
         assertThat(activityIds).doesNotHaveDuplicates();
-        assertThat(activityIds).anyMatch(id -> id.contains("hgv"));      // TRUCK
-        assertThat(activityIds).anyMatch(id -> id.contains("vessel"));   // SHIP
-        assertThat(activityIds).anyMatch(id -> id.contains("train"));    // TRAIN
-        assertThat(activityIds).anyMatch(id -> id.contains("flight"));   // PLANE
+        assertThat(activityIds).anyMatch(id -> id.contains("commercial_truck"));  // TRUCK
+        assertThat(activityIds).anyMatch(id -> id.contains("sea_freight"));       // SHIP
+        assertThat(activityIds).anyMatch(id -> id.contains("freight_train"));     // TRAIN
+        assertThat(activityIds).anyMatch(id -> id.contains("freight_flight"));    // PLANE
     }
 }
