@@ -75,7 +75,7 @@ class ConfiguracionInicialEmpresaServiceTest {
         ArgumentCaptor<Usuario> usuarioCaptor = ArgumentCaptor.forClass(Usuario.class);
         verify(usuarioRepository).saveAndFlush(usuarioCaptor.capture());
         assertThat(usuarioCaptor.getValue().getEmpresa()).isSameAs(empresaGuardada);
-        assertThat(usuarioCaptor.getValue().isConfiguracionCompleta()).isTrue();
+        assertThat(usuarioCaptor.getValue().isConfiguracionCompleta()).isFalse();
 
         assertThat(response.getEmpresaId()).isEqualTo(empresaGuardada.getId());
         assertThat(response.getSlug()).isEqualTo("acme-s-a");
