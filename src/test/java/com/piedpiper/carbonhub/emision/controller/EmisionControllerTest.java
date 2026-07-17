@@ -35,6 +35,7 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -89,6 +90,13 @@ class EmisionControllerTest {
     @MockitoBean
     private UsuarioRepository usuarioRepository;
 
+    private static final String ADMIN_USUARIO_ID = "41ce47ab-a46c-4306-8c46-2688dc97fa73";
+    private static final String GENERAL_USUARIO_ID = "db2ed1e7-6719-4595-844e-68efffe146cf";
+
+    private TestingAuthenticationToken principal(String usuarioId, String authority) {
+        return new TestingAuthenticationToken(usuarioId, "password", authority);
+    }
+
     private static final String REQUEST_VALIDO = "{\"titulo\":\"Consumo oficina central\","
             + "\"electricityValue\":500,\"electricityUnit\":\"kwh\",\"fechaActividad\":\"2026-07-01\"}";
     private static final String VUELO_REQUEST_VALIDO = "{\"passengers\":2,\"distanceUnit\":\"km\","
@@ -119,6 +127,7 @@ class EmisionControllerTest {
         when(emisionElectricidadService.registrar(any(), any())).thenReturn(response);
 
         mockMvc.perform(post("/api/emisiones/electricidad")
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(REQUEST_VALIDO))
                 .andExpect(status().isCreated())
@@ -144,6 +153,7 @@ class EmisionControllerTest {
         when(emisionElectricidadService.registrar(any(), any())).thenReturn(response);
 
         mockMvc.perform(post("/api/emisiones/electricidad")
+                        .principal(principal(GENERAL_USUARIO_ID, "ROLE_USUARIO_GENERAL"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(REQUEST_VALIDO))
                 .andExpect(status().isCreated());
@@ -199,6 +209,7 @@ class EmisionControllerTest {
         when(emisionEnvioService.registrar(any(), any())).thenReturn(response);
 
         mockMvc.perform(post("/api/emisiones/envio")
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(ENVIO_REQUEST_VALIDO))
                 .andExpect(status().isCreated())
@@ -255,6 +266,7 @@ class EmisionControllerTest {
         when(emisionFlotaService.registrar(any(), any())).thenReturn(response);
 
         mockMvc.perform(post("/api/emisiones/flota")
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(REQUEST_FLOTA_VALIDO))
                 .andExpect(status().isCreated())
@@ -284,6 +296,7 @@ class EmisionControllerTest {
         when(emisionFlotaService.registrar(any(), any())).thenReturn(response);
 
         mockMvc.perform(post("/api/emisiones/flota")
+                        .principal(principal(GENERAL_USUARIO_ID, "ROLE_USUARIO_GENERAL"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(REQUEST_FLOTA_VALIDO))
                 .andExpect(status().isCreated());
@@ -311,6 +324,7 @@ class EmisionControllerTest {
         when(emisionEnvioService.registrar(any(), any())).thenReturn(response);
 
         mockMvc.perform(post("/api/emisiones/envio")
+                        .principal(principal(GENERAL_USUARIO_ID, "ROLE_USUARIO_GENERAL"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(ENVIO_REQUEST_VALIDO))
                 .andExpect(status().isCreated());
@@ -328,7 +342,8 @@ class EmisionControllerTest {
         response.setCarbonKg(new BigDecimal("237.5"));
         when(emisionConsultaService.listar(any())).thenReturn(List.of(response));
 
-        mockMvc.perform(get("/api/emisiones"))
+        mockMvc.perform(get("/api/emisiones")
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].categoria").value("VUELO"))
                 .andExpect(jsonPath("$[0].carbonKg").value(237.5));
@@ -356,7 +371,8 @@ class EmisionControllerTest {
         response.setTitulo("Viaje aereo SFO-YYZ");
         when(emisionConsultaService.obtener(eq(id), any())).thenReturn(response);
 
-        mockMvc.perform(get("/api/emisiones/{id}", id))
+        mockMvc.perform(get("/api/emisiones/{id}", id)
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(id.toString()))
                 .andExpect(jsonPath("$.categoria").value("VUELO"));
@@ -369,7 +385,8 @@ class EmisionControllerTest {
         when(emisionConsultaService.obtener(eq(id), any()))
                 .thenThrow(ApiException.recursoNoEncontrado("No se encontro la emision solicitada."));
 
-        mockMvc.perform(get("/api/emisiones/{id}", id))
+        mockMvc.perform(get("/api/emisiones/{id}", id)
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isNotFound());
     }
 
@@ -383,6 +400,7 @@ class EmisionControllerTest {
         when(emisionVueloService.actualizar(eq(id), any(), any())).thenReturn(response);
 
         mockMvc.perform(put("/api/emisiones/vuelo/{id}", id)
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(VUELO_REQUEST_VALIDO))
                 .andExpect(status().isOk())
@@ -398,6 +416,7 @@ class EmisionControllerTest {
                 + "\"fechaActividad\":\"2026-07-01\"}";
 
         mockMvc.perform(post("/api/emisiones/flota")
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(invalido))
                 .andExpect(status().isBadRequest());
@@ -408,7 +427,8 @@ class EmisionControllerTest {
     void eliminarEmisionDevuelve204() throws Exception {
         UUID id = UUID.randomUUID();
 
-        mockMvc.perform(delete("/api/emisiones/{id}", id))
+        mockMvc.perform(delete("/api/emisiones/{id}", id)
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isNoContent());
 
         verify(emisionConsultaService).eliminar(eq(id), any());
@@ -421,7 +441,8 @@ class EmisionControllerTest {
         doThrow(ApiException.recursoNoEncontrado("No se encontro la emision solicitada."))
                 .when(emisionConsultaService).eliminar(eq(id), any());
 
-        mockMvc.perform(delete("/api/emisiones/{id}", id))
+        mockMvc.perform(delete("/api/emisiones/{id}", id)
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isNotFound());
     }
 
@@ -465,6 +486,7 @@ class EmisionControllerTest {
         when(emisionVueloService.registrar(any(), any())).thenReturn(response);
 
         mockMvc.perform(post("/api/emisiones/vuelo")
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(VUELO_REQUEST_VALIDO))
                 .andExpect(status().isCreated())
