@@ -8,7 +8,7 @@ import com.piedpiper.carbonhub.emision.models.dtos.EmisionFlotaResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.TipoVehiculoResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.TipoVehiculoResponseDTO.CombustibleResponseDTO;
-import com.piedpiper.carbonhub.emision.models.dtos.VueloResponseDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.EmisionVueloResponseDTO;
 import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
 import com.piedpiper.carbonhub.emision.models.enums.Combustible;
 import com.piedpiper.carbonhub.emision.models.enums.MetodoTransporte;
@@ -321,7 +321,7 @@ class EmisionControllerTest {
     @Test
     @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
     void listarEmisionesDevuelve200() throws Exception {
-        EmisionResponseDTO response = new VueloResponseDTO();
+        EmisionResponseDTO response = new EmisionVueloResponseDTO();
         response.setId(UUID.randomUUID());
         response.setCategoria(CategoriaEmision.VUELO);
         response.setTitulo("Viaje aereo SFO-YYZ");
@@ -350,7 +350,7 @@ class EmisionControllerTest {
     @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
     void obtenerEmisionDevuelve200() throws Exception {
         UUID id = UUID.randomUUID();
-        EmisionResponseDTO response = new VueloResponseDTO();
+        EmisionResponseDTO response = new EmisionVueloResponseDTO();
         response.setId(id);
         response.setCategoria(CategoriaEmision.VUELO);
         response.setTitulo("Viaje aereo SFO-YYZ");
@@ -377,7 +377,7 @@ class EmisionControllerTest {
     @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
     void actualizarVueloDevuelve200() throws Exception {
         UUID id = UUID.randomUUID();
-        EmisionResponseDTO response = new VueloResponseDTO();
+        EmisionResponseDTO response = new EmisionVueloResponseDTO();
         response.setId(id);
         response.setCarbonKg(new BigDecimal("237.5"));
         when(emisionVueloService.actualizar(eq(id), any(), any())).thenReturn(response);
@@ -460,7 +460,7 @@ class EmisionControllerTest {
     @Test
     @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
     void registroVueloValidoDevuelve201() throws Exception {
-        EmisionResponseDTO response = new VueloResponseDTO();
+        EmisionResponseDTO response = new EmisionVueloResponseDTO();
         response.setCarbonKg(new BigDecimal("237.5"));
         when(emisionVueloService.registrar(any(), any())).thenReturn(response);
 

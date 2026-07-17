@@ -8,7 +8,7 @@ import com.piedpiper.carbonhub.emision.models.dtos.EmisionElectricidadResponseDT
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionEnvioResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionFlotaResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionResponseDTO;
-import com.piedpiper.carbonhub.emision.models.dtos.VueloResponseDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.EmisionVueloResponseDTO;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionElectricidad;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionEnvio;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionFlota;
@@ -85,7 +85,7 @@ class EmisionConsultaServiceTest {
         EmisionFlota flota = EmisionFlota.builder().empresaId(EMPRESA_ID).build();
 
         EmisionElectricidadResponseDTO electricidadDto = new EmisionElectricidadResponseDTO();
-        VueloResponseDTO vueloDto = new VueloResponseDTO();
+        EmisionVueloResponseDTO vueloDto = new EmisionVueloResponseDTO();
         EmisionEnvioResponseDTO envioDto = new EmisionEnvioResponseDTO();
         EmisionFlotaResponseDTO flotaDto = new EmisionFlotaResponseDTO();
 
