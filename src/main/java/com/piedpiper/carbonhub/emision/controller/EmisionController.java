@@ -35,6 +35,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/emisiones")
+@PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
 public class EmisionController {
 
     private final EmisionElectricidadService emisionElectricidadService;
@@ -56,19 +57,16 @@ public class EmisionController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
     public ResponseEntity<List<EmisionResponseDTO>> listar(Authentication authentication) {
         return ResponseEntity.ok(emisionConsultaService.listar(Autenticaciones.usuarioId(authentication)));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
     public ResponseEntity<EmisionResponseDTO> obtener(Authentication authentication, @PathVariable UUID id) {
         return ResponseEntity.ok(emisionConsultaService.obtener(id, Autenticaciones.usuarioId(authentication)));
     }
 
     @PostMapping("/electricidad")
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
     public ResponseEntity<EmisionElectricidadResponseDTO> registrarElectricidad(
             Authentication authentication,
             @Valid @RequestBody RegistrarElectricidadRequestDTO request) {
@@ -78,13 +76,11 @@ public class EmisionController {
     }
 
     @GetMapping("/flota/tipos-vehiculo")
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
     public ResponseEntity<List<TipoVehiculoResponseDTO>> listarTiposVehiculo() {
         return ResponseEntity.ok(emisionFlotaService.listarTiposVehiculo());
     }
 
     @PostMapping("/flota")
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
     public ResponseEntity<EmisionFlotaResponseDTO> registrarFlota(
             Authentication authentication,
             @Valid @RequestBody RegistrarFlotaRequestDTO request) {
@@ -94,7 +90,6 @@ public class EmisionController {
     }
 
     @PostMapping("/envio")
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
     public ResponseEntity<EmisionEnvioResponseDTO> registrarEnvio(
             Authentication authentication,
             @Valid @RequestBody RegistrarEnvioRequestDTO request) {
@@ -104,7 +99,6 @@ public class EmisionController {
     }
 
     @PostMapping("/vuelo")
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
     public ResponseEntity<EmisionResponseDTO> registrarVuelo(
             Authentication authentication,
             @Valid @RequestBody RegistrarVueloRequestDTO request) {
@@ -113,7 +107,6 @@ public class EmisionController {
     }
 
     @PutMapping("/vuelo/{id}")
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
     public ResponseEntity<EmisionResponseDTO> actualizarVuelo(
             Authentication authentication,
             @PathVariable UUID id,
@@ -123,7 +116,6 @@ public class EmisionController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
     public ResponseEntity<Void> eliminar(Authentication authentication, @PathVariable UUID id) {
         emisionConsultaService.eliminar(id, Autenticaciones.usuarioId(authentication));
         return ResponseEntity.noContent().build();

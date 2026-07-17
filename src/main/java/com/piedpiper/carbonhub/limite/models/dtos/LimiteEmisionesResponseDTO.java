@@ -1,7 +1,7 @@
 package com.piedpiper.carbonhub.limite.models.dtos;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -17,6 +17,6 @@ public class LimiteEmisionesResponseDTO {
     private BigDecimal limiteMt;
     private String justificacion;
     private String mensaje;
-    private LocalDateTime actualizadoEn;
+    private Instant actualizadoEn;
     private boolean recienCreada;
 }
