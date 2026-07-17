@@ -156,6 +156,6 @@ public class ApiException extends RuntimeException {
 
     public static ApiException limiteConflicto() {
         return new ApiException(HttpStatus.CONFLICT,
-                "Conflicto al guardar el limite. Intente nuevamente.");
+                "Conflicto al guardar el límite. Intente nuevamente.");
     }
 }
