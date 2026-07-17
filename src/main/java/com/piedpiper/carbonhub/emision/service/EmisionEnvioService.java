@@ -26,13 +26,16 @@ import java.util.UUID;
 public class EmisionEnvioService {
 
     private static final Map<MetodoTransporte, String> ACTIVITY_IDS = Map.of(
-            MetodoTransporte.TRUCK, "freight_vehicle-vehicle_type_hgv_all_diesel-fuel_source_na-distance_na-weight_na",
-            MetodoTransporte.SHIP, "freight_vessel-vessel_type_bulk_carrier-fuel_source_na-distance_na-weight_na",
+            MetodoTransporte.TRUCK, "freight_vehicle-vehicle_type_commercial_truck-fuel_source_na-vehicle_weight_na-percentage_load_na",
+            MetodoTransporte.SHIP, "freight_vessel-vessel_type_bulk_carrier-fuel_source_na-vessel_length_na-percentage_load_na",
             MetodoTransporte.TRAIN, "freight_train-train_type_freight_train-fuel_source_na-distance_na-weight_na",
             MetodoTransporte.PLANE, "freight_flight-route_type_na-distance_na-weight_na"
     );
-    private static final String DATA_VERSION = "^1";
-    private static final String REGION = "CR";
+    private static final String DATA_VERSION = "^21";
+
+    private static final BigDecimal GRAMS_PER_TONNE = new BigDecimal("1000000");
+    private static final BigDecimal LBS_PER_TONNE = new BigDecimal("2204.623");
+    private static final BigDecimal KG_PER_TONNE = new BigDecimal("1000");
 
     private final ClimatiqClient climatiqClient;
     private final EmisionRepository emisionRepository;
@@ -59,10 +62,10 @@ public class EmisionEnvioService {
 
         ClimatiqEstimateResponse estimacion = climatiqClient.estimar(
                 new ClimatiqEmissionFactorSelector(
-                        ACTIVITY_IDS.get(request.getTransportMethod()), DATA_VERSION, REGION),
+                        ACTIVITY_IDS.get(request.getTransportMethod()), DATA_VERSION, null),
                 Map.of(
-                        "weight", request.getWeightValue(),
-                        "weight_unit", climatiqWeightUnit(request.getWeightUnit()),
+                        "weight", convertirPesoAToneladas(request.getWeightValue(), request.getWeightUnit()),
+                        "weight_unit", "t",
                         "distance", request.getDistanceValue(),
                         "distance_unit", climatiqDistanceUnit(request.getDistanceUnit())));
 
@@ -97,12 +100,12 @@ public class EmisionEnvioService {
         return emisionEnvioMapper.toDto(emision);
     }
 
-    private String climatiqWeightUnit(UnidadPeso unidad) {
+    private BigDecimal convertirPesoAToneladas(BigDecimal valor, UnidadPeso unidad) {
         return switch (unidad) {
-            case G -> "g";
-            case LB -> "lb";
-            case KG -> "kg";
-            case MT -> "t";
+            case G -> valor.divide(GRAMS_PER_TONNE, 6, RoundingMode.HALF_UP);
+            case LB -> valor.divide(LBS_PER_TONNE, 6, RoundingMode.HALF_UP);
+            case KG -> valor.divide(KG_PER_TONNE, 6, RoundingMode.HALF_UP);
+            case MT -> valor;
         };
     }
 
