@@ -12,6 +12,7 @@ import com.piedpiper.carbonhub.emision.models.entities.EmisionFlota;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionVuelo;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.ima.service.ImaCacheInvalidator;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
@@ -30,19 +31,22 @@ public class EmisionConsultaService {
     private final EmisionVueloMapper emisionVueloMapper;
     private final EmisionEnvioMapper emisionEnvioMapper;
     private final EmisionFlotaMapper emisionFlotaMapper;
+    private final ImaCacheInvalidator imaCacheInvalidator;
 
     public EmisionConsultaService(EmisionRepository emisionRepository,
                                   UsuarioRepository usuarioRepository,
                                   EmisionElectricidadMapper emisionElectricidadMapper,
                                   EmisionVueloMapper emisionVueloMapper,
                                   EmisionEnvioMapper emisionEnvioMapper,
-                                  EmisionFlotaMapper emisionFlotaMapper) {
+                                  EmisionFlotaMapper emisionFlotaMapper,
+                                  ImaCacheInvalidator imaCacheInvalidator) {
         this.emisionRepository = emisionRepository;
         this.usuarioRepository = usuarioRepository;
         this.emisionElectricidadMapper = emisionElectricidadMapper;
         this.emisionVueloMapper = emisionVueloMapper;
         this.emisionEnvioMapper = emisionEnvioMapper;
         this.emisionFlotaMapper = emisionFlotaMapper;
+        this.imaCacheInvalidator = imaCacheInvalidator;
     }
 
     @Transactional(readOnly = true)
@@ -59,8 +63,11 @@ public class EmisionConsultaService {
 
     @Transactional
     public void eliminar(UUID id, UUID usuarioId) {
-        Emision emision = buscarPropia(id, usuarioId);
+        UUID empresaId = empresaId(usuarioId);
+        Emision emision = emisionRepository.findByIdAndEmpresaId(id, empresaId)
+                .orElseThrow(() -> ApiException.recursoNoEncontrado("No se encontró la emisión solicitada."));
         emisionRepository.delete(emision);
+        imaCacheInvalidator.invalidar(empresaId);
     }
 
     private Emision buscarPropia(UUID id, UUID usuarioId) {
