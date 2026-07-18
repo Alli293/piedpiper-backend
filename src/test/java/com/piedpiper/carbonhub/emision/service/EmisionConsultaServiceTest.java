@@ -13,9 +13,12 @@ import com.piedpiper.carbonhub.emision.models.entities.EmisionElectricidad;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionEnvio;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionFlota;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionVuelo;
-import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
+import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.ima.service.ImaCacheInvalidator;
+import com.piedpiper.carbonhub.user.models.entities.Usuario;
+import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -43,7 +46,7 @@ class EmisionConsultaServiceTest {
     @Mock
     private EmisionRepository emisionRepository;
     @Mock
-    private EmisionEmpresaService emisionEmpresaService;
+    private UsuarioRepository usuarioRepository;
     @Mock
     private EmisionElectricidadMapper emisionElectricidadMapper;
     @Mock
@@ -52,6 +55,8 @@ class EmisionConsultaServiceTest {
     private EmisionEnvioMapper emisionEnvioMapper;
     @Mock
     private EmisionFlotaMapper emisionFlotaMapper;
+    @Mock
+    private ImaCacheInvalidator imaCacheInvalidator;
 
     @InjectMocks
     private EmisionConsultaService service;
@@ -64,38 +69,15 @@ class EmisionConsultaServiceTest {
                 .build();
         EmisionElectricidadResponseDTO dto = new EmisionElectricidadResponseDTO();
         dto.setId(EMISION_ID);
-        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
-        when(emisionRepository.findAllByEmpresaIdWithFilters(EMPRESA_ID, null, null, null))
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
+        when(emisionRepository.findAllByEmpresaIdOrderByCreatedAtDesc(EMPRESA_ID))
                 .thenReturn(List.of(emision));
         when(emisionElectricidadMapper.toDto(emision)).thenReturn(dto);
 
-        List<EmisionResponseDTO> response = service.listar(USUARIO_ID, null, null, null);
+        List<EmisionResponseDTO> response = service.listar(USUARIO_ID);
 
         assertThat(response).containsExactly(dto);
-        verify(emisionRepository).findAllByEmpresaIdWithFilters(EMPRESA_ID, null, null, null);
-    }
-
-    @Test
-    void listarAplicaFiltrosDeCategoriaAnioYMes() {
-        EmisionFlota flota = EmisionFlota.builder().empresaId(EMPRESA_ID).build();
-        EmisionFlotaResponseDTO dto = new EmisionFlotaResponseDTO();
-        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
-        when(emisionRepository.findAllByEmpresaIdWithFilters(EMPRESA_ID, CategoriaEmision.FLOTA, 2026, 7))
-                .thenReturn(List.of(flota));
-        when(emisionFlotaMapper.toDto(flota)).thenReturn(dto);
-
-        List<EmisionResponseDTO> response = service.listar(USUARIO_ID, CategoriaEmision.FLOTA, 2026, 7);
-
-        assertThat(response).containsExactly(dto);
-        verify(emisionRepository).findAllByEmpresaIdWithFilters(EMPRESA_ID, CategoriaEmision.FLOTA, 2026, 7);
-    }
-
-    @Test
-    void listarRechazaMesFueraDeRango() {
-        assertThatThrownBy(() -> service.listar(USUARIO_ID, null, null, 13))
-                .isInstanceOf(ApiException.class)
-                .extracting(e -> ((ApiException) e).getStatus())
-                .isEqualTo(HttpStatus.BAD_REQUEST);
+        verify(emisionRepository).findAllByEmpresaIdOrderByCreatedAtDesc(EMPRESA_ID);
     }
 
     @Test
@@ -110,15 +92,15 @@ class EmisionConsultaServiceTest {
         EmisionEnvioResponseDTO envioDto = new EmisionEnvioResponseDTO();
         EmisionFlotaResponseDTO flotaDto = new EmisionFlotaResponseDTO();
 
-        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
-        when(emisionRepository.findAllByEmpresaIdWithFilters(EMPRESA_ID, null, null, null))
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
+        when(emisionRepository.findAllByEmpresaIdOrderByCreatedAtDesc(EMPRESA_ID))
                 .thenReturn(List.of(electricidad, vuelo, envio, flota));
         when(emisionElectricidadMapper.toDto(electricidad)).thenReturn(electricidadDto);
         when(emisionVueloMapper.toDto(vuelo)).thenReturn(vueloDto);
         when(emisionEnvioMapper.toDto(envio)).thenReturn(envioDto);
         when(emisionFlotaMapper.toDto(flota)).thenReturn(flotaDto);
 
-        List<EmisionResponseDTO> response = service.listar(USUARIO_ID, null, null, null);
+        List<EmisionResponseDTO> response = service.listar(USUARIO_ID);
 
         assertThat(response).containsExactly(electricidadDto, vueloDto, envioDto, flotaDto);
     }
@@ -127,7 +109,7 @@ class EmisionConsultaServiceTest {
     void obtenerMapeaUnaEmisionDeFlota() {
         EmisionFlota flota = EmisionFlota.builder().id(EMISION_ID).empresaId(EMPRESA_ID).build();
         EmisionFlotaResponseDTO flotaDto = new EmisionFlotaResponseDTO();
-        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
         when(emisionRepository.findByIdAndEmpresaId(EMISION_ID, EMPRESA_ID)).thenReturn(Optional.of(flota));
         when(emisionFlotaMapper.toDto(flota)).thenReturn(flotaDto);
 
@@ -136,7 +118,7 @@ class EmisionConsultaServiceTest {
 
     @Test
     void obtenerNoPermiteAccederAEmisionDeOtraEmpresa() {
-        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
         when(emisionRepository.findByIdAndEmpresaId(EMISION_ID, EMPRESA_ID))
                 .thenReturn(Optional.empty());
 
@@ -149,23 +131,12 @@ class EmisionConsultaServiceTest {
     }
 
     @Test
-    void eliminarEmisionInexistenteODeOtraEmpresaDevuelve404() {
-        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
-        when(emisionRepository.findByIdAndEmpresaId(EMISION_ID, EMPRESA_ID)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> service.eliminar(EMISION_ID, USUARIO_ID))
-                .isInstanceOf(ApiException.class)
-                .extracting(e -> ((ApiException) e).getStatus())
-                .isEqualTo(HttpStatus.NOT_FOUND);
-    }
-
-    @Test
     void eliminarUsaEmpresaDelUsuarioAutenticado() {
         EmisionElectricidad emision = EmisionElectricidad.builder()
                 .id(EMISION_ID)
                 .empresaId(EMPRESA_ID)
                 .build();
-        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
         when(emisionRepository.findByIdAndEmpresaId(EMISION_ID, EMPRESA_ID))
                 .thenReturn(Optional.of(emision));
 
@@ -176,11 +147,19 @@ class EmisionConsultaServiceTest {
 
     @Test
     void listarConUsuarioSinEmpresaDevuelve422() {
-        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenThrow(ApiException.empresaNoConfigurada());
+        Usuario usuarioSinEmpresa = Usuario.builder().id(USUARIO_ID).build();
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuarioSinEmpresa));
 
-        assertThatThrownBy(() -> service.listar(USUARIO_ID, null, null, null))
+        assertThatThrownBy(() -> service.listar(USUARIO_ID))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
+    private Usuario usuario() {
+        return Usuario.builder()
+                .id(USUARIO_ID)
+                .empresa(Empresa.builder().id(EMPRESA_ID).build())
+                .build();
     }
 }
