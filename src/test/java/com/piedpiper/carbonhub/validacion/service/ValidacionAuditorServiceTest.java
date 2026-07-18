@@ -5,6 +5,7 @@ import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
 import com.piedpiper.carbonhub.user.models.enums.Rol;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
+import com.piedpiper.carbonhub.validacion.mappers.ValidacionAuditorMapper;
 import com.piedpiper.carbonhub.validacion.models.dtos.DecisionSolicitudRequestDTO;
 import com.piedpiper.carbonhub.validacion.models.dtos.PaginaSolicitudesResponseDTO;
 import com.piedpiper.carbonhub.validacion.models.dtos.SolicitudResueltaResponseDTO;
@@ -18,7 +19,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mapstruct.factory.Mappers;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.http.HttpStatus;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -47,6 +50,9 @@ class ValidacionAuditorServiceTest {
     private UsuarioRepository usuarioRepository;
     @Mock
     private EnvioCorreoValidacionService envioCorreoValidacionService;
+    @Spy
+    private ValidacionAuditorMapper validacionAuditorMapper =
+            Mappers.getMapper(ValidacionAuditorMapper.class);
 
     @InjectMocks
     private ValidacionAuditorService service;
