@@ -83,7 +83,10 @@ public class ReporteHuellaPdfService {
         Map<CategoriaEmision, BigDecimal> totales = new EnumMap<>(CategoriaEmision.class);
         Arrays.stream(CategoriaEmision.values()).forEach(categoria -> totales.put(categoria, BigDecimal.ZERO));
 
-        for (Object[] fila : emisionRepository.sumCarbonKgByCategoriaAndPeriodo(empresaId, anio, mes)) {
+        List<Object[]> filas = mes == null
+                ? emisionRepository.sumCarbonKgByCategoriaAndAnio(empresaId, anio)
+                : emisionRepository.sumCarbonKgByCategoriaAndMes(empresaId, anio, mes);
+        for (Object[] fila : filas) {
             CategoriaEmision categoria = CategoriaEmision.valueOf(String.valueOf(fila[0]));
             BigDecimal total = fila[1] instanceof BigDecimal decimal
                     ? decimal

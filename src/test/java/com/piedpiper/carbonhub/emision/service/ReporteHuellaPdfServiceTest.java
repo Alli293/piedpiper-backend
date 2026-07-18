@@ -43,7 +43,7 @@ class ReporteHuellaPdfServiceTest {
     @Test
     void generaPdfConResumenAgregado() {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
-        when(emisionRepository.sumCarbonKgByCategoriaAndPeriodo(EMPRESA_ID, 2026, null))
+        when(emisionRepository.sumCarbonKgByCategoriaAndAnio(EMPRESA_ID, 2026))
                 .thenReturn(List.of(
                         new Object[]{"ELECTRICIDAD", new BigDecimal("1000.000")},
                         new Object[]{"FLOTA", new BigDecimal("500.000")}
@@ -66,7 +66,7 @@ class ReporteHuellaPdfServiceTest {
     @Test
     void generaPdfAunqueNoExistanEmisiones() {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
-        when(emisionRepository.sumCarbonKgByCategoriaAndPeriodo(EMPRESA_ID, 2026, 7)).thenReturn(List.of());
+        when(emisionRepository.sumCarbonKgByCategoriaAndMes(EMPRESA_ID, 2026, 7)).thenReturn(List.of());
         when(limiteEmisionesRepository.findByEmpresaIdAndAnio(EMPRESA_ID, 2026)).thenReturn(Optional.empty());
         when(pdfGenerator.generar(org.mockito.ArgumentMatchers.any())).thenReturn("%PDF".getBytes());
 

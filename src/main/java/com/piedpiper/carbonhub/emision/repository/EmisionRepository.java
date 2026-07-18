@@ -50,12 +50,22 @@ public interface EmisionRepository extends JpaRepository<Emision, UUID> {
             from emisiones
             where empresa_id = :empresaId
               and extract(year from fecha_actividad) = :anio
-              and (:mes is null or extract(month from fecha_actividad) = :mes)
             group by categoria
             """, nativeQuery = true)
-    List<Object[]> sumCarbonKgByCategoriaAndPeriodo(@Param("empresaId") UUID empresaId,
-                                                    @Param("anio") Integer anio,
-                                                    @Param("mes") Integer mes);
+    List<Object[]> sumCarbonKgByCategoriaAndAnio(@Param("empresaId") UUID empresaId,
+                                                 @Param("anio") Integer anio);
+
+    @Query(value = """
+            select categoria, coalesce(sum(carbon_kg), 0) as total_kg
+            from emisiones
+            where empresa_id = :empresaId
+              and extract(year from fecha_actividad) = :anio
+              and extract(month from fecha_actividad) = :mes
+            group by categoria
+            """, nativeQuery = true)
+    List<Object[]> sumCarbonKgByCategoriaAndMes(@Param("empresaId") UUID empresaId,
+                                                @Param("anio") Integer anio,
+                                                @Param("mes") Integer mes);
 
     Optional<Emision> findByIdAndEmpresaId(UUID id, UUID empresaId);
 }
