@@ -19,6 +19,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -178,7 +179,7 @@ class InvitacionServiceTest {
         when(usuarioRepository.findById(ADMIN_ID)).thenReturn(Optional.of(administrador()));
         when(invitacionRepository.findByIdAndEmpresaId(enviada.getId(), EMPRESA_ID))
                 .thenReturn(Optional.of(enviada));
-        when(invitacionRepository.save(any(Invitacion.class))).thenAnswer(i -> i.getArgument(0));
+        when(invitacionRepository.saveAndFlush(any(Invitacion.class))).thenAnswer(i -> i.getArgument(0));
 
         InvitacionResponseDTO response = service.revocar(ADMIN_ID, enviada.getId());
 
@@ -280,9 +281,31 @@ class InvitacionServiceTest {
         service.marcarAceptada(enviada);
 
         ArgumentCaptor<Invitacion> captor = ArgumentCaptor.forClass(Invitacion.class);
-        verify(invitacionRepository).save(captor.capture());
+        verify(invitacionRepository).saveAndFlush(captor.capture());
         assertThat(captor.getValue().getEstado()).isEqualTo(EstadoInvitacion.ACEPTADA);
         assertThat(captor.getValue().getFechaAceptacion()).isNotNull();
+    }
+
+    @Test
+    void marcarAceptadaConInvitacionNoEnviadaLanza409() {
+        Invitacion revocada = invitacion(EstadoInvitacion.REVOCADA, Instant.now().plus(1, ChronoUnit.DAYS));
+
+        assertThatThrownBy(() -> service.marcarAceptada(revocada))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getStatus()).isEqualTo(HttpStatus.CONFLICT));
+
+        verify(invitacionRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void marcarAceptadaConLockOptimistaLanza409() {
+        Invitacion enviada = invitacion(EstadoInvitacion.ENVIADA, Instant.now().plus(1, ChronoUnit.DAYS));
+        when(invitacionRepository.saveAndFlush(any(Invitacion.class)))
+                .thenThrow(new ObjectOptimisticLockingFailureException(Invitacion.class, enviada.getId()));
+
+        assertThatThrownBy(() -> service.marcarAceptada(enviada))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getStatus()).isEqualTo(HttpStatus.CONFLICT));
     }
 
     @Test
