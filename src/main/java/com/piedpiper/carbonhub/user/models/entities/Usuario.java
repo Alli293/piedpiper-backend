@@ -94,6 +94,13 @@ public class Usuario {
     @Column(name = "token_verificacion_expiracion")
     private Instant tokenVerificacionExpiracion;
 
+    @Column(name = "reenvio_verificacion_contador", nullable = false, columnDefinition = "integer default 0")
+    @Builder.Default
+    private int reenvioVerificacionContador = 0;
+
+    @Column(name = "reenvio_verificacion_ventana_inicio")
+    private Instant reenvioVerificacionVentanaInicio;
+
     @Column(length = 20)
     @Builder.Default
     private String idioma = Idioma.POR_DEFECTO.name();

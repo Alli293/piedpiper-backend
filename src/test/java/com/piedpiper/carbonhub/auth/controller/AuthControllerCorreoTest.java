@@ -124,29 +124,73 @@ class AuthControllerCorreoTest {
 
     @Test
     void verificarCorreoConTokenValidoDevuelve200() throws Exception {
-        when(verificarCorreoService.verificar("token-valido"))
-                .thenReturn(new MensajeResponseDTO("¡Correo verificado! Ya puedes iniciar sesión."));
+        String tokenValido = "a".repeat(43);
+        when(verificarCorreoService.verificar(tokenValido))
+                .thenReturn(new MensajeResponseDTO("Tu correo fue verificado. Ya puedes iniciar sesión."));
 
-        mockMvc.perform(get("/api/auth/verificar-correo").param("token", "token-valido"))
+        mockMvc.perform(get("/api/auth/verificar-correo").param("token", tokenValido))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.mensaje").value("¡Correo verificado! Ya puedes iniciar sesión."));
+                .andExpect(jsonPath("$.mensaje").value("Tu correo fue verificado. Ya puedes iniciar sesión."));
     }
 
     @Test
-    void verificarCorreoConTokenInexistenteDevuelve404() throws Exception {
-        when(verificarCorreoService.verificar("token-invalido"))
+    void verificarCorreoConTokenInexistenteOExpiradoDevuelve410() throws Exception {
+        String token = "a".repeat(43);
+        when(verificarCorreoService.verificar(token))
                 .thenThrow(ApiException.tokenVerificacionInvalido());
 
-        mockMvc.perform(get("/api/auth/verificar-correo").param("token", "token-invalido"))
-                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/auth/verificar-correo").param("token", token))
+                .andExpect(status().isGone());
     }
 
     @Test
-    void verificarCorreoConTokenExpiradoDevuelve410() throws Exception {
-        when(verificarCorreoService.verificar("token-expirado"))
-                .thenThrow(ApiException.tokenVerificacionExpirado());
+    void verificarCorreoConTokenMalFormadoDevuelve400() throws Exception {
+        when(verificarCorreoService.verificar("token-corto"))
+                .thenThrow(ApiException.tokenVerificacionMalFormado());
 
-        mockMvc.perform(get("/api/auth/verificar-correo").param("token", "token-expirado"))
-                .andExpect(status().isGone());
+        mockMvc.perform(get("/api/auth/verificar-correo").param("token", "token-corto"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void verificarCorreoConCuentaYaVerificadaDevuelve409() throws Exception {
+        String token = "a".repeat(43);
+        when(verificarCorreoService.verificar(token))
+                .thenThrow(ApiException.correoYaVerificado());
+
+        mockMvc.perform(get("/api/auth/verificar-correo").param("token", token))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void reenviarVerificacionValidoDevuelve200() throws Exception {
+        when(verificarCorreoService.reenviar("ana.perez@example.com")).thenReturn(
+                new MensajeResponseDTO("Si tu cuenta requiere verificación, te enviamos un nuevo enlace."));
+
+        mockMvc.perform(post("/api/auth/reenviar-verificacion")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"ana.perez@example.com\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mensaje")
+                        .value("Si tu cuenta requiere verificación, te enviamos un nuevo enlace."));
+    }
+
+    @Test
+    void reenviarVerificacionConEmailMalFormadoDevuelve400() throws Exception {
+        mockMvc.perform(post("/api/auth/reenviar-verificacion")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"no-es-un-correo\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void reenviarVerificacionConExcesoDeSolicitudesDevuelve429() throws Exception {
+        when(verificarCorreoService.reenviar("ana.perez@example.com"))
+                .thenThrow(ApiException.reenviosVerificacionExcedidos());
+
+        mockMvc.perform(post("/api/auth/reenviar-verificacion")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"ana.perez@example.com\"}"))
+                .andExpect(status().isTooManyRequests());
     }
 }
