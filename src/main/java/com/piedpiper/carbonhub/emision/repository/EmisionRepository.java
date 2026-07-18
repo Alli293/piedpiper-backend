@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -45,27 +46,17 @@ public interface EmisionRepository extends JpaRepository<Emision, UUID> {
                                                             @Param("inicio") LocalDate inicio,
                                                             @Param("fin") LocalDate fin);
 
-    @Query(value = """
-            select categoria, coalesce(sum(carbon_kg), 0) as total_kg
-            from emisiones
-            where empresa_id = :empresaId
-              and extract(year from fecha_actividad) = :anio
-            group by categoria
-            """, nativeQuery = true)
-    List<Object[]> sumCarbonKgByCategoriaAndAnio(@Param("empresaId") UUID empresaId,
-                                                 @Param("anio") Integer anio);
-
-    @Query(value = """
-            select categoria, coalesce(sum(carbon_kg), 0) as total_kg
-            from emisiones
-            where empresa_id = :empresaId
-              and extract(year from fecha_actividad) = :anio
-              and extract(month from fecha_actividad) = :mes
-            group by categoria
-            """, nativeQuery = true)
-    List<Object[]> sumCarbonKgByCategoriaAndMes(@Param("empresaId") UUID empresaId,
-                                                @Param("anio") Integer anio,
-                                                @Param("mes") Integer mes);
+    @Query("""
+            select distinct e
+            from Emision e
+            left join fetch treat(e as EmisionVuelo).legs
+            where e.empresaId = :empresaId
+              and e.fechaActividad >= :inicio
+              and e.fechaActividad < :fin
+            """)
+    List<Emision> findAllByEmpresaIdAndPeriodo(@Param("empresaId") UUID empresaId,
+                                               @Param("inicio") LocalDate inicio,
+                                               @Param("fin") LocalDate fin);
 
     Optional<Emision> findByIdAndEmpresaId(UUID id, UUID empresaId);
 }
