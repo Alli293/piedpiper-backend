@@ -76,6 +76,6 @@ public class RegistroInvitacionService {
 
         String token = jwtService.generar(usuario);
         return new AuthResponseDTO(token, usuario.getRol().name(), usuario.getEstado().name(),
-                "/perfil/configuracion-inicial");
+                RedirectResolver.paraUsuario(usuario));
     }
 }
