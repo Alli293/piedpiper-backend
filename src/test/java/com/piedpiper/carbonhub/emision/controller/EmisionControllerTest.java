@@ -23,6 +23,7 @@ import com.piedpiper.carbonhub.emision.service.EmisionElectricidadService;
 import com.piedpiper.carbonhub.emision.service.EmisionEnvioService;
 import com.piedpiper.carbonhub.emision.service.EmisionFlotaService;
 import com.piedpiper.carbonhub.emision.service.EmisionVueloService;
+import com.piedpiper.carbonhub.emision.service.ReporteHuellaPdfService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
@@ -60,6 +61,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = EmisionController.class,
@@ -90,6 +93,8 @@ class EmisionControllerTest {
     private EmisionConsultaService emisionConsultaService;
     @MockitoBean
     private EmisionComparacionService emisionComparacionService;
+    @MockitoBean
+    private ReporteHuellaPdfService reporteHuellaPdfService;
     @MockitoBean
     private JwtService jwtService;
     @MockitoBean
@@ -433,6 +438,26 @@ class EmisionControllerTest {
                         .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA"))
                         .param("categoria", "OTRA"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void exportarReportePdfDevuelveArchivoDescargable() throws Exception {
+        byte[] pdf = "%PDF-1.4 test".getBytes();
+        when(reporteHuellaPdfService.generar(any(), eq(2026), eq(7))).thenReturn(pdf);
+        when(reporteHuellaPdfService.nombreArchivo(2026, 7)).thenReturn("reporte-huella-2026-07.pdf");
+
+        mockMvc.perform(get("/api/emisiones/reporte/pdf")
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA"))
+                        .param("anio", "2026")
+                        .param("mes", "7"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_PDF))
+                .andExpect(header().string("Content-Disposition",
+                        "attachment; filename=\"reporte-huella-2026-07.pdf\""))
+                .andExpect(content().bytes(pdf));
+
+        verify(reporteHuellaPdfService).generar(any(), eq(2026), eq(7));
     }
 
     @Test
