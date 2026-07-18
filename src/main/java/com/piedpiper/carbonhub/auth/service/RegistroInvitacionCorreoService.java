@@ -54,6 +54,8 @@ public class RegistroInvitacionCorreoService {
 
         Usuario usuario = Usuario.builder()
                 .email(invitacion.getEmail())
+                .nombre(Usuario.recortarNombre(request.getNombre()))
+                .apellidos(Usuario.recortarNombre(request.getApellidos()))
                 .passwordHash(passwordEncoder.encode(request.getContrasena()))
                 .rol(Rol.USUARIO_GENERAL)
                 .estado(EstadoUsuario.ACTIVO)

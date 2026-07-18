@@ -69,8 +69,8 @@ class AuthControllerInvitacionCorreoTest {
     private UsuarioRepository usuarioRepository;
 
     private static final String REQUEST_JSON =
-            "{\"tokenInvitacion\":\"token-inv\",\"contrasena\":\"clave1234\","
-                    + "\"confirmarContrasena\":\"clave1234\",\"aceptaTerminos\":true}";
+            "{\"tokenInvitacion\":\"token-inv\",\"nombre\":\"Ana\",\"apellidos\":\"Torres\","
+                    + "\"contrasena\":\"clave1234\",\"confirmarContrasena\":\"clave1234\",\"aceptaTerminos\":true}";
 
     @Test
     void registroPorInvitacionCorreoValidoDevuelve201() throws Exception {
@@ -130,7 +130,27 @@ class AuthControllerInvitacionCorreoTest {
     void sinTokenDeInvitacionDevuelve400() throws Exception {
         mockMvc.perform(post("/api/auth/registro/invitacion/correo")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"contrasena\":\"clave1234\",\"confirmarContrasena\":\"clave1234\","
+                        .content("{\"nombre\":\"Ana\",\"apellidos\":\"Torres\",\"contrasena\":\"clave1234\","
+                                + "\"confirmarContrasena\":\"clave1234\",\"aceptaTerminos\":true}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void sinNombreDevuelve400() throws Exception {
+        mockMvc.perform(post("/api/auth/registro/invitacion/correo")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tokenInvitacion\":\"token-inv\",\"apellidos\":\"Torres\","
+                                + "\"contrasena\":\"clave1234\",\"confirmarContrasena\":\"clave1234\","
+                                + "\"aceptaTerminos\":true}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void sinApellidosDevuelve400() throws Exception {
+        mockMvc.perform(post("/api/auth/registro/invitacion/correo")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tokenInvitacion\":\"token-inv\",\"nombre\":\"Ana\","
+                                + "\"contrasena\":\"clave1234\",\"confirmarContrasena\":\"clave1234\","
                                 + "\"aceptaTerminos\":true}"))
                 .andExpect(status().isBadRequest());
     }
@@ -139,8 +159,9 @@ class AuthControllerInvitacionCorreoTest {
     void contrasenasQueNoCoincidenDevuelve400() throws Exception {
         mockMvc.perform(post("/api/auth/registro/invitacion/correo")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"tokenInvitacion\":\"token-inv\",\"contrasena\":\"clave1234\","
-                                + "\"confirmarContrasena\":\"otra-clave1\",\"aceptaTerminos\":true}"))
+                        .content("{\"tokenInvitacion\":\"token-inv\",\"nombre\":\"Ana\",\"apellidos\":\"Torres\","
+                                + "\"contrasena\":\"clave1234\",\"confirmarContrasena\":\"otra-clave1\","
+                                + "\"aceptaTerminos\":true}"))
                 .andExpect(status().isBadRequest());
     }
 
@@ -148,8 +169,9 @@ class AuthControllerInvitacionCorreoTest {
     void sinAceptarTerminosDevuelve400() throws Exception {
         mockMvc.perform(post("/api/auth/registro/invitacion/correo")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"tokenInvitacion\":\"token-inv\",\"contrasena\":\"clave1234\","
-                                + "\"confirmarContrasena\":\"clave1234\",\"aceptaTerminos\":false}"))
+                        .content("{\"tokenInvitacion\":\"token-inv\",\"nombre\":\"Ana\",\"apellidos\":\"Torres\","
+                                + "\"contrasena\":\"clave1234\",\"confirmarContrasena\":\"clave1234\","
+                                + "\"aceptaTerminos\":false}"))
                 .andExpect(status().isBadRequest());
     }
 }

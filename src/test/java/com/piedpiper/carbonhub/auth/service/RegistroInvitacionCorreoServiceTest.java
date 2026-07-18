@@ -67,7 +67,8 @@ class RegistroInvitacionCorreoServiceTest {
     }
 
     private RegistroInvitacionCorreoRequestDTO request() {
-        return new RegistroInvitacionCorreoRequestDTO("token-invitacion", "clave1234", "clave1234", true);
+        return new RegistroInvitacionCorreoRequestDTO(
+                "token-invitacion", "Ana", "Torres", "clave1234", "clave1234", true);
     }
 
     @Test
@@ -88,6 +89,8 @@ class RegistroInvitacionCorreoServiceTest {
         verify(usuarioRepository).saveAndFlush(captor.capture());
         Usuario creado = captor.getValue();
         assertThat(creado.getEmail()).isEqualTo("colab@correo.com");
+        assertThat(creado.getNombre()).isEqualTo("Ana");
+        assertThat(creado.getApellidos()).isEqualTo("Torres");
         assertThat(creado.getPasswordHash()).isEqualTo("hash-seguro");
         assertThat(creado.getPasswordHash()).isNotEqualTo("clave1234");
         assertThat(creado.getRol()).isEqualTo(Rol.USUARIO_GENERAL);

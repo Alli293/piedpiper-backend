@@ -16,6 +16,14 @@ public class RegistroInvitacionCorreoRequestDTO {
     @NotBlank(message = "El token de invitación es obligatorio.")
     private String tokenInvitacion;
 
+    @NotBlank(message = "Ingresa tu nombre.")
+    @Size(min = 2, max = 100, message = "Ingresa tu nombre.")
+    private String nombre;
+
+    @NotBlank(message = "Ingresa tus apellidos.")
+    @Size(min = 2, max = 100, message = "Ingresa tus apellidos.")
+    private String apellidos;
+
     @NotBlank(message = "La contraseña debe tener al menos 8 caracteres, con una letra y un número.")
     @Pattern(regexp = RegistroUsuarioCorreoRequestDTO.PATRON_CONTRASENA,
             message = "La contraseña debe tener al menos 8 caracteres, con una letra y un número.")
