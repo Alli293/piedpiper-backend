@@ -5,7 +5,11 @@ import com.piedpiper.carbonhub.emision.models.entities.Emision;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionElectricidad;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionFlota;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
+import com.piedpiper.carbonhub.empresa.mappers.EmpresaMapper;
+import com.piedpiper.carbonhub.empresa.models.dtos.EmpresaReporteDTO;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
+import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
+import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.limite.models.entities.LimiteEmisiones;
 import com.piedpiper.carbonhub.limite.repository.LimiteEmisionesRepository;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
@@ -21,8 +25,10 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -37,6 +43,10 @@ class ReporteHuellaPdfServiceTest {
     @Mock
     private LimiteEmisionesRepository limiteEmisionesRepository;
     @Mock
+    private EmpresaRepository empresaRepository;
+    @Mock
+    private EmpresaMapper empresaMapper;
+    @Mock
     private UsuarioRepository usuarioRepository;
     @Mock
     private ReporteHuellaPdfGenerator pdfGenerator;
@@ -46,7 +56,7 @@ class ReporteHuellaPdfServiceTest {
 
     @Test
     void generaPdfConResumenAgregado() {
-        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
+        givenEmpresaAsociada();
         when(emisionRepository.findAllByEmpresaIdAndPeriodo(
                 EMPRESA_ID,
                 LocalDate.of(2026, 1, 1),
@@ -66,13 +76,14 @@ class ReporteHuellaPdfServiceTest {
         assertThat(pdf).isNotEmpty();
         assertThat(captor.getValue().totalKg()).isEqualByComparingTo("1500.000");
         assertThat(captor.getValue().totalT()).isEqualByComparingTo("1.5000");
+        assertThat(captor.getValue().empresa()).isEqualTo("CarbonHub Demo");
         assertThat(captor.getValue().comparacion().porcentajeConsumido()).isEqualByComparingTo("30.0");
         assertThat(captor.getValue().sinDatos()).isFalse();
     }
 
     @Test
     void generaPdfAunqueNoExistanEmisiones() {
-        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
+        givenEmpresaAsociada();
         when(emisionRepository.findAllByEmpresaIdAndPeriodo(
                 EMPRESA_ID,
                 LocalDate.of(2026, 7, 1),
@@ -90,10 +101,35 @@ class ReporteHuellaPdfServiceTest {
         assertThat(captor.getValue().comparacion().tieneLimite()).isFalse();
     }
 
-    private Usuario usuario() {
-        return Usuario.builder()
-                .id(USUARIO_ID)
-                .empresa(Empresa.builder().id(EMPRESA_ID).nombreEmpresa("CarbonHub Demo").build())
+    @Test
+    void fallaSiLaEmpresaAsociadaNoExiste() {
+        Usuario usuario = Usuario.builder()
+                .empresa(Empresa.builder().id(EMPRESA_ID).build())
+                .build();
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario));
+        when(empresaRepository.findById(EMPRESA_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.generar(USUARIO_ID, 2026, null))
+                .isInstanceOf(ApiException.class)
+                .extracting("status")
+                .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
+    private void givenEmpresaAsociada() {
+        Empresa empresa = empresa();
+        Usuario usuario = Usuario.builder()
+                .empresa(Empresa.builder().id(EMPRESA_ID).build())
+                .build();
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario));
+        when(empresaRepository.findById(EMPRESA_ID)).thenReturn(Optional.of(empresa));
+        when(empresaMapper.toReporteDto(empresa))
+                .thenReturn(new EmpresaReporteDTO(EMPRESA_ID, "CarbonHub Demo"));
+    }
+
+    private Empresa empresa() {
+        return Empresa.builder()
+                .id(EMPRESA_ID)
+                .nombreEmpresa("CarbonHub Demo")
                 .build();
     }
 

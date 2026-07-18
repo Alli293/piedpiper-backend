@@ -6,11 +6,15 @@ import com.piedpiper.carbonhub.emision.models.dtos.ReporteHuellaPdfDTO;
 import com.piedpiper.carbonhub.emision.models.entities.Emision;
 import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
+import com.piedpiper.carbonhub.empresa.mappers.EmpresaMapper;
+import com.piedpiper.carbonhub.empresa.models.dtos.EmpresaReporteDTO;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
+import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.limite.repository.LimiteEmisionesRepository;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
+import jakarta.persistence.EntityNotFoundException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -21,12 +25,16 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ReporteHuellaPdfService {
+
+    private static final Logger log = LoggerFactory.getLogger(ReporteHuellaPdfService.class);
 
     private static final BigDecimal KG_POR_TONELADA = new BigDecimal("1000");
     private static final BigDecimal CIEN = new BigDecimal("100");
@@ -35,15 +43,21 @@ public class ReporteHuellaPdfService {
 
     private final EmisionRepository emisionRepository;
     private final LimiteEmisionesRepository limiteEmisionesRepository;
+    private final EmpresaRepository empresaRepository;
+    private final EmpresaMapper empresaMapper;
     private final UsuarioRepository usuarioRepository;
     private final ReporteHuellaPdfGenerator pdfGenerator;
 
     public ReporteHuellaPdfService(EmisionRepository emisionRepository,
                                    LimiteEmisionesRepository limiteEmisionesRepository,
+                                   EmpresaRepository empresaRepository,
+                                   EmpresaMapper empresaMapper,
                                    UsuarioRepository usuarioRepository,
                                    ReporteHuellaPdfGenerator pdfGenerator) {
         this.emisionRepository = emisionRepository;
         this.limiteEmisionesRepository = limiteEmisionesRepository;
+        this.empresaRepository = empresaRepository;
+        this.empresaMapper = empresaMapper;
         this.usuarioRepository = usuarioRepository;
         this.pdfGenerator = pdfGenerator;
     }
@@ -51,21 +65,22 @@ public class ReporteHuellaPdfService {
     @Transactional(readOnly = true)
     public byte[] generar(UUID usuarioId, Integer anio, Integer mes) {
         validarPeriodo(anio, mes);
-        Empresa empresa = empresa(usuarioId);
+        EmpresaReporteDTO empresa = empresa(usuarioId);
+        String nombreEmpresa = nombreEmpresa(empresa);
 
-        Map<CategoriaEmision, BigDecimal> totalesPorCategoria = totalesPorCategoria(empresa.getId(), anio, mes);
+        Map<CategoriaEmision, BigDecimal> totalesPorCategoria = totalesPorCategoria(empresa.id(), anio, mes);
         BigDecimal totalKg = totalesPorCategoria.values().stream()
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal totalT = totalKg.divide(KG_POR_TONELADA, 4, RoundingMode.HALF_UP);
 
         ReporteHuellaPdfDTO reporte = new ReporteHuellaPdfDTO(
-                empresa.getNombreEmpresa(),
+                nombreEmpresa,
                 anio,
                 mes,
                 totalKg,
                 totalT,
                 categorias(totalesPorCategoria, totalKg),
-                comparacion(empresa.getId(), anio, totalT),
+                comparacion(empresa.id(), anio, totalT),
                 totalKg.compareTo(BigDecimal.ZERO) == 0,
                 ZonedDateTime.now()
         );
@@ -143,13 +158,38 @@ public class ReporteHuellaPdfService {
         }
     }
 
-    private Empresa empresa(UUID usuarioId) {
+    private EmpresaReporteDTO empresa(UUID usuarioId) {
         Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> ApiException.errorInterno("No se pudo identificar al usuario autenticado."));
-        Empresa empresa = usuario.getEmpresa();
-        if (empresa == null || empresa.getId() == null) {
+        UUID empresaId = empresaId(usuario);
+        Empresa empresa = empresaRepository.findById(empresaId)
+                .orElseThrow(() -> {
+                    log.warn("No se encontro la empresa {} asociada al usuario {} para exportar reporte PDF.",
+                            empresaId, usuarioId);
+                    return ApiException.empresaNoConfigurada();
+                });
+        return empresaMapper.toReporteDto(empresa);
+    }
+
+    private String nombreEmpresa(EmpresaReporteDTO empresa) {
+        if (empresa.nombreEmpresa() == null || empresa.nombreEmpresa().isBlank()) {
             throw ApiException.empresaNoConfigurada();
         }
-        return empresa;
+        return empresa.nombreEmpresa();
+    }
+
+    private UUID empresaId(Usuario usuario) {
+        Empresa empresa = usuario.getEmpresa();
+        if (empresa == null) {
+            throw ApiException.empresaNoConfigurada();
+        }
+        try {
+            if (empresa.getId() == null) {
+                throw ApiException.empresaNoConfigurada();
+            }
+            return empresa.getId();
+        } catch (EntityNotFoundException ex) {
+            throw ApiException.empresaNoConfigurada();
+        }
     }
 }
