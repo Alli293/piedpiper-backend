@@ -21,5 +21,14 @@ public interface EmisionRepository extends JpaRepository<Emision, UUID> {
             """)
     List<Emision> findAllByEmpresaIdOrderByCreatedAtDesc(@Param("empresaId") UUID empresaId);
 
+    @Query("""
+            select sum(e.carbonKg)
+            from Emision e
+            where e.empresaId = :empresaId
+              and year(e.fechaActividad) = :anio
+            """)
+    java.math.BigDecimal sumCarbonKgByEmpresaIdAndAnio(@Param("empresaId") UUID empresaId,
+                                                       @Param("anio") Integer anio);
+
     Optional<Emision> findByIdAndEmpresaId(UUID id, UUID empresaId);
 }
