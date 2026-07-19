@@ -1,7 +1,7 @@
 package com.piedpiper.carbonhub.emision.service;
 
-import com.piedpiper.carbonhub.emision.models.dtos.ResumenEmisionesResponseDTO;
-import com.piedpiper.carbonhub.emision.models.dtos.ResumenEmisionesResponseDTO.ResumenCategoriaDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.EmisionResumenResponseDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.EmisionResumenResponseDTO.ResumenCategoriaDTO;
 import com.piedpiper.carbonhub.emision.models.entities.Emision;
 import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
@@ -9,7 +9,6 @@ import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,7 +45,7 @@ public class EmisionResumenService {
     }
 
     @Transactional(readOnly = true)
-    public ResumenEmisionesResponseDTO resumen(Integer anio, Integer mes, UUID usuarioId) {
+    public EmisionResumenResponseDTO resumen(Integer anio, Integer mes, UUID usuarioId) {
         validarPeriodo(anio, mes);
 
         LocalDate desde = mes == null ? LocalDate.of(anio, 1, 1) : LocalDate.of(anio, mes, 1);
@@ -74,7 +73,7 @@ public class EmisionResumenService {
                         .build())
                 .toList();
 
-        return ResumenEmisionesResponseDTO.builder()
+        return EmisionResumenResponseDTO.builder()
                 .anio(anio)
                 .mes(mes)
                 .totalKg(totalKg)
@@ -85,10 +84,10 @@ public class EmisionResumenService {
 
     private void validarPeriodo(Integer anio, Integer mes) {
         if (anio == null || anio < ANIO_MINIMO || anio > ANIO_MAXIMO) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "El año indicado no es válido.");
+            throw ApiException.anioConsultaInvalido();
         }
         if (mes != null && (mes < 1 || mes > 12)) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "El mes debe estar entre 1 y 12.");
+            throw ApiException.mesConsultaInvalido();
         }
     }
 

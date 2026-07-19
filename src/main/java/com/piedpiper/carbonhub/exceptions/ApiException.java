@@ -148,4 +148,14 @@ public class ApiException extends RuntimeException {
         return new ApiException(HttpStatus.BAD_REQUEST,
                 "Seleccione un combustible válido para este tipo de vehículo.");
     }
+
+    public static ApiException anioConsultaInvalido() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "El año indicado no es válido.");
+    }
+
+    public static ApiException mesConsultaInvalido() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "El mes debe estar entre 1 y 12.");
+    }
 }

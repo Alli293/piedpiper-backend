@@ -6,8 +6,8 @@ import com.piedpiper.carbonhub.emision.models.dtos.EmisionElectricidadResponseDT
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionEnvioResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionFlotaResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionResponseDTO;
-import com.piedpiper.carbonhub.emision.models.dtos.ResumenEmisionesResponseDTO;
-import com.piedpiper.carbonhub.emision.models.dtos.ResumenEmisionesResponseDTO.ResumenCategoriaDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.EmisionResumenResponseDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.EmisionResumenResponseDTO.ResumenCategoriaDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.TipoVehiculoResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.TipoVehiculoResponseDTO.CombustibleResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.VueloResponseDTO;
@@ -38,7 +38,9 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -523,7 +525,8 @@ class EmisionControllerTest {
     void resumenComoAdministradorDevuelve200ConLaEstructuraEsperada() throws Exception {
         when(emisionResumenService.resumen(eq(2026), eq(null), any())).thenReturn(resumenValido());
 
-        mockMvc.perform(get("/api/emisiones/resumen").param("anio", "2026"))
+        mockMvc.perform(get("/api/emisiones/resumen").param("anio", "2026")
+                        .principal(principalDe("41ce47ab-a46c-4306-8c46-2688dc97fa73")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.anio").value(2026))
                 .andExpect(jsonPath("$.totalKg").value(1000.0))
@@ -540,7 +543,8 @@ class EmisionControllerTest {
     void resumenComoUsuarioGeneralDevuelve200() throws Exception {
         when(emisionResumenService.resumen(eq(2026), eq(3), any())).thenReturn(resumenValido());
 
-        mockMvc.perform(get("/api/emisiones/resumen").param("anio", "2026").param("mes", "3"))
+        mockMvc.perform(get("/api/emisiones/resumen").param("anio", "2026").param("mes", "3")
+                        .principal(principalDe("db2ed1e7-6719-4595-844e-68efffe146cf")))
                 .andExpect(status().isOk());
     }
 
@@ -548,10 +552,10 @@ class EmisionControllerTest {
     @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
     void resumenConMesFueraDeRangoDevuelve400() throws Exception {
         when(emisionResumenService.resumen(eq(2026), eq(13), any()))
-                .thenThrow(new ApiException(org.springframework.http.HttpStatus.BAD_REQUEST,
-                        "El mes debe estar entre 1 y 12."));
+                .thenThrow(ApiException.mesConsultaInvalido());
 
-        mockMvc.perform(get("/api/emisiones/resumen").param("anio", "2026").param("mes", "13"))
+        mockMvc.perform(get("/api/emisiones/resumen").param("anio", "2026").param("mes", "13")
+                        .principal(principalDe("41ce47ab-a46c-4306-8c46-2688dc97fa73")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("El mes debe estar entre 1 y 12."));
     }
@@ -559,12 +563,17 @@ class EmisionControllerTest {
     @Test
     @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
     void resumenSinAnioDevuelve400() throws Exception {
-        mockMvc.perform(get("/api/emisiones/resumen"))
+        mockMvc.perform(get("/api/emisiones/resumen")
+                        .principal(principalDe("41ce47ab-a46c-4306-8c46-2688dc97fa73")))
                 .andExpect(status().isBadRequest());
     }
 
-    private static ResumenEmisionesResponseDTO resumenValido() {
-        return ResumenEmisionesResponseDTO.builder()
+    private static Authentication principalDe(String usuarioId) {
+        return new UsernamePasswordAuthenticationToken(usuarioId, null);
+    }
+
+    private static EmisionResumenResponseDTO resumenValido() {
+        return EmisionResumenResponseDTO.builder()
                 .anio(2026)
                 .totalKg(new BigDecimal("1000.000"))
                 .totalT(new BigDecimal("1.000"))

@@ -1,7 +1,7 @@
 package com.piedpiper.carbonhub.emision.service;
 
-import com.piedpiper.carbonhub.emision.models.dtos.ResumenEmisionesResponseDTO;
-import com.piedpiper.carbonhub.emision.models.dtos.ResumenEmisionesResponseDTO.ResumenCategoriaDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.EmisionResumenResponseDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.EmisionResumenResponseDTO.ResumenCategoriaDTO;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionElectricidad;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionEnvio;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionFlota;
@@ -56,7 +56,7 @@ class EmisionResumenServiceTest {
                         flota("300.000"),
                         envio("200.000")));
 
-        ResumenEmisionesResponseDTO resumen = service.resumen(2026, null, USUARIO_ID);
+        EmisionResumenResponseDTO resumen = service.resumen(2026, null, USUARIO_ID);
 
         assertThat(resumen.getTotalKg()).isEqualByComparingTo("1000.000");
         assertThat(resumen.getTotalT()).isEqualByComparingTo("1.000");
@@ -85,7 +85,7 @@ class EmisionResumenServiceTest {
                 EMPRESA_ID, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31)))
                 .thenReturn(List.of(electricidad("1.000"), flota("2.000")));
 
-        ResumenEmisionesResponseDTO resumen = service.resumen(2026, null, USUARIO_ID);
+        EmisionResumenResponseDTO resumen = service.resumen(2026, null, USUARIO_ID);
 
         assertThat(categoria(resumen, CategoriaEmision.ELECTRICIDAD).getPorcentaje())
                 .isEqualByComparingTo("33.3");
@@ -100,7 +100,7 @@ class EmisionResumenServiceTest {
                 EMPRESA_ID, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31)))
                 .thenReturn(List.of());
 
-        ResumenEmisionesResponseDTO resumen = service.resumen(2026, null, USUARIO_ID);
+        EmisionResumenResponseDTO resumen = service.resumen(2026, null, USUARIO_ID);
 
         assertThat(resumen.getTotalKg()).isEqualByComparingTo("0");
         assertThat(resumen.getTotalT()).isEqualByComparingTo("0");
@@ -119,7 +119,7 @@ class EmisionResumenServiceTest {
                 EMPRESA_ID, LocalDate.of(2026, 2, 1), LocalDate.of(2026, 2, 28)))
                 .thenReturn(List.of(envio("10.000")));
 
-        ResumenEmisionesResponseDTO resumen = service.resumen(2026, 2, USUARIO_ID);
+        EmisionResumenResponseDTO resumen = service.resumen(2026, 2, USUARIO_ID);
 
         assertThat(resumen.getMes()).isEqualTo(2);
         assertThat(resumen.getTotalKg()).isEqualByComparingTo("10.000");
@@ -156,7 +156,7 @@ class EmisionResumenServiceTest {
                         assertThat(((ApiException) exception).getStatus()).isEqualTo(HttpStatus.FORBIDDEN));
     }
 
-    private static ResumenCategoriaDTO categoria(ResumenEmisionesResponseDTO resumen,
+    private static ResumenCategoriaDTO categoria(EmisionResumenResponseDTO resumen,
                                                  CategoriaEmision categoria) {
         return resumen.getCategorias().stream()
                 .filter(item -> item.getCategoria() == categoria)

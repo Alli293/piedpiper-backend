@@ -8,7 +8,7 @@ import com.piedpiper.carbonhub.emision.models.dtos.RegistrarElectricidadRequestD
 import com.piedpiper.carbonhub.emision.models.dtos.RegistrarEnvioRequestDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.RegistrarFlotaRequestDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.RegistrarVueloRequestDTO;
-import com.piedpiper.carbonhub.emision.models.dtos.ResumenEmisionesResponseDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.EmisionResumenResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.TipoVehiculoResponseDTO;
 import com.piedpiper.carbonhub.emision.service.EmisionConsultaService;
 import com.piedpiper.carbonhub.emision.service.EmisionElectricidadService;
@@ -16,6 +16,7 @@ import com.piedpiper.carbonhub.emision.service.EmisionEnvioService;
 import com.piedpiper.carbonhub.emision.service.EmisionFlotaService;
 import com.piedpiper.carbonhub.emision.service.EmisionResumenService;
 import com.piedpiper.carbonhub.emision.service.EmisionVueloService;
+import com.piedpiper.carbonhub.common.Autenticaciones;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 
 import jakarta.validation.Valid;
@@ -70,10 +71,12 @@ public class EmisionController {
 
     @GetMapping("/resumen")
     @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
-    public ResponseEntity<ResumenEmisionesResponseDTO> resumen(
+    public ResponseEntity<EmisionResumenResponseDTO> resumen(
             @RequestParam Integer anio,
-            @RequestParam(required = false) Integer mes) {
-        return ResponseEntity.ok(emisionResumenService.resumen(anio, mes, usuarioIdAutenticado()));
+            @RequestParam(required = false) Integer mes,
+            Authentication authentication) {
+        return ResponseEntity.ok(
+                emisionResumenService.resumen(anio, mes, Autenticaciones.usuarioId(authentication)));
     }
 
     @GetMapping("/{id}")
