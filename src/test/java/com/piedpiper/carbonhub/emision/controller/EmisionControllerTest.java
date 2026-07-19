@@ -6,6 +6,8 @@ import com.piedpiper.carbonhub.emision.models.dtos.EmisionElectricidadResponseDT
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionEnvioResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionFlotaResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionResponseDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.ResumenEmisionesResponseDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.ResumenEmisionesResponseDTO.ResumenCategoriaDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.TipoVehiculoResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.TipoVehiculoResponseDTO.CombustibleResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.VueloResponseDTO;
@@ -20,6 +22,7 @@ import com.piedpiper.carbonhub.emision.service.EmisionConsultaService;
 import com.piedpiper.carbonhub.emision.service.EmisionElectricidadService;
 import com.piedpiper.carbonhub.emision.service.EmisionEnvioService;
 import com.piedpiper.carbonhub.emision.service.EmisionFlotaService;
+import com.piedpiper.carbonhub.emision.service.EmisionResumenService;
 import com.piedpiper.carbonhub.emision.service.EmisionVueloService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
@@ -84,6 +87,8 @@ class EmisionControllerTest {
     private EmisionVueloService emisionVueloService;
     @MockitoBean
     private EmisionConsultaService emisionConsultaService;
+    @MockitoBean
+    private EmisionResumenService emisionResumenService;
     @MockitoBean
     private JwtService jwtService;
     @MockitoBean
@@ -511,6 +516,73 @@ class EmisionControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(request))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void resumenComoAdministradorDevuelve200ConLaEstructuraEsperada() throws Exception {
+        when(emisionResumenService.resumen(eq(2026), eq(null), any())).thenReturn(resumenValido());
+
+        mockMvc.perform(get("/api/emisiones/resumen").param("anio", "2026"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.anio").value(2026))
+                .andExpect(jsonPath("$.totalKg").value(1000.0))
+                .andExpect(jsonPath("$.totalT").value(1.0))
+                .andExpect(jsonPath("$.categorias.length()").value(4))
+                .andExpect(jsonPath("$.categorias[0].categoria").value("ELECTRICIDAD"))
+                .andExpect(jsonPath("$.categorias[0].totalKg").value(500.0))
+                .andExpect(jsonPath("$.categorias[0].porcentaje").value(50.0))
+                .andExpect(jsonPath("$.categorias[3].categoria").value("ENVIO"));
+    }
+
+    @Test
+    @WithMockUser(username = "db2ed1e7-6719-4595-844e-68efffe146cf", roles = "USUARIO_GENERAL")
+    void resumenComoUsuarioGeneralDevuelve200() throws Exception {
+        when(emisionResumenService.resumen(eq(2026), eq(3), any())).thenReturn(resumenValido());
+
+        mockMvc.perform(get("/api/emisiones/resumen").param("anio", "2026").param("mes", "3"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void resumenConMesFueraDeRangoDevuelve400() throws Exception {
+        when(emisionResumenService.resumen(eq(2026), eq(13), any()))
+                .thenThrow(new ApiException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                        "El mes debe estar entre 1 y 12."));
+
+        mockMvc.perform(get("/api/emisiones/resumen").param("anio", "2026").param("mes", "13"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("El mes debe estar entre 1 y 12."));
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void resumenSinAnioDevuelve400() throws Exception {
+        mockMvc.perform(get("/api/emisiones/resumen"))
+                .andExpect(status().isBadRequest());
+    }
+
+    private static ResumenEmisionesResponseDTO resumenValido() {
+        return ResumenEmisionesResponseDTO.builder()
+                .anio(2026)
+                .totalKg(new BigDecimal("1000.000"))
+                .totalT(new BigDecimal("1.000"))
+                .categorias(List.of(
+                        categoria(CategoriaEmision.ELECTRICIDAD, "500.000", "50.0"),
+                        categoria(CategoriaEmision.FLOTA, "300.000", "30.0"),
+                        categoria(CategoriaEmision.VUELO, "0", "0.0"),
+                        categoria(CategoriaEmision.ENVIO, "200.000", "20.0")))
+                .build();
+    }
+
+    private static ResumenCategoriaDTO categoria(CategoriaEmision categoria, String totalKg,
+                                                 String porcentaje) {
+        return ResumenCategoriaDTO.builder()
+                .categoria(categoria)
+                .totalKg(new BigDecimal(totalKg))
+                .porcentaje(new BigDecimal(porcentaje))
+                .build();
     }
 
 }

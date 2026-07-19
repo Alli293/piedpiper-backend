@@ -8,11 +8,13 @@ import com.piedpiper.carbonhub.emision.models.dtos.RegistrarElectricidadRequestD
 import com.piedpiper.carbonhub.emision.models.dtos.RegistrarEnvioRequestDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.RegistrarFlotaRequestDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.RegistrarVueloRequestDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.ResumenEmisionesResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.TipoVehiculoResponseDTO;
 import com.piedpiper.carbonhub.emision.service.EmisionConsultaService;
 import com.piedpiper.carbonhub.emision.service.EmisionElectricidadService;
 import com.piedpiper.carbonhub.emision.service.EmisionEnvioService;
 import com.piedpiper.carbonhub.emision.service.EmisionFlotaService;
+import com.piedpiper.carbonhub.emision.service.EmisionResumenService;
 import com.piedpiper.carbonhub.emision.service.EmisionVueloService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 
@@ -29,6 +31,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -43,23 +46,34 @@ public class EmisionController {
     private final EmisionEnvioService emisionEnvioService;
     private final EmisionVueloService emisionVueloService;
     private final EmisionConsultaService emisionConsultaService;
+    private final EmisionResumenService emisionResumenService;
 
     public EmisionController(EmisionElectricidadService emisionElectricidadService,
                              EmisionFlotaService emisionFlotaService,
                              EmisionEnvioService emisionEnvioService,
                              EmisionVueloService emisionVueloService,
-                             EmisionConsultaService emisionConsultaService) {
+                             EmisionConsultaService emisionConsultaService,
+                             EmisionResumenService emisionResumenService) {
         this.emisionElectricidadService = emisionElectricidadService;
         this.emisionFlotaService = emisionFlotaService;
         this.emisionEnvioService = emisionEnvioService;
         this.emisionVueloService = emisionVueloService;
         this.emisionConsultaService = emisionConsultaService;
+        this.emisionResumenService = emisionResumenService;
     }
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
     public ResponseEntity<List<EmisionResponseDTO>> listar() {
         return ResponseEntity.ok(emisionConsultaService.listar(usuarioIdAutenticado()));
+    }
+
+    @GetMapping("/resumen")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
+    public ResponseEntity<ResumenEmisionesResponseDTO> resumen(
+            @RequestParam Integer anio,
+            @RequestParam(required = false) Integer mes) {
+        return ResponseEntity.ok(emisionResumenService.resumen(anio, mes, usuarioIdAutenticado()));
     }
 
     @GetMapping("/{id}")
