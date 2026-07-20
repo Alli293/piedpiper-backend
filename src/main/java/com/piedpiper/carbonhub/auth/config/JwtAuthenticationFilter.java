@@ -48,6 +48,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             List.of(new SimpleGrantedAuthority("ROLE_" + usuario.getRol().name())));
                     auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(auth);
+                    response.setHeader("X-Refresh-Token", jwtService.generar(usuario));
                 } else {
                     SecurityContextHolder.clearContext();
                 }

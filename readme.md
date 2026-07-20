@@ -58,7 +58,7 @@ CLIMATIQ_API_KEY
 | `DB_USER` | Usuario de la base de datos | `carbonhub` |
 | `DB_PASSWORD` | Password del usuario de la base de datos | `carbonhub` |
 | `JWT_SECRET` | Clave secreta para firmar los JWT (Base64, mínimo 256 bits) | `your_jwt_secret_here` |
-| `JWT_EXPIRATION` | Tiempo de expiración del token en milisegundos | `3600000` (1 hora) |
+| `JWT_EXPIRATION` | Tiempo de expiración del token en milisegundos (se renueva en cada petición autenticada, ver `X-Refresh-Token`) | `1800000` (30 minutos) |
 | `GEMINI_API_KEY` | API Key de Google Gemini (Spring AI) | `your_gemini_api_key_here` |
 | `CLIMATIQ_API_KEY` | API Key de Climatiq (climatiq.io) | `your_climatiq_api_key_here` |
 
@@ -80,7 +80,7 @@ Como la mayoría del equipo usa IntelliJ, hay dos formas de configurar estas var
    DB_URL=jdbc:postgresql://localhost:5432/carbonhub
    DB_USER=carbonhub
    DB_PASSWORD=carbonhub
-   JWT_EXPIRATION=3600000
+   JWT_EXPIRATION=1800000
    JWT_SECRET=<valor real, pedirlo al equipo>
    GEMINI_API_KEY=<valor real, pedirlo al equipo>
    ```
@@ -96,7 +96,7 @@ Como la mayoría del equipo usa IntelliJ, hay dos formas de configurar estas var
    DB_URL=jdbc:postgresql://localhost:5432/carbonhub
    DB_USER=carbonhub
    DB_PASSWORD=carbonhub
-   JWT_EXPIRATION=3600000
+   JWT_EXPIRATION=1800000
    JWT_SECRET=<valor real, pedirlo al equipo>
    GEMINI_API_KEY=<valor real, pedirlo al equipo>
    ```
