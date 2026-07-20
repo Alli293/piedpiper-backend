@@ -34,6 +34,10 @@ public final class TokenVerificacionGenerator {
     }
 
     public static Instant calcularExpiracion() {
-        return Instant.now().plus(HORAS_EXPIRACION, ChronoUnit.HOURS);
+        return calcularExpiracion(HORAS_EXPIRACION);
+    }
+
+    public static Instant calcularExpiracion(long horas) {
+        return Instant.now().plus(horas, ChronoUnit.HOURS);
     }
 }

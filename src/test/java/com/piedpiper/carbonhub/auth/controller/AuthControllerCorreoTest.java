@@ -11,6 +11,7 @@ import com.piedpiper.carbonhub.auth.service.RegistroEmpresaCorreoService;
 import com.piedpiper.carbonhub.auth.service.RegistroEmpresaService;
 import com.piedpiper.carbonhub.auth.service.RegistroUsuarioCorreoService;
 import com.piedpiper.carbonhub.auth.service.RegistroUsuarioService;
+import com.piedpiper.carbonhub.auth.service.RestablecerContrasenaService;
 import com.piedpiper.carbonhub.auth.service.VerificarCorreoService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
@@ -63,6 +64,8 @@ class AuthControllerCorreoTest {
     private RegistroEmpresaCorreoService registroEmpresaCorreoService;
     @MockitoBean
     private VerificarCorreoService verificarCorreoService;
+    @MockitoBean
+    private RestablecerContrasenaService restablecerContrasenaService;
 
     private static final String REGISTRO_USUARIO_JSON = """
             {"nombre":"Ana","apellidos":"Perez","email":"ana.perez@example.com",

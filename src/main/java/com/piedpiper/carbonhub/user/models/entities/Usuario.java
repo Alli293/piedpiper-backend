@@ -101,6 +101,19 @@ public class Usuario {
     @Column(name = "reenvio_verificacion_ventana_inicio")
     private Instant reenvioVerificacionVentanaInicio;
 
+    @Column(name = "token_reset_hash", unique = true)
+    private String tokenResetHash;
+
+    @Column(name = "token_reset_expiracion")
+    private Instant tokenResetExpiracion;
+
+    @Column(name = "reset_contrasena_contador", nullable = false, columnDefinition = "integer default 0")
+    @Builder.Default
+    private int resetContrasenaContador = 0;
+
+    @Column(name = "reset_contrasena_ventana_inicio")
+    private Instant resetContrasenaVentanaInicio;
+
     @Column(length = 20)
     @Builder.Default
     private String idioma = Idioma.POR_DEFECTO.name();

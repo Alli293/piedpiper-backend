@@ -20,4 +20,6 @@ public interface UsuarioRepository extends JpaRepository<Usuario, UUID> {
     boolean existsByEmail(String email);
 
     Optional<Usuario> findByTokenVerificacionHash(String tokenVerificacionHash);
+
+    Optional<Usuario> findByTokenResetHash(String tokenResetHash);
 }
