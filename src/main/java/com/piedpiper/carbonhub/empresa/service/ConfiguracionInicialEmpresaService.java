@@ -1,5 +1,6 @@
 package com.piedpiper.carbonhub.empresa.service;
 
+import com.piedpiper.carbonhub.empresa.mappers.EmpresaMapper;
 import com.piedpiper.carbonhub.empresa.models.dtos.ConfiguracionInicialEmpresaRequestDTO;
 import com.piedpiper.carbonhub.empresa.models.dtos.ConfiguracionInicialEmpresaResponseDTO;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
@@ -25,11 +26,14 @@ public class ConfiguracionInicialEmpresaService {
 
     private final EmpresaRepository empresaRepository;
     private final UsuarioRepository usuarioRepository;
+    private final EmpresaMapper empresaMapper;
 
     public ConfiguracionInicialEmpresaService(EmpresaRepository empresaRepository,
-                                              UsuarioRepository usuarioRepository) {
+                                              UsuarioRepository usuarioRepository,
+                                              EmpresaMapper empresaMapper) {
         this.empresaRepository = empresaRepository;
         this.usuarioRepository = usuarioRepository;
+        this.empresaMapper = empresaMapper;
     }
 
     @Transactional
@@ -45,10 +49,10 @@ public class ConfiguracionInicialEmpresaService {
         }
 
         if (usuario.getEmpresa() != null) {
-            Empresa empresaExistente = usuario.getEmpresa();
-            return new ConfiguracionInicialEmpresaResponseDTO(
-                    empresaExistente.getId(), empresaExistente.getNombreEmpresa(),
-                    empresaExistente.getSlug(), true, false);
+            ConfiguracionInicialEmpresaResponseDTO response = empresaMapper.toDto(usuario.getEmpresa());
+            response.setDocumentosPendientes(true);
+            response.setRecienCreada(false);
+            return response;
         }
 
         if (empresaRepository.existsByCedulaJuridica(request.getCedulaJuridica())) {
@@ -88,8 +92,10 @@ public class ConfiguracionInicialEmpresaService {
         usuario.setEmpresa(empresaGuardada);
         usuarioRepository.saveAndFlush(usuario);
 
-        return new ConfiguracionInicialEmpresaResponseDTO(
-                empresaGuardada.getId(), empresaGuardada.getNombreEmpresa(), slug, true, true);
+        ConfiguracionInicialEmpresaResponseDTO response = empresaMapper.toDto(empresaGuardada);
+        response.setDocumentosPendientes(true);
+        response.setRecienCreada(true);
+        return response;
     }
 
     private String generarSlugUnico(String nombreEmpresa) {

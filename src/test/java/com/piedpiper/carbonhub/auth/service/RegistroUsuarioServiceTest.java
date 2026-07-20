@@ -45,7 +45,7 @@ class RegistroUsuarioServiceTest {
         when(googleTokenVerifier.verificar("token-google"))
                 .thenReturn(new GoogleClaims("sub-1", "ana@gmail.com", true, "Ana", "Ana", "Perez"));
         when(usuarioRepository.existsByGoogleSub("sub-1")).thenReturn(false);
-        when(usuarioRepository.existsByEmail("ana@gmail.com")).thenReturn(false);
+        when(usuarioRepository.existsByEmailIgnoreCase("ana@gmail.com")).thenReturn(false);
         when(usuarioRepository.saveAndFlush(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
         when(jwtService.generar(any(Usuario.class))).thenReturn("jwt-app");
 

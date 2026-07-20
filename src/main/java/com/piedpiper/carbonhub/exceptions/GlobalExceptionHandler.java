@@ -1,6 +1,8 @@
 package com.piedpiper.carbonhub.exceptions;
 
 import com.piedpiper.carbonhub.common.ApiErrorDTO;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -16,6 +18,8 @@ import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ApiErrorDTO> handleApiException(ApiException ex) {
@@ -48,6 +52,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorDTO> handleGeneric(Exception ex) {
+        log.error("Error inesperado no manejado", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiErrorDTO.of(HttpStatus.INTERNAL_SERVER_ERROR.value(),
                         "Ocurrió un error inesperado. Por favor, intenta nuevamente."));

@@ -14,7 +14,7 @@ import java.util.List;
 @Setter
 @SuperBuilder
 @NoArgsConstructor
-public class VueloResponseDTO extends EmisionResponseDTO {
+public class EmisionVueloResponseDTO extends EmisionResponseDTO {
 
     private Integer passengers;
     private List<VueloLegResponseDTO> legs;

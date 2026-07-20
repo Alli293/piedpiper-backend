@@ -1,6 +1,7 @@
 package com.piedpiper.carbonhub.invitacion.service;
 
 import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.invitacion.mappers.InvitacionMapper;
 import com.piedpiper.carbonhub.invitacion.models.dtos.InvitacionPublicaResponseDTO;
 import com.piedpiper.carbonhub.invitacion.models.dtos.InvitacionRequestDTO;
 import com.piedpiper.carbonhub.invitacion.models.dtos.InvitacionResponseDTO;
@@ -30,13 +31,16 @@ public class InvitacionService {
     private final InvitacionRepository invitacionRepository;
     private final UsuarioRepository usuarioRepository;
     private final EnvioCorreoInvitacionService envioCorreoInvitacionService;
+    private final InvitacionMapper invitacionMapper;
 
     public InvitacionService(InvitacionRepository invitacionRepository,
                              UsuarioRepository usuarioRepository,
-                             EnvioCorreoInvitacionService envioCorreoInvitacionService) {
+                             EnvioCorreoInvitacionService envioCorreoInvitacionService,
+                             InvitacionMapper invitacionMapper) {
         this.invitacionRepository = invitacionRepository;
         this.usuarioRepository = usuarioRepository;
         this.envioCorreoInvitacionService = envioCorreoInvitacionService;
+        this.invitacionMapper = invitacionMapper;
     }
 
     @Transactional
@@ -155,11 +159,8 @@ public class InvitacionService {
     }
 
     private InvitacionResponseDTO aDto(Invitacion invitacion, Instant ahora) {
-        return new InvitacionResponseDTO(
-                invitacion.getId(),
-                invitacion.getEmail(),
-                invitacion.estadoEfectivo(ahora).name(),
-                invitacion.getFechaEmision(),
-                invitacion.getFechaExpiracion());
+        InvitacionResponseDTO dto = invitacionMapper.toDto(invitacion);
+        dto.setEstado(invitacion.estadoEfectivo(ahora).name());
+        return dto;
     }
 }

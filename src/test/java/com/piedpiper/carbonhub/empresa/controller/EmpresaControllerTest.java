@@ -12,12 +12,16 @@ import org.springframework.boot.autoconfigure.security.oauth2.client.OAuth2Clien
 import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -25,6 +29,8 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -35,7 +41,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         excludeFilters = @ComponentScan.Filter(
                 type = FilterType.ASSIGNABLE_TYPE, classes = SecurityConfig.class))
 @AutoConfigureMockMvc(addFilters = false)
+@Import(EmpresaControllerTest.MethodSecurityTestConfig.class)
 class EmpresaControllerTest {
+
+    @TestConfiguration
+    @EnableMethodSecurity
+    static class MethodSecurityTestConfig {
+    }
 
     @Autowired
     private MockMvc mockMvc;
@@ -54,8 +66,11 @@ class EmpresaControllerTest {
     private static final String USUARIO_ID = "41ce47ab-a46c-4306-8c46-2688dc97fa73";
     private static final Authentication AUTHENTICATION = new UsernamePasswordAuthenticationToken(
             USUARIO_ID, null, List.of(new SimpleGrantedAuthority("ROLE_ADMINISTRADOR_EMPRESA")));
+    private static final Authentication AUTHENTICATION_ROL_INCORRECTO = new UsernamePasswordAuthenticationToken(
+            USUARIO_ID, null, List.of(new SimpleGrantedAuthority("ROLE_USUARIO_GENERAL")));
 
     @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_ADMINISTRADOR_EMPRESA")
     void completarConfiguracionInicialValidoDevuelve201() throws Exception {
         when(configuracionInicialEmpresaService.completarConfiguracionEmpresa(any(), any())).thenReturn(
                 new ConfiguracionInicialEmpresaResponseDTO(
@@ -71,18 +86,19 @@ class EmpresaControllerTest {
     }
 
     @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_USUARIO_GENERAL")
     void rolIncorrectoDevuelve403() throws Exception {
-        when(configuracionInicialEmpresaService.completarConfiguracionEmpresa(any(), any())).thenThrow(
-                ApiException.accesoDenegado("Solo el administrador de una empresa puede completar este paso."));
-
         mockMvc.perform(post("/api/empresas/configuracion-inicial")
-                        .principal(AUTHENTICATION)
+                        .principal(AUTHENTICATION_ROL_INCORRECTO)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(REQUEST_JSON))
                 .andExpect(status().isForbidden());
+
+        verify(configuracionInicialEmpresaService, never()).completarConfiguracionEmpresa(any(), any());
     }
 
     @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_ADMINISTRADOR_EMPRESA")
     void yaCompletadoDevuelve200ConDatosDeLaEmpresaExistente() throws Exception {
         when(configuracionInicialEmpresaService.completarConfiguracionEmpresa(any(), any())).thenReturn(
                 new ConfiguracionInicialEmpresaResponseDTO(
@@ -98,6 +114,7 @@ class EmpresaControllerTest {
     }
 
     @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_ADMINISTRADOR_EMPRESA")
     void cedulaJuridicaDuplicadaDevuelve409() throws Exception {
         when(configuracionInicialEmpresaService.completarConfiguracionEmpresa(any(), any())).thenThrow(
                 ApiException.cuentaDuplicada("Ya existe una empresa registrada con esta cédula jurídica."));

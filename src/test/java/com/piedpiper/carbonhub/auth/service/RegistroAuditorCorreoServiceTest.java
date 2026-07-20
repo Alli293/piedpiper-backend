@@ -53,7 +53,7 @@ class RegistroAuditorCorreoServiceTest {
 
     @Test
     void registroExitoso_guardaAuditorPendienteDeVerificacionConRolCorrecto() {
-        when(usuarioRepository.existsByEmail("carlos.lopez@example.com")).thenReturn(false);
+        when(usuarioRepository.existsByEmailIgnoreCase("carlos.lopez@example.com")).thenReturn(false);
         when(passwordEncoder.encode("clave123")).thenReturn("hash-seguro");
         when(usuarioRepository.saveAndFlush(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -88,7 +88,7 @@ class RegistroAuditorCorreoServiceTest {
 
     @Test
     void emailDuplicadoPreexistente_lanza409YNoPersiste() {
-        when(usuarioRepository.existsByEmail("carlos.lopez@example.com")).thenReturn(true);
+        when(usuarioRepository.existsByEmailIgnoreCase("carlos.lopez@example.com")).thenReturn(true);
 
         assertThatThrownBy(() -> service.registrar(request()))
                 .isInstanceOf(ApiException.class)
@@ -101,7 +101,7 @@ class RegistroAuditorCorreoServiceTest {
 
     @Test
     void errorInesperadoAlGuardar_lanza500() {
-        when(usuarioRepository.existsByEmail("carlos.lopez@example.com")).thenReturn(false);
+        when(usuarioRepository.existsByEmailIgnoreCase("carlos.lopez@example.com")).thenReturn(false);
         when(passwordEncoder.encode("clave123")).thenReturn("hash-seguro");
         when(usuarioRepository.saveAndFlush(any(Usuario.class)))
                 .thenThrow(new RuntimeException("DB connection lost"));

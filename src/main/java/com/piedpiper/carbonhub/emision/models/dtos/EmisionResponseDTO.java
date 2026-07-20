@@ -1,6 +1,5 @@
 package com.piedpiper.carbonhub.emision.models.dtos;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
 
 import lombok.Getter;
@@ -17,7 +16,6 @@ import java.util.UUID;
 @Setter
 @SuperBuilder
 @NoArgsConstructor
-@JsonIgnoreProperties(ignoreUnknown = true)
 public abstract class EmisionResponseDTO {
 
     private UUID id;

@@ -7,13 +7,13 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.piedpiper.carbonhub.auth.config.JwtAuthenticationFilter;
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
 import com.piedpiper.carbonhub.exceptions.GlobalExceptionHandler;
-import com.piedpiper.carbonhub.limite.config.LimiteSecurityConfig;
 import com.piedpiper.carbonhub.limite.service.EmpresaAutenticadaService;
 import com.piedpiper.carbonhub.limite.models.dtos.LimiteEmisionesRequestDTO;
 import com.piedpiper.carbonhub.limite.models.dtos.LimiteEmisionesResponseDTO;
@@ -24,19 +24,17 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(controllers = LimiteEmisionesController.class)
 @AutoConfigureMockMvc(addFilters = false)
 @Import({
         SecurityConfig.class,
-        GlobalExceptionHandler.class,
-        LimiteSecurityConfig.class,
-        LimiteEmisionesExceptionHandler.class
+        GlobalExceptionHandler.class
 })
 class LimiteEmisionesControllerTest {
     private static final UUID EMPRESA_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
@@ -48,24 +46,24 @@ class LimiteEmisionesControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    @MockBean
+    @MockitoBean
     private EmpresaAutenticadaService empresaAutenticadaService;
 
-    @MockBean
+    @MockitoBean
     private LimiteEmisionesService service;
 
     @Test
     @WithMockUser(username = USUARIO_ID, authorities = "ROLE_ADMINISTRADOR_EMPRESA")
-    void postValidoRetornaOkParaAdministradorEmpresa() throws Exception {
+    void postValidoRetornaCreatedCuandoCreaLimite() throws Exception {
         LimiteEmisionesRequestDTO request = new LimiteEmisionesRequestDTO(
                 2026,
                 new BigDecimal("50.0000"),
                 "Meta anual"
         );
-        when(empresaAutenticadaService.obtenerEmpresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
+        when(empresaAutenticadaService.obtenerEmpresaId(any())).thenReturn(EMPRESA_ID);
         when(service.guardarLimite(eq(EMPRESA_ID), any(LimiteEmisionesRequestDTO.class)))
                 .thenReturn(new LimiteEmisionesResponseDTO(
                         1L,
@@ -74,7 +72,36 @@ class LimiteEmisionesControllerTest {
                         new BigDecimal("50.0000"),
                         "Meta anual",
                         "Limite vigente del anio 2026: 50.0000 t CO2e.",
-                        null
+                        null,
+                        true
+                ));
+
+        mockMvc.perform(post("/api/limites")
+                        .principal(authentication("ROLE_ADMINISTRADOR_EMPRESA"))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_ADMINISTRADOR_EMPRESA")
+    void postValidoRetornaOkCuandoActualizaLimite() throws Exception {
+        LimiteEmisionesRequestDTO request = new LimiteEmisionesRequestDTO(
+                2026,
+                new BigDecimal("50.0000"),
+                "Meta anual"
+        );
+        when(empresaAutenticadaService.obtenerEmpresaId(any())).thenReturn(EMPRESA_ID);
+        when(service.guardarLimite(eq(EMPRESA_ID), any(LimiteEmisionesRequestDTO.class)))
+                .thenReturn(new LimiteEmisionesResponseDTO(
+                        1L,
+                        EMPRESA_ID,
+                        2026,
+                        new BigDecimal("50.0000"),
+                        "Meta anual",
+                        "Limite vigente del anio 2026: 50.0000 t CO2e.",
+                        null,
+                        false
                 ));
 
         mockMvc.perform(post("/api/limites")
@@ -108,7 +135,8 @@ class LimiteEmisionesControllerTest {
         mockMvc.perform(post("/api/limites")
                         .contentType("application/json")
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("No tiene permisos para realizar esta acción."));
 
         verifyNoInteractions(service);
     }
@@ -116,7 +144,7 @@ class LimiteEmisionesControllerTest {
     @Test
     @WithMockUser(username = USUARIO_ID, authorities = "ROLE_ADMINISTRADOR_EMPRESA")
     void getListadoRetornaOkParaAdministradorEmpresa() throws Exception {
-        when(empresaAutenticadaService.obtenerEmpresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
+        when(empresaAutenticadaService.obtenerEmpresaId(any())).thenReturn(EMPRESA_ID);
         when(service.listarLimites(EMPRESA_ID)).thenReturn(java.util.List.of());
 
         mockMvc.perform(get("/api/limites")
@@ -127,7 +155,7 @@ class LimiteEmisionesControllerTest {
     @Test
     @WithMockUser(username = USUARIO_ID, authorities = "ROLE_ADMINISTRADOR_EMPRESA")
     void deleteRetornaNoContentParaAdministradorEmpresa() throws Exception {
-        when(empresaAutenticadaService.obtenerEmpresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
+        when(empresaAutenticadaService.obtenerEmpresaId(any())).thenReturn(EMPRESA_ID);
 
         mockMvc.perform(delete("/api/limites/2026")
                         .principal(authentication("ROLE_ADMINISTRADOR_EMPRESA")))

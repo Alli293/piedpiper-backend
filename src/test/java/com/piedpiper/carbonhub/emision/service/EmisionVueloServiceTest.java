@@ -3,7 +3,7 @@ package com.piedpiper.carbonhub.emision.service;
 import com.piedpiper.carbonhub.emision.mappers.EmisionVueloMapper;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.RegistrarVueloRequestDTO;
-import com.piedpiper.carbonhub.emision.models.dtos.VueloResponseDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.EmisionVueloResponseDTO;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionVuelo;
 import com.piedpiper.carbonhub.emision.models.enums.CabinClass;
 import com.piedpiper.carbonhub.emision.models.enums.UnidadDistancia;
@@ -70,11 +70,15 @@ class EmisionVueloServiceTest {
                 .build();
     }
 
+    private Usuario usuarioSinEmpresa() {
+        return Usuario.builder().id(USUARIO_ID).build();
+    }
+
     @Test
     void registroExitosoCalculaCadaLegYPersisteCarbonKg() {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
         when(emisionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        VueloResponseDTO responseEsperado = new VueloResponseDTO();
+        EmisionVueloResponseDTO responseEsperado = new EmisionVueloResponseDTO();
         responseEsperado.setCarbonKg(new BigDecimal("2364.788"));
         when(emisionVueloMapper.toDto(any())).thenReturn(responseEsperado);
 
@@ -119,7 +123,7 @@ class EmisionVueloServiceTest {
     void registroRespetaUnidadMillasDelRequest() {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
         when(emisionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        when(emisionVueloMapper.toDto(any())).thenReturn(new VueloResponseDTO());
+        when(emisionVueloMapper.toDto(any())).thenReturn(new EmisionVueloResponseDTO());
         RegistrarVueloRequestDTO request = requestValido();
         request.setDistanceUnit(UnidadDistancia.MI);
 
@@ -143,7 +147,7 @@ class EmisionVueloServiceTest {
         when(emisionRepository.findByIdAndEmpresaId(emisionId, EMPRESA_ID))
                 .thenReturn(Optional.of(existente));
         when(emisionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        when(emisionVueloMapper.toDto(any())).thenReturn(new VueloResponseDTO());
+        when(emisionVueloMapper.toDto(any())).thenReturn(new EmisionVueloResponseDTO());
 
         service.actualizar(emisionId, requestValido(), USUARIO_ID);
 
@@ -153,6 +157,18 @@ class EmisionVueloServiceTest {
         assertThat(captor.getValue().getLegs()).hasSize(2);
         assertThat(captor.getValue().getTitulo()).isEqualTo("Viaje a\u00e9reo SFO-YYZ-SFO");
         assertThat(captor.getValue().getCarbonKg()).isEqualByComparingTo("2364.788");
+    }
+
+    @Test
+    void usuarioSinEmpresaNoPuedeRegistrar() {
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuarioSinEmpresa()));
+
+        assertThatThrownBy(() -> service.registrar(requestValido(), USUARIO_ID))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+
+        verify(emisionRepository, never()).save(any());
     }
 
     @Test
