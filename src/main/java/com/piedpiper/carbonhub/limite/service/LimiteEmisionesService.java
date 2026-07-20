@@ -1,5 +1,6 @@
 package com.piedpiper.carbonhub.limite.service;
 
+import com.piedpiper.carbonhub.limite.mappers.LimiteEmisionesMapper;
 import com.piedpiper.carbonhub.limite.models.dtos.LimiteEmisionesRequestDTO;
 import com.piedpiper.carbonhub.limite.models.dtos.LimiteEmisionesResponseDTO;
 import com.piedpiper.carbonhub.limite.models.entities.LimiteEmisiones;
@@ -8,6 +9,7 @@ import com.piedpiper.carbonhub.exceptions.ApiException;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,15 +17,18 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class LimiteEmisionesService {
     private final LimiteEmisionesRepository repository;
+    private final LimiteEmisionesMapper limiteEmisionesMapper;
 
-    public LimiteEmisionesService(LimiteEmisionesRepository repository) {
+    public LimiteEmisionesService(LimiteEmisionesRepository repository, LimiteEmisionesMapper limiteEmisionesMapper) {
         this.repository = repository;
+        this.limiteEmisionesMapper = limiteEmisionesMapper;
     }
 
     @Transactional
     public LimiteEmisionesResponseDTO guardarLimite(UUID empresaId, LimiteEmisionesRequestDTO request) {
-        LimiteEmisiones limite = repository
-                .findByEmpresaIdAndAnio(empresaId, request.getAnio())
+        Optional<LimiteEmisiones> existente = repository.findByEmpresaIdAndAnio(empresaId, request.getAnio());
+        boolean esNueva = existente.isEmpty();
+        LimiteEmisiones limite = existente
                 .map(existing -> {
                     existing.setLimiteMt(request.getLimiteMt());
                     existing.setJustificacion(normalizarJustificacion(request.getJustificacion()));
@@ -36,7 +41,13 @@ public class LimiteEmisionesService {
                         normalizarJustificacion(request.getJustificacion())
                 ));
 
-        return toDto(repository.save(limite), true);
+        try {
+            LimiteEmisionesResponseDTO dto = toDto(repository.save(limite), true);
+            dto.setRecienCreada(esNueva);
+            return dto;
+        } catch (DataIntegrityViolationException e) {
+            throw ApiException.limiteConflicto();
+        }
     }
 
     @Transactional(readOnly = true)
@@ -60,15 +71,11 @@ public class LimiteEmisionesService {
     }
 
     private LimiteEmisionesResponseDTO toDto(LimiteEmisiones limite, boolean incluirMensaje) {
-        return new LimiteEmisionesResponseDTO(
-                limite.getId(),
-                limite.getEmpresaId(),
-                limite.getAnio(),
-                limite.getLimiteMt(),
-                limite.getJustificacion(),
-                incluirMensaje ? mensajeLimite(limite) : null,
-                limite.getActualizadoEn()
-        );
+        LimiteEmisionesResponseDTO dto = limiteEmisionesMapper.toDto(limite);
+        if (incluirMensaje) {
+            dto.setMensaje(mensajeLimite(limite));
+        }
+        return dto;
     }
 
     private String mensajeLimite(LimiteEmisiones limite) {

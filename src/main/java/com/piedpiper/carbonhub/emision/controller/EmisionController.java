@@ -24,7 +24,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -40,6 +39,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/emisiones")
+@PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
 public class EmisionController {
 
     private final EmisionElectricidadService emisionElectricidadService;
@@ -64,9 +64,8 @@ public class EmisionController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
-    public ResponseEntity<List<EmisionResponseDTO>> listar() {
-        return ResponseEntity.ok(emisionConsultaService.listar(usuarioIdAutenticado()));
+    public ResponseEntity<List<EmisionResponseDTO>> listar(Authentication authentication) {
+        return ResponseEntity.ok(emisionConsultaService.listar(Autenticaciones.usuarioId(authentication)));
     }
 
     @GetMapping("/resumen")
@@ -80,73 +79,62 @@ public class EmisionController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
-    public ResponseEntity<EmisionResponseDTO> obtener(@PathVariable UUID id) {
-        return ResponseEntity.ok(emisionConsultaService.obtener(id, usuarioIdAutenticado()));
+    public ResponseEntity<EmisionResponseDTO> obtener(Authentication authentication, @PathVariable UUID id) {
+        return ResponseEntity.ok(emisionConsultaService.obtener(id, Autenticaciones.usuarioId(authentication)));
     }
 
     @PostMapping("/electricidad")
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
     public ResponseEntity<EmisionElectricidadResponseDTO> registrarElectricidad(
+            Authentication authentication,
             @Valid @RequestBody RegistrarElectricidadRequestDTO request) {
-        UUID usuarioId = usuarioIdAutenticado();
+        UUID usuarioId = Autenticaciones.usuarioId(authentication);
         EmisionElectricidadResponseDTO response = emisionElectricidadService.registrar(request, usuarioId);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping("/flota/tipos-vehiculo")
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
     public ResponseEntity<List<TipoVehiculoResponseDTO>> listarTiposVehiculo() {
         return ResponseEntity.ok(emisionFlotaService.listarTiposVehiculo());
     }
 
     @PostMapping("/flota")
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
     public ResponseEntity<EmisionFlotaResponseDTO> registrarFlota(
+            Authentication authentication,
             @Valid @RequestBody RegistrarFlotaRequestDTO request) {
-        UUID usuarioId = usuarioIdAutenticado();
+        UUID usuarioId = Autenticaciones.usuarioId(authentication);
         EmisionFlotaResponseDTO response = emisionFlotaService.registrar(request, usuarioId);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @PostMapping("/envio")
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
     public ResponseEntity<EmisionEnvioResponseDTO> registrarEnvio(
+            Authentication authentication,
             @Valid @RequestBody RegistrarEnvioRequestDTO request) {
-        UUID usuarioId = usuarioIdAutenticado();
+        UUID usuarioId = Autenticaciones.usuarioId(authentication);
         EmisionEnvioResponseDTO response = emisionEnvioService.registrar(request, usuarioId);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @PostMapping("/vuelo")
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
     public ResponseEntity<EmisionResponseDTO> registrarVuelo(
+            Authentication authentication,
             @Valid @RequestBody RegistrarVueloRequestDTO request) {
-        EmisionResponseDTO response = emisionVueloService.registrar(request, usuarioIdAutenticado());
+        EmisionResponseDTO response = emisionVueloService.registrar(request, Autenticaciones.usuarioId(authentication));
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @PutMapping("/vuelo/{id}")
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
     public ResponseEntity<EmisionResponseDTO> actualizarVuelo(
+            Authentication authentication,
             @PathVariable UUID id,
             @Valid @RequestBody RegistrarVueloRequestDTO request) {
-        return ResponseEntity.ok(emisionVueloService.actualizar(id, request, usuarioIdAutenticado()));
+        UUID usuarioId = Autenticaciones.usuarioId(authentication);
+        return ResponseEntity.ok(emisionVueloService.actualizar(id, request, usuarioId));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
-    public ResponseEntity<Void> eliminar(@PathVariable UUID id) {
-        emisionConsultaService.eliminar(id, usuarioIdAutenticado());
+    public ResponseEntity<Void> eliminar(Authentication authentication, @PathVariable UUID id) {
+        emisionConsultaService.eliminar(id, Autenticaciones.usuarioId(authentication));
         return ResponseEntity.noContent().build();
-    }
-
-    private UUID usuarioIdAutenticado() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        try {
-            return UUID.fromString(authentication.getName());
-        } catch (IllegalArgumentException e) {
-            throw ApiException.errorInterno("No se pudo identificar al usuario autenticado.");
-        }
     }
 }

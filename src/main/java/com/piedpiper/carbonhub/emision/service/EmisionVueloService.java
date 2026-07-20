@@ -132,7 +132,7 @@ public class EmisionVueloService {
 
     private UUID empresaId(Usuario usuario) {
         if (usuario.getEmpresa() == null || usuario.getEmpresa().getId() == null) {
-            throw ApiException.accesoDenegado("El usuario autenticado no pertenece a una empresa.");
+            throw ApiException.empresaNoConfigurada();
         }
         return usuario.getEmpresa().getId();
     }

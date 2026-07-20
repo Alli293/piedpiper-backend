@@ -96,7 +96,7 @@ public class ApiException extends RuntimeException {
 
     public static ApiException empresaNoConfigurada() {
         return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
-                "Debes completar la configuración de tu empresa antes de registrar emisiones.");
+                "Debes completar la configuración de tu empresa antes de realizar esta acción.");
     }
 
     public static ApiException invitacionCorreoYaEnEmpresa() {
@@ -157,5 +157,15 @@ public class ApiException extends RuntimeException {
     public static ApiException mesConsultaInvalido() {
         return new ApiException(HttpStatus.BAD_REQUEST,
                 "El mes debe estar entre 1 y 12.");
+    }
+  
+    public static ApiException metodoTransporteNoSoportado() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Seleccione un método de transporte válido.");
+    }
+
+    public static ApiException limiteConflicto() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Conflicto al guardar el límite. Intente nuevamente.");
     }
 }

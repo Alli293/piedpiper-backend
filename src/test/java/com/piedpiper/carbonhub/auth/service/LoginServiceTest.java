@@ -23,8 +23,6 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -59,7 +57,7 @@ class LoginServiceTest {
     void loginCorreoExitosoEmiteTokenYReseteaIntentos() {
         Usuario usuario = usuarioCorreo();
         usuario.setIntentosFallidos(3);
-        when(usuarioRepository.findByEmail("ana@gmail.com")).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByEmailIgnoreCase("ana@gmail.com")).thenReturn(Optional.of(usuario));
         when(passwordEncoder.matches("secreta", "hash")).thenReturn(true);
         when(jwtService.generar(usuario)).thenReturn("jwt-app");
 
@@ -73,7 +71,7 @@ class LoginServiceTest {
     @Test
     void credencialesIncorrectasLanza401Uniforme() {
         Usuario usuario = usuarioCorreo();
-        when(usuarioRepository.findByEmail("ana@gmail.com")).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByEmailIgnoreCase("ana@gmail.com")).thenReturn(Optional.of(usuario));
         when(passwordEncoder.matches("mala", "hash")).thenReturn(false);
 
         assertThatThrownBy(() -> service.login(
@@ -87,7 +85,7 @@ class LoginServiceTest {
     void quintoIntentoFallidoBloqueaCuenta() {
         Usuario usuario = usuarioCorreo();
         usuario.setIntentosFallidos(4);
-        when(usuarioRepository.findByEmail("ana@gmail.com")).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByEmailIgnoreCase("ana@gmail.com")).thenReturn(Optional.of(usuario));
         when(passwordEncoder.matches("mala", "hash")).thenReturn(false);
 
         assertThatThrownBy(() -> service.login(
@@ -105,7 +103,7 @@ class LoginServiceTest {
         Usuario usuario = usuarioCorreo();
         usuario.setIntentosFallidos(5);
         usuario.setBloqueadoHasta(Instant.now().plusSeconds(600));
-        when(usuarioRepository.findByEmail("ana@gmail.com")).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByEmailIgnoreCase("ana@gmail.com")).thenReturn(Optional.of(usuario));
 
         assertThatThrownBy(() -> service.login(
                 new LoginRequestDTO(MetodoAuth.CORREO, null, "ana@gmail.com", "secreta")))
@@ -131,7 +129,7 @@ class LoginServiceTest {
     void cuentaDeshabilitadaLanza403() {
         Usuario usuario = usuarioCorreo();
         usuario.setEstado(EstadoUsuario.DESHABILITADO);
-        when(usuarioRepository.findByEmail("ana@gmail.com")).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByEmailIgnoreCase("ana@gmail.com")).thenReturn(Optional.of(usuario));
         when(passwordEncoder.matches("secreta", "hash")).thenReturn(true);
 
         assertThatThrownBy(() -> service.login(
