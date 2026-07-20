@@ -38,7 +38,7 @@ public class RegistroUsuarioService {
             throw ApiException.correoNoVerificado();
         }
         if (usuarioRepository.existsByGoogleSub(claims.getSub())
-                || usuarioRepository.existsByEmail(claims.getEmail())) {
+                || usuarioRepository.existsByEmailIgnoreCase(claims.getEmail())) {
             throw ApiException.cuentaDuplicada(
                     "Ya existe una cuenta con este correo. ¿Deseas iniciar sesión?");
         }

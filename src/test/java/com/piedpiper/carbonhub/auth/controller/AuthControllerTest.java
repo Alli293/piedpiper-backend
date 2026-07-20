@@ -159,13 +159,13 @@ class AuthControllerTest {
     void registroAuditorValidoDevuelve201() throws Exception {
         when(registroAuditorService.registrar(any()))
                 .thenReturn(new AuthResponseDTO("jwt", "AUDITOR_CERTIFICADO", "ACTIVO",
-                        "/auditor/configuracion-inicial"));
+                        "/perfil/configuracion-inicial"));
 
         mockMvc.perform(post("/api/auth/registro/auditor")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(REGISTRO_JSON))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.redirect").value("/auditor/configuracion-inicial"));
+                .andExpect(jsonPath("$.redirect").value("/perfil/configuracion-inicial"));
     }
 
     @Test

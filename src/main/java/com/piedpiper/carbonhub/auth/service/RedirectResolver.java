@@ -11,8 +11,9 @@ public final class RedirectResolver {
     public static String paraUsuario(Usuario usuario) {
         if (!usuario.isConfiguracionCompleta()) {
             return switch (usuario.getRol()) {
-                case ADMINISTRADOR_EMPRESA -> "/empresa/configuracion-inicial";
-                case AUDITOR_CERTIFICADO -> "/auditor/configuracion-inicial";
+                case ADMINISTRADOR_EMPRESA -> usuario.getEmpresa() == null
+                        ? "/empresa/configuracion-inicial"
+                        : "/perfil/configuracion-inicial";
                 default -> "/perfil/configuracion-inicial";
             };
         }

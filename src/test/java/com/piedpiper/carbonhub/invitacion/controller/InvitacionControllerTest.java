@@ -12,12 +12,16 @@ import org.springframework.boot.autoconfigure.security.oauth2.client.OAuth2Clien
 import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -26,6 +30,8 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -37,7 +43,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         excludeFilters = @ComponentScan.Filter(
                 type = FilterType.ASSIGNABLE_TYPE, classes = SecurityConfig.class))
 @AutoConfigureMockMvc(addFilters = false)
+@Import(InvitacionControllerTest.MethodSecurityTestConfig.class)
 class InvitacionControllerTest {
+
+    @TestConfiguration
+    @EnableMethodSecurity
+    static class MethodSecurityTestConfig {
+    }
 
     @Autowired
     private MockMvc mockMvc;
@@ -52,6 +64,8 @@ class InvitacionControllerTest {
     private static final String USUARIO_ID = "41ce47ab-a46c-4306-8c46-2688dc97fa73";
     private static final Authentication AUTHENTICATION = new UsernamePasswordAuthenticationToken(
             USUARIO_ID, null, List.of(new SimpleGrantedAuthority("ROLE_ADMINISTRADOR_EMPRESA")));
+    private static final Authentication AUTHENTICATION_ROL_INCORRECTO = new UsernamePasswordAuthenticationToken(
+            USUARIO_ID, null, List.of(new SimpleGrantedAuthority("ROLE_USUARIO_GENERAL")));
 
     private InvitacionResponseDTO respuesta(String estado) {
         return new InvitacionResponseDTO(
@@ -59,6 +73,7 @@ class InvitacionControllerTest {
     }
 
     @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_ADMINISTRADOR_EMPRESA")
     void emitirValidaDevuelve201() throws Exception {
         when(invitacionService.emitir(any(), any())).thenReturn(respuesta("ENVIADA"));
 
@@ -72,6 +87,7 @@ class InvitacionControllerTest {
     }
 
     @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_ADMINISTRADOR_EMPRESA")
     void emitirConCorreoInvalidoDevuelve400() throws Exception {
         mockMvc.perform(post("/api/empresas/invitaciones")
                         .principal(AUTHENTICATION)
@@ -81,6 +97,7 @@ class InvitacionControllerTest {
     }
 
     @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_ADMINISTRADOR_EMPRESA")
     void emitirDuplicadaDevuelve409() throws Exception {
         when(invitacionService.emitir(any(), any()))
                 .thenThrow(ApiException.invitacionPendiente());
@@ -93,18 +110,19 @@ class InvitacionControllerTest {
     }
 
     @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_USUARIO_GENERAL")
     void emitirSinRolAdministradorDevuelve403() throws Exception {
-        when(invitacionService.emitir(any(), any())).thenThrow(
-                ApiException.accesoDenegado("Solo el administrador de la empresa puede gestionar invitaciones."));
-
         mockMvc.perform(post("/api/empresas/invitaciones")
-                        .principal(AUTHENTICATION)
+                        .principal(AUTHENTICATION_ROL_INCORRECTO)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"colab@correo.com\"}"))
                 .andExpect(status().isForbidden());
+
+        verify(invitacionService, never()).emitir(any(), any());
     }
 
     @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_ADMINISTRADOR_EMPRESA")
     void listarDevuelve200ConLasInvitaciones() throws Exception {
         when(invitacionService.listar(any()))
                 .thenReturn(List.of(respuesta("ENVIADA"), respuesta("REVOCADA")));
@@ -116,6 +134,7 @@ class InvitacionControllerTest {
     }
 
     @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_ADMINISTRADOR_EMPRESA")
     void revocarDevuelve200ConElEstadoRevocada() throws Exception {
         when(invitacionService.revocar(any(), any())).thenReturn(respuesta("REVOCADA"));
 
@@ -126,6 +145,7 @@ class InvitacionControllerTest {
     }
 
     @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_ADMINISTRADOR_EMPRESA")
     void revocarInexistenteDevuelve404() throws Exception {
         when(invitacionService.revocar(any(), any()))
                 .thenThrow(ApiException.invitacionNoEncontrada());

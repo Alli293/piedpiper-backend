@@ -8,7 +8,7 @@ import com.piedpiper.carbonhub.emision.models.dtos.EmisionElectricidadResponseDT
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionEnvioResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionFlotaResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionResponseDTO;
-import com.piedpiper.carbonhub.emision.models.dtos.VueloResponseDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.EmisionVueloResponseDTO;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionElectricidad;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionEnvio;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionFlota;
@@ -85,7 +85,7 @@ class EmisionConsultaServiceTest {
         EmisionFlota flota = EmisionFlota.builder().empresaId(EMPRESA_ID).build();
 
         EmisionElectricidadResponseDTO electricidadDto = new EmisionElectricidadResponseDTO();
-        VueloResponseDTO vueloDto = new VueloResponseDTO();
+        EmisionVueloResponseDTO vueloDto = new EmisionVueloResponseDTO();
         EmisionEnvioResponseDTO envioDto = new EmisionEnvioResponseDTO();
         EmisionFlotaResponseDTO flotaDto = new EmisionFlotaResponseDTO();
 
@@ -140,6 +140,17 @@ class EmisionConsultaServiceTest {
         service.eliminar(EMISION_ID, USUARIO_ID);
 
         verify(emisionRepository).delete(emision);
+    }
+
+    @Test
+    void listarConUsuarioSinEmpresaDevuelve422() {
+        Usuario usuarioSinEmpresa = Usuario.builder().id(USUARIO_ID).build();
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuarioSinEmpresa));
+
+        assertThatThrownBy(() -> service.listar(USUARIO_ID))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
     }
 
     private Usuario usuario() {
