@@ -3,8 +3,10 @@ package com.piedpiper.carbonhub.user.controller;
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
 import com.piedpiper.carbonhub.auth.service.JwtService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.user.models.dtos.PerfilInicialResponseDTO;
 import com.piedpiper.carbonhub.user.models.dtos.PreferenciasUsuarioResponseDTO;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
+import com.piedpiper.carbonhub.user.service.PerfilInicialService;
 import com.piedpiper.carbonhub.user.service.PreferenciasUsuarioService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,6 +45,8 @@ class UsuarioControllerTest {
 
     @MockitoBean
     private PreferenciasUsuarioService preferenciasUsuarioService;
+    @MockitoBean
+    private PerfilInicialService perfilInicialService;
     @MockitoBean
     private JwtService jwtService;
     @MockitoBean
@@ -119,5 +123,74 @@ class UsuarioControllerTest {
                 .andExpect(jsonPath("$.idioma").value("ESPANOL"))
                 .andExpect(jsonPath("$.moneda").value("CRC"))
                 .andExpect(jsonPath("$.unidades").value("METRICO"));
+    }
+
+    private static final String PERFIL_JSON = """
+            {"nombreVisible":"Ana G.",
+             "preferencias":{"idioma":"ESPANOL","moneda":"CRC","unidades":"METRICO"}}""";
+
+    private PerfilInicialResponseDTO perfilResponse() {
+        return new PerfilInicialResponseDTO("Ana G.",
+                new PreferenciasUsuarioResponseDTO("ESPANOL", "CRC", "METRICO"),
+                "USUARIO_INDIVIDUAL", true, "/panel", null);
+    }
+
+    @Test
+    void perfilInicialGuardadoValidoDevuelve200ConRedireccion() throws Exception {
+        when(perfilInicialService.completar(any(UUID.class), any())).thenReturn(perfilResponse());
+
+        mockMvc.perform(put("/api/usuarios/me/perfil-inicial")
+                        .principal(AUTHENTICATION)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(PERFIL_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.configuracionCompleta").value(true))
+                .andExpect(jsonPath("$.redirect").value("/panel"));
+    }
+
+    @Test
+    void perfilInicialEdicionFueraDeRolDevuelve403() throws Exception {
+        when(perfilInicialService.completar(any(UUID.class), any()))
+                .thenThrow(ApiException.accesoDenegado(
+                        "No puedes modificar los datos de la empresa con tu rol."));
+
+        mockMvc.perform(put("/api/usuarios/me/perfil-inicial")
+                        .principal(AUTHENTICATION)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(PERFIL_JSON))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void perfilInicialPreferenciaFueraDeCatalogoDevuelve422() throws Exception {
+        when(perfilInicialService.completar(any(UUID.class), any()))
+                .thenThrow(ApiException.valorNoSoportado("El idioma seleccionado no está soportado."));
+
+        mockMvc.perform(put("/api/usuarios/me/perfil-inicial")
+                        .principal(AUTHENTICATION)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(PERFIL_JSON))
+                .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
+    void perfilInicialNombreCortoDevuelve400PorValidacionDelDTO() throws Exception {
+        mockMvc.perform(put("/api/usuarios/me/perfil-inicial")
+                        .principal(AUTHENTICATION)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"nombreVisible":"A",
+                                 "preferencias":{"idioma":"ESPANOL","moneda":"CRC","unidades":"METRICO"}}"""))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void perfilInicialObtenerDevuelve200ConElEstadoDelPerfil() throws Exception {
+        when(perfilInicialService.obtener(any(UUID.class))).thenReturn(perfilResponse());
+
+        mockMvc.perform(get("/api/usuarios/me/perfil-inicial")
+                        .principal(AUTHENTICATION))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.rol").value("USUARIO_INDIVIDUAL"));
     }
 }
