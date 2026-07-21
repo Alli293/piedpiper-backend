@@ -189,6 +189,21 @@ public class ApiException extends RuntimeException {
                 "El criterio de ordenamiento no es válido.");
     }
 
+    public static ApiException especialidadAuditorInvalida() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Una de las especialidades seleccionadas no es válida.");
+    }
+
+    public static ApiException zonaAuditorInvalida() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "La zona geográfica seleccionada no es válida.");
+    }
+
+    public static ApiException calificacionMinimaInvalida() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "La calificación mínima debe estar entre 1 y 5.");
+    }
+
     public static ApiException mesInvalido() {
         return new ApiException(HttpStatus.BAD_REQUEST,
                 "El mes debe estar entre 1 y 12.");

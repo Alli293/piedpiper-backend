@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -70,7 +69,7 @@ class AuditorControllerTest {
         AuditorResumenResponseDTO auditor = new AuditorResumenResponseDTO(
                 UUID.randomUUID(), "Ana Mora", null, List.of("AGROINDUSTRIA"),
                 new BigDecimal("4.5"), 30, true, 42, 8, "SAN_JOSE");
-        when(directorioAuditoresService.listar(any(), anyInt(), any(), any()))
+        when(directorioAuditoresService.listar(any()))
                 .thenReturn(new PaginaAuditoresResponseDTO(List.of(auditor), 1, 0, 1));
 
         mockMvc.perform(get("/api/auditores").principal(principal("ADMINISTRADOR_EMPRESA")))
@@ -85,7 +84,7 @@ class AuditorControllerTest {
     @Test
     @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
     void auditorCertificadoTambienPuedeConsultarElDirectorio() throws Exception {
-        when(directorioAuditoresService.listar(any(), anyInt(), any(), any()))
+        when(directorioAuditoresService.listar(any()))
                 .thenReturn(new PaginaAuditoresResponseDTO(List.of(), 0, 0, 0));
 
         mockMvc.perform(get("/api/auditores").principal(principal("AUDITOR_CERTIFICADO")))
@@ -95,10 +94,35 @@ class AuditorControllerTest {
     @Test
     @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
     void ordenamientoInvalidoDevuelve400() throws Exception {
-        when(directorioAuditoresService.listar(any(), anyInt(), any(), any()))
+        when(directorioAuditoresService.listar(any()))
                 .thenThrow(ApiException.ordenamientoAuditoresInvalido());
 
         mockMvc.perform(get("/api/auditores").param("ordenamiento", "POR_PRECIO")
+                        .principal(principal("ADMINISTRADOR_EMPRESA")))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
+    void filtrarPorEspecialidadYDisponibilidadDevuelve200() throws Exception {
+        when(directorioAuditoresService.listar(any()))
+                .thenReturn(new PaginaAuditoresResponseDTO(List.of(), 0, 0, 0));
+
+        mockMvc.perform(get("/api/auditores")
+                        .param("especialidades", "AGROINDUSTRIA", "MANUFACTURA")
+                        .param("soloDisponibles", "true")
+                        .param("zonaGeografica", "SAN_JOSE")
+                        .principal(principal("ADMINISTRADOR_EMPRESA")))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
+    void calificacionMinimaFueraDeRangoDevuelve400() throws Exception {
+        when(directorioAuditoresService.listar(any()))
+                .thenThrow(ApiException.calificacionMinimaInvalida());
+
+        mockMvc.perform(get("/api/auditores").param("calificacionMinima", "6")
                         .principal(principal("ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isBadRequest());
     }
