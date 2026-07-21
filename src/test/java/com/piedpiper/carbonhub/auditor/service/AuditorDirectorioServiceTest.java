@@ -1,10 +1,11 @@
 package com.piedpiper.carbonhub.auditor.service;
 
-import com.piedpiper.carbonhub.auditor.mappers.AuditorDirectorioMapperImpl;
+import com.piedpiper.carbonhub.auditor.mappers.PerfilAuditorMapperImpl;
 import com.piedpiper.carbonhub.auditor.models.dtos.PaginaAuditoresResponseDTO;
 import com.piedpiper.carbonhub.auditor.models.entities.PerfilAuditor;
 import com.piedpiper.carbonhub.auditor.models.enums.EspecialidadAuditor;
 import com.piedpiper.carbonhub.auditor.repository.PerfilAuditorRepository;
+import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
 import com.piedpiper.carbonhub.user.models.enums.Rol;
@@ -33,7 +34,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class DirectorioAuditoresServiceTest {
+class AuditorDirectorioServiceTest {
 
     @Mock
     private PerfilAuditorRepository perfilAuditorRepository;
@@ -41,8 +42,8 @@ class DirectorioAuditoresServiceTest {
     @Captor
     private ArgumentCaptor<Pageable> pageableCaptor;
 
-    private DirectorioAuditoresService servicio() {
-        return new DirectorioAuditoresService(perfilAuditorRepository, new AuditorDirectorioMapperImpl());
+    private AuditorDirectorioService servicio() {
+        return new AuditorDirectorioService(perfilAuditorRepository, new PerfilAuditorMapperImpl());
     }
 
     @Test
@@ -69,6 +70,37 @@ class DirectorioAuditoresServiceTest {
 
         verify(perfilAuditorRepository).buscarDirectorio(
                 eq(Rol.AUDITOR_CERTIFICADO), eq(EstadoUsuario.ACTIVO), isNull(), any(Pageable.class));
+    }
+
+    @Test
+    void terminoDeBusquedaConMasDeCienCaracteresSeIgnora() {
+        when(perfilAuditorRepository.buscarDirectorio(any(), any(), isNull(), any()))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        servicio().listar("a".repeat(101), 0, 12, null);
+
+        verify(perfilAuditorRepository).buscarDirectorio(any(), any(), isNull(), any());
+    }
+
+    @Test
+    void losComodinesDeLikeSeEliminanDelTermino() {
+        when(perfilAuditorRepository.buscarDirectorio(any(), any(), any(), any()))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        servicio().listar("%An_a%", 0, 12, null);
+
+        verify(perfilAuditorRepository).buscarDirectorio(
+                eq(Rol.AUDITOR_CERTIFICADO), eq(EstadoUsuario.ACTIVO), eq("Ana"), any(Pageable.class));
+    }
+
+    @Test
+    void unTerminoDeSoloComodinesQuedaIgnorado() {
+        when(perfilAuditorRepository.buscarDirectorio(any(), any(), isNull(), any()))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        servicio().listar("%%%", 0, 12, null);
+
+        verify(perfilAuditorRepository).buscarDirectorio(any(), any(), isNull(), any());
     }
 
     @Test
@@ -109,7 +141,7 @@ class DirectorioAuditoresServiceTest {
     @Test
     void ordenamientoInvalidoLanza400() {
         assertThatThrownBy(() -> servicio().listar(null, 0, 12, "POR_PRECIO"))
-                .isInstanceOf(com.piedpiper.carbonhub.exceptions.ApiException.class);
+                .isInstanceOf(ApiException.class);
     }
 
     private PerfilAuditor perfil() {

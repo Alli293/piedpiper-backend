@@ -20,7 +20,8 @@ public interface PerfilAuditorRepository extends JpaRepository<PerfilAuditor, UU
             where u.rol = :rol
               and u.estado = :estado
               and (:termino is null
-                   or lower(concat(u.nombre, ' ', u.apellidos)) like lower(concat('%', :termino, '%')))
+                   or lower(concat(coalesce(u.nombre, ''), ' ', coalesce(u.apellidos, '')))
+                      like lower(concat('%', :termino, '%')))
             """)
     Page<PerfilAuditor> buscarDirectorio(
             @Param("rol") Rol rol,

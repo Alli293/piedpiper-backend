@@ -1,32 +1,15 @@
 package com.piedpiper.carbonhub.auditor.models.enums;
 
-import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.common.Catalogos;
 
-import org.springframework.data.domain.Sort;
+import java.util.Optional;
 
 public enum OrdenamientoAuditores {
-    CALIFICACION(Sort.by(Sort.Order.desc("calificacionPromedio").nullsLast())),
-    AUDITORIAS_COMPLETADAS(Sort.by(Sort.Order.desc("auditoriasCompletadas"))),
-    TIEMPO_RESPUESTA(Sort.by(Sort.Order.asc("tiempoRespuestaHoras").nullsLast()));
+    CALIFICACION,
+    AUDITORIAS_COMPLETADAS,
+    TIEMPO_RESPUESTA;
 
-    private final Sort sort;
-
-    OrdenamientoAuditores(Sort sort) {
-        this.sort = sort;
-    }
-
-    public Sort sort() {
-        return sort;
-    }
-
-    public static OrdenamientoAuditores desde(String valor) {
-        if (valor == null || valor.isBlank()) {
-            return CALIFICACION;
-        }
-        try {
-            return valueOf(valor.trim().toUpperCase());
-        } catch (IllegalArgumentException e) {
-            throw ApiException.ordenamientoAuditoresInvalido();
-        }
+    public static Optional<OrdenamientoAuditores> desde(String valor) {
+        return Catalogos.desde(OrdenamientoAuditores.class, valor);
     }
 }

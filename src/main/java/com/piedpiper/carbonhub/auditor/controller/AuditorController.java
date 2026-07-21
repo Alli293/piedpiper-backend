@@ -1,7 +1,7 @@
 package com.piedpiper.carbonhub.auditor.controller;
 
 import com.piedpiper.carbonhub.auditor.models.dtos.PaginaAuditoresResponseDTO;
-import com.piedpiper.carbonhub.auditor.service.DirectorioAuditoresService;
+import com.piedpiper.carbonhub.auditor.service.AuditorDirectorioService;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -15,10 +15,10 @@ import org.springframework.web.bind.annotation.RestController;
 @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL', 'AUDITOR_CERTIFICADO')")
 public class AuditorController {
 
-    private final DirectorioAuditoresService directorioAuditoresService;
+    private final AuditorDirectorioService auditorDirectorioService;
 
-    public AuditorController(DirectorioAuditoresService directorioAuditoresService) {
-        this.directorioAuditoresService = directorioAuditoresService;
+    public AuditorController(AuditorDirectorioService auditorDirectorioService) {
+        this.auditorDirectorioService = auditorDirectorioService;
     }
 
     @GetMapping
@@ -28,6 +28,6 @@ public class AuditorController {
             @RequestParam(required = false) Integer tamanioPagina,
             @RequestParam(required = false) String ordenamiento) {
         return ResponseEntity.ok(
-                directorioAuditoresService.listar(terminoBusqueda, pagina, tamanioPagina, ordenamiento));
+                auditorDirectorioService.listar(terminoBusqueda, pagina, tamanioPagina, ordenamiento));
     }
 }

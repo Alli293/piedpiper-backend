@@ -2,7 +2,7 @@ package com.piedpiper.carbonhub.auditor.controller;
 
 import com.piedpiper.carbonhub.auditor.models.dtos.AuditorResumenResponseDTO;
 import com.piedpiper.carbonhub.auditor.models.dtos.PaginaAuditoresResponseDTO;
-import com.piedpiper.carbonhub.auditor.service.DirectorioAuditoresService;
+import com.piedpiper.carbonhub.auditor.service.AuditorDirectorioService;
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
 import com.piedpiper.carbonhub.auth.service.JwtService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
@@ -54,7 +54,7 @@ class AuditorControllerTest {
     private MockMvc mockMvc;
 
     @MockitoBean
-    private DirectorioAuditoresService directorioAuditoresService;
+    private AuditorDirectorioService auditorDirectorioService;
     @MockitoBean
     private JwtService jwtService;
     @MockitoBean
@@ -70,7 +70,7 @@ class AuditorControllerTest {
         AuditorResumenResponseDTO auditor = new AuditorResumenResponseDTO(
                 UUID.randomUUID(), "Ana Mora", null, List.of("AGROINDUSTRIA"),
                 new BigDecimal("4.5"), 30, true, 42, 8, "SAN_JOSE");
-        when(directorioAuditoresService.listar(any(), anyInt(), any(), any()))
+        when(auditorDirectorioService.listar(any(), anyInt(), any(), any()))
                 .thenReturn(new PaginaAuditoresResponseDTO(List.of(auditor), 1, 0, 1));
 
         mockMvc.perform(get("/api/auditores").principal(principal("ADMINISTRADOR_EMPRESA")))
@@ -85,7 +85,7 @@ class AuditorControllerTest {
     @Test
     @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
     void auditorCertificadoTambienPuedeConsultarElDirectorio() throws Exception {
-        when(directorioAuditoresService.listar(any(), anyInt(), any(), any()))
+        when(auditorDirectorioService.listar(any(), anyInt(), any(), any()))
                 .thenReturn(new PaginaAuditoresResponseDTO(List.of(), 0, 0, 0));
 
         mockMvc.perform(get("/api/auditores").principal(principal("AUDITOR_CERTIFICADO")))
@@ -95,7 +95,7 @@ class AuditorControllerTest {
     @Test
     @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
     void ordenamientoInvalidoDevuelve400() throws Exception {
-        when(directorioAuditoresService.listar(any(), anyInt(), any(), any()))
+        when(auditorDirectorioService.listar(any(), anyInt(), any(), any()))
                 .thenThrow(ApiException.ordenamientoAuditoresInvalido());
 
         mockMvc.perform(get("/api/auditores").param("ordenamiento", "POR_PRECIO")
