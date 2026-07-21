@@ -10,14 +10,13 @@ import com.piedpiper.carbonhub.emision.models.entities.EmisionElectricidad;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionEnvio;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionFlota;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionVuelo;
+import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.util.List;
 import java.util.UUID;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class EmisionConsultaService {
@@ -44,9 +43,14 @@ public class EmisionConsultaService {
     }
 
     @Transactional(readOnly = true)
-    public List<EmisionResponseDTO> listar(UUID usuarioId) {
-        return emisionRepository.findAllByEmpresaIdOrderByCreatedAtDesc(
-                        emisionEmpresaService.empresaId(usuarioId)).stream()
+    public List<EmisionResponseDTO> listar(UUID usuarioId, CategoriaEmision categoria, Integer anio, Integer mes) {
+        validarMes(mes);
+        return emisionRepository.findAllByEmpresaIdWithFilters(
+                        emisionEmpresaService.empresaId(usuarioId),
+                        categoria,
+                        anio,
+                        mes)
+                .stream()
                 .map(this::toDto)
                 .toList();
     }
@@ -64,7 +68,13 @@ public class EmisionConsultaService {
 
     private Emision buscarPropia(UUID id, UUID usuarioId) {
         return emisionRepository.findByIdAndEmpresaId(id, emisionEmpresaService.empresaId(usuarioId))
-                .orElseThrow(() -> ApiException.recursoNoEncontrado("No se encontró la emisión solicitada."));
+                .orElseThrow(() -> ApiException.recursoNoEncontrado("No se encontro la emision solicitada."));
+    }
+
+    private void validarMes(Integer mes) {
+        if (mes != null && (mes < 1 || mes > 12)) {
+            throw ApiException.mesInvalido();
+        }
     }
 
     private EmisionResponseDTO toDto(Emision emision) {
@@ -80,6 +90,6 @@ public class EmisionConsultaService {
         if (emision instanceof EmisionFlota flota) {
             return emisionFlotaMapper.toDto(flota);
         }
-        throw ApiException.errorInterno("Tipo de emisión no soportado.");
+        throw ApiException.errorInterno("Tipo de emision no soportado.");
     }
 }

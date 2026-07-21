@@ -148,6 +148,27 @@ public class ApiException extends RuntimeException {
                 "Esta invitación ya fue utilizada.");
     }
 
+    public static ApiException solicitudNoEncontrada() {
+        return new ApiException(HttpStatus.NOT_FOUND,
+                "Esta solicitud no fue encontrada.");
+    }
+
+    public static ApiException solicitudYaProcesada() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Esta solicitud ya fue procesada por otro administrador.");
+    }
+
+    public static ApiException solicitudConflictoConcurrente() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Esta solicitud ya fue procesada. Recarga la página para ver el estado actualizado.");
+    }
+
+    public static ApiException invitacionCorreoNoCoincide() {
+        return new ApiException(HttpStatus.FORBIDDEN,
+                "La cuenta de Google que seleccionaste no corresponde al correo de esta invitación. "
+                        + "Inicia sesión con la cuenta indicada.");
+    }
+
     public static ApiException combinacionVehiculoInvalida() {
         return new ApiException(HttpStatus.BAD_REQUEST,
                 "Seleccione un combustible válido para este tipo de vehículo.");
@@ -156,6 +177,16 @@ public class ApiException extends RuntimeException {
     public static ApiException metodoTransporteNoSoportado() {
         return new ApiException(HttpStatus.BAD_REQUEST,
                 "Seleccione un método de transporte válido.");
+    }
+
+    public static ApiException categoriaEmisionInvalida() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Categoría de emisión inválida.");
+    }
+
+    public static ApiException mesInvalido() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "El mes debe estar entre 1 y 12.");
     }
 
     public static ApiException limiteConflicto() {
