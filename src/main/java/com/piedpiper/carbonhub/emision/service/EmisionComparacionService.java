@@ -80,6 +80,9 @@ public class EmisionComparacionService {
         if (porcentaje.compareTo(UMBRAL_SUPERADO) > 0) {
             return "superado";
         }
+        if (porcentaje.compareTo(UMBRAL_SUPERADO) == 0) {
+            return "alcanzado";
+        }
         if (porcentaje.compareTo(UMBRAL_CERCA) >= 0) {
             return "cerca";
         }

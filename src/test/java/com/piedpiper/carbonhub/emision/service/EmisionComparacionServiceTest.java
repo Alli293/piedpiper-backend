@@ -117,7 +117,7 @@ class EmisionComparacionServiceTest {
     }
 
     @Test
-    void porcentajeCienExactoQuedaCerca() {
+    void porcentajeCienExactoQuedaAlcanzado() {
         when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
         when(emisionRepository.sumCarbonKgByEmpresaIdAndFechaActividadEntre(
                 EMPRESA_ID, LocalDate.of(2026, 1, 1), LocalDate.of(2027, 1, 1)))
@@ -128,7 +128,7 @@ class EmisionComparacionServiceTest {
         ComparacionEmisionesResponseDTO response = service.comparar(USUARIO_ID, 2026);
 
         assertThat(response.getPorcentajeConsumido()).isEqualByComparingTo("100.0");
-        assertThat(response.getEstado()).isEqualTo("cerca");
+        assertThat(response.getEstado()).isEqualTo("alcanzado");
     }
 
     @Test
