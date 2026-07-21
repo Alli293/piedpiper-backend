@@ -143,6 +143,28 @@ class ReporteHuellaPdfServiceTest {
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
     }
 
+    @Test
+    void fallaSiAnioEsInvalido() {
+        assertThatThrownBy(() -> service.generar(USUARIO_ID, 1899, null))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> {
+                    ApiException apiException = (ApiException) ex;
+                    assertThat(apiException.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
+                    assertThat(apiException.getMessage()).isEqualTo("Año inválido.");
+                });
+    }
+
+    @Test
+    void fallaSiMesEsInvalido() {
+        assertThatThrownBy(() -> service.generar(USUARIO_ID, 2026, 13))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> {
+                    ApiException apiException = (ApiException) ex;
+                    assertThat(apiException.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
+                    assertThat(apiException.getMessage()).isEqualTo("El mes debe estar entre 1 y 12.");
+                });
+    }
+
     private void givenEmpresaAsociada() {
         Empresa empresa = empresa();
         Usuario usuario = Usuario.builder()

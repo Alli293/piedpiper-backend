@@ -173,7 +173,8 @@ public class ReporteHuellaPdfGenerator {
                 42,
                 68
         );
-        canvas.text("Archivo: " + nombreArchivo(reporte), "F3", 8, LIGHT_TEXT, 406, 68);
+        canvas.text("Archivo: " + ReporteHuellaPdfNombreArchivo.generar(reporte.anio(), reporte.mes()),
+                "F3", 8, LIGHT_TEXT, 406, 68);
     }
 
     private void card(PdfCanvas canvas, double x, double y, double width, double height) {
@@ -218,12 +219,6 @@ public class ReporteHuellaPdfGenerator {
             case VUELO -> "Vuelos";
             case ENVIO -> "Envíos";
         };
-    }
-
-    private String nombreArchivo(ReporteHuellaPdfDTO reporte) {
-        return "reporte-huella-" + reporte.anio()
-                + (reporte.mes() == null ? "" : "-" + String.format("%02d", reporte.mes()))
-                + ".pdf";
     }
 
     private String formato(BigDecimal valor, int escala) {

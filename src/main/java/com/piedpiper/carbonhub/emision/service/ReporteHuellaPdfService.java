@@ -83,7 +83,7 @@ public class ReporteHuellaPdfService {
     }
 
     public String nombreArchivo(Integer anio, Integer mes) {
-        return "reporte-huella-" + anio + (mes == null ? "" : "-" + String.format("%02d", mes)) + ".pdf";
+        return ReporteHuellaPdfNombreArchivo.generar(anio, mes);
     }
 
     private Map<CategoriaEmision, BigDecimal> totalesPorCategoria(UUID empresaId, Integer anio, Integer mes) {
@@ -140,10 +140,10 @@ public class ReporteHuellaPdfService {
     private void validarPeriodo(Integer anio, Integer mes) {
         int maximo = Year.now().getValue() + 1;
         if (anio < 1900 || anio > maximo) {
-            throw ApiException.periodoInvalido("Año inválido.");
+            throw ApiException.anioInvalido();
         }
         if (mes != null && (mes < 1 || mes > 12)) {
-            throw ApiException.periodoInvalido("Mes inválido.");
+            throw ApiException.mesInvalido();
         }
     }
 

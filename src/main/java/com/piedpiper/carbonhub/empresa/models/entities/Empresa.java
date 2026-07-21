@@ -23,7 +23,7 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 
 @Entity
-@Table(name = "empresa")
+@Table(name = "empresas")
 @Getter
 @Setter
 @Builder

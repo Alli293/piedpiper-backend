@@ -139,7 +139,7 @@ class EmisionComparacionServiceTest {
                 .satisfies(ex -> {
                     ApiException apiException = (ApiException) ex;
                     assertThat(apiException.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
-                    assertThat(apiException.getMessage()).isEqualTo("AÃ±o invÃ¡lido.");
+                    assertThat(apiException.getMessage()).isEqualTo("Año inválido.");
                 });
     }
 

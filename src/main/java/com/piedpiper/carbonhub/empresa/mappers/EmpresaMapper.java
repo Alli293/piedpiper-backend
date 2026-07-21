@@ -15,7 +15,5 @@ public interface EmpresaMapper {
     @Mapping(target = "recienCreada", ignore = true)
     ConfiguracionInicialEmpresaResponseDTO toDto(Empresa empresa);
 
-    @Mapping(target = "id", source = "id")
-    @Mapping(target = "nombreEmpresa", source = "nombreEmpresa")
     EmpresaReporteDTO toReporteDto(Empresa empresa);
 }

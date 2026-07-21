@@ -52,7 +52,7 @@ public class EmisionComparacionService {
                         null,
                         null,
                         "sin_limite",
-                        "No se ha declarado un lÃ­mite para " + anioComparar + "."
+                        "No se ha declarado un límite para " + anioComparar + "."
                 ));
     }
 
@@ -76,7 +76,7 @@ public class EmisionComparacionService {
     private void validarAnio(Integer anio) {
         int maximo = Year.now().getValue() + 1;
         if (anio < 1900 || anio > maximo) {
-            throw ApiException.periodoInvalido("AÃ±o invÃ¡lido.");
+            throw ApiException.anioInvalido();
         }
     }
 }
