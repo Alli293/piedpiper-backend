@@ -56,6 +56,10 @@ public class ApiException extends RuntimeException {
         return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, mensaje);
     }
 
+    public static ApiException anioInvalido() {
+        return new ApiException(HttpStatus.BAD_REQUEST, "Año inválido.");
+    }
+
     public static ApiException recursoNoEncontrado(String mensaje) {
         return new ApiException(HttpStatus.NOT_FOUND, mensaje);
     }

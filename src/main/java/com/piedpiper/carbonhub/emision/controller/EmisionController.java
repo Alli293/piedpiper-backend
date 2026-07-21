@@ -1,5 +1,7 @@
 package com.piedpiper.carbonhub.emision.controller;
 
+import com.piedpiper.carbonhub.common.Autenticaciones;
+import com.piedpiper.carbonhub.emision.models.dtos.ComparacionEmisionesResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionElectricidadResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionEnvioResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionFlotaResponseDTO;
@@ -10,15 +12,16 @@ import com.piedpiper.carbonhub.emision.models.dtos.RegistrarFlotaRequestDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.RegistrarVueloRequestDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.TipoVehiculoResponseDTO;
 import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
+import com.piedpiper.carbonhub.emision.service.EmisionComparacionService;
 import com.piedpiper.carbonhub.emision.service.EmisionConsultaService;
 import com.piedpiper.carbonhub.emision.service.EmisionElectricidadService;
 import com.piedpiper.carbonhub.emision.service.EmisionEnvioService;
 import com.piedpiper.carbonhub.emision.service.EmisionFlotaService;
 import com.piedpiper.carbonhub.emision.service.EmisionVueloService;
-import com.piedpiper.carbonhub.common.Autenticaciones;
 import com.piedpiper.carbonhub.exceptions.ApiException;
-
 import jakarta.validation.Valid;
+import java.util.List;
+import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -33,9 +36,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-import java.util.UUID;
-
 @RestController
 @RequestMapping("/api/emisiones")
 @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
@@ -46,17 +46,29 @@ public class EmisionController {
     private final EmisionEnvioService emisionEnvioService;
     private final EmisionVueloService emisionVueloService;
     private final EmisionConsultaService emisionConsultaService;
+    private final EmisionComparacionService emisionComparacionService;
 
     public EmisionController(EmisionElectricidadService emisionElectricidadService,
                              EmisionFlotaService emisionFlotaService,
                              EmisionEnvioService emisionEnvioService,
                              EmisionVueloService emisionVueloService,
-                             EmisionConsultaService emisionConsultaService) {
+                             EmisionConsultaService emisionConsultaService,
+                             EmisionComparacionService emisionComparacionService) {
         this.emisionElectricidadService = emisionElectricidadService;
         this.emisionFlotaService = emisionFlotaService;
         this.emisionEnvioService = emisionEnvioService;
         this.emisionVueloService = emisionVueloService;
         this.emisionConsultaService = emisionConsultaService;
+        this.emisionComparacionService = emisionComparacionService;
+    }
+
+    @GetMapping("/comparacion")
+    public ResponseEntity<ComparacionEmisionesResponseDTO> comparar(
+            Authentication authentication,
+            @RequestParam(required = false) Integer anio) {
+        return ResponseEntity.ok(emisionComparacionService.comparar(
+                Autenticaciones.usuarioId(authentication),
+                anio));
     }
 
     @GetMapping
