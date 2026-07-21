@@ -28,6 +28,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -208,7 +209,8 @@ class ImaControllerTest {
     @Test
     @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
     void benchmarkConPeriodoFuturoDevuelve400() throws Exception {
-        mockMvc.perform(get("/api/ima/benchmark").param("anio", "2026").param("mes", "12").principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA")))
+        LocalDate futuro = LocalDate.now().plusMonths(1);
+        mockMvc.perform(get("/api/ima/benchmark").param("anio", String.valueOf(futuro.getYear())).param("mes", String.valueOf(futuro.getMonthValue())).principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isBadRequest());
     }
 

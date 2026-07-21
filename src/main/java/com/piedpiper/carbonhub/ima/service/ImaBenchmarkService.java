@@ -13,6 +13,8 @@ import com.piedpiper.carbonhub.ima.repository.AgregadoSectorialRepository;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +27,7 @@ import java.util.UUID;
 @Service
 public class ImaBenchmarkService {
 
+    private static final Logger log = LoggerFactory.getLogger(ImaBenchmarkService.class);
     private static final BigDecimal UMBRAL_POSICION = BigDecimal.valueOf(2);
 
     private final ImaService imaService;
@@ -52,18 +55,25 @@ public class ImaBenchmarkService {
 
         AgregadoSectorial agregado = agregadoSectorialRepository
                 .findBySectorAndAnioAndMes(empresa.getSectorIndustrial(), anio, mes)
-                .orElseThrow(() -> ApiException.errorInterno("No se pudo componer el benchmark sectorial."));
+                .orElseGet(() -> {
+                    log.error("No existe agregado sectorial para el sector {} en {}/{} al componer el benchmark",
+                            empresa.getSectorIndustrial(), anio, mes);
+                    throw ApiException.errorInterno("No se pudo componer el benchmark sectorial.");
+                });
 
-        if (agregado.getCantidadEmpresas() < ImaCalculos.UMBRAL_EMPRESAS_SECTOR) {
+        if (agregado.getPromedioIma() == null
+                && agregado.getCantidadEmpresas() >= ImaCalculos.UMBRAL_EMPRESAS_SECTOR) {
+            completarPromedios(agregado, anio, mes);
+        }
+
+        // El umbral se evalúa sobre los promedios ya calculados: si los datos del sector
+        // cambiaron y dejaron de alcanzar las 5 empresas elegibles, no exponemos comparación.
+        if (agregado.getPromedioIma() == null) {
             return BenchmarkSectorialResponseDTO.builder()
                     .benchmarkDisponible(false)
                     .cantidadEmpresas(agregado.getCantidadEmpresas())
                     .imaParcial(propio.isParcial())
                     .build();
-        }
-
-        if (agregado.getPromedioIma() == null) {
-            completarPromedios(agregado, anio, mes);
         }
 
         return BenchmarkSectorialResponseDTO.builder()
@@ -111,7 +121,12 @@ public class ImaBenchmarkService {
             contadas++;
         }
 
-        if (contadas == 0) {
+        // Privacidad diferencial: solo se exponen promedios si aún se alcanza el umbral
+        // de empresas elegibles con datos. Si el sector cayó por debajo, no se completan
+        // y obtenerBenchmark responde benchmarkDisponible=false.
+        agregado.setCantidadEmpresas(contadas);
+        if (contadas < ImaCalculos.UMBRAL_EMPRESAS_SECTOR) {
+            agregadoSectorialRepository.save(agregado);
             return;
         }
 

@@ -72,8 +72,17 @@ class ImaBenchmarkServiceTest {
     }
 
     @Test
-    void diferenciaExactaDeDosPuntosQuedaEnLinea() {
+    void diferenciaExactaDeMasDosPuntosQuedaEnLinea() {
         prepararEscenario(propio("62.0"), agregadoConPromedios("60.0"));
+
+        BenchmarkSectorialResponseDTO resultado = service.obtenerBenchmark(2026, 6, USUARIO_ID);
+
+        assertThat(resultado.getIma().getPosicion()).isEqualTo(PosicionBenchmark.EN_LINEA);
+    }
+
+    @Test
+    void diferenciaExactaDeMenosDosPuntosQuedaEnLinea() {
+        prepararEscenario(propio("58.0"), agregadoConPromedios("60.0"));
 
         BenchmarkSectorialResponseDTO resultado = service.obtenerBenchmark(2026, 6, USUARIO_ID);
 
@@ -134,13 +143,15 @@ class ImaBenchmarkServiceTest {
         agregado.setPromedioIma(null);
         prepararEscenario(propio("70.0"), agregado);
 
-        Empresa otra = Empresa.builder()
-                .id(UUID.randomUUID())
-                .sectorIndustrial(SectorIndustrial.SERVICIOS)
-                .cantidadEmpleados(10)
-                .build();
-        when(empresaRepository.findBySectorIndustrial(SectorIndustrial.SERVICIOS))
-                .thenReturn(List.of(otra));
+        List<Empresa> sector = new java.util.ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            sector.add(Empresa.builder()
+                    .id(UUID.randomUUID())
+                    .sectorIndustrial(SectorIndustrial.SERVICIOS)
+                    .cantidadEmpleados(10)
+                    .build());
+        }
+        when(empresaRepository.findBySectorIndustrial(SectorIndustrial.SERVICIOS)).thenReturn(sector);
         when(emisionRepository.sumarCarbonKgEnVentana(any(UUID.class), any(), any()))
                 .thenReturn(new BigDecimal("10000"));
         when(emisionRepository.contarCategoriasConRegistro(any(UUID.class), any(), any())).thenReturn(4L);
@@ -155,6 +166,31 @@ class ImaBenchmarkServiceTest {
                 .isEqualByComparingTo(new BigDecimal("50.0"));
         assertThat(agregado.getPromedioIma()).isEqualByComparingTo(new BigDecimal("83.3"));
         assertThat(resultado.isBenchmarkDisponible()).isTrue();
+    }
+
+    @Test
+    void agregadoQueCaeBajoElUmbralAlCompletarNoExponePromedios() {
+        AgregadoSectorial agregado = agregadoBase();
+        agregado.setPromedioIma(null);
+        prepararEscenario(propio("70.0"), agregado);
+
+        Empresa unica = Empresa.builder()
+                .id(UUID.randomUUID())
+                .sectorIndustrial(SectorIndustrial.SERVICIOS)
+                .cantidadEmpleados(10)
+                .build();
+        when(empresaRepository.findBySectorIndustrial(SectorIndustrial.SERVICIOS))
+                .thenReturn(List.of(unica));
+        when(emisionRepository.sumarCarbonKgEnVentana(any(UUID.class), any(), any()))
+                .thenReturn(new BigDecimal("10000"));
+        when(emisionRepository.contarCategoriasConRegistro(any(UUID.class), any(), any())).thenReturn(4L);
+        when(emisionRepository.contarMesesConRegistro(any(UUID.class), any(), any())).thenReturn(12L);
+
+        BenchmarkSectorialResponseDTO resultado = service.obtenerBenchmark(2026, 6, USUARIO_ID);
+
+        assertThat(resultado.isBenchmarkDisponible()).isFalse();
+        assertThat(resultado.getIma()).isNull();
+        assertThat(agregado.getPromedioIma()).isNull();
     }
 
     private void prepararEscenario(ImaResponseDTO propio, AgregadoSectorial agregado) {
