@@ -159,6 +159,12 @@ public class ApiException extends RuntimeException {
                 "Esta solicitud ya fue procesada. Recarga la página para ver el estado actualizado.");
     }
 
+    public static ApiException invitacionCorreoNoCoincide() {
+        return new ApiException(HttpStatus.FORBIDDEN,
+                "La cuenta de Google que seleccionaste no corresponde al correo de esta invitación. "
+                        + "Inicia sesión con la cuenta indicada.");
+    }
+
     public static ApiException combinacionVehiculoInvalida() {
         return new ApiException(HttpStatus.BAD_REQUEST,
                 "Seleccione un combustible válido para este tipo de vehículo.");
