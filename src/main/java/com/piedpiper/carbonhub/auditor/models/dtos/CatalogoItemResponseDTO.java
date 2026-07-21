@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class CatalogoItemDTO {
+public class CatalogoItemResponseDTO {
 
     private String valor;
     private String etiqueta;

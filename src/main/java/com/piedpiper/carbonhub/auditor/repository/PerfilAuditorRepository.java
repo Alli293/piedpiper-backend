@@ -22,13 +22,13 @@ public interface PerfilAuditorRepository extends JpaRepository<PerfilAuditor, UU
             where u.rol = :rol
               and u.estado = :estado
               and (:termino is null
-                   or lower(concat(u.nombre, ' ', u.apellidos)) like lower(concat('%', :termino, '%')))
+                   or lower(concat(coalesce(u.nombre, ''), ' ', coalesce(u.apellidos, '')))
+                      like lower(concat('%', :termino, '%')))
               and (:provincia is null or p.provincia = :provincia)
               and (:calificacionMinima is null or p.calificacionPromedio >= :calificacionMinima)
               and (:soloDisponibles = false or p.disponible = true)
               and (:filtrarEspecialidades = false
-                   or exists (select 1 from PerfilAuditor otro join otro.especialidades esp
-                              where otro.id = p.id and esp in :especialidades))
+                   or exists (select esp from p.especialidades esp where esp in :especialidades))
             """;
 
     @Query(value = "select p from PerfilAuditor p join fetch p.auditor u " + FILTROS,

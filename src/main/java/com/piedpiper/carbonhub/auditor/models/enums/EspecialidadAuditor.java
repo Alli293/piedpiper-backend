@@ -1,6 +1,8 @@
 package com.piedpiper.carbonhub.auditor.models.enums;
 
-import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.common.Catalogos;
+
+import java.util.Optional;
 
 public enum EspecialidadAuditor {
     AGROINDUSTRIA("Agroindustria"),
@@ -19,11 +21,7 @@ public enum EspecialidadAuditor {
         return etiqueta;
     }
 
-    public static EspecialidadAuditor desde(String valor) {
-        try {
-            return valueOf(valor.trim().toUpperCase());
-        } catch (IllegalArgumentException | NullPointerException e) {
-            throw ApiException.especialidadAuditorInvalida();
-        }
+    public static Optional<EspecialidadAuditor> desde(String valor) {
+        return Catalogos.desde(EspecialidadAuditor.class, valor);
     }
 }

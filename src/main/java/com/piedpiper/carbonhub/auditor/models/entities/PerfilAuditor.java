@@ -17,6 +17,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -30,7 +31,9 @@ import java.util.Set;
 import java.util.UUID;
 
 @Entity
-@Table(name = "perfiles_auditor")
+@Table(name = "perfiles_auditor", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_perfiles_auditor_auditor", columnNames = "auditor_id")
+})
 @Getter
 @Setter
 @Builder
@@ -43,7 +46,7 @@ public class PerfilAuditor {
     private UUID id;
 
     @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "auditor_id", nullable = false, unique = true)
+    @JoinColumn(name = "auditor_id", nullable = false)
     private Usuario auditor;
 
     @Column(name = "foto_perfil")

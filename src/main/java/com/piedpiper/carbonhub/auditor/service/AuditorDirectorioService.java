@@ -1,8 +1,8 @@
 package com.piedpiper.carbonhub.auditor.service;
 
-import com.piedpiper.carbonhub.auditor.mappers.AuditorDirectorioMapper;
+import com.piedpiper.carbonhub.auditor.mappers.PerfilAuditorMapper;
 import com.piedpiper.carbonhub.auditor.models.dtos.AuditorResumenResponseDTO;
-import com.piedpiper.carbonhub.auditor.models.dtos.FiltrosDirectorioDTO;
+import com.piedpiper.carbonhub.auditor.models.dtos.FiltrarAuditoresRequestDTO;
 import com.piedpiper.carbonhub.auditor.models.dtos.PaginaAuditoresResponseDTO;
 import com.piedpiper.carbonhub.auditor.models.entities.PerfilAuditor;
 import com.piedpiper.carbonhub.auditor.models.enums.EspecialidadAuditor;
@@ -16,6 +16,7 @@ import com.piedpiper.carbonhub.user.models.enums.Rol;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,35 +24,36 @@ import java.math.BigDecimal;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
-public class DirectorioAuditoresService {
+public class AuditorDirectorioService {
 
     private static final int TAMANIO_MINIMO = 1;
     private static final int TAMANIO_MAXIMO = 50;
     private static final int TAMANIO_POR_DEFECTO = 12;
     private static final int LONGITUD_MINIMA_BUSQUEDA = 2;
-    private static final BigDecimal CALIFICACION_MINIMA = BigDecimal.ONE;
+    private static final int LONGITUD_MAXIMA_BUSQUEDA = 100;
+    private static final BigDecimal CALIFICACION_MINIMA = BigDecimal.valueOf(1);
     private static final BigDecimal CALIFICACION_MAXIMA = BigDecimal.valueOf(5);
     private static final Set<EspecialidadAuditor> TODAS_ESPECIALIDADES =
             EnumSet.allOf(EspecialidadAuditor.class);
 
     private final PerfilAuditorRepository perfilAuditorRepository;
-    private final AuditorDirectorioMapper mapper;
+    private final PerfilAuditorMapper mapper;
 
-    public DirectorioAuditoresService(PerfilAuditorRepository perfilAuditorRepository,
-                                      AuditorDirectorioMapper mapper) {
+    public AuditorDirectorioService(PerfilAuditorRepository perfilAuditorRepository,
+                                    PerfilAuditorMapper mapper) {
         this.perfilAuditorRepository = perfilAuditorRepository;
         this.mapper = mapper;
     }
 
     @Transactional(readOnly = true)
-    public PaginaAuditoresResponseDTO listar(FiltrosDirectorioDTO filtros) {
+    public PaginaAuditoresResponseDTO listar(FiltrarAuditoresRequestDTO filtros) {
         String termino = normalizarTermino(filtros.getTerminoBusqueda());
         int tamanio = normalizarTamanio(filtros.getTamanioPagina());
         int numeroPagina = Math.max(filtros.getPagina(), 0);
-        Pageable pageable = PageRequest.of(
-                numeroPagina, tamanio, OrdenamientoAuditores.desde(filtros.getOrdenamiento()).sort());
+        Pageable pageable = PageRequest.of(numeroPagina, tamanio, ordenar(filtros.getOrdenamiento()));
 
         ProvinciaCR provincia = parsearZona(filtros.getZonaGeografica());
         BigDecimal calificacionMinima = validarCalificacion(filtros.getCalificacionMinima());
@@ -81,12 +83,32 @@ public class DirectorioAuditoresService {
                 resultado.getTotalPages());
     }
 
+    private Sort ordenar(String ordenamiento) {
+        if (ordenamiento == null || ordenamiento.isBlank()) {
+            return sortDe(OrdenamientoAuditores.CALIFICACION);
+        }
+        OrdenamientoAuditores orden = OrdenamientoAuditores.desde(ordenamiento)
+                .orElseThrow(ApiException::ordenamientoAuditoresInvalido);
+        return sortDe(orden);
+    }
+
+    private Sort sortDe(OrdenamientoAuditores orden) {
+        return switch (orden) {
+            case CALIFICACION -> Sort.by(Sort.Order.desc("calificacionPromedio").nullsLast());
+            case AUDITORIAS_COMPLETADAS -> Sort.by(Sort.Order.desc("auditoriasCompletadas"));
+            case TIEMPO_RESPUESTA -> Sort.by(Sort.Order.asc("tiempoRespuestaHoras").nullsLast());
+        };
+    }
+
     private String normalizarTermino(String terminoBusqueda) {
         if (terminoBusqueda == null) {
             return null;
         }
-        String termino = terminoBusqueda.trim();
-        return termino.length() >= LONGITUD_MINIMA_BUSQUEDA ? termino : null;
+        String termino = terminoBusqueda.trim().replaceAll("[%_]", "");
+        if (termino.length() < LONGITUD_MINIMA_BUSQUEDA || termino.length() > LONGITUD_MAXIMA_BUSQUEDA) {
+            return null;
+        }
+        return termino;
     }
 
     private int normalizarTamanio(Integer tamanioPagina) {
@@ -100,7 +122,8 @@ public class DirectorioAuditoresService {
         if (zonaGeografica == null || zonaGeografica.isBlank()) {
             return null;
         }
-        return ProvinciaCR.desde(zonaGeografica);
+        return ProvinciaCR.desde(zonaGeografica)
+                .orElseThrow(ApiException::zonaAuditorInvalida);
     }
 
     private BigDecimal validarCalificacion(BigDecimal calificacionMinima) {
@@ -115,11 +138,13 @@ public class DirectorioAuditoresService {
     }
 
     private Set<EspecialidadAuditor> parsearEspecialidades(List<String> especialidades) {
-        if (especialidades == null || especialidades.isEmpty()) {
+        if (especialidades == null) {
             return EnumSet.noneOf(EspecialidadAuditor.class);
         }
         return especialidades.stream()
-                .map(EspecialidadAuditor::desde)
-                .collect(() -> EnumSet.noneOf(EspecialidadAuditor.class), Set::add, Set::addAll);
+                .filter(valor -> valor != null && !valor.isBlank())
+                .map(valor -> EspecialidadAuditor.desde(valor)
+                        .orElseThrow(ApiException::especialidadAuditorInvalida))
+                .collect(Collectors.toCollection(() -> EnumSet.noneOf(EspecialidadAuditor.class)));
     }
 }

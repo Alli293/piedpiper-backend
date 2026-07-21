@@ -1,6 +1,6 @@
 package com.piedpiper.carbonhub.auditor.controller;
 
-import com.piedpiper.carbonhub.auditor.models.dtos.CatalogoItemDTO;
+import com.piedpiper.carbonhub.auditor.models.dtos.CatalogoItemResponseDTO;
 import com.piedpiper.carbonhub.auditor.models.enums.EspecialidadAuditor;
 import com.piedpiper.carbonhub.auditor.models.enums.ProvinciaCR;
 
@@ -19,16 +19,16 @@ import java.util.List;
 public class CatalogosAuditorController {
 
     @GetMapping("/especialidades")
-    public ResponseEntity<List<CatalogoItemDTO>> especialidades() {
+    public ResponseEntity<List<CatalogoItemResponseDTO>> especialidades() {
         return ResponseEntity.ok(Arrays.stream(EspecialidadAuditor.values())
-                .map(especialidad -> new CatalogoItemDTO(especialidad.name(), especialidad.etiqueta()))
+                .map(especialidad -> new CatalogoItemResponseDTO(especialidad.name(), especialidad.etiqueta()))
                 .toList());
     }
 
     @GetMapping("/zonas")
-    public ResponseEntity<List<CatalogoItemDTO>> zonas() {
+    public ResponseEntity<List<CatalogoItemResponseDTO>> zonas() {
         return ResponseEntity.ok(Arrays.stream(ProvinciaCR.values())
-                .map(zona -> new CatalogoItemDTO(zona.name(), zona.etiqueta()))
+                .map(zona -> new CatalogoItemResponseDTO(zona.name(), zona.etiqueta()))
                 .toList());
     }
 }

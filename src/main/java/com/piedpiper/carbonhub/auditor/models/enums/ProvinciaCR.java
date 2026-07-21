@@ -1,6 +1,8 @@
 package com.piedpiper.carbonhub.auditor.models.enums;
 
-import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.common.Catalogos;
+
+import java.util.Optional;
 
 public enum ProvinciaCR {
     SAN_JOSE("San José"),
@@ -21,11 +23,7 @@ public enum ProvinciaCR {
         return etiqueta;
     }
 
-    public static ProvinciaCR desde(String valor) {
-        try {
-            return valueOf(valor.trim().toUpperCase());
-        } catch (IllegalArgumentException | NullPointerException e) {
-            throw ApiException.zonaAuditorInvalida();
-        }
+    public static Optional<ProvinciaCR> desde(String valor) {
+        return Catalogos.desde(ProvinciaCR.class, valor);
     }
 }

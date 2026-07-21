@@ -10,7 +10,7 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class FiltrosDirectorioDTO {
+public class FiltrarAuditoresRequestDTO {
 
     private String terminoBusqueda;
     private List<String> especialidades;
