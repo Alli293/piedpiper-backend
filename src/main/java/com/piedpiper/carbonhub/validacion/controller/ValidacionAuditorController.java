@@ -1,5 +1,6 @@
 package com.piedpiper.carbonhub.validacion.controller;
 
+import com.piedpiper.carbonhub.common.Autenticaciones;
 import com.piedpiper.carbonhub.validacion.models.dtos.DecisionSolicitudRequestDTO;
 import com.piedpiper.carbonhub.validacion.models.dtos.PaginaSolicitudesResponseDTO;
 import com.piedpiper.carbonhub.validacion.models.dtos.SolicitudResueltaResponseDTO;
@@ -33,7 +34,7 @@ public class ValidacionAuditorController {
     public ResponseEntity<PaginaSolicitudesResponseDTO> listarPendientes(
             Authentication authentication,
             @RequestParam(defaultValue = "0") int pagina) {
-        UUID usuarioId = UUID.fromString(authentication.getName());
+        UUID usuarioId = Autenticaciones.usuarioId(authentication);
         return ResponseEntity.ok(validacionAuditorService.listarPendientes(usuarioId, pagina));
     }
 
@@ -42,7 +43,7 @@ public class ValidacionAuditorController {
             Authentication authentication,
             @PathVariable UUID solicitudId,
             @Valid @RequestBody DecisionSolicitudRequestDTO request) {
-        UUID usuarioId = UUID.fromString(authentication.getName());
+        UUID usuarioId = Autenticaciones.usuarioId(authentication);
         return ResponseEntity.ok(validacionAuditorService.resolver(usuarioId, solicitudId, request));
     }
 }

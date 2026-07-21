@@ -112,9 +112,9 @@ public class EmisionVueloService {
 
     private String titulo(List<RegistrarVueloRequestDTO.LegDTO> legs) {
         RegistrarVueloRequestDTO.LegDTO first = legs.get(0);
-        RegistrarVueloRequestDTO.LegDTO last = legs.get(legs.size() - 1);
-        return "Viaje aéreo " + normalizarIata(first.getDepartureAirport())
-                + "-" + normalizarIata(last.getDestinationAirport());
+        StringBuilder ruta = new StringBuilder(normalizarIata(first.getDepartureAirport()));
+        legs.forEach(leg -> ruta.append("-").append(normalizarIata(leg.getDestinationAirport())));
+        return "Viaje aéreo " + ruta;
     }
 
     private String normalizarIata(String value) {
@@ -132,7 +132,7 @@ public class EmisionVueloService {
 
     private UUID empresaId(Usuario usuario) {
         if (usuario.getEmpresa() == null || usuario.getEmpresa().getId() == null) {
-            throw ApiException.accesoDenegado("El usuario autenticado no pertenece a una empresa.");
+            throw ApiException.empresaNoConfigurada();
         }
         return usuario.getEmpresa().getId();
     }

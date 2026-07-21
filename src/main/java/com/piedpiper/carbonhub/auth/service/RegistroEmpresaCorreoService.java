@@ -38,7 +38,7 @@ public class RegistroEmpresaCorreoService {
 
     @Transactional
     public RegistroPendienteResponseDTO registrar(RegistroEmpresaCorreoRequestDTO request) {
-        if (usuarioRepository.existsByEmail(request.getEmailAdmin())) {
+        if (usuarioRepository.existsByEmailIgnoreCase(request.getEmailAdmin())) {
             throw ApiException.cuentaDuplicada(
                     "Este correo ya tiene una cuenta registrada. ¿Deseas iniciar sesión?");
         }

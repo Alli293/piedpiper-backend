@@ -9,6 +9,7 @@ import com.piedpiper.carbonhub.auth.service.RegistroAuditorCorreoService;
 import com.piedpiper.carbonhub.auth.service.RegistroAuditorService;
 import com.piedpiper.carbonhub.auth.service.RegistroEmpresaCorreoService;
 import com.piedpiper.carbonhub.auth.service.RegistroEmpresaService;
+import com.piedpiper.carbonhub.auth.service.RegistroInvitacionService;
 import com.piedpiper.carbonhub.auth.service.RegistroUsuarioCorreoService;
 import com.piedpiper.carbonhub.auth.service.RegistroUsuarioService;
 import com.piedpiper.carbonhub.auth.service.RestablecerContrasenaService;
@@ -40,6 +41,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
                 type = FilterType.ASSIGNABLE_TYPE, classes = SecurityConfig.class))
 @AutoConfigureMockMvc(addFilters = false)
 class AuthControllerTest {
+
+    @MockitoBean
+    private RegistroInvitacionService registroInvitacionService;
 
     @Autowired
     private MockMvc mockMvc;
@@ -158,13 +162,13 @@ class AuthControllerTest {
     void registroAuditorValidoDevuelve201() throws Exception {
         when(registroAuditorService.registrar(any()))
                 .thenReturn(new AuthResponseDTO("jwt", "AUDITOR_CERTIFICADO", "ACTIVO",
-                        "/auditor/configuracion-inicial"));
+                        "/perfil/configuracion-inicial"));
 
         mockMvc.perform(post("/api/auth/registro/auditor")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(REGISTRO_JSON))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.redirect").value("/auditor/configuracion-inicial"));
+                .andExpect(jsonPath("$.redirect").value("/perfil/configuracion-inicial"));
     }
 
     @Test
