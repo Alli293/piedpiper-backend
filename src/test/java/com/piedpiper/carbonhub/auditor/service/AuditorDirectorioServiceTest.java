@@ -165,10 +165,13 @@ class AuditorDirectorioServiceTest {
 
     @Test
     void ordenamientoPorTiempoDeRespuestaEsAscendenteConNulosAlFinal() {
-        when(perfilAuditorRepository.buscarDirectorio(any(), any(), any(), pageableCaptor.capture()))
+        when(perfilAuditorRepository.buscarDirectorio(
+                any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), any(), pageableCaptor.capture()))
                 .thenReturn(new PageImpl<>(List.of()));
+        FiltrarAuditoresRequestDTO f = filtros();
+        f.setOrdenamiento("TIEMPO_RESPUESTA");
 
-        servicio().listar(null, 0, 12, "TIEMPO_RESPUESTA");
+        servicio().listar(f);
 
         Sort.Order orden = pageableCaptor.getValue().getSort().getOrderFor("tiempoRespuestaHoras");
         assertThat(orden).isNotNull();
