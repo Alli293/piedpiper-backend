@@ -44,7 +44,7 @@ class RegistroAuditorServiceTest {
         when(googleTokenVerifier.verificar("token"))
                 .thenReturn(new GoogleClaims("sub-1", "ana@gmail.com", true, "Ana", "Ana", "Perez"));
         when(usuarioRepository.existsByGoogleSub("sub-1")).thenReturn(false);
-        when(usuarioRepository.existsByEmail("ana@gmail.com")).thenReturn(false);
+        when(usuarioRepository.existsByEmailIgnoreCase("ana@gmail.com")).thenReturn(false);
         when(usuarioRepository.save(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
         when(jwtService.generar(any(Usuario.class))).thenReturn("jwt-app");
 
@@ -54,7 +54,7 @@ class RegistroAuditorServiceTest {
         verify(usuarioRepository).save(captor.capture());
         assertThat(captor.getValue().getRol()).isEqualTo(Rol.AUDITOR_CERTIFICADO);
         assertThat(captor.getValue().isConfiguracionCompleta()).isFalse();
-        assertThat(response.getRedirect()).isEqualTo("/auditor/configuracion-inicial");
+        assertThat(response.getRedirect()).isEqualTo("/perfil/configuracion-inicial");
     }
 
     @Test

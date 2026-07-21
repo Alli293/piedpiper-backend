@@ -2,9 +2,9 @@ name: Backend CI
 
 on:
   pull_request:
-    branches: [ master, develop ]
+    branches: [ master, develop, 'feature/**' ]
   push:
-    branches: [ master, develop ]
+    branches: [ master, develop, 'feature/**' ]
 
 jobs:
   test:
@@ -46,6 +46,6 @@ jobs:
           DB_PASSWORD: test_pass
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           JWT_EXPIRATION: ${{ vars.JWT_EXPIRATION }}
-          EXTERNAL_API_TIMEOUT: ${{ vars.EXTERNAL_API_TIMEOUT }}
+          EXTERNAL_API_TIMEOUT: ${{ vars.EXTERNAL_API_TIMEOUT || '10000' }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: ./mvnw test

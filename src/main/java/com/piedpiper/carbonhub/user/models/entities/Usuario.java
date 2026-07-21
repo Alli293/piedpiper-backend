@@ -2,8 +2,11 @@ package com.piedpiper.carbonhub.user.models.entities;
 
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
+import com.piedpiper.carbonhub.user.models.enums.Idioma;
 import com.piedpiper.carbonhub.user.models.enums.MetodoAuth;
+import com.piedpiper.carbonhub.user.models.enums.Moneda;
 import com.piedpiper.carbonhub.user.models.enums.Rol;
+import com.piedpiper.carbonhub.user.models.enums.UnidadesMedida;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -15,6 +18,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -23,6 +28,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.Instant;
+import java.util.Locale;
 import java.util.UUID;
 
 @Entity
@@ -51,6 +57,9 @@ public class Usuario {
 
     @Column(length = NOMBRE_MAX)
     private String apellidos;
+
+    @Column(name = "nombre_visible", length = NOMBRE_MAX)
+    private String nombreVisible;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 40)
@@ -91,10 +100,30 @@ public class Usuario {
     @Column(name = "token_verificacion_expiracion")
     private Instant tokenVerificacionExpiracion;
 
+    @Column(length = 20)
+    @Builder.Default
+    private String idioma = Idioma.POR_DEFECTO.name();
+
+    @Column(length = 10)
+    @Builder.Default
+    private String moneda = Moneda.POR_DEFECTO.name();
+
+    @Column(length = 20)
+    @Builder.Default
+    private String unidades = UnidadesMedida.POR_DEFECTO.name();
+
     public static String recortarNombre(String nombre) {
         if (nombre == null) {
             return null;
         }
         return nombre.length() > NOMBRE_MAX ? nombre.substring(0, NOMBRE_MAX) : nombre;
+    }
+
+    @PrePersist
+    @PreUpdate
+    void normalizarEmail() {
+        if (email != null) {
+            email = email.trim().toLowerCase(Locale.ROOT);
+        }
     }
 }

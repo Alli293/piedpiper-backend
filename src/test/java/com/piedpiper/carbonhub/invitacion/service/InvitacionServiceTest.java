@@ -2,6 +2,7 @@ package com.piedpiper.carbonhub.invitacion.service;
 
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.invitacion.mappers.InvitacionMapper;
 import com.piedpiper.carbonhub.invitacion.models.dtos.InvitacionPublicaResponseDTO;
 import com.piedpiper.carbonhub.invitacion.models.dtos.InvitacionRequestDTO;
 import com.piedpiper.carbonhub.invitacion.models.dtos.InvitacionResponseDTO;
@@ -19,6 +20,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -43,6 +45,8 @@ class InvitacionServiceTest {
     private UsuarioRepository usuarioRepository;
     @Mock
     private EnvioCorreoInvitacionService envioCorreoInvitacionService;
+    @Mock
+    private InvitacionMapper invitacionMapper;
 
     @InjectMocks
     private InvitacionService service;
@@ -52,6 +56,18 @@ class InvitacionServiceTest {
 
     private Empresa empresa() {
         return Empresa.builder().id(EMPRESA_ID).nombreEmpresa("Acme S.A.").build();
+    }
+
+    private void mockearMapperComoIdentidad() {
+        when(invitacionMapper.toDto(any(Invitacion.class))).thenAnswer(invocation -> {
+            Invitacion invitacion = invocation.getArgument(0);
+            InvitacionResponseDTO dto = new InvitacionResponseDTO();
+            dto.setId(invitacion.getId());
+            dto.setEmail(invitacion.getEmail());
+            dto.setFechaEmision(invitacion.getFechaEmision());
+            dto.setFechaExpiracion(invitacion.getFechaExpiracion());
+            return dto;
+        });
     }
 
     private Usuario administrador() {
@@ -78,6 +94,7 @@ class InvitacionServiceTest {
                 eq(EMPRESA_ID), eq("colab@correo.com"), eq(EstadoInvitacion.ENVIADA), any()))
                 .thenReturn(false);
         when(invitacionRepository.save(any(Invitacion.class))).thenAnswer(i -> i.getArgument(0));
+        mockearMapperComoIdentidad();
 
         InvitacionResponseDTO response = service.emitir(
                 ADMIN_ID, new InvitacionRequestDTO("colab@correo.com"));
@@ -165,6 +182,7 @@ class InvitacionServiceTest {
         when(usuarioRepository.findById(ADMIN_ID)).thenReturn(Optional.of(administrador()));
         when(invitacionRepository.findAllByEmpresaIdOrderByFechaEmisionDesc(EMPRESA_ID))
                 .thenReturn(List.of(vigente, vencida));
+        mockearMapperComoIdentidad();
 
         List<InvitacionResponseDTO> lista = service.listar(ADMIN_ID);
 
@@ -178,7 +196,8 @@ class InvitacionServiceTest {
         when(usuarioRepository.findById(ADMIN_ID)).thenReturn(Optional.of(administrador()));
         when(invitacionRepository.findByIdAndEmpresaId(enviada.getId(), EMPRESA_ID))
                 .thenReturn(Optional.of(enviada));
-        when(invitacionRepository.save(any(Invitacion.class))).thenAnswer(i -> i.getArgument(0));
+        when(invitacionRepository.saveAndFlush(any(Invitacion.class))).thenAnswer(i -> i.getArgument(0));
+        mockearMapperComoIdentidad();
 
         InvitacionResponseDTO response = service.revocar(ADMIN_ID, enviada.getId());
 
@@ -280,9 +299,31 @@ class InvitacionServiceTest {
         service.marcarAceptada(enviada);
 
         ArgumentCaptor<Invitacion> captor = ArgumentCaptor.forClass(Invitacion.class);
-        verify(invitacionRepository).save(captor.capture());
+        verify(invitacionRepository).saveAndFlush(captor.capture());
         assertThat(captor.getValue().getEstado()).isEqualTo(EstadoInvitacion.ACEPTADA);
         assertThat(captor.getValue().getFechaAceptacion()).isNotNull();
+    }
+
+    @Test
+    void marcarAceptadaConInvitacionNoEnviadaLanza409() {
+        Invitacion revocada = invitacion(EstadoInvitacion.REVOCADA, Instant.now().plus(1, ChronoUnit.DAYS));
+
+        assertThatThrownBy(() -> service.marcarAceptada(revocada))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getStatus()).isEqualTo(HttpStatus.CONFLICT));
+
+        verify(invitacionRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void marcarAceptadaConLockOptimistaLanza409() {
+        Invitacion enviada = invitacion(EstadoInvitacion.ENVIADA, Instant.now().plus(1, ChronoUnit.DAYS));
+        when(invitacionRepository.saveAndFlush(any(Invitacion.class)))
+                .thenThrow(new ObjectOptimisticLockingFailureException(Invitacion.class, enviada.getId()));
+
+        assertThatThrownBy(() -> service.marcarAceptada(enviada))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getStatus()).isEqualTo(HttpStatus.CONFLICT));
     }
 
     @Test

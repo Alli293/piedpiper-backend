@@ -1,6 +1,7 @@
 package com.piedpiper.carbonhub.invitacion.service;
 
 import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.invitacion.mappers.InvitacionMapper;
 import com.piedpiper.carbonhub.invitacion.models.dtos.InvitacionPublicaResponseDTO;
 import com.piedpiper.carbonhub.invitacion.models.dtos.InvitacionRequestDTO;
 import com.piedpiper.carbonhub.invitacion.models.dtos.InvitacionResponseDTO;
@@ -11,6 +12,7 @@ import com.piedpiper.carbonhub.notification.TokenVerificacionGenerator;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.models.enums.Rol;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -30,13 +32,16 @@ public class InvitacionService {
     private final InvitacionRepository invitacionRepository;
     private final UsuarioRepository usuarioRepository;
     private final EnvioCorreoInvitacionService envioCorreoInvitacionService;
+    private final InvitacionMapper invitacionMapper;
 
     public InvitacionService(InvitacionRepository invitacionRepository,
                              UsuarioRepository usuarioRepository,
-                             EnvioCorreoInvitacionService envioCorreoInvitacionService) {
+                             EnvioCorreoInvitacionService envioCorreoInvitacionService,
+                             InvitacionMapper invitacionMapper) {
         this.invitacionRepository = invitacionRepository;
         this.usuarioRepository = usuarioRepository;
         this.envioCorreoInvitacionService = envioCorreoInvitacionService;
+        this.invitacionMapper = invitacionMapper;
     }
 
     @Transactional
@@ -113,7 +118,11 @@ public class InvitacionService {
         }
 
         invitacion.setEstado(EstadoInvitacion.REVOCADA);
-        invitacion = invitacionRepository.save(invitacion);
+        try {
+            invitacion = invitacionRepository.saveAndFlush(invitacion);
+        } catch (ObjectOptimisticLockingFailureException e) {
+            throw ApiException.invitacionNoDisponible();
+        }
 
         return aDto(invitacion, ahora);
     }
@@ -145,9 +154,16 @@ public class InvitacionService {
 
     @Transactional
     public void marcarAceptada(Invitacion invitacion) {
+        if (invitacion.getEstado() != EstadoInvitacion.ENVIADA) {
+            throw ApiException.invitacionNoDisponible();
+        }
         invitacion.setEstado(EstadoInvitacion.ACEPTADA);
         invitacion.setFechaAceptacion(Instant.now());
-        invitacionRepository.save(invitacion);
+        try {
+            invitacionRepository.saveAndFlush(invitacion);
+        } catch (ObjectOptimisticLockingFailureException e) {
+            throw ApiException.invitacionNoDisponible();
+        }
     }
 
     private Usuario validarAdministrador(UUID usuarioId) {
@@ -165,11 +181,8 @@ public class InvitacionService {
     }
 
     private InvitacionResponseDTO aDto(Invitacion invitacion, Instant ahora) {
-        return new InvitacionResponseDTO(
-                invitacion.getId(),
-                invitacion.getEmail(),
-                invitacion.estadoEfectivo(ahora).name(),
-                invitacion.getFechaEmision(),
-                invitacion.getFechaExpiracion());
+        InvitacionResponseDTO dto = invitacionMapper.toDto(invitacion);
+        dto.setEstado(invitacion.estadoEfectivo(ahora).name());
+        return dto;
     }
 }

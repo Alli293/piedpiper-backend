@@ -10,6 +10,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -22,6 +23,7 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 
 @Entity
+@Table(name = "empresas")
 @Getter
 @Setter
 @Builder
@@ -38,29 +40,29 @@ public class Empresa {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false)
+    @Column(name = "nombre_empresa", nullable = false)
     private String nombreEmpresa;
 
-    @Column(nullable = false, unique = true)
+    @Column(name = "cedula_juridica", nullable = false, unique = true)
     private String cedulaJuridica;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "sector_industrial", nullable = false)
     private SectorIndustrial sectorIndustrial;
 
     @Column(nullable = false)
     private String pais;
 
-    @Column(nullable = true)
+    @Column(name = "cantidad_empleados")
     private Integer cantidadEmpleados;
 
-    @Column(nullable = false, unique = true)
+    @Column(name = "correo_corporativo", nullable = false, unique = true)
     private String correoCorporativo;
 
-    @Column(nullable = true)
+    @Column(name = "sitio_web")
     private String sitioWeb;
 
-    @Column(nullable = true)
+    @Column(name = "logo_url")
     private String logoUrl;
 
     @Column(nullable = false, unique = true)
@@ -69,14 +71,14 @@ public class Empresa {
     @Column(nullable = true)
     private String descripcion;
 
-    @Column(nullable = true)
+    @Column(name = "nivel_ecologico")
     private String nivelEcologico;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private EstadoEmpresa estado;
 
-    @Column(nullable = false)
+    @Column(name = "fecha_registro", nullable = false)
     private Instant fechaRegistro;
 
     public static String generarSlug(String nombreEmpresa) {

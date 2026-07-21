@@ -52,6 +52,14 @@ public class ApiException extends RuntimeException {
         return new ApiException(HttpStatus.FORBIDDEN, mensaje);
     }
 
+    public static ApiException valorNoSoportado(String mensaje) {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, mensaje);
+    }
+
+    public static ApiException recursoNoEncontrado(String mensaje) {
+        return new ApiException(HttpStatus.NOT_FOUND, mensaje);
+    }
+
     public static ApiException calculoInvalido(String mensajeServicio) {
         return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
                 "No se pudo calcular la huella: " + mensajeServicio + ". Verifique los datos ingresados.");
@@ -82,9 +90,13 @@ public class ApiException extends RuntimeException {
                 "El servicio de cálculo devolvió una unidad no soportada (" + unidad + ").");
     }
 
+    public static ApiException calculoVueloInvalido(String mensaje) {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, mensaje);
+    }
+
     public static ApiException empresaNoConfigurada() {
         return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
-                "Debes completar la configuración de tu empresa antes de registrar emisiones.");
+                "Debes completar la configuración de tu empresa antes de realizar esta acción.");
     }
 
     public static ApiException invitacionCorreoYaEnEmpresa() {
@@ -132,9 +144,49 @@ public class ApiException extends RuntimeException {
                 "Esta invitación ya fue utilizada.");
     }
 
+    public static ApiException solicitudNoEncontrada() {
+        return new ApiException(HttpStatus.NOT_FOUND,
+                "Esta solicitud no fue encontrada.");
+    }
+
+    public static ApiException solicitudYaProcesada() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Esta solicitud ya fue procesada por otro administrador.");
+    }
+
+    public static ApiException solicitudConflictoConcurrente() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Esta solicitud ya fue procesada. Recarga la página para ver el estado actualizado.");
+    }
+
     public static ApiException invitacionCorreoNoCoincide() {
         return new ApiException(HttpStatus.FORBIDDEN,
                 "La cuenta de Google que seleccionaste no corresponde al correo de esta invitación. "
                         + "Inicia sesión con la cuenta indicada.");
+    }
+
+    public static ApiException combinacionVehiculoInvalida() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Seleccione un combustible válido para este tipo de vehículo.");
+    }
+
+    public static ApiException metodoTransporteNoSoportado() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Seleccione un método de transporte válido.");
+    }
+
+    public static ApiException categoriaEmisionInvalida() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Categoría de emisión inválida.");
+    }
+
+    public static ApiException mesInvalido() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "El mes debe estar entre 1 y 12.");
+    }
+
+    public static ApiException limiteConflicto() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Conflicto al guardar el límite. Intente nuevamente.");
     }
 }
