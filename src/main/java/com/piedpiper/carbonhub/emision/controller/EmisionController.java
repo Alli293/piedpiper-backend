@@ -33,7 +33,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.Year;
 import java.util.List;
 import java.util.UUID;
 
@@ -131,10 +130,7 @@ public class EmisionController {
     @GetMapping("/evolucion")
     public ResponseEntity<EvolucionMensualDTO> evolucion(
             Authentication authentication,
-            @RequestParam(defaultValue = "0") int anio) {
-        if (anio == 0) {
-            anio = Year.now().getValue();
-        }
+            @RequestParam(required = false) Integer anio) {
         return ResponseEntity.ok(emisionEvolucionService.obtenerEvolucion(anio, Autenticaciones.usuarioId(authentication)));
     }
 }

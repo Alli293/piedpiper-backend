@@ -9,8 +9,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -58,34 +56,4 @@ public interface EmisionRepository extends JpaRepository<Emision, UUID> {
             """)
     List<Object[]> sumarCarbonKgPorMes(@Param("empresaId") UUID empresaId,
                                        @Param("anio") int anio);
-
-    @Query("""
-            select count(distinct type(e))
-            from Emision e
-            where e.empresaId = :empresaId
-              and e.fechaActividad between :desde and :hasta
-            """)
-    long contarCategoriasConRegistro(@Param("empresaId") UUID empresaId,
-                                     @Param("desde") LocalDate desde,
-                                     @Param("hasta") LocalDate hasta);
-
-    @Query("""
-            select count(distinct (extract(year from e.fechaActividad) * 100 + extract(month from e.fechaActividad)))
-            from Emision e
-            where e.empresaId = :empresaId
-              and e.fechaActividad between :desde and :hasta
-            """)
-    long contarMesesConRegistro(@Param("empresaId") UUID empresaId,
-                                @Param("desde") LocalDate desde,
-                                @Param("hasta") LocalDate hasta);
-
-    @Query("""
-            select coalesce(sum(e.carbonKg), 0)
-            from Emision e
-            where e.empresaId = :empresaId
-              and e.fechaActividad between :desde and :hasta
-            """)
-    BigDecimal sumarCarbonKgEnVentana(@Param("empresaId") UUID empresaId,
-                                      @Param("desde") LocalDate desde,
-                                      @Param("hasta") LocalDate hasta);
 }

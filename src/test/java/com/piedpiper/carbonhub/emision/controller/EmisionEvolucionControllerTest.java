@@ -83,7 +83,7 @@ class EmisionEvolucionControllerTest {
     @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
     void evolucionConAnioValidoDevuelve200ConDocePuntos() throws Exception {
         EvolucionMensualDTO dto = crearEvolucionConDatos(2026);
-        when(emisionEvolucionService.obtenerEvolucion(anyInt(), any(UUID.class))).thenReturn(dto);
+        when(emisionEvolucionService.obtenerEvolucion(any(), any(UUID.class))).thenReturn(dto);
 
         mockMvc.perform(get("/api/emisiones/evolucion").param("anio", "2026")
                         .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA")))
@@ -98,7 +98,7 @@ class EmisionEvolucionControllerTest {
     @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
     void evolucionSinParametroAnioUsaAnioActualDevuelve200() throws Exception {
         EvolucionMensualDTO dto = crearEvolucionVacia(2026);
-        when(emisionEvolucionService.obtenerEvolucion(anyInt(), any(UUID.class))).thenReturn(dto);
+        when(emisionEvolucionService.obtenerEvolucion(any(), any(UUID.class))).thenReturn(dto);
 
         mockMvc.perform(get("/api/emisiones/evolucion")
                         .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA")))
@@ -111,7 +111,7 @@ class EmisionEvolucionControllerTest {
     @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
     void evolucionConMesesSinDatosDevuelveCero() throws Exception {
         EvolucionMensualDTO dto = crearEvolucionVacia(2020);
-        when(emisionEvolucionService.obtenerEvolucion(anyInt(), any(UUID.class))).thenReturn(dto);
+        when(emisionEvolucionService.obtenerEvolucion(any(), any(UUID.class))).thenReturn(dto);
 
         mockMvc.perform(get("/api/emisiones/evolucion").param("anio", "2020")
                         .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA")))

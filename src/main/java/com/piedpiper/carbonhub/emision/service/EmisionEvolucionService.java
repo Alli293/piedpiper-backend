@@ -30,10 +30,12 @@ public class EmisionEvolucionService {
     }
 
     @Transactional(readOnly = true)
-    public EvolucionMensualDTO obtenerEvolucion(int anio, UUID usuarioId) {
+    public EvolucionMensualDTO obtenerEvolucion(Integer anio, UUID usuarioId) {
         UUID empresaId = empresaId(usuarioId);
 
-        List<Object[]> resultados = emisionRepository.sumarCarbonKgPorMes(empresaId, anio);
+        int anioEfectivo = anio != null ? anio : java.time.Year.now().getValue();
+
+        List<Object[]> resultados = emisionRepository.sumarCarbonKgPorMes(empresaId, anioEfectivo);
 
         Map<Integer, BigDecimal> porMes = new HashMap<>();
         for (Object[] fila : resultados) {
@@ -51,7 +53,7 @@ public class EmisionEvolucionService {
         }
 
         return EvolucionMensualDTO.builder()
-                .anio(anio)
+                .anio(anioEfectivo)
                 .serie(serie)
                 .build();
     }
