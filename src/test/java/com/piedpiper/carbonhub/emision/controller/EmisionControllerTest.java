@@ -379,6 +379,18 @@ class EmisionControllerTest {
 
     @Test
     @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void comparacionUsuarioSinEmpresaDevuelve422() throws Exception {
+        when(emisionComparacionService.comparar(any(), eq(2026)))
+                .thenThrow(ApiException.empresaNoConfigurada());
+
+        mockMvc.perform(get("/api/emisiones/comparacion")
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA"))
+                        .param("anio", "2026"))
+                .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
     void cuerpoFlotaInvalidoDevuelve400() throws Exception {
         String invalido = "{\"titulo\":\"Recorrido\",\"tipoVehiculo\":\"AUTOMOVIL\",\"combustible\":\"GASOLINA\","
                 + "\"distanceValue\":-5,\"distanceUnit\":\"km\",\"fechaActividad\":\"2026-07-01\"}";
@@ -494,6 +506,10 @@ class EmisionControllerTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value(mensajeEsperado));
         mockMvc.perform(get("/api/emisiones/{id}", id))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value(mensajeEsperado));
+        mockMvc.perform(get("/api/emisiones/comparacion")
+                        .param("anio", "2026"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value(mensajeEsperado));
         mockMvc.perform(put("/api/emisiones/vuelo/{id}", id)

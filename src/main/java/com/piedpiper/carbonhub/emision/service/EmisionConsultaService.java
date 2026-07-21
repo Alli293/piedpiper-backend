@@ -12,8 +12,6 @@ import com.piedpiper.carbonhub.emision.models.entities.EmisionFlota;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionVuelo;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
-import com.piedpiper.carbonhub.user.models.entities.Usuario;
-import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,20 +23,20 @@ import java.util.UUID;
 public class EmisionConsultaService {
 
     private final EmisionRepository emisionRepository;
-    private final UsuarioRepository usuarioRepository;
+    private final EmisionEmpresaService emisionEmpresaService;
     private final EmisionElectricidadMapper emisionElectricidadMapper;
     private final EmisionVueloMapper emisionVueloMapper;
     private final EmisionEnvioMapper emisionEnvioMapper;
     private final EmisionFlotaMapper emisionFlotaMapper;
 
     public EmisionConsultaService(EmisionRepository emisionRepository,
-                                  UsuarioRepository usuarioRepository,
+                                  EmisionEmpresaService emisionEmpresaService,
                                   EmisionElectricidadMapper emisionElectricidadMapper,
                                   EmisionVueloMapper emisionVueloMapper,
                                   EmisionEnvioMapper emisionEnvioMapper,
                                   EmisionFlotaMapper emisionFlotaMapper) {
         this.emisionRepository = emisionRepository;
-        this.usuarioRepository = usuarioRepository;
+        this.emisionEmpresaService = emisionEmpresaService;
         this.emisionElectricidadMapper = emisionElectricidadMapper;
         this.emisionVueloMapper = emisionVueloMapper;
         this.emisionEnvioMapper = emisionEnvioMapper;
@@ -47,7 +45,8 @@ public class EmisionConsultaService {
 
     @Transactional(readOnly = true)
     public List<EmisionResponseDTO> listar(UUID usuarioId) {
-        return emisionRepository.findAllByEmpresaIdOrderByCreatedAtDesc(empresaId(usuarioId)).stream()
+        return emisionRepository.findAllByEmpresaIdOrderByCreatedAtDesc(
+                        emisionEmpresaService.empresaId(usuarioId)).stream()
                 .map(this::toDto)
                 .toList();
     }
@@ -64,17 +63,8 @@ public class EmisionConsultaService {
     }
 
     private Emision buscarPropia(UUID id, UUID usuarioId) {
-        return emisionRepository.findByIdAndEmpresaId(id, empresaId(usuarioId))
+        return emisionRepository.findByIdAndEmpresaId(id, emisionEmpresaService.empresaId(usuarioId))
                 .orElseThrow(() -> ApiException.recursoNoEncontrado("No se encontró la emisión solicitada."));
-    }
-
-    private UUID empresaId(UUID usuarioId) {
-        Usuario usuario = usuarioRepository.findById(usuarioId)
-                .orElseThrow(() -> ApiException.errorInterno("No se pudo identificar al usuario autenticado."));
-        if (usuario.getEmpresa() == null || usuario.getEmpresa().getId() == null) {
-            throw ApiException.empresaNoConfigurada();
-        }
-        return usuario.getEmpresa().getId();
     }
 
     private EmisionResponseDTO toDto(Emision emision) {

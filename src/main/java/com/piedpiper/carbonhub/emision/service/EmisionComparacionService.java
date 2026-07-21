@@ -1,20 +1,15 @@
 package com.piedpiper.carbonhub.emision.service;
 
-import com.piedpiper.carbonhub.emision.mappers.EmisionComparacionMapper;
 import com.piedpiper.carbonhub.emision.models.dtos.ComparacionEmisionesResponseDTO;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
-import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.limite.models.entities.LimiteEmisiones;
 import com.piedpiper.carbonhub.limite.repository.LimiteEmisionesRepository;
-import com.piedpiper.carbonhub.user.models.entities.Usuario;
-import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Year;
 import java.util.Optional;
 import java.util.UUID;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,17 +21,14 @@ public class EmisionComparacionService {
 
     private final EmisionRepository emisionRepository;
     private final LimiteEmisionesRepository limiteEmisionesRepository;
-    private final UsuarioRepository usuarioRepository;
-    private final EmisionComparacionMapper emisionComparacionMapper;
+    private final EmisionEmpresaService emisionEmpresaService;
 
     public EmisionComparacionService(EmisionRepository emisionRepository,
                                      LimiteEmisionesRepository limiteEmisionesRepository,
-                                     UsuarioRepository usuarioRepository,
-                                     EmisionComparacionMapper emisionComparacionMapper) {
+                                     EmisionEmpresaService emisionEmpresaService) {
         this.emisionRepository = emisionRepository;
         this.limiteEmisionesRepository = limiteEmisionesRepository;
-        this.usuarioRepository = usuarioRepository;
-        this.emisionComparacionMapper = emisionComparacionMapper;
+        this.emisionEmpresaService = emisionEmpresaService;
     }
 
     @Transactional(readOnly = true)
@@ -44,7 +36,7 @@ public class EmisionComparacionService {
         Integer anioComparar = anio == null ? Year.now().getValue() : anio;
         validarAnio(anioComparar);
 
-        UUID empresaId = empresaId(usuarioId);
+        UUID empresaId = emisionEmpresaService.empresaId(usuarioId);
         BigDecimal huellaKg = Optional.ofNullable(
                 emisionRepository.sumCarbonKgByEmpresaIdAndAnio(empresaId, anioComparar)
         ).orElse(BigDecimal.ZERO);
@@ -52,7 +44,7 @@ public class EmisionComparacionService {
 
         return limiteEmisionesRepository.findByEmpresaIdAndAnio(empresaId, anioComparar)
                 .map(limite -> compararConLimite(anioComparar, huellaT, limite))
-                .orElseGet(() -> emisionComparacionMapper.toDto(
+                .orElseGet(() -> new ComparacionEmisionesResponseDTO(
                         anioComparar,
                         huellaT,
                         null,
@@ -71,7 +63,7 @@ public class EmisionComparacionService {
                 .multiply(new BigDecimal("100"))
                 .divide(limiteT, 1, RoundingMode.HALF_UP);
 
-        return emisionComparacionMapper.toDto(
+        return new ComparacionEmisionesResponseDTO(
                 anio,
                 huellaT,
                 limiteT,
@@ -94,17 +86,7 @@ public class EmisionComparacionService {
     private void validarAnio(Integer anio) {
         int maximo = Year.now().getValue() + 1;
         if (anio < 1900 || anio > maximo) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Anio invalido.");
+            throw ApiException.anioInvalido();
         }
-    }
-
-    private UUID empresaId(UUID usuarioId) {
-        Usuario usuario = usuarioRepository.findById(usuarioId)
-                .orElseThrow(() -> ApiException.errorInterno("No se pudo identificar al usuario autenticado."));
-        Empresa empresa = usuario.getEmpresa();
-        if (empresa == null || empresa.getId() == null) {
-            throw ApiException.empresaNoConfigurada();
-        }
-        return empresa.getId();
     }
 }

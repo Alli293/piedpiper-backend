@@ -14,10 +14,7 @@ import com.piedpiper.carbonhub.emision.models.entities.EmisionEnvio;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionFlota;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionVuelo;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
-import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.exceptions.ApiException;
-import com.piedpiper.carbonhub.user.models.entities.Usuario;
-import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -45,7 +42,7 @@ class EmisionConsultaServiceTest {
     @Mock
     private EmisionRepository emisionRepository;
     @Mock
-    private UsuarioRepository usuarioRepository;
+    private EmisionEmpresaService emisionEmpresaService;
     @Mock
     private EmisionElectricidadMapper emisionElectricidadMapper;
     @Mock
@@ -66,7 +63,7 @@ class EmisionConsultaServiceTest {
                 .build();
         EmisionElectricidadResponseDTO dto = new EmisionElectricidadResponseDTO();
         dto.setId(EMISION_ID);
-        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
+        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
         when(emisionRepository.findAllByEmpresaIdOrderByCreatedAtDesc(EMPRESA_ID))
                 .thenReturn(List.of(emision));
         when(emisionElectricidadMapper.toDto(emision)).thenReturn(dto);
@@ -89,7 +86,7 @@ class EmisionConsultaServiceTest {
         EmisionEnvioResponseDTO envioDto = new EmisionEnvioResponseDTO();
         EmisionFlotaResponseDTO flotaDto = new EmisionFlotaResponseDTO();
 
-        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
+        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
         when(emisionRepository.findAllByEmpresaIdOrderByCreatedAtDesc(EMPRESA_ID))
                 .thenReturn(List.of(electricidad, vuelo, envio, flota));
         when(emisionElectricidadMapper.toDto(electricidad)).thenReturn(electricidadDto);
@@ -106,7 +103,7 @@ class EmisionConsultaServiceTest {
     void obtenerMapeaUnaEmisionDeFlota() {
         EmisionFlota flota = EmisionFlota.builder().id(EMISION_ID).empresaId(EMPRESA_ID).build();
         EmisionFlotaResponseDTO flotaDto = new EmisionFlotaResponseDTO();
-        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
+        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
         when(emisionRepository.findByIdAndEmpresaId(EMISION_ID, EMPRESA_ID)).thenReturn(Optional.of(flota));
         when(emisionFlotaMapper.toDto(flota)).thenReturn(flotaDto);
 
@@ -115,7 +112,7 @@ class EmisionConsultaServiceTest {
 
     @Test
     void obtenerNoPermiteAccederAEmisionDeOtraEmpresa() {
-        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
+        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
         when(emisionRepository.findByIdAndEmpresaId(EMISION_ID, EMPRESA_ID))
                 .thenReturn(Optional.empty());
 
@@ -133,7 +130,7 @@ class EmisionConsultaServiceTest {
                 .id(EMISION_ID)
                 .empresaId(EMPRESA_ID)
                 .build();
-        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
+        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
         when(emisionRepository.findByIdAndEmpresaId(EMISION_ID, EMPRESA_ID))
                 .thenReturn(Optional.of(emision));
 
@@ -144,19 +141,11 @@ class EmisionConsultaServiceTest {
 
     @Test
     void listarConUsuarioSinEmpresaDevuelve422() {
-        Usuario usuarioSinEmpresa = Usuario.builder().id(USUARIO_ID).build();
-        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuarioSinEmpresa));
+        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenThrow(ApiException.empresaNoConfigurada());
 
         assertThatThrownBy(() -> service.listar(USUARIO_ID))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
-    }
-
-    private Usuario usuario() {
-        return Usuario.builder()
-                .id(USUARIO_ID)
-                .empresa(Empresa.builder().id(EMPRESA_ID).build())
-                .build();
     }
 }
