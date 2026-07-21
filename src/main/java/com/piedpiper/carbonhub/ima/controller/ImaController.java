@@ -7,7 +7,6 @@ import com.piedpiper.carbonhub.ima.models.dtos.ImaResponseDTO;
 import com.piedpiper.carbonhub.ima.service.ImaBenchmarkService;
 import com.piedpiper.carbonhub.ima.service.ImaService;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -68,19 +67,16 @@ public class ImaController {
         }
 
         if (anio < 2000 || anio > hoy.getYear()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST,
-                    "El año debe estar entre 2000 y " + hoy.getYear() + ".");
+            throw ApiException.anioFueraDeRango(hoy.getYear());
         }
         if (mes < 1 || mes > 12) {
-            throw new ApiException(HttpStatus.BAD_REQUEST,
-                    "El mes debe estar entre 1 y 12.");
+            throw ApiException.mesInvalido();
         }
 
         LocalDate periodoSolicitado = LocalDate.of(anio, mes, 1);
         LocalDate periodoActual = LocalDate.of(hoy.getYear(), hoy.getMonthValue(), 1);
         if (periodoSolicitado.isAfter(periodoActual)) {
-            throw new ApiException(HttpStatus.BAD_REQUEST,
-                    "El período no puede ser futuro.");
+            throw ApiException.periodoFuturo();
         }
 
         return new Periodo(anio, mes);

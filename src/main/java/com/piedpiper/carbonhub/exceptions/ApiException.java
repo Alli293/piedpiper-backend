@@ -144,6 +144,21 @@ public class ApiException extends RuntimeException {
                 "Esta invitación ya fue utilizada.");
     }
 
+    public static ApiException anioFueraDeRango(int anioMaximo) {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "El año debe estar entre 2000 y " + anioMaximo + ".");
+    }
+
+    public static ApiException mesInvalido() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "El mes debe estar entre 1 y 12.");
+    }
+
+    public static ApiException periodoFuturo() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "El período no puede ser futuro.");
+    }
+
     public static ApiException combinacionVehiculoInvalida() {
         return new ApiException(HttpStatus.BAD_REQUEST,
                 "Seleccione un combustible válido para este tipo de vehículo.");
