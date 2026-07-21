@@ -1,5 +1,6 @@
 package com.piedpiper.carbonhub.auth.service;
 
+import com.piedpiper.carbonhub.auditor.service.PerfilAuditorService;
 import com.piedpiper.carbonhub.auth.models.dtos.MensajeResponseDTO;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.notification.TokenVerificacionGenerator;
@@ -15,9 +16,12 @@ import java.time.Instant;
 public class VerificarCorreoService {
 
     private final UsuarioRepository usuarioRepository;
+    private final PerfilAuditorService perfilAuditorService;
 
-    public VerificarCorreoService(UsuarioRepository usuarioRepository) {
+    public VerificarCorreoService(UsuarioRepository usuarioRepository,
+                                  PerfilAuditorService perfilAuditorService) {
         this.usuarioRepository = usuarioRepository;
+        this.perfilAuditorService = perfilAuditorService;
     }
 
     @Transactional
@@ -39,6 +43,7 @@ public class VerificarCorreoService {
         usuario.setTokenVerificacionHash(null);
         usuario.setTokenVerificacionExpiracion(null);
         usuarioRepository.saveAndFlush(usuario);
+        perfilAuditorService.asegurarPerfil(usuario);
 
         return new MensajeResponseDTO("¡Correo verificado! Ya puedes iniciar sesión.");
     }

@@ -127,6 +127,19 @@ class AuditorDirectorioServiceTest {
     }
 
     @Test
+    void ordenamientoPorTiempoDeRespuestaEsAscendenteConNulosAlFinal() {
+        when(perfilAuditorRepository.buscarDirectorio(any(), any(), any(), pageableCaptor.capture()))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        servicio().listar(null, 0, 12, "TIEMPO_RESPUESTA");
+
+        Sort.Order orden = pageableCaptor.getValue().getSort().getOrderFor("tiempoRespuestaHoras");
+        assertThat(orden).isNotNull();
+        assertThat(orden.getDirection()).isEqualTo(Sort.Direction.ASC);
+        assertThat(orden.getNullHandling()).isEqualTo(Sort.NullHandling.NULLS_LAST);
+    }
+
+    @Test
     void ordenamientoPorDefectoEsCalificacionDescendente() {
         when(perfilAuditorRepository.buscarDirectorio(any(), any(), any(), pageableCaptor.capture()))
                 .thenReturn(new PageImpl<>(List.of()));

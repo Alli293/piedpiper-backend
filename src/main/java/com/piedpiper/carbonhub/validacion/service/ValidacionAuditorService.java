@@ -1,5 +1,6 @@
 package com.piedpiper.carbonhub.validacion.service;
 
+import com.piedpiper.carbonhub.auditor.service.PerfilAuditorService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
@@ -40,17 +41,20 @@ public class ValidacionAuditorService {
     private final UsuarioRepository usuarioRepository;
     private final EnvioCorreoValidacionService envioCorreoValidacionService;
     private final ValidacionAuditorMapper validacionAuditorMapper;
+    private final PerfilAuditorService perfilAuditorService;
 
     public ValidacionAuditorService(SolicitudValidacionRepository solicitudValidacionRepository,
                                     RegistroAuditoriaInternaRepository registroAuditoriaInternaRepository,
                                     UsuarioRepository usuarioRepository,
                                     EnvioCorreoValidacionService envioCorreoValidacionService,
-                                    ValidacionAuditorMapper validacionAuditorMapper) {
+                                    ValidacionAuditorMapper validacionAuditorMapper,
+                                    PerfilAuditorService perfilAuditorService) {
         this.solicitudValidacionRepository = solicitudValidacionRepository;
         this.registroAuditoriaInternaRepository = registroAuditoriaInternaRepository;
         this.usuarioRepository = usuarioRepository;
         this.envioCorreoValidacionService = envioCorreoValidacionService;
         this.validacionAuditorMapper = validacionAuditorMapper;
+        this.perfilAuditorService = perfilAuditorService;
     }
 
     @Transactional(readOnly = true)
@@ -94,6 +98,9 @@ public class ValidacionAuditorService {
             throw ApiException.solicitudConflictoConcurrente();
         }
         usuarioRepository.save(auditor);
+        if (aprobado) {
+            perfilAuditorService.asegurarPerfil(auditor);
+        }
 
         registroAuditoriaInternaRepository.save(RegistroAuditoriaInterna.builder()
                 .tipoEvento(TIPO_EVENTO)

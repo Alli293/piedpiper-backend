@@ -14,15 +14,18 @@ import java.util.UUID;
 
 public interface PerfilAuditorRepository extends JpaRepository<PerfilAuditor, UUID> {
 
-    @Query("""
-            select p from PerfilAuditor p
-            join fetch p.auditor u
+    boolean existsByAuditorId(UUID auditorId);
+
+    String FILTROS = """
             where u.rol = :rol
               and u.estado = :estado
               and (:termino is null
                    or lower(concat(coalesce(u.nombre, ''), ' ', coalesce(u.apellidos, '')))
                       like lower(concat('%', :termino, '%')))
-            """)
+            """;
+
+    @Query(value = "select p from PerfilAuditor p join fetch p.auditor u " + FILTROS,
+            countQuery = "select count(p) from PerfilAuditor p join p.auditor u " + FILTROS)
     Page<PerfilAuditor> buscarDirectorio(
             @Param("rol") Rol rol,
             @Param("estado") EstadoUsuario estado,

@@ -18,6 +18,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
 
+import com.piedpiper.carbonhub.auditor.service.PerfilAuditorService;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -30,6 +32,8 @@ class VerificarCorreoServiceTest {
 
     @Mock
     private UsuarioRepository usuarioRepository;
+    @Mock
+    private PerfilAuditorService perfilAuditorService;
 
     @InjectMocks
     private VerificarCorreoService service;
@@ -61,6 +65,7 @@ class VerificarCorreoServiceTest {
         assertThat(guardado.getTokenVerificacionHash()).isNull();
         assertThat(guardado.getTokenVerificacionExpiracion()).isNull();
         assertThat(response.getMensaje()).isEqualTo("¡Correo verificado! Ya puedes iniciar sesión.");
+        verify(perfilAuditorService).asegurarPerfil(guardado);
     }
 
     @Test
