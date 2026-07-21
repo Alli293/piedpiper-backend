@@ -144,6 +144,21 @@ public class ApiException extends RuntimeException {
                 "Esta invitación ya fue utilizada.");
     }
 
+    public static ApiException solicitudNoEncontrada() {
+        return new ApiException(HttpStatus.NOT_FOUND,
+                "Esta solicitud no fue encontrada.");
+    }
+
+    public static ApiException solicitudYaProcesada() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Esta solicitud ya fue procesada por otro administrador.");
+    }
+
+    public static ApiException solicitudConflictoConcurrente() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Esta solicitud ya fue procesada. Recarga la página para ver el estado actualizado.");
+    }
+
     public static ApiException invitacionCorreoNoCoincide() {
         return new ApiException(HttpStatus.FORBIDDEN,
                 "La cuenta de Google que seleccionaste no corresponde al correo de esta invitación. "
