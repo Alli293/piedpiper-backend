@@ -218,7 +218,7 @@ class ImaServiceTest {
         assertThatThrownBy(() -> service.obtenerIma(2026, 6, USUARIO_ID))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
-                .isEqualTo(HttpStatus.FORBIDDEN);
+                .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
     }
 
     // --- helpers ---

@@ -154,8 +154,17 @@ public class ImaService {
 
         snapshot = imaSnapshotRepository.save(snapshot);
 
-        // Generar interpretación por IA de forma asíncrona
-        interpretacionService.generarInterpretacion(snapshot);
+        // Generar interpretación por IA después del commit
+        final UUID snapshotId = snapshot.getId();
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            interpretacionService.generarInterpretacion(snapshotId);
+                        }
+                    });
+        }
 
         return toDto(snapshot);
     }
@@ -168,7 +177,7 @@ public class ImaService {
 
     private AgregadoSectorial generarAgregadoSectorial(SectorIndustrial sector, int anio, int mes,
                                                         LocalDate desde, LocalDate hasta) {
-        // Una sola query que cuenta empresas elegibles y calcula intensidad promedio
+        // Pre-filtrar empresas del sector con empleados, luego una query por empresa elegible
         List<Empresa> empresasSector = empresaRepository.findAll().stream()
                 .filter(e -> e.getSectorIndustrial() == sector)
                 .filter(e -> e.getCantidadEmpleados() != null && e.getCantidadEmpleados() > 0)
@@ -211,7 +220,7 @@ public class ImaService {
         Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> ApiException.errorInterno("No se pudo identificar al usuario autenticado."));
         if (usuario.getEmpresa() == null || usuario.getEmpresa().getId() == null) {
-            throw ApiException.accesoDenegado("El usuario autenticado no pertenece a una empresa.");
+            throw ApiException.empresaNoConfigurada();
         }
         return usuario.getEmpresa().getId();
     }

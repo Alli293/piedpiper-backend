@@ -193,4 +193,8 @@ public class ApiException extends RuntimeException {
         return new ApiException(HttpStatus.CONFLICT,
                 "Conflicto al guardar el límite. Intente nuevamente.");
     }
+
+    public static ApiException periodoImaInvalido(String mensaje) {
+        return new ApiException(HttpStatus.BAD_REQUEST, mensaje);
+    }
 }
