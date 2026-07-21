@@ -44,7 +44,7 @@ class RegistroEmpresaServiceTest {
         when(googleTokenVerifier.verificar("token"))
                 .thenReturn(new GoogleClaims("sub-1", "rep@gmail.com", true, "Rep", "Rep", "Empresa"));
         when(usuarioRepository.existsByGoogleSub("sub-1")).thenReturn(false);
-        when(usuarioRepository.existsByEmail("rep@gmail.com")).thenReturn(false);
+        when(usuarioRepository.existsByEmailIgnoreCase("rep@gmail.com")).thenReturn(false);
         when(usuarioRepository.save(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
         when(jwtService.generar(any(Usuario.class))).thenReturn("jwt-app");
 

@@ -37,7 +37,7 @@ public class RegistroEmpresaService {
             throw ApiException.correoNoVerificado();
         }
         if (usuarioRepository.existsByGoogleSub(claims.getSub())
-                || usuarioRepository.existsByEmail(claims.getEmail())) {
+                || usuarioRepository.existsByEmailIgnoreCase(claims.getEmail())) {
             throw ApiException.cuentaDuplicada(
                     "Este correo ya tiene una cuenta registrada. ¿Deseas iniciar sesión?");
         }

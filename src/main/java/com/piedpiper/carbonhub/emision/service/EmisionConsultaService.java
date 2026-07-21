@@ -10,6 +10,7 @@ import com.piedpiper.carbonhub.emision.models.entities.EmisionElectricidad;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionEnvio;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionFlota;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionVuelo;
+import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
@@ -46,8 +47,14 @@ public class EmisionConsultaService {
     }
 
     @Transactional(readOnly = true)
-    public List<EmisionResponseDTO> listar(UUID usuarioId) {
-        return emisionRepository.findAllByEmpresaIdOrderByCreatedAtDesc(empresaId(usuarioId)).stream()
+    public List<EmisionResponseDTO> listar(UUID usuarioId, CategoriaEmision categoria, Integer anio, Integer mes) {
+        validarMes(mes);
+        return emisionRepository.findAllByEmpresaIdWithFilters(
+                        empresaId(usuarioId),
+                        categoria,
+                        anio,
+                        mes)
+                .stream()
                 .map(this::toDto)
                 .toList();
     }
@@ -64,15 +71,22 @@ public class EmisionConsultaService {
     }
 
     private Emision buscarPropia(UUID id, UUID usuarioId) {
-        return emisionRepository.findByIdAndEmpresaId(id, empresaId(usuarioId))
+        UUID empresaId = empresaId(usuarioId);
+        return emisionRepository.findByIdAndEmpresaId(id, empresaId)
                 .orElseThrow(() -> ApiException.recursoNoEncontrado("No se encontró la emisión solicitada."));
+    }
+
+    private void validarMes(Integer mes) {
+        if (mes != null && (mes < 1 || mes > 12)) {
+            throw ApiException.mesInvalido();
+        }
     }
 
     private UUID empresaId(UUID usuarioId) {
         Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> ApiException.errorInterno("No se pudo identificar al usuario autenticado."));
         if (usuario.getEmpresa() == null || usuario.getEmpresa().getId() == null) {
-            throw ApiException.accesoDenegado("El usuario autenticado no pertenece a una empresa.");
+            throw ApiException.empresaNoConfigurada();
         }
         return usuario.getEmpresa().getId();
     }

@@ -7,6 +7,7 @@ import com.piedpiper.carbonhub.limite.service.LimiteEmisionesService;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -20,7 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/limites")
-@PreAuthorize("hasAuthority('ROLE_ADMINISTRADOR_EMPRESA')")
+@PreAuthorize("hasRole('ADMINISTRADOR_EMPRESA')")
 public class LimiteEmisionesController {
     private final LimiteEmisionesService service;
     private final EmpresaAutenticadaService empresaAutenticadaService;
@@ -55,7 +56,9 @@ public class LimiteEmisionesController {
             @Valid @RequestBody LimiteEmisionesRequestDTO request,
             Authentication authentication
     ) {
-        return ResponseEntity.ok(service.guardarLimite(empresaId(authentication), request));
+        LimiteEmisionesResponseDTO response = service.guardarLimite(empresaId(authentication), request);
+        HttpStatus status = response.isRecienCreada() ? HttpStatus.CREATED : HttpStatus.OK;
+        return ResponseEntity.status(status).body(response);
     }
 
     @DeleteMapping("/{anio}")
@@ -68,6 +71,6 @@ public class LimiteEmisionesController {
     }
 
     private UUID empresaId(Authentication authentication) {
-        return empresaAutenticadaService.obtenerEmpresaId(authentication.getName());
+        return empresaAutenticadaService.obtenerEmpresaId(authentication);
     }
 }

@@ -1,11 +1,13 @@
 package com.piedpiper.carbonhub.empresa.controller;
 
+import com.piedpiper.carbonhub.common.Autenticaciones;
 import com.piedpiper.carbonhub.empresa.models.dtos.ConfiguracionInicialEmpresaRequestDTO;
 import com.piedpiper.carbonhub.empresa.models.dtos.ConfiguracionInicialEmpresaResponseDTO;
 import com.piedpiper.carbonhub.empresa.service.ConfiguracionInicialEmpresaService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -16,6 +18,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/empresas")
+@PreAuthorize("hasRole('ADMINISTRADOR_EMPRESA')")
 public class EmpresaController {
 
     private final ConfiguracionInicialEmpresaService configuracionInicialEmpresaService;
@@ -28,7 +31,7 @@ public class EmpresaController {
     public ResponseEntity<ConfiguracionInicialEmpresaResponseDTO> completarConfiguracionInicial(
             Authentication authentication,
             @Valid @RequestBody ConfiguracionInicialEmpresaRequestDTO request) {
-        UUID usuarioId = UUID.fromString(authentication.getName());
+        UUID usuarioId = Autenticaciones.usuarioId(authentication);
         ConfiguracionInicialEmpresaResponseDTO response =
                 configuracionInicialEmpresaService.completarConfiguracionEmpresa(usuarioId, request);
         HttpStatus status = response.isRecienCreada() ? HttpStatus.CREATED : HttpStatus.OK;

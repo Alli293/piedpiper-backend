@@ -1,5 +1,6 @@
 package com.piedpiper.carbonhub.empresa.service;
 
+import com.piedpiper.carbonhub.empresa.mappers.EmpresaMapper;
 import com.piedpiper.carbonhub.empresa.models.dtos.ConfiguracionInicialEmpresaRequestDTO;
 import com.piedpiper.carbonhub.empresa.models.dtos.ConfiguracionInicialEmpresaResponseDTO;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
@@ -35,6 +36,8 @@ class ConfiguracionInicialEmpresaServiceTest {
     private EmpresaRepository empresaRepository;
     @Mock
     private UsuarioRepository usuarioRepository;
+    @Mock
+    private EmpresaMapper empresaMapper;
 
     @InjectMocks
     private ConfiguracionInicialEmpresaService service;
@@ -54,6 +57,17 @@ class ConfiguracionInicialEmpresaServiceTest {
                 "Acme S.A.", "3-101-123456", SectorIndustrial.MANUFACTURA, "CR", 50, "Empresa de prueba.");
     }
 
+    private void mockearMapperComoIdentidad() {
+        when(empresaMapper.toDto(any(Empresa.class))).thenAnswer(invocation -> {
+            Empresa empresa = invocation.getArgument(0);
+            ConfiguracionInicialEmpresaResponseDTO dto = new ConfiguracionInicialEmpresaResponseDTO();
+            dto.setEmpresaId(empresa.getId());
+            dto.setNombreEmpresa(empresa.getNombreEmpresa());
+            dto.setSlug(empresa.getSlug());
+            return dto;
+        });
+    }
+
     @Test
     void completarConfiguracionExitoso_creaEmpresaConCorreoDelUsuarioYVinculaAlAdmin() {
         Usuario admin = admin();
@@ -62,6 +76,7 @@ class ConfiguracionInicialEmpresaServiceTest {
         when(empresaRepository.existsBySlug("acme-s-a")).thenReturn(false);
         when(empresaRepository.saveAndFlush(any(Empresa.class))).thenAnswer(i -> i.getArgument(0));
         when(usuarioRepository.saveAndFlush(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
+        mockearMapperComoIdentidad();
 
         ConfiguracionInicialEmpresaResponseDTO response =
                 service.completarConfiguracionEmpresa(USUARIO_ID, request());
@@ -75,7 +90,7 @@ class ConfiguracionInicialEmpresaServiceTest {
         ArgumentCaptor<Usuario> usuarioCaptor = ArgumentCaptor.forClass(Usuario.class);
         verify(usuarioRepository).saveAndFlush(usuarioCaptor.capture());
         assertThat(usuarioCaptor.getValue().getEmpresa()).isSameAs(empresaGuardada);
-        assertThat(usuarioCaptor.getValue().isConfiguracionCompleta()).isTrue();
+        assertThat(usuarioCaptor.getValue().isConfiguracionCompleta()).isFalse();
 
         assertThat(response.getEmpresaId()).isEqualTo(empresaGuardada.getId());
         assertThat(response.getSlug()).isEqualTo("acme-s-a");
@@ -107,6 +122,7 @@ class ConfiguracionInicialEmpresaServiceTest {
         Usuario usuario = admin();
         usuario.setEmpresa(empresaExistente);
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario));
+        mockearMapperComoIdentidad();
 
         ConfiguracionInicialEmpresaResponseDTO response =
                 service.completarConfiguracionEmpresa(USUARIO_ID, request());

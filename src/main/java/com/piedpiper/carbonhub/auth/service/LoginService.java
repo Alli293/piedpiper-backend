@@ -60,7 +60,7 @@ public class LoginService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Ingresa tu contraseña");
         }
 
-        Usuario usuario = usuarioRepository.findByEmail(request.getEmail()).orElse(null);
+        Usuario usuario = usuarioRepository.findByEmailIgnoreCase(request.getEmail()).orElse(null);
         if (usuario == null || usuario.getMetodoAuth() != MetodoAuth.CORREO
                 || usuario.getPasswordHash() == null) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Correo o contraseña incorrectos.");

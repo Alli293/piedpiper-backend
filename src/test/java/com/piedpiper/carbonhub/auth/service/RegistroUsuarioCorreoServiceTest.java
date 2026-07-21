@@ -52,7 +52,7 @@ class RegistroUsuarioCorreoServiceTest {
 
     @Test
     void registroExitoso_guardaPendienteDeVerificacionConContrasenaHasheadaYEnviaCorreo() {
-        when(usuarioRepository.existsByEmail("ana.perez@example.com")).thenReturn(false);
+        when(usuarioRepository.existsByEmailIgnoreCase("ana.perez@example.com")).thenReturn(false);
         when(passwordEncoder.encode("clave123")).thenReturn("hash-seguro");
         when(usuarioRepository.saveAndFlush(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -87,7 +87,7 @@ class RegistroUsuarioCorreoServiceTest {
 
     @Test
     void emailDuplicadoPreexistente_lanza409YNoPersiste() {
-        when(usuarioRepository.existsByEmail("ana.perez@example.com")).thenReturn(true);
+        when(usuarioRepository.existsByEmailIgnoreCase("ana.perez@example.com")).thenReturn(true);
 
         assertThatThrownBy(() -> service.registrar(request()))
                 .isInstanceOf(ApiException.class)

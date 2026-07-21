@@ -8,7 +8,7 @@ import com.piedpiper.carbonhub.emision.models.dtos.EmisionFlotaResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.TipoVehiculoResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.TipoVehiculoResponseDTO.CombustibleResponseDTO;
-import com.piedpiper.carbonhub.emision.models.dtos.VueloResponseDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.EmisionVueloResponseDTO;
 import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
 import com.piedpiper.carbonhub.emision.models.enums.Combustible;
 import com.piedpiper.carbonhub.emision.models.enums.MetodoTransporte;
@@ -35,6 +35,7 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -48,6 +49,7 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -89,6 +91,13 @@ class EmisionControllerTest {
     @MockitoBean
     private UsuarioRepository usuarioRepository;
 
+    private static final String ADMIN_USUARIO_ID = "41ce47ab-a46c-4306-8c46-2688dc97fa73";
+    private static final String GENERAL_USUARIO_ID = "db2ed1e7-6719-4595-844e-68efffe146cf";
+
+    private TestingAuthenticationToken principal(String usuarioId, String authority) {
+        return new TestingAuthenticationToken(usuarioId, "password", authority);
+    }
+
     private static final String REQUEST_VALIDO = "{\"titulo\":\"Consumo oficina central\","
             + "\"electricityValue\":500,\"electricityUnit\":\"kwh\",\"fechaActividad\":\"2026-07-01\"}";
     private static final String VUELO_REQUEST_VALIDO = "{\"passengers\":2,\"distanceUnit\":\"km\","
@@ -119,6 +128,7 @@ class EmisionControllerTest {
         when(emisionElectricidadService.registrar(any(), any())).thenReturn(response);
 
         mockMvc.perform(post("/api/emisiones/electricidad")
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(REQUEST_VALIDO))
                 .andExpect(status().isCreated())
@@ -144,6 +154,7 @@ class EmisionControllerTest {
         when(emisionElectricidadService.registrar(any(), any())).thenReturn(response);
 
         mockMvc.perform(post("/api/emisiones/electricidad")
+                        .principal(principal(GENERAL_USUARIO_ID, "ROLE_USUARIO_GENERAL"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(REQUEST_VALIDO))
                 .andExpect(status().isCreated());
@@ -167,7 +178,8 @@ class EmisionControllerTest {
         mockMvc.perform(post("/api/emisiones/electricidad")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(REQUEST_VALIDO))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("No tiene permisos para realizar esta acción."));
     }
 
     // --- Tests para /api/emisiones/envio ---
@@ -198,6 +210,7 @@ class EmisionControllerTest {
         when(emisionEnvioService.registrar(any(), any())).thenReturn(response);
 
         mockMvc.perform(post("/api/emisiones/envio")
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(ENVIO_REQUEST_VALIDO))
                 .andExpect(status().isCreated())
@@ -213,7 +226,8 @@ class EmisionControllerTest {
         mockMvc.perform(post("/api/emisiones/envio")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(ENVIO_REQUEST_VALIDO))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("No tiene permisos para realizar esta acción."));
     }
 
     // --- Tests para /api/emisiones/flota ---
@@ -253,6 +267,7 @@ class EmisionControllerTest {
         when(emisionFlotaService.registrar(any(), any())).thenReturn(response);
 
         mockMvc.perform(post("/api/emisiones/flota")
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(REQUEST_FLOTA_VALIDO))
                 .andExpect(status().isCreated())
@@ -282,6 +297,7 @@ class EmisionControllerTest {
         when(emisionFlotaService.registrar(any(), any())).thenReturn(response);
 
         mockMvc.perform(post("/api/emisiones/flota")
+                        .principal(principal(GENERAL_USUARIO_ID, "ROLE_USUARIO_GENERAL"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(REQUEST_FLOTA_VALIDO))
                 .andExpect(status().isCreated());
@@ -309,6 +325,7 @@ class EmisionControllerTest {
         when(emisionEnvioService.registrar(any(), any())).thenReturn(response);
 
         mockMvc.perform(post("/api/emisiones/envio")
+                        .principal(principal(GENERAL_USUARIO_ID, "ROLE_USUARIO_GENERAL"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(ENVIO_REQUEST_VALIDO))
                 .andExpect(status().isCreated());
@@ -319,17 +336,63 @@ class EmisionControllerTest {
     @Test
     @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
     void listarEmisionesDevuelve200() throws Exception {
-        EmisionResponseDTO response = new VueloResponseDTO();
+        EmisionResponseDTO response = new EmisionVueloResponseDTO();
         response.setId(UUID.randomUUID());
         response.setCategoria(CategoriaEmision.VUELO);
         response.setTitulo("Viaje aereo SFO-YYZ");
         response.setCarbonKg(new BigDecimal("237.5"));
-        when(emisionConsultaService.listar(any())).thenReturn(List.of(response));
+        when(emisionConsultaService.listar(any(), isNull(), isNull(), isNull())).thenReturn(List.of(response));
 
-        mockMvc.perform(get("/api/emisiones"))
+        mockMvc.perform(get("/api/emisiones")
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].categoria").value("VUELO"))
                 .andExpect(jsonPath("$[0].carbonKg").value(237.5));
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void listarEmisionesConFiltrosDevuelve200() throws Exception {
+        EmisionResponseDTO response = new EmisionFlotaResponseDTO();
+        response.setId(UUID.randomUUID());
+        response.setCategoria(CategoriaEmision.FLOTA);
+        response.setTitulo("Recorrido Toyota Corolla");
+        response.setCarbonKg(new BigDecimal("18.9"));
+        when(emisionConsultaService.listar(any(), eq(CategoriaEmision.FLOTA), eq(2026), eq(7)))
+                .thenReturn(List.of(response));
+
+        mockMvc.perform(get("/api/emisiones")
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA"))
+                        .param("categoria", "FLOTA")
+                        .param("anio", "2026")
+                        .param("mes", "7"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].categoria").value("FLOTA"));
+
+        verify(emisionConsultaService).listar(any(), eq(CategoriaEmision.FLOTA), eq(2026), eq(7));
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void listarEmisionesCategoriaTodasNoFiltraPorCategoria() throws Exception {
+        when(emisionConsultaService.listar(any(), isNull(), eq(2026), isNull())).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/emisiones")
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA"))
+                        .param("categoria", "TODAS")
+                        .param("anio", "2026"))
+                .andExpect(status().isOk());
+
+        verify(emisionConsultaService).listar(any(), isNull(), eq(2026), isNull());
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void listarEmisionesCategoriaInvalidaDevuelve400() throws Exception {
+        mockMvc.perform(get("/api/emisiones")
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA"))
+                        .param("categoria", "OTRA"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -348,13 +411,14 @@ class EmisionControllerTest {
     @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
     void obtenerEmisionDevuelve200() throws Exception {
         UUID id = UUID.randomUUID();
-        EmisionResponseDTO response = new VueloResponseDTO();
+        EmisionResponseDTO response = new EmisionVueloResponseDTO();
         response.setId(id);
         response.setCategoria(CategoriaEmision.VUELO);
         response.setTitulo("Viaje aereo SFO-YYZ");
         when(emisionConsultaService.obtener(eq(id), any())).thenReturn(response);
 
-        mockMvc.perform(get("/api/emisiones/{id}", id))
+        mockMvc.perform(get("/api/emisiones/{id}", id)
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(id.toString()))
                 .andExpect(jsonPath("$.categoria").value("VUELO"));
@@ -367,7 +431,8 @@ class EmisionControllerTest {
         when(emisionConsultaService.obtener(eq(id), any()))
                 .thenThrow(ApiException.recursoNoEncontrado("No se encontro la emision solicitada."));
 
-        mockMvc.perform(get("/api/emisiones/{id}", id))
+        mockMvc.perform(get("/api/emisiones/{id}", id)
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isNotFound());
     }
 
@@ -375,12 +440,13 @@ class EmisionControllerTest {
     @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
     void actualizarVueloDevuelve200() throws Exception {
         UUID id = UUID.randomUUID();
-        EmisionResponseDTO response = new VueloResponseDTO();
+        EmisionResponseDTO response = new EmisionVueloResponseDTO();
         response.setId(id);
         response.setCarbonKg(new BigDecimal("237.5"));
         when(emisionVueloService.actualizar(eq(id), any(), any())).thenReturn(response);
 
         mockMvc.perform(put("/api/emisiones/vuelo/{id}", id)
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(VUELO_REQUEST_VALIDO))
                 .andExpect(status().isOk())
@@ -396,6 +462,7 @@ class EmisionControllerTest {
                 + "\"fechaActividad\":\"2026-07-01\"}";
 
         mockMvc.perform(post("/api/emisiones/flota")
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(invalido))
                 .andExpect(status().isBadRequest());
@@ -406,7 +473,8 @@ class EmisionControllerTest {
     void eliminarEmisionDevuelve204() throws Exception {
         UUID id = UUID.randomUUID();
 
-        mockMvc.perform(delete("/api/emisiones/{id}", id))
+        mockMvc.perform(delete("/api/emisiones/{id}", id)
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isNoContent());
 
         verify(emisionConsultaService).eliminar(eq(id), any());
@@ -419,7 +487,8 @@ class EmisionControllerTest {
         doThrow(ApiException.recursoNoEncontrado("No se encontro la emision solicitada."))
                 .when(emisionConsultaService).eliminar(eq(id), any());
 
-        mockMvc.perform(delete("/api/emisiones/{id}", id))
+        mockMvc.perform(delete("/api/emisiones/{id}", id)
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isNotFound());
     }
 
@@ -429,34 +498,41 @@ class EmisionControllerTest {
         mockMvc.perform(post("/api/emisiones/flota")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(REQUEST_FLOTA_VALIDO))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("No tiene permisos para realizar esta acción."));
     }
 
     @Test
     @WithMockUser(username = "db2ed1e7-6719-4595-844e-68efffe146cf", roles = "AUDITOR_CERTIFICADO")
     void endpointsNuevosConRolNoAutorizadoDevuelven403() throws Exception {
         UUID id = UUID.randomUUID();
+        String mensajeEsperado = "No tiene permisos para realizar esta acción.";
 
         mockMvc.perform(get("/api/emisiones"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value(mensajeEsperado));
         mockMvc.perform(get("/api/emisiones/{id}", id))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value(mensajeEsperado));
         mockMvc.perform(put("/api/emisiones/vuelo/{id}", id)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(VUELO_REQUEST_VALIDO))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value(mensajeEsperado));
         mockMvc.perform(delete("/api/emisiones/{id}", id))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value(mensajeEsperado));
     }
 
     @Test
     @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
     void registroVueloValidoDevuelve201() throws Exception {
-        EmisionResponseDTO response = new VueloResponseDTO();
+        EmisionResponseDTO response = new EmisionVueloResponseDTO();
         response.setCarbonKg(new BigDecimal("237.5"));
         when(emisionVueloService.registrar(any(), any())).thenReturn(response);
 
         mockMvc.perform(post("/api/emisiones/vuelo")
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(VUELO_REQUEST_VALIDO))
                 .andExpect(status().isCreated())
@@ -512,4 +588,5 @@ class EmisionControllerTest {
                         .content(request))
                 .andExpect(status().isBadRequest());
     }
+
 }

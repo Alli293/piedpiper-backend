@@ -106,7 +106,7 @@ public class ApiException extends RuntimeException {
 
     public static ApiException empresaNoConfigurada() {
         return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
-                "Debes completar la configuración de tu empresa antes de registrar emisiones.");
+                "Debes completar la configuración de tu empresa antes de realizar esta acción.");
     }
 
     public static ApiException invitacionCorreoYaEnEmpresa() {
@@ -169,8 +169,34 @@ public class ApiException extends RuntimeException {
                 "Esta solicitud ya fue procesada. Recarga la página para ver el estado actualizado.");
     }
 
+    public static ApiException invitacionCorreoNoCoincide() {
+        return new ApiException(HttpStatus.FORBIDDEN,
+                "La cuenta de Google que seleccionaste no corresponde al correo de esta invitación. "
+                        + "Inicia sesión con la cuenta indicada.");
+    }
+
     public static ApiException combinacionVehiculoInvalida() {
         return new ApiException(HttpStatus.BAD_REQUEST,
                 "Seleccione un combustible válido para este tipo de vehículo.");
+    }
+
+    public static ApiException metodoTransporteNoSoportado() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Seleccione un método de transporte válido.");
+    }
+
+    public static ApiException categoriaEmisionInvalida() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Categoría de emisión inválida.");
+    }
+
+    public static ApiException mesInvalido() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "El mes debe estar entre 1 y 12.");
+    }
+
+    public static ApiException limiteConflicto() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Conflicto al guardar el límite. Intente nuevamente.");
     }
 }

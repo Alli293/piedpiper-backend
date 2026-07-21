@@ -5,9 +5,9 @@ import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
 import com.piedpiper.carbonhub.user.models.enums.Rol;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
+import com.piedpiper.carbonhub.validacion.mappers.ValidacionAuditorMapper;
 import com.piedpiper.carbonhub.validacion.models.dtos.DecisionSolicitudRequestDTO;
 import com.piedpiper.carbonhub.validacion.models.dtos.PaginaSolicitudesResponseDTO;
-import com.piedpiper.carbonhub.validacion.models.dtos.SolicitudPendienteResponseDTO;
 import com.piedpiper.carbonhub.validacion.models.dtos.SolicitudResueltaResponseDTO;
 import com.piedpiper.carbonhub.validacion.models.entities.RegistroAuditoriaInterna;
 import com.piedpiper.carbonhub.validacion.models.entities.SolicitudValidacion;
@@ -39,15 +39,18 @@ public class ValidacionAuditorService {
     private final RegistroAuditoriaInternaRepository registroAuditoriaInternaRepository;
     private final UsuarioRepository usuarioRepository;
     private final EnvioCorreoValidacionService envioCorreoValidacionService;
+    private final ValidacionAuditorMapper validacionAuditorMapper;
 
     public ValidacionAuditorService(SolicitudValidacionRepository solicitudValidacionRepository,
                                     RegistroAuditoriaInternaRepository registroAuditoriaInternaRepository,
                                     UsuarioRepository usuarioRepository,
-                                    EnvioCorreoValidacionService envioCorreoValidacionService) {
+                                    EnvioCorreoValidacionService envioCorreoValidacionService,
+                                    ValidacionAuditorMapper validacionAuditorMapper) {
         this.solicitudValidacionRepository = solicitudValidacionRepository;
         this.registroAuditoriaInternaRepository = registroAuditoriaInternaRepository;
         this.usuarioRepository = usuarioRepository;
         this.envioCorreoValidacionService = envioCorreoValidacionService;
+        this.validacionAuditorMapper = validacionAuditorMapper;
     }
 
     @Transactional(readOnly = true)
@@ -57,7 +60,7 @@ public class ValidacionAuditorService {
                 .findAllByEstadoOrderByFechaSolicitudAsc(
                         EstadoSolicitud.PENDIENTE, PageRequest.of(Math.max(pagina, 0), PAGINA_TAMANO));
         return new PaginaSolicitudesResponseDTO(
-                pendientes.getContent().stream().map(this::aPendienteDto).toList(),
+                pendientes.getContent().stream().map(validacionAuditorMapper::aPendienteDto).toList(),
                 pendientes.getNumber(),
                 pendientes.getTotalPages(),
                 pendientes.getTotalElements());
@@ -103,12 +106,7 @@ public class ValidacionAuditorService {
         enviarCorreoTrasCommit(auditor.getNombre(), auditor.getEmail(), aprobado,
                 solicitud.getMotivoRechazo());
 
-        return new SolicitudResueltaResponseDTO(
-                solicitud.getId(),
-                solicitud.getEstado().name(),
-                auditor.getEstado().name(),
-                solicitud.getFechaResolucion(),
-                solicitud.getMotivoRechazo());
+        return validacionAuditorMapper.aResueltaDto(solicitud);
     }
 
     private boolean validarDecision(DecisionSolicitudRequestDTO request) {
@@ -149,14 +147,4 @@ public class ValidacionAuditorService {
         return usuario;
     }
 
-    private SolicitudPendienteResponseDTO aPendienteDto(SolicitudValidacion solicitud) {
-        Usuario auditor = solicitud.getAuditor();
-        String apellidos = auditor.getApellidos() == null ? "" : " " + auditor.getApellidos();
-        String nombre = (auditor.getNombre() == null ? "" : auditor.getNombre()) + apellidos;
-        return new SolicitudPendienteResponseDTO(
-                solicitud.getId(),
-                nombre.trim(),
-                auditor.getEmail(),
-                solicitud.getFechaSolicitud());
-    }
 }

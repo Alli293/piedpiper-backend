@@ -9,12 +9,14 @@ import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
 import com.piedpiper.carbonhub.user.models.enums.MetodoAuth;
 import com.piedpiper.carbonhub.user.models.enums.Rol;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
+import com.piedpiper.carbonhub.user.service.PerfilInicialService;
 import com.piedpiper.carbonhub.user.service.PreferenciasUsuarioService;
 import io.jsonwebtoken.Claims;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -27,6 +29,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(UsuarioController.class)
@@ -39,6 +42,8 @@ class UsuarioControllerSecurityTest {
     @MockitoBean
     private PreferenciasUsuarioService preferenciasUsuarioService;
     @MockitoBean
+    private PerfilInicialService perfilInicialService;
+    @MockitoBean
     private JwtService jwtService;
     @MockitoBean
     private UsuarioRepository usuarioRepository;
@@ -48,6 +53,29 @@ class UsuarioControllerSecurityTest {
     @Test
     void sinTokenDevuelve401() throws Exception {
         mockMvc.perform(get("/api/usuarios/me/preferencias"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void perfilInicialGetSinTokenDevuelve401() throws Exception {
+        mockMvc.perform(get("/api/usuarios/me/perfil-inicial"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void perfilInicialPutSinTokenDevuelve401() throws Exception {
+        mockMvc.perform(put("/api/usuarios/me/perfil-inicial")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "nombreVisible": "Ana G.",
+                                  "preferencias": {
+                                    "idioma": "ESPANOL",
+                                    "moneda": "CRC",
+                                    "unidades": "METRICO"
+                                  }
+                                }
+                                """))
                 .andExpect(status().isUnauthorized());
     }
 
