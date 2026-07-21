@@ -9,54 +9,44 @@ import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
 import com.piedpiper.carbonhub.empresa.mappers.EmpresaMapper;
 import com.piedpiper.carbonhub.empresa.models.dtos.EmpresaReporteDTO;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
-import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.limite.repository.LimiteEmisionesRepository;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
-import jakarta.persistence.EntityNotFoundException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.Year;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ReporteHuellaPdfService {
 
-    private static final Logger log = LoggerFactory.getLogger(ReporteHuellaPdfService.class);
-
-    private static final BigDecimal KG_POR_TONELADA = new BigDecimal("1000");
     private static final BigDecimal CIEN = new BigDecimal("100");
-    private static final BigDecimal UMBRAL_CERCA = new BigDecimal("80.0");
-    private static final BigDecimal UMBRAL_SUPERADO = new BigDecimal("100.0");
+    private static final ZoneId ZONA_COSTA_RICA = ZoneId.of("America/Costa_Rica");
 
     private final EmisionRepository emisionRepository;
     private final LimiteEmisionesRepository limiteEmisionesRepository;
-    private final EmpresaRepository empresaRepository;
     private final EmpresaMapper empresaMapper;
     private final UsuarioRepository usuarioRepository;
     private final ReporteHuellaPdfGenerator pdfGenerator;
 
     public ReporteHuellaPdfService(EmisionRepository emisionRepository,
                                    LimiteEmisionesRepository limiteEmisionesRepository,
-                                   EmpresaRepository empresaRepository,
                                    EmpresaMapper empresaMapper,
                                    UsuarioRepository usuarioRepository,
                                    ReporteHuellaPdfGenerator pdfGenerator) {
         this.emisionRepository = emisionRepository;
         this.limiteEmisionesRepository = limiteEmisionesRepository;
-        this.empresaRepository = empresaRepository;
         this.empresaMapper = empresaMapper;
         this.usuarioRepository = usuarioRepository;
         this.pdfGenerator = pdfGenerator;
@@ -71,7 +61,7 @@ public class ReporteHuellaPdfService {
         Map<CategoriaEmision, BigDecimal> totalesPorCategoria = totalesPorCategoria(empresa.id(), anio, mes);
         BigDecimal totalKg = totalesPorCategoria.values().stream()
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal totalT = totalKg.divide(KG_POR_TONELADA, 4, RoundingMode.HALF_UP);
+        BigDecimal totalT = EmisionComparacionHelper.toneladasDesdeKg(totalKg);
 
         ReporteHuellaPdfDTO reporte = new ReporteHuellaPdfDTO(
                 nombreEmpresa,
@@ -80,9 +70,9 @@ public class ReporteHuellaPdfService {
                 totalKg,
                 totalT,
                 categorias(totalesPorCategoria, totalKg),
-                comparacion(empresa.id(), anio, totalT),
+                comparacion(empresa.id(), anio),
                 totalKg.compareTo(BigDecimal.ZERO) == 0,
-                ZonedDateTime.now()
+                ZonedDateTime.now(ZONA_COSTA_RICA)
         );
 
         try {
@@ -125,49 +115,42 @@ public class ReporteHuellaPdfService {
                 .toList();
     }
 
-    private ReporteHuellaComparacionDTO comparacion(UUID empresaId, Integer anio, BigDecimal totalT) {
+    private ReporteHuellaComparacionDTO comparacion(UUID empresaId, Integer anio) {
         return limiteEmisionesRepository.findByEmpresaIdAndAnio(empresaId, anio)
                 .map(limite -> {
+                    BigDecimal acumuladoAnualKg = Optional.ofNullable(
+                            emisionRepository.sumCarbonKgByEmpresaIdAndFechaActividadEntre(
+                                    empresaId,
+                                    LocalDate.of(anio, 1, 1),
+                                    LocalDate.of(anio + 1, 1, 1))
+                    ).orElse(BigDecimal.ZERO);
+                    BigDecimal acumuladoAnualT = EmisionComparacionHelper.toneladasDesdeKg(acumuladoAnualKg);
                     BigDecimal limiteT = limite.getLimiteMt();
-                    BigDecimal porcentaje = totalT.multiply(CIEN).divide(limiteT, 1, RoundingMode.HALF_UP);
-                    return new ReporteHuellaComparacionDTO(totalT, limiteT, porcentaje, estado(porcentaje));
+                    BigDecimal porcentaje = EmisionComparacionHelper.porcentajeConsumido(acumuladoAnualT, limiteT);
+                    return new ReporteHuellaComparacionDTO(
+                            acumuladoAnualT,
+                            limiteT,
+                            porcentaje,
+                            EmisionComparacionHelper.estado(porcentaje)
+                    );
                 })
-                .orElseGet(() -> new ReporteHuellaComparacionDTO(totalT, null, null, "sin_limite"));
-    }
-
-    private String estado(BigDecimal porcentaje) {
-        if (porcentaje.compareTo(UMBRAL_SUPERADO) > 0) {
-            return "superado";
-        }
-        if (porcentaje.compareTo(UMBRAL_CERCA) >= 0) {
-            return "cerca";
-        }
-        return "dentro";
+                .orElseGet(() -> new ReporteHuellaComparacionDTO(BigDecimal.ZERO, null, null, "sin_limite"));
     }
 
     private void validarPeriodo(Integer anio, Integer mes) {
-        if (anio == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Anio requerido.");
-        }
         int maximo = Year.now().getValue() + 1;
         if (anio < 1900 || anio > maximo) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Anio invalido.");
+            throw ApiException.periodoInvalido("Año inválido.");
         }
         if (mes != null && (mes < 1 || mes > 12)) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Mes invalido.");
+            throw ApiException.periodoInvalido("Mes inválido.");
         }
     }
 
     private EmpresaReporteDTO empresa(UUID usuarioId) {
         Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> ApiException.errorInterno("No se pudo identificar al usuario autenticado."));
-        UUID empresaId = empresaId(usuario);
-        Empresa empresa = empresaRepository.findById(empresaId)
-                .orElseThrow(() -> {
-                    log.warn("No se encontro la empresa {} asociada al usuario {} para exportar reporte PDF.",
-                            empresaId, usuarioId);
-                    return ApiException.empresaNoConfigurada();
-                });
+        Empresa empresa = empresa(usuario);
         return empresaMapper.toReporteDto(empresa);
     }
 
@@ -178,18 +161,11 @@ public class ReporteHuellaPdfService {
         return empresa.nombreEmpresa();
     }
 
-    private UUID empresaId(Usuario usuario) {
+    private Empresa empresa(Usuario usuario) {
         Empresa empresa = usuario.getEmpresa();
-        if (empresa == null) {
+        if (empresa == null || empresa.getId() == null) {
             throw ApiException.empresaNoConfigurada();
         }
-        try {
-            if (empresa.getId() == null) {
-                throw ApiException.empresaNoConfigurada();
-            }
-            return empresa.getId();
-        } catch (EntityNotFoundException ex) {
-            throw ApiException.empresaNoConfigurada();
-        }
+        return empresa;
     }
 }

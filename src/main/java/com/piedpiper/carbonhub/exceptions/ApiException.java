@@ -38,6 +38,10 @@ public class ApiException extends RuntimeException {
         return new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, mensaje);
     }
 
+    public static ApiException periodoInvalido(String mensaje) {
+        return new ApiException(HttpStatus.BAD_REQUEST, mensaje);
+    }
+
     public static ApiException tokenVerificacionInvalido() {
         return new ApiException(HttpStatus.NOT_FOUND,
                 "El enlace de verificación no es válido.");

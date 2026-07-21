@@ -7,7 +7,7 @@ import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.nio.charset.StandardCharsets;
+import java.nio.charset.Charset;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.time.format.DateTimeFormatter;
@@ -21,6 +21,7 @@ public class ReporteHuellaPdfGenerator {
 
     private static final int PAGE_WIDTH = 612;
     private static final int PAGE_HEIGHT = 792;
+    private static final Charset PDF_CHARSET = Charset.forName("windows-1252");
     private static final DateTimeFormatter FECHA_HORA =
             DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm z", new Locale("es", "CR"));
 
@@ -66,7 +67,7 @@ public class ReporteHuellaPdfGenerator {
 
         canvas.text("Reporte de huella de carbono", "F2", 20, INK, 42, 695);
         canvas.text(limpiar(reporte.empresa()), "F1", 11, MUTED, 42, 677);
-        canvas.text("Periodo: " + periodo(reporte.anio(), reporte.mes()), "F3", 9, MUTED, 42, 660);
+        canvas.text("Período: " + periodo(reporte.anio(), reporte.mes()), "F3", 9, MUTED, 42, 660);
 
         canvas.text("Generado", "F3", 8, LIGHT_TEXT, 438, 695);
         canvas.text(FECHA_HORA.format(reporte.generadoEn()), "F1", 10, INK, 438, 679);
@@ -74,25 +75,26 @@ public class ReporteHuellaPdfGenerator {
 
     private void dibujarMetricas(PdfCanvas canvas, ReporteHuellaPdfDTO reporte) {
         card(canvas, 42, 560, 252, 86);
-        canvas.text("HUELLA ACUMULADA", "F3", 8, LIGHT_TEXT, 58, 622);
+        boolean mensual = reporte.mes() != null;
+        canvas.text(mensual ? "HUELLA DEL MES" : "HUELLA ACUMULADA", "F3", 8, LIGHT_TEXT, 58, 622);
         canvas.text(formato(reporte.totalT(), 4), "F2", 28, SKY, 58, 594);
-        canvas.text("t CO2e acumuladas", "F3", 9, MUTED, 58, 577);
+        canvas.text(mensual ? "t CO2e del mes" : "t CO2e acumuladas", "F3", 9, MUTED, 58, 577);
 
         card(canvas, 318, 560, 252, 86);
-        canvas.text("TOTAL DEL PERIODO", "F3", 8, LIGHT_TEXT, 334, 622);
+        canvas.text("TOTAL DEL PERÍODO", "F3", 8, LIGHT_TEXT, 334, 622);
         canvas.text(formato(reporte.totalKg(), 3), "F2", 24, GREEN, 334, 596);
         canvas.text("kg CO2e registrados", "F3", 9, MUTED, 334, 577);
 
         if (reporte.sinDatos()) {
             canvas.fill(GREEN_SOFT, 42, 526, 528, 22);
-            canvas.text("No hay emisiones registradas en el periodo.", "F2", 9, GREEN_DARK, 54, 533);
+            canvas.text("No hay emisiones registradas en el período.", "F2", 9, GREEN_DARK, 54, 533);
         }
     }
 
     private void dibujarComparacion(PdfCanvas canvas, ReporteHuellaPdfDTO reporte) {
         ReporteHuellaComparacionDTO comparacion = reporte.comparacion();
         card(canvas, 42, 368, 528, 132);
-        canvas.text("Limite anual de emisiones", "F2", 14, INK, 58, 474);
+        canvas.text("Límite anual de emisiones", "F2", 14, INK, 58, 474);
 
         EstadoVisual estado = estadoVisual(comparacion);
         badge(canvas, estado, 430, 466, 118, 22);
@@ -100,8 +102,8 @@ public class ReporteHuellaPdfGenerator {
         if (!comparacion.tieneLimite()) {
             canvas.fill(new Color(248, 250, 252), 58, 414, 496, 34);
             canvas.stroke(BORDER, 0.8, 58, 414, 496, 34);
-            canvas.text("Sin limite declarado", "F2", 11, INK, 72, 435);
-            canvas.text("Declara un limite anual para ver el porcentaje consumido.", "F1", 9, MUTED, 72, 421);
+            canvas.text("Sin límite declarado", "F2", 11, INK, 72, 435);
+            canvas.text("Declara un límite anual para ver el porcentaje consumido.", "F1", 9, MUTED, 72, 421);
             return;
         }
 
@@ -132,7 +134,7 @@ public class ReporteHuellaPdfGenerator {
 
         canvas.text("Acumulado", "F3", 8, LIGHT_TEXT, 58, 392);
         canvas.text(formato(comparacion.acumuladoT(), 4) + " t", "F2", 13, INK, 58, 377);
-        canvas.text("Limite", "F3", 8, LIGHT_TEXT, 208, 392);
+        canvas.text("Límite", "F3", 8, LIGHT_TEXT, 208, 392);
         canvas.text(formato(comparacion.limiteT(), 4) + " t", "F2", 13, INK, 208, 377);
         canvas.text("Consumido", "F3", 8, LIGHT_TEXT, 358, 392);
         canvas.text(formato(porcentaje, 1) + "%", "F2", 13, INK, 358, 377);
@@ -140,12 +142,12 @@ public class ReporteHuellaPdfGenerator {
 
     private void dibujarDesglose(PdfCanvas canvas, ReporteHuellaPdfDTO reporte) {
         card(canvas, 42, 138, 528, 204);
-        canvas.text("Desglose por categoria", "F2", 14, INK, 58, 316);
-        canvas.text("kg CO2e y participacion sobre el total del periodo", "F1", 9, MUTED, 58, 301);
+        canvas.text("Desglose por categoría", "F2", 14, INK, 58, 316);
+        canvas.text("kg CO2e y participación sobre el total del período", "F1", 9, MUTED, 58, 301);
 
         double headerY = 276;
         canvas.fill(new Color(248, 250, 252), 58, headerY, 496, 24);
-        canvas.text("Categoria", "F3", 8, MUTED, 72, headerY + 8);
+        canvas.text("Categoría", "F3", 8, MUTED, 72, headerY + 8);
         canvas.text("kg CO2e", "F3", 8, MUTED, 356, headerY + 8);
         canvas.text("%", "F3", 8, MUTED, 506, headerY + 8);
 
@@ -164,14 +166,14 @@ public class ReporteHuellaPdfGenerator {
         canvas.stroke(BORDER, 0.7, 42, 104, 528, 0);
         canvas.text("CarbonHub", "F2", 10, GREEN, 42, 82);
         canvas.text(
-                "Reporte generado automaticamente para " + limpiar(reporte.empresa()) + ".",
+                "Reporte generado automáticamente para " + limpiar(reporte.empresa()) + ".",
                 "F1",
                 8,
                 MUTED,
                 42,
                 68
         );
-        canvas.text("Archivo: reporte-huella-" + reporte.anio() + ".pdf", "F3", 8, LIGHT_TEXT, 406, 68);
+        canvas.text("Archivo: " + nombreArchivo(reporte), "F3", 8, LIGHT_TEXT, 406, 68);
     }
 
     private void card(PdfCanvas canvas, double x, double y, double width, double height) {
@@ -187,11 +189,11 @@ public class ReporteHuellaPdfGenerator {
 
     private EstadoVisual estadoVisual(ReporteHuellaComparacionDTO comparacion) {
         if (!comparacion.tieneLimite()) {
-            return new EstadoVisual("SIN LIMITE", BLUE, new Color(226, 243, 252));
+            return new EstadoVisual("SIN LÍMITE", BLUE, new Color(226, 243, 252));
         }
         return switch (comparacion.estado()) {
-            case "superado" -> new EstadoVisual("LIMITE SUPERADO", DANGER, DANGER_SOFT);
-            case "cerca" -> new EstadoVisual("CERCA DEL LIMITE", WARNING, WARNING_SOFT);
+            case "superado" -> new EstadoVisual("LÍMITE SUPERADO", DANGER, DANGER_SOFT);
+            case "cerca" -> new EstadoVisual("CERCA DEL LÍMITE", WARNING, WARNING_SOFT);
             default -> new EstadoVisual("EN META", GREEN, GREEN_SOFT);
         };
     }
@@ -214,8 +216,14 @@ public class ReporteHuellaPdfGenerator {
             case ELECTRICIDAD -> "Electricidad";
             case FLOTA -> "Flota vehicular";
             case VUELO -> "Vuelos";
-            case ENVIO -> "Envios";
+            case ENVIO -> "Envíos";
         };
+    }
+
+    private String nombreArchivo(ReporteHuellaPdfDTO reporte) {
+        return "reporte-huella-" + reporte.anio()
+                + (reporte.mes() == null ? "" : "-" + String.format("%02d", reporte.mes()))
+                + ".pdf";
     }
 
     private String formato(BigDecimal valor, int escala) {
@@ -229,7 +237,7 @@ public class ReporteHuellaPdfGenerator {
     }
 
     private byte[] escribirPdf(String contenido) {
-        byte[] stream = contenido.getBytes(StandardCharsets.ISO_8859_1);
+        byte[] stream = contenido.getBytes(PDF_CHARSET);
         List<byte[]> objetos = List.of(
                 bytes("<< /Type /Catalog /Pages 2 0 R >>"),
                 bytes("<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
@@ -239,7 +247,7 @@ public class ReporteHuellaPdfGenerator {
                 bytes("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>"),
                 bytes("<< /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold >>"),
                 bytes("<< /Length " + stream.length + " >>\nstream\n"
-                        + new String(stream, StandardCharsets.ISO_8859_1) + "endstream")
+                        + new String(stream, PDF_CHARSET) + "endstream")
         );
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -263,7 +271,7 @@ public class ReporteHuellaPdfGenerator {
     }
 
     private byte[] bytes(String valor) {
-        return valor.getBytes(StandardCharsets.ISO_8859_1);
+        return valor.getBytes(PDF_CHARSET);
     }
 
     private void escribir(ByteArrayOutputStream out, String valor) {
@@ -354,23 +362,24 @@ public class ReporteHuellaPdfGenerator {
         }
 
         private String escape(String value) {
-            return value
-                    .replace("\\", "\\\\")
-                    .replace("(", "\\(")
-                    .replace(")", "\\)")
-                    .replace("í", "i")
-                    .replace("Í", "I")
-                    .replace("á", "a")
-                    .replace("Á", "A")
-                    .replace("é", "e")
-                    .replace("É", "E")
-                    .replace("ó", "o")
-                    .replace("Ó", "O")
-                    .replace("ú", "u")
-                    .replace("Ú", "U")
-                    .replace("ñ", "n")
-                    .replace("Ñ", "N")
-                    .replaceAll("[^\\x20-\\x7E]", "");
+            if (value != null) {
+                String escaped = value
+                        .replace("\\", "\\\\")
+                        .replace("(", "\\(")
+                        .replace(")", "\\)");
+
+                StringBuilder seguro = new StringBuilder();
+                for (int i = 0; i < escaped.length(); i++) {
+                    char caracter = escaped.charAt(i);
+                    if (caracter == '\n' || caracter == '\r' || caracter == '\t') {
+                        seguro.append(' ');
+                    } else if (caracter >= 0x20 && PDF_CHARSET.newEncoder().canEncode(caracter)) {
+                        seguro.append(caracter);
+                    }
+                }
+                return seguro.toString();
+            }
+            return "";
         }
     }
 }

@@ -8,7 +8,6 @@ import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
 import com.piedpiper.carbonhub.empresa.mappers.EmpresaMapper;
 import com.piedpiper.carbonhub.empresa.models.dtos.EmpresaReporteDTO;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
-import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.limite.models.entities.LimiteEmisiones;
 import com.piedpiper.carbonhub.limite.repository.LimiteEmisionesRepository;
@@ -43,8 +42,6 @@ class ReporteHuellaPdfServiceTest {
     @Mock
     private LimiteEmisionesRepository limiteEmisionesRepository;
     @Mock
-    private EmpresaRepository empresaRepository;
-    @Mock
     private EmpresaMapper empresaMapper;
     @Mock
     private UsuarioRepository usuarioRepository;
@@ -67,6 +64,11 @@ class ReporteHuellaPdfServiceTest {
                 ));
         when(limiteEmisionesRepository.findByEmpresaIdAndAnio(EMPRESA_ID, 2026))
                 .thenReturn(Optional.of(new LimiteEmisiones(EMPRESA_ID, 2026, new BigDecimal("5.0000"))));
+        when(emisionRepository.sumCarbonKgByEmpresaIdAndFechaActividadEntre(
+                EMPRESA_ID,
+                LocalDate.of(2026, 1, 1),
+                LocalDate.of(2027, 1, 1)))
+                .thenReturn(new BigDecimal("1500.000"));
         when(pdfGenerator.generar(org.mockito.ArgumentMatchers.any())).thenReturn("%PDF".getBytes());
 
         byte[] pdf = service.generar(USUARIO_ID, 2026, null);
@@ -79,6 +81,7 @@ class ReporteHuellaPdfServiceTest {
         assertThat(captor.getValue().empresa()).isEqualTo("CarbonHub Demo");
         assertThat(captor.getValue().comparacion().porcentajeConsumido()).isEqualByComparingTo("30.0");
         assertThat(captor.getValue().sinDatos()).isFalse();
+        assertThat(captor.getValue().generadoEn().getZone().getId()).isEqualTo("America/Costa_Rica");
     }
 
     @Test
@@ -102,12 +105,37 @@ class ReporteHuellaPdfServiceTest {
     }
 
     @Test
-    void fallaSiLaEmpresaAsociadaNoExiste() {
+    void comparaReporteMensualContraAcumuladoAnual() {
+        givenEmpresaAsociada();
+        when(emisionRepository.findAllByEmpresaIdAndPeriodo(
+                EMPRESA_ID,
+                LocalDate.of(2026, 7, 1),
+                LocalDate.of(2026, 8, 1)))
+                .thenReturn(List.of(emisionElectricidad("100.000")));
+        when(limiteEmisionesRepository.findByEmpresaIdAndAnio(EMPRESA_ID, 2026))
+                .thenReturn(Optional.of(new LimiteEmisiones(EMPRESA_ID, 2026, new BigDecimal("5.0000"))));
+        when(emisionRepository.sumCarbonKgByEmpresaIdAndFechaActividadEntre(
+                EMPRESA_ID,
+                LocalDate.of(2026, 1, 1),
+                LocalDate.of(2027, 1, 1)))
+                .thenReturn(new BigDecimal("2500.000"));
+        when(pdfGenerator.generar(org.mockito.ArgumentMatchers.any())).thenReturn("%PDF".getBytes());
+
+        service.generar(USUARIO_ID, 2026, 7);
+
+        ArgumentCaptor<ReporteHuellaPdfDTO> captor = ArgumentCaptor.forClass(ReporteHuellaPdfDTO.class);
+        verify(pdfGenerator).generar(captor.capture());
+        assertThat(captor.getValue().totalKg()).isEqualByComparingTo("100.000");
+        assertThat(captor.getValue().totalT()).isEqualByComparingTo("0.1000");
+        assertThat(captor.getValue().comparacion().acumuladoT()).isEqualByComparingTo("2.5000");
+        assertThat(captor.getValue().comparacion().porcentajeConsumido()).isEqualByComparingTo("50.0");
+    }
+
+    @Test
+    void fallaSiUsuarioNoTieneEmpresaAsociada() {
         Usuario usuario = Usuario.builder()
-                .empresa(Empresa.builder().id(EMPRESA_ID).build())
                 .build();
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario));
-        when(empresaRepository.findById(EMPRESA_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.generar(USUARIO_ID, 2026, null))
                 .isInstanceOf(ApiException.class)
@@ -118,10 +146,9 @@ class ReporteHuellaPdfServiceTest {
     private void givenEmpresaAsociada() {
         Empresa empresa = empresa();
         Usuario usuario = Usuario.builder()
-                .empresa(Empresa.builder().id(EMPRESA_ID).build())
+                .empresa(empresa)
                 .build();
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario));
-        when(empresaRepository.findById(EMPRESA_ID)).thenReturn(Optional.of(empresa));
         when(empresaMapper.toReporteDto(empresa))
                 .thenReturn(new EmpresaReporteDTO(EMPRESA_ID, "CarbonHub Demo"));
     }

@@ -1,5 +1,9 @@
 package com.piedpiper.carbonhub.emision.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.when;
+
 import com.piedpiper.carbonhub.emision.models.dtos.ComparacionEmisionesResponseDTO;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
@@ -16,10 +20,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class EmisionComparacionServiceTest {
@@ -139,7 +139,7 @@ class EmisionComparacionServiceTest {
                 .satisfies(ex -> {
                     ApiException apiException = (ApiException) ex;
                     assertThat(apiException.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
-                    assertThat(apiException.getMessage()).isEqualTo("Año inválido.");
+                    assertThat(apiException.getMessage()).isEqualTo("AÃ±o invÃ¡lido.");
                 });
     }
 

@@ -5,6 +5,7 @@ import com.piedpiper.carbonhub.emision.models.dtos.ReporteHuellaComparacionDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.ReporteHuellaPdfDTO;
 import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
 import java.math.BigDecimal;
+import java.nio.charset.Charset;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
@@ -14,6 +15,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class ReporteHuellaPdfGeneratorTest {
 
+    private static final Charset PDF_CHARSET = Charset.forName("windows-1252");
+
     private final ReporteHuellaPdfGenerator generator = new ReporteHuellaPdfGenerator();
 
     @Test
@@ -21,7 +24,7 @@ class ReporteHuellaPdfGeneratorTest {
         byte[] pdf = generator.generar(reporte(new BigDecimal("1500.000"), false));
 
         assertThat(pdf).isNotEmpty();
-        assertThat(new String(pdf)).startsWith("%PDF-1.4");
+        assertThat(new String(pdf, PDF_CHARSET)).startsWith("%PDF-1.4");
     }
 
     @Test
@@ -29,15 +32,29 @@ class ReporteHuellaPdfGeneratorTest {
         byte[] pdf = generator.generar(reporte(BigDecimal.ZERO, true));
 
         assertThat(pdf).isNotEmpty();
-        assertThat(new String(pdf)).contains("No hay emisiones registradas en el periodo.");
+        assertThat(new String(pdf, PDF_CHARSET)).contains("No hay emisiones registradas en el período.");
+    }
+
+    @Test
+    void conservaAcentosYNombreArchivoMensual() {
+        byte[] pdf = generator.generar(reporte(new BigDecimal("100.000"), false, "Café del Valle S.A.", 7));
+
+        String contenido = new String(pdf, PDF_CHARSET);
+        assertThat(contenido).contains("Café del Valle S.A.");
+        assertThat(contenido).contains("Desglose por categoría");
+        assertThat(contenido).contains("Archivo: reporte-huella-2026-07.pdf");
     }
 
     private ReporteHuellaPdfDTO reporte(BigDecimal totalKg, boolean sinDatos) {
+        return reporte(totalKg, sinDatos, "CarbonHub Demo", null);
+    }
+
+    private ReporteHuellaPdfDTO reporte(BigDecimal totalKg, boolean sinDatos, String empresa, Integer mes) {
         BigDecimal totalT = totalKg.divide(new BigDecimal("1000"), 4, java.math.RoundingMode.HALF_UP);
         return new ReporteHuellaPdfDTO(
-                "CarbonHub Demo",
+                empresa,
                 2026,
-                null,
+                mes,
                 totalKg,
                 totalT,
                 Arrays.stream(CategoriaEmision.values())
