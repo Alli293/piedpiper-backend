@@ -58,6 +58,11 @@ public class ApiException extends RuntimeException {
                 "Has solicitado demasiados reenvíos. Intenta de nuevo en una hora.");
     }
 
+    public static ApiException cuentaNoDisponible() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Esta cuenta no está disponible para verificación. Contacta a soporte.");
+    }
+
     public static ApiException accesoDenegado(String mensaje) {
         return new ApiException(HttpStatus.FORBIDDEN, mensaje);
     }

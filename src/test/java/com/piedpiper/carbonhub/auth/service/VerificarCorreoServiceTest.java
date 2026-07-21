@@ -65,7 +65,7 @@ class VerificarCorreoServiceTest {
     void tokenValidoIndividualActivaLaCuentaYLimpiaElToken() {
         Usuario usuario = usuarioPendiente(Rol.USUARIO_INDIVIDUAL, TOKEN_VALIDO,
                 Instant.now().plus(Duration.ofHours(1)));
-        when(usuarioRepository.findByTokenVerificacionHash(TokenVerificacionGenerator.hash(TOKEN_VALIDO)))
+        when(usuarioRepository.findByTokenVerificacionHashForUpdate(TokenVerificacionGenerator.hash(TOKEN_VALIDO)))
                 .thenReturn(Optional.of(usuario));
         when(usuarioRepository.saveAndFlush(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -85,7 +85,7 @@ class VerificarCorreoServiceTest {
     void tokenValidoAuditorQuedaPendienteDeValidacionYCreaLaSolicitud() {
         Usuario usuario = usuarioPendiente(Rol.AUDITOR_CERTIFICADO, TOKEN_VALIDO,
                 Instant.now().plus(Duration.ofHours(1)));
-        when(usuarioRepository.findByTokenVerificacionHash(TokenVerificacionGenerator.hash(TOKEN_VALIDO)))
+        when(usuarioRepository.findByTokenVerificacionHashForUpdate(TokenVerificacionGenerator.hash(TOKEN_VALIDO)))
                 .thenReturn(Optional.of(usuario));
         when(usuarioRepository.saveAndFlush(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -112,12 +112,12 @@ class VerificarCorreoServiceTest {
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.BAD_REQUEST);
 
-        verify(usuarioRepository, never()).findByTokenVerificacionHash(any());
+        verify(usuarioRepository, never()).findByTokenVerificacionHashForUpdate(any());
     }
 
     @Test
     void tokenInexistenteLanza410() {
-        when(usuarioRepository.findByTokenVerificacionHash(TokenVerificacionGenerator.hash(TOKEN_VALIDO)))
+        when(usuarioRepository.findByTokenVerificacionHashForUpdate(TokenVerificacionGenerator.hash(TOKEN_VALIDO)))
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.verificar(TOKEN_VALIDO))
@@ -132,7 +132,7 @@ class VerificarCorreoServiceTest {
     void tokenExpiradoLanza410YNoActivaLaCuenta() {
         Usuario usuario = usuarioPendiente(Rol.USUARIO_INDIVIDUAL, TOKEN_VALIDO,
                 Instant.now().minus(Duration.ofMinutes(1)));
-        when(usuarioRepository.findByTokenVerificacionHash(TokenVerificacionGenerator.hash(TOKEN_VALIDO)))
+        when(usuarioRepository.findByTokenVerificacionHashForUpdate(TokenVerificacionGenerator.hash(TOKEN_VALIDO)))
                 .thenReturn(Optional.of(usuario));
 
         assertThatThrownBy(() -> service.verificar(TOKEN_VALIDO))
@@ -149,7 +149,23 @@ class VerificarCorreoServiceTest {
         Usuario usuario = usuarioPendiente(Rol.USUARIO_INDIVIDUAL, TOKEN_VALIDO,
                 Instant.now().plus(Duration.ofHours(1)));
         usuario.setEstado(EstadoUsuario.ACTIVO);
-        when(usuarioRepository.findByTokenVerificacionHash(TokenVerificacionGenerator.hash(TOKEN_VALIDO)))
+        when(usuarioRepository.findByTokenVerificacionHashForUpdate(TokenVerificacionGenerator.hash(TOKEN_VALIDO)))
+                .thenReturn(Optional.of(usuario));
+
+        assertThatThrownBy(() -> service.verificar(TOKEN_VALIDO))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.CONFLICT);
+
+        verify(usuarioRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void cuentaDeshabilitadaConTokenVigenteLanza409ConMensajeDeCuentaNoDisponible() {
+        Usuario usuario = usuarioPendiente(Rol.USUARIO_INDIVIDUAL, TOKEN_VALIDO,
+                Instant.now().plus(Duration.ofHours(1)));
+        usuario.setEstado(EstadoUsuario.DESHABILITADO);
+        when(usuarioRepository.findByTokenVerificacionHashForUpdate(TokenVerificacionGenerator.hash(TOKEN_VALIDO)))
                 .thenReturn(Optional.of(usuario));
 
         assertThatThrownBy(() -> service.verificar(TOKEN_VALIDO))
@@ -164,7 +180,7 @@ class VerificarCorreoServiceTest {
     void fallaInesperadaEnLaTransicionLanza500YNoConsumeElToken() {
         Usuario usuario = usuarioPendiente(Rol.USUARIO_INDIVIDUAL, TOKEN_VALIDO,
                 Instant.now().plus(Duration.ofHours(1)));
-        when(usuarioRepository.findByTokenVerificacionHash(TokenVerificacionGenerator.hash(TOKEN_VALIDO)))
+        when(usuarioRepository.findByTokenVerificacionHashForUpdate(TokenVerificacionGenerator.hash(TOKEN_VALIDO)))
                 .thenReturn(Optional.of(usuario));
         when(usuarioRepository.saveAndFlush(any(Usuario.class)))
                 .thenThrow(new RuntimeException("fallo inesperado de base de datos"));
@@ -190,7 +206,7 @@ class VerificarCorreoServiceTest {
     void reenvioValidoGeneraNuevoTokenInvalidaElAnteriorYEnvia() {
         Usuario usuario = usuarioParaReenvio(EstadoUsuario.PENDIENTE_VERIFICACION);
         usuario.setTokenVerificacionHash("hash-viejo");
-        when(usuarioRepository.findByEmailIgnoreCase("ana.perez@example.com")).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByEmailIgnoreCaseForUpdate("ana.perez@example.com")).thenReturn(Optional.of(usuario));
         when(usuarioRepository.saveAndFlush(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
 
         MensajeResponseDTO response = service.reenviar("ana.perez@example.com");
@@ -211,7 +227,7 @@ class VerificarCorreoServiceTest {
 
     @Test
     void reenvioConCuentaInexistenteDevuelveMensajeUniformeSinEnviarCorreo() {
-        when(usuarioRepository.findByEmailIgnoreCase("no-existe@example.com")).thenReturn(Optional.empty());
+        when(usuarioRepository.findByEmailIgnoreCaseForUpdate("no-existe@example.com")).thenReturn(Optional.empty());
 
         MensajeResponseDTO response = service.reenviar("no-existe@example.com");
 
@@ -224,7 +240,7 @@ class VerificarCorreoServiceTest {
     @Test
     void reenvioConCuentaYaVerificadaDevuelveMensajeUniformeSinEnviarCorreo() {
         Usuario usuario = usuarioParaReenvio(EstadoUsuario.ACTIVO);
-        when(usuarioRepository.findByEmailIgnoreCase("ana.perez@example.com")).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByEmailIgnoreCaseForUpdate("ana.perez@example.com")).thenReturn(Optional.of(usuario));
 
         MensajeResponseDTO response = service.reenviar("ana.perez@example.com");
 
@@ -239,7 +255,7 @@ class VerificarCorreoServiceTest {
         Usuario usuario = usuarioParaReenvio(EstadoUsuario.PENDIENTE_VERIFICACION);
         usuario.setReenvioVerificacionContador(3);
         usuario.setReenvioVerificacionVentanaInicio(Instant.now().minus(Duration.ofMinutes(10)));
-        when(usuarioRepository.findByEmailIgnoreCase("ana.perez@example.com")).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByEmailIgnoreCaseForUpdate("ana.perez@example.com")).thenReturn(Optional.of(usuario));
 
         assertThatThrownBy(() -> service.reenviar("ana.perez@example.com"))
                 .isInstanceOf(ApiException.class)
@@ -255,7 +271,7 @@ class VerificarCorreoServiceTest {
         Usuario usuario = usuarioParaReenvio(EstadoUsuario.PENDIENTE_VERIFICACION);
         usuario.setReenvioVerificacionContador(3);
         usuario.setReenvioVerificacionVentanaInicio(Instant.now().minus(Duration.ofHours(2)));
-        when(usuarioRepository.findByEmailIgnoreCase("ana.perez@example.com")).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByEmailIgnoreCaseForUpdate("ana.perez@example.com")).thenReturn(Optional.of(usuario));
         when(usuarioRepository.saveAndFlush(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
 
         MensajeResponseDTO response = service.reenviar("ana.perez@example.com");
