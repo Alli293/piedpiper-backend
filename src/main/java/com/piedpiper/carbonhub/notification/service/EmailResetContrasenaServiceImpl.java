@@ -158,24 +158,33 @@ public class EmailResetContrasenaServiceImpl implements EmailResetContrasenaServ
         String enlace = resetContrasenaUrl + "?token=" + token;
         String nombreEscapado = HtmlUtils.htmlEscape(nombreDestinatario);
         String html = PLANTILLA_RESET.formatted(nombreEscapado, enlace, enlace, enlace);
-        enviar(email, "Restablece tu contraseña - CarbonHub", html);
+        String textoPlano = "Hola %s,\n\n".formatted(nombreDestinatario)
+                + "Recibimos una solicitud para restablecer la contraseña de tu cuenta CarbonHub. "
+                + "Abre este enlace para elegir una nueva contraseña (expira en 1 hora):\n" + enlace + "\n\n"
+                + "Si no solicitaste esto, puedes ignorar este correo — tu contraseña actual seguirá funcionando.";
+        enviar(email, "Restablece tu contraseña - CarbonHub", textoPlano, html);
     }
 
     @Override
     public void enviarUsaGoogle(String nombreDestinatario, String email) {
         String nombreEscapado = HtmlUtils.htmlEscape(nombreDestinatario);
         String html = PLANTILLA_USA_GOOGLE.formatted(nombreEscapado, loginUrl);
-        enviar(email, "Tu cuenta usa Google para iniciar sesión - CarbonHub", html);
+        String textoPlano = "Hola %s,\n\n".formatted(nombreDestinatario)
+                + "Recibimos una solicitud para restablecer la contraseña de la cuenta CarbonHub asociada a "
+                + "este correo. Tu cuenta usa Google para iniciar sesión, así que no tiene una contraseña que "
+                + "restablecer. Inicia sesión aquí:\n" + loginUrl + "\n\n"
+                + "Si no solicitaste esto, puedes ignorar este correo.";
+        enviar(email, "Tu cuenta usa Google para iniciar sesión - CarbonHub", textoPlano, html);
     }
 
-    private void enviar(String destinatario, String asunto, String html) {
+    private void enviar(String destinatario, String asunto, String textoPlano, String html) {
         try {
             MimeMessage mensaje = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(mensaje, false, "UTF-8");
+            MimeMessageHelper helper = new MimeMessageHelper(mensaje, true, "UTF-8");
             helper.setFrom(remitente);
             helper.setTo(destinatario);
             helper.setSubject(asunto);
-            helper.setText(html, true);
+            helper.setText(textoPlano, html);
             mailSender.send(mensaje);
         } catch (MessagingException e) {
             throw new IllegalStateException("No se pudo construir el correo de reset de contrasena", e);

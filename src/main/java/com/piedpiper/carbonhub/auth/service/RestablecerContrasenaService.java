@@ -43,14 +43,14 @@ public class RestablecerContrasenaService {
 
     @Transactional
     public MensajeResponseDTO solicitar(String email) {
-        usuarioRepository.findByEmailIgnoreCase(email.trim()).ifPresent(usuario -> {
-            if (usuario.getMetodoAuth() != MetodoAuth.CORREO) {
-                enviarTrasCommit(() ->
-                        envioCorreoResetContrasenaService.enviarUsaGoogle(usuario.getNombre(), usuario.getEmail()));
+        usuarioRepository.findByEmailIgnoreCaseForUpdate(email.trim()).ifPresent(usuario -> {
+            if (!registrarIntentoDeSolicitud(usuario)) {
                 return;
             }
 
-            if (!registrarIntentoDeSolicitud(usuario)) {
+            if (usuario.getMetodoAuth() != MetodoAuth.CORREO) {
+                enviarTrasCommit(() ->
+                        envioCorreoResetContrasenaService.enviarUsaGoogle(usuario.getNombre(), usuario.getEmail()));
                 return;
             }
 
@@ -95,7 +95,7 @@ public class RestablecerContrasenaService {
         }
 
         String tokenHash = TokenVerificacionGenerator.hash(token);
-        Usuario usuario = usuarioRepository.findByTokenResetHash(tokenHash)
+        Usuario usuario = usuarioRepository.findByTokenResetHashForUpdate(tokenHash)
                 .orElseThrow(ApiException::tokenResetInvalido);
 
         if (usuario.getTokenResetExpiracion() == null
@@ -108,9 +108,12 @@ public class RestablecerContrasenaService {
 
     /**
      * Ventana fija de 1 hora, máximo {@value #MAX_SOLICITUDES_POR_HORA} solicitudes.
-     * Al excederse, NO lanza excepción (a diferencia del reenvío de verificación de PP-33):
-     * devolver un 429 aquí revelaría que la cuenta existe, rompiendo la respuesta uniforme.
-     * El límite alcanzado se traduce simplemente en "no enviar", en silencio.
+     * Se aplica por igual a cuentas CORREO y GOOGLE (se llama antes de bifurcar por
+     * {@code metodoAuth}), para que una cuenta vinculada a Google no pueda recibir avisos
+     * "usa Google" sin límite. Al excederse, NO lanza excepción (a diferencia del reenvío
+     * de verificación de PP-33): devolver un 429 aquí revelaría que la cuenta existe,
+     * rompiendo la respuesta uniforme. El límite alcanzado se traduce simplemente en
+     * "no enviar", en silencio.
      */
     private boolean registrarIntentoDeSolicitud(Usuario usuario) {
         Instant ahora = Instant.now();

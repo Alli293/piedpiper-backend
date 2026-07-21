@@ -81,7 +81,7 @@ class RestablecerContrasenaServiceTest {
     @Test
     void solicitarConCuentaCorreoGeneraTokenDeUnaHoraYEnviaElResetReal() {
         Usuario usuario = usuarioCorreo();
-        when(usuarioRepository.findByEmailIgnoreCase("ana.perez@example.com")).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByEmailIgnoreCaseForUpdate("ana.perez@example.com")).thenReturn(Optional.of(usuario));
         when(usuarioRepository.saveAndFlush(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
 
         MensajeResponseDTO response = service.solicitar("ana.perez@example.com");
@@ -103,7 +103,7 @@ class RestablecerContrasenaServiceTest {
     @Test
     void solicitarConCuentaGoogleNoGeneraTokenYEnviaElAvisoDeGoogle() {
         Usuario usuario = usuarioGoogle();
-        when(usuarioRepository.findByEmailIgnoreCase("ana.perez@example.com")).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByEmailIgnoreCaseForUpdate("ana.perez@example.com")).thenReturn(Optional.of(usuario));
 
         MensajeResponseDTO response = service.solicitar("ana.perez@example.com");
 
@@ -111,11 +111,27 @@ class RestablecerContrasenaServiceTest {
         verify(envioCorreoResetContrasenaService).enviarUsaGoogle("Ana", "ana.perez@example.com");
         verify(envioCorreoResetContrasenaService, never()).enviarReset(any(), any(), any());
         assertThat(response.getMensaje()).isEqualTo(MENSAJE_UNIFORME);
+        assertThat(usuario.getResetContrasenaContador()).isEqualTo(1);
+    }
+
+    @Test
+    void solicitarConCuentaGoogleTambienRespetaElLimiteDeTresPorHora() {
+        Usuario usuario = usuarioGoogle();
+        usuario.setResetContrasenaContador(3);
+        usuario.setResetContrasenaVentanaInicio(Instant.now().minus(Duration.ofMinutes(10)));
+        when(usuarioRepository.findByEmailIgnoreCaseForUpdate("ana.perez@example.com")).thenReturn(Optional.of(usuario));
+
+        MensajeResponseDTO response = service.solicitar("ana.perez@example.com");
+
+        assertThat(response.getMensaje()).isEqualTo(MENSAJE_UNIFORME);
+        assertThat(usuario.getResetContrasenaContador()).isEqualTo(3);
+        verify(envioCorreoResetContrasenaService, never()).enviarUsaGoogle(any(), any());
+        verify(envioCorreoResetContrasenaService, never()).enviarReset(any(), any(), any());
     }
 
     @Test
     void solicitarConCorreoInexistenteDevuelveMensajeUniformeSinEfectos() {
-        when(usuarioRepository.findByEmailIgnoreCase("no-existe@example.com")).thenReturn(Optional.empty());
+        when(usuarioRepository.findByEmailIgnoreCaseForUpdate("no-existe@example.com")).thenReturn(Optional.empty());
 
         MensajeResponseDTO response = service.solicitar("no-existe@example.com");
 
@@ -130,7 +146,7 @@ class RestablecerContrasenaServiceTest {
         Usuario usuario = usuarioCorreo();
         usuario.setResetContrasenaContador(3);
         usuario.setResetContrasenaVentanaInicio(Instant.now().minus(Duration.ofMinutes(10)));
-        when(usuarioRepository.findByEmailIgnoreCase("ana.perez@example.com")).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByEmailIgnoreCaseForUpdate("ana.perez@example.com")).thenReturn(Optional.of(usuario));
 
         MensajeResponseDTO response = service.solicitar("ana.perez@example.com");
 
@@ -146,7 +162,7 @@ class RestablecerContrasenaServiceTest {
         Usuario usuario = usuarioCorreo();
         usuario.setResetContrasenaContador(3);
         usuario.setResetContrasenaVentanaInicio(Instant.now().minus(Duration.ofHours(2)));
-        when(usuarioRepository.findByEmailIgnoreCase("ana.perez@example.com")).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByEmailIgnoreCaseForUpdate("ana.perez@example.com")).thenReturn(Optional.of(usuario));
         when(usuarioRepository.saveAndFlush(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
 
         MensajeResponseDTO response = service.solicitar("ana.perez@example.com");
@@ -163,7 +179,7 @@ class RestablecerContrasenaServiceTest {
     @Test
     void validarTokenValidoDevuelveElEmail() {
         Usuario usuario = usuarioConTokenReset(TOKEN_VALIDO, Instant.now().plus(Duration.ofMinutes(30)));
-        when(usuarioRepository.findByTokenResetHash(TokenVerificacionGenerator.hash(TOKEN_VALIDO)))
+        when(usuarioRepository.findByTokenResetHashForUpdate(TokenVerificacionGenerator.hash(TOKEN_VALIDO)))
                 .thenReturn(Optional.of(usuario));
 
         ValidarTokenResetResponseDTO response = service.validarToken(TOKEN_VALIDO);
@@ -178,12 +194,12 @@ class RestablecerContrasenaServiceTest {
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.BAD_REQUEST);
 
-        verify(usuarioRepository, never()).findByTokenResetHash(any());
+        verify(usuarioRepository, never()).findByTokenResetHashForUpdate(any());
     }
 
     @Test
     void validarTokenInexistenteLanza410() {
-        when(usuarioRepository.findByTokenResetHash(TokenVerificacionGenerator.hash(TOKEN_VALIDO)))
+        when(usuarioRepository.findByTokenResetHashForUpdate(TokenVerificacionGenerator.hash(TOKEN_VALIDO)))
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.validarToken(TOKEN_VALIDO))
@@ -195,7 +211,7 @@ class RestablecerContrasenaServiceTest {
     @Test
     void validarTokenExpiradoLanza410() {
         Usuario usuario = usuarioConTokenReset(TOKEN_VALIDO, Instant.now().minus(Duration.ofMinutes(1)));
-        when(usuarioRepository.findByTokenResetHash(TokenVerificacionGenerator.hash(TOKEN_VALIDO)))
+        when(usuarioRepository.findByTokenResetHashForUpdate(TokenVerificacionGenerator.hash(TOKEN_VALIDO)))
                 .thenReturn(Optional.of(usuario));
 
         assertThatThrownBy(() -> service.validarToken(TOKEN_VALIDO))
@@ -209,7 +225,7 @@ class RestablecerContrasenaServiceTest {
     @Test
     void restablecerExitosoActualizaElHashYLimpiaElToken() {
         Usuario usuario = usuarioConTokenReset(TOKEN_VALIDO, Instant.now().plus(Duration.ofMinutes(30)));
-        when(usuarioRepository.findByTokenResetHash(TokenVerificacionGenerator.hash(TOKEN_VALIDO)))
+        when(usuarioRepository.findByTokenResetHashForUpdate(TokenVerificacionGenerator.hash(TOKEN_VALIDO)))
                 .thenReturn(Optional.of(usuario));
         when(passwordEncoder.encode("claveNueva1")).thenReturn("hash-nuevo");
         when(usuarioRepository.saveAndFlush(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
@@ -228,7 +244,7 @@ class RestablecerContrasenaServiceTest {
     @Test
     void restablecerConTokenExpiradoLanza410YNoTocaElPasswordHash() {
         Usuario usuario = usuarioConTokenReset(TOKEN_VALIDO, Instant.now().minus(Duration.ofMinutes(1)));
-        when(usuarioRepository.findByTokenResetHash(TokenVerificacionGenerator.hash(TOKEN_VALIDO)))
+        when(usuarioRepository.findByTokenResetHashForUpdate(TokenVerificacionGenerator.hash(TOKEN_VALIDO)))
                 .thenReturn(Optional.of(usuario));
 
         assertThatThrownBy(() -> service.restablecer(TOKEN_VALIDO, "claveNueva1"))
@@ -251,7 +267,7 @@ class RestablecerContrasenaServiceTest {
         // realmente), así que no se puede verificar esa garantía inspeccionando el objeto en
         // este test — solo confirmamos que el fallo se traduce en 500.
         Usuario usuario = usuarioConTokenReset(TOKEN_VALIDO, Instant.now().plus(Duration.ofMinutes(30)));
-        when(usuarioRepository.findByTokenResetHash(TokenVerificacionGenerator.hash(TOKEN_VALIDO)))
+        when(usuarioRepository.findByTokenResetHashForUpdate(TokenVerificacionGenerator.hash(TOKEN_VALIDO)))
                 .thenReturn(Optional.of(usuario));
         when(passwordEncoder.encode("claveNueva1")).thenReturn("hash-nuevo");
         when(usuarioRepository.saveAndFlush(any(Usuario.class)))
