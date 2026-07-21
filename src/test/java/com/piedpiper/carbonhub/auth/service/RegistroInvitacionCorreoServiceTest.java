@@ -115,6 +115,27 @@ class RegistroInvitacionCorreoServiceTest {
     }
 
     @Test
+    void nombreYApellidosConEspaciosAlrededorQuedanRecortados() {
+        RegistroInvitacionCorreoRequestDTO requestConEspacios = new RegistroInvitacionCorreoRequestDTO(
+                "token-invitacion", "  Ana  ", "  Torres  ", "clave1234", "clave1234", true);
+        when(invitacionService.validarParaAceptar("token-invitacion")).thenReturn(invitacion());
+        when(usuarioRepository.existsByEmailIgnoreCase("colab@correo.com")).thenReturn(false);
+        when(passwordEncoder.encode("clave1234")).thenReturn("hash-seguro");
+        when(usuarioRepository.saveAndFlush(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
+        when(jwtService.generar(any(Usuario.class))).thenReturn("jwt-app");
+        when(usuarioAuthMapper.toAuthResponse(any(Usuario.class), eq("jwt-app"), eq("/perfil/configuracion-inicial")))
+                .thenReturn(new AuthResponseDTO(
+                        "jwt-app", "USUARIO_GENERAL", "ACTIVO", "/perfil/configuracion-inicial"));
+
+        service.registrar(requestConEspacios);
+
+        ArgumentCaptor<Usuario> captor = ArgumentCaptor.forClass(Usuario.class);
+        verify(usuarioRepository).saveAndFlush(captor.capture());
+        assertThat(captor.getValue().getNombre()).isEqualTo("Ana");
+        assertThat(captor.getValue().getApellidos()).isEqualTo("Torres");
+    }
+
+    @Test
     void correoDuplicadoPreexistenteLanza409SinTocarLaInvitacionNiElUsuario() {
         when(invitacionService.validarParaAceptar("token-invitacion")).thenReturn(invitacion());
         when(usuarioRepository.existsByEmailIgnoreCase("colab@correo.com")).thenReturn(true);
@@ -207,6 +228,36 @@ class RegistroInvitacionCorreoServiceTest {
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.NOT_FOUND);
+
+        verify(usuarioRepository, never()).existsByEmailIgnoreCase(any());
+        verify(usuarioRepository, never()).saveAndFlush(any());
+        verify(usuarioAuthMapper, never()).toAuthResponse(any(), any(), any());
+    }
+
+    @Test
+    void invitacionRevocadaPropagaLaExcepcionSinTocarElUsuario() {
+        when(invitacionService.validarParaAceptar("token-invitacion"))
+                .thenThrow(ApiException.invitacionNoDisponible());
+
+        assertThatThrownBy(() -> service.registrar(request()))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.CONFLICT);
+
+        verify(usuarioRepository, never()).existsByEmailIgnoreCase(any());
+        verify(usuarioRepository, never()).saveAndFlush(any());
+        verify(usuarioAuthMapper, never()).toAuthResponse(any(), any(), any());
+    }
+
+    @Test
+    void invitacionExpiradaPropagaLaExcepcionSinTocarElUsuario() {
+        when(invitacionService.validarParaAceptar("token-invitacion"))
+                .thenThrow(ApiException.invitacionExpirada());
+
+        assertThatThrownBy(() -> service.registrar(request()))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.GONE);
 
         verify(usuarioRepository, never()).existsByEmailIgnoreCase(any());
         verify(usuarioRepository, never()).saveAndFlush(any());

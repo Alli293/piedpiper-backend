@@ -1,5 +1,6 @@
 package com.piedpiper.carbonhub.auth.models.dtos;
 
+import com.piedpiper.carbonhub.common.ValidacionConstantes;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -25,7 +26,7 @@ public class RegistroInvitacionCorreoRequestDTO {
     private String apellidos;
 
     @NotBlank(message = "La contraseña debe tener al menos 8 caracteres, con una letra y un número.")
-    @Pattern(regexp = RegistroUsuarioCorreoRequestDTO.PATRON_CONTRASENA,
+    @Pattern(regexp = ValidacionConstantes.PATRON_CONTRASENA,
             message = "La contraseña debe tener al menos 8 caracteres, con una letra y un número.")
     @Size(max = 72, message = "La contraseña no puede exceder 72 caracteres.")
     private String contrasena;

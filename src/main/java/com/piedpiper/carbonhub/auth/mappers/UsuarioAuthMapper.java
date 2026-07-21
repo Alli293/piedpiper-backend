@@ -9,9 +9,7 @@ import org.mapstruct.Mapping;
 @Mapper(componentModel = "spring")
 public interface UsuarioAuthMapper {
 
-    @Mapping(target = "token", source = "token")
     @Mapping(target = "rol", expression = "java(usuario.getRol().name())")
     @Mapping(target = "estado", expression = "java(usuario.getEstado().name())")
-    @Mapping(target = "redirect", source = "redirect")
     AuthResponseDTO toAuthResponse(Usuario usuario, String token, String redirect);
 }
