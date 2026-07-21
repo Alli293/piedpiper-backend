@@ -102,7 +102,7 @@ public class EmisionResumenService {
         Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> ApiException.errorInterno("No se pudo identificar al usuario autenticado."));
         if (usuario.getEmpresa() == null || usuario.getEmpresa().getId() == null) {
-            throw ApiException.accesoDenegado("El usuario autenticado no pertenece a una empresa.");
+            throw ApiException.empresaNoConfigurada();
         }
         return usuario.getEmpresa().getId();
     }

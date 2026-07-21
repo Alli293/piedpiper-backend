@@ -146,14 +146,14 @@ class EmisionResumenServiceTest {
     }
 
     @Test
-    void usuarioSinEmpresaLanzaAccesoDenegado() {
+    void usuarioSinEmpresaLanzaEmpresaNoConfigurada() {
         when(usuarioRepository.findById(USUARIO_ID))
                 .thenReturn(Optional.of(Usuario.builder().id(USUARIO_ID).build()));
 
         assertThatThrownBy(() -> service.resumen(2026, null, USUARIO_ID))
                 .isInstanceOf(ApiException.class)
                 .satisfies(exception ->
-                        assertThat(((ApiException) exception).getStatus()).isEqualTo(HttpStatus.FORBIDDEN));
+                        assertThat(((ApiException) exception).getStatus()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY));
     }
 
     private static ResumenCategoriaDTO categoria(EmisionResumenResponseDTO resumen,

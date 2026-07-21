@@ -158,7 +158,7 @@ public class ApiException extends RuntimeException {
         return new ApiException(HttpStatus.BAD_REQUEST,
                 "El mes debe estar entre 1 y 12.");
     }
-  
+
     public static ApiException metodoTransporteNoSoportado() {
         return new ApiException(HttpStatus.BAD_REQUEST,
                 "Seleccione un método de transporte válido.");

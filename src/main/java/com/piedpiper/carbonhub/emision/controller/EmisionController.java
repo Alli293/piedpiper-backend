@@ -69,7 +69,6 @@ public class EmisionController {
     }
 
     @GetMapping("/resumen")
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
     public ResponseEntity<EmisionResumenResponseDTO> resumen(
             @RequestParam Integer anio,
             @RequestParam(required = false) Integer mes,
