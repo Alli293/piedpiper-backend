@@ -168,15 +168,25 @@ public class ImaService {
 
     private AgregadoSectorial generarAgregadoSectorial(SectorIndustrial sector, int anio, int mes,
                                                         LocalDate desde, LocalDate hasta) {
-        // Encontrar empresas elegibles del sector: cantidadEmpleados > 0 y con ≥1 emisión en la ventana
+        // Una sola query que cuenta empresas elegibles y calcula intensidad promedio
         List<Empresa> empresasSector = empresaRepository.findAll().stream()
                 .filter(e -> e.getSectorIndustrial() == sector)
                 .filter(e -> e.getCantidadEmpleados() != null && e.getCantidadEmpleados() > 0)
-                .filter(e -> emisionRepository.sumarCarbonKgEnVentana(e.getId(), desde, hasta)
-                        .compareTo(BigDecimal.ZERO) > 0)
                 .toList();
 
-        int cantidadEmpresas = empresasSector.size();
+        // Calcular intensidad por empresa (solo las que tienen emisiones en la ventana)
+        List<BigDecimal> intensidades = new java.util.ArrayList<>();
+        for (Empresa emp : empresasSector) {
+            BigDecimal carbonKg = emisionRepository.sumarCarbonKgEnVentana(emp.getId(), desde, hasta);
+            if (carbonKg.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal intensidad = carbonKg
+                        .divide(BigDecimal.valueOf(1000), 6, RoundingMode.HALF_UP)
+                        .divide(BigDecimal.valueOf(emp.getCantidadEmpleados()), 6, RoundingMode.HALF_UP);
+                intensidades.add(intensidad);
+            }
+        }
+
+        int cantidadEmpresas = intensidades.size();
 
         AgregadoSectorial.AgregadoSectorialBuilder builder = AgregadoSectorial.builder()
                 .sector(sector)
@@ -186,15 +196,8 @@ public class ImaService {
                 .calculatedAt(Instant.now());
 
         if (cantidadEmpresas >= UMBRAL_EMPRESAS_SECTOR) {
-            // Calcular promedios
-            BigDecimal sumaIntensidad = BigDecimal.ZERO;
-            for (Empresa emp : empresasSector) {
-                BigDecimal carbonKg = emisionRepository.sumarCarbonKgEnVentana(emp.getId(), desde, hasta);
-                BigDecimal intensidad = carbonKg
-                        .divide(BigDecimal.valueOf(1000), 6, RoundingMode.HALF_UP)
-                        .divide(BigDecimal.valueOf(emp.getCantidadEmpleados()), 6, RoundingMode.HALF_UP);
-                sumaIntensidad = sumaIntensidad.add(intensidad);
-            }
+            BigDecimal sumaIntensidad = intensidades.stream()
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
             BigDecimal intensidadPromedio = sumaIntensidad
                     .divide(BigDecimal.valueOf(cantidadEmpresas), 6, RoundingMode.HALF_UP);
             builder.intensidadPromedio(intensidadPromedio);
