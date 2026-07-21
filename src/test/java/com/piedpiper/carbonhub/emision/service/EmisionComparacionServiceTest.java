@@ -1,5 +1,9 @@
 package com.piedpiper.carbonhub.emision.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.when;
+
 import com.piedpiper.carbonhub.emision.models.dtos.ComparacionEmisionesResponseDTO;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
@@ -16,10 +20,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class EmisionComparacionServiceTest {
@@ -39,10 +39,8 @@ class EmisionComparacionServiceTest {
 
     @Test
     void calculaPorcentajeCorrectoCuandoExisteLimite() {
-        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
-        when(emisionRepository.sumCarbonKgByEmpresaIdAndFechaActividadEntre(
-                EMPRESA_ID, LocalDate.of(2026, 1, 1), LocalDate.of(2027, 1, 1)))
-                .thenReturn(new BigDecimal("30000.000"));
+        givenEmpresa();
+        givenHuellaAnual("30000.000", 2026);
         when(limiteEmisionesRepository.findByEmpresaIdAndAnio(EMPRESA_ID, 2026))
                 .thenReturn(Optional.of(new LimiteEmisiones(EMPRESA_ID, 2026, new BigDecimal("50.0000"))));
 
@@ -56,10 +54,8 @@ class EmisionComparacionServiceTest {
 
     @Test
     void retornaSinLimiteCuandoNoHayLimiteDeclarado() {
-        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
-        when(emisionRepository.sumCarbonKgByEmpresaIdAndFechaActividadEntre(
-                EMPRESA_ID, LocalDate.of(2026, 1, 1), LocalDate.of(2027, 1, 1)))
-                .thenReturn(new BigDecimal("60000.000"));
+        givenEmpresa();
+        givenHuellaAnual("60000.000", 2026);
         when(limiteEmisionesRepository.findByEmpresaIdAndAnio(EMPRESA_ID, 2026))
                 .thenReturn(Optional.empty());
 
@@ -73,10 +69,8 @@ class EmisionComparacionServiceTest {
 
     @Test
     void huellaCeroQuedaDentroDelLimite() {
-        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
-        when(emisionRepository.sumCarbonKgByEmpresaIdAndFechaActividadEntre(
-                EMPRESA_ID, LocalDate.of(2026, 1, 1), LocalDate.of(2027, 1, 1)))
-                .thenReturn(BigDecimal.ZERO);
+        givenEmpresa();
+        givenHuellaAnual(BigDecimal.ZERO, 2026);
         when(limiteEmisionesRepository.findByEmpresaIdAndAnio(EMPRESA_ID, 2026))
                 .thenReturn(Optional.of(new LimiteEmisiones(EMPRESA_ID, 2026, new BigDecimal("50.0000"))));
 
@@ -88,10 +82,8 @@ class EmisionComparacionServiceTest {
 
     @Test
     void porcentajeMayorACienQuedaSuperado() {
-        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
-        when(emisionRepository.sumCarbonKgByEmpresaIdAndFechaActividadEntre(
-                EMPRESA_ID, LocalDate.of(2026, 1, 1), LocalDate.of(2027, 1, 1)))
-                .thenReturn(new BigDecimal("60000.000"));
+        givenEmpresa();
+        givenHuellaAnual("60000.000", 2026);
         when(limiteEmisionesRepository.findByEmpresaIdAndAnio(EMPRESA_ID, 2026))
                 .thenReturn(Optional.of(new LimiteEmisiones(EMPRESA_ID, 2026, new BigDecimal("50.0000"))));
 
@@ -103,10 +95,8 @@ class EmisionComparacionServiceTest {
 
     @Test
     void porcentajeOchentaQuedaCerca() {
-        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
-        when(emisionRepository.sumCarbonKgByEmpresaIdAndFechaActividadEntre(
-                EMPRESA_ID, LocalDate.of(2026, 1, 1), LocalDate.of(2027, 1, 1)))
-                .thenReturn(new BigDecimal("40000.000"));
+        givenEmpresa();
+        givenHuellaAnual("40000.000", 2026);
         when(limiteEmisionesRepository.findByEmpresaIdAndAnio(EMPRESA_ID, 2026))
                 .thenReturn(Optional.of(new LimiteEmisiones(EMPRESA_ID, 2026, new BigDecimal("50.0000"))));
 
@@ -118,10 +108,8 @@ class EmisionComparacionServiceTest {
 
     @Test
     void porcentajeCienExactoQuedaAlcanzado() {
-        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
-        when(emisionRepository.sumCarbonKgByEmpresaIdAndFechaActividadEntre(
-                EMPRESA_ID, LocalDate.of(2026, 1, 1), LocalDate.of(2027, 1, 1)))
-                .thenReturn(new BigDecimal("50000.000"));
+        givenEmpresa();
+        givenHuellaAnual("50000.000", 2026);
         when(limiteEmisionesRepository.findByEmpresaIdAndAnio(EMPRESA_ID, 2026))
                 .thenReturn(Optional.of(new LimiteEmisiones(EMPRESA_ID, 2026, new BigDecimal("50.0000"))));
 
@@ -134,10 +122,8 @@ class EmisionComparacionServiceTest {
     @Test
     void usaAnioActualCuandoAnioEsNull() {
         int anioActual = Year.now().getValue();
-        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
-        when(emisionRepository.sumCarbonKgByEmpresaIdAndFechaActividadEntre(
-                EMPRESA_ID, LocalDate.of(anioActual, 1, 1), LocalDate.of(anioActual + 1, 1, 1)))
-                .thenReturn(BigDecimal.ZERO);
+        givenEmpresa();
+        givenHuellaAnual(BigDecimal.ZERO, anioActual);
         when(limiteEmisionesRepository.findByEmpresaIdAndAnio(EMPRESA_ID, anioActual))
                 .thenReturn(Optional.of(new LimiteEmisiones(EMPRESA_ID, anioActual, new BigDecimal("50.0000"))));
 
@@ -165,5 +151,19 @@ class EmisionComparacionServiceTest {
                 .isInstanceOf(ApiException.class)
                 .extracting(ex -> ((ApiException) ex).getStatus())
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
+    private void givenEmpresa() {
+        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
+    }
+
+    private void givenHuellaAnual(String carbonKg, int anio) {
+        givenHuellaAnual(new BigDecimal(carbonKg), anio);
+    }
+
+    private void givenHuellaAnual(BigDecimal carbonKg, int anio) {
+        when(emisionRepository.sumCarbonKgByEmpresaIdAndFechaActividadEntre(
+                EMPRESA_ID, LocalDate.of(anio, 1, 1), LocalDate.of(anio + 1, 1, 1)))
+                .thenReturn(carbonKg);
     }
 }
