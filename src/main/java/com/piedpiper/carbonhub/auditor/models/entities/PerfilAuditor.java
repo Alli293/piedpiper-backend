@@ -1,0 +1,84 @@
+package com.piedpiper.carbonhub.auditor.models.entities;
+
+import com.piedpiper.carbonhub.auditor.models.enums.EspecialidadAuditor;
+import com.piedpiper.carbonhub.auditor.models.enums.ProvinciaCR;
+import com.piedpiper.carbonhub.user.models.entities.Usuario;
+
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import org.hibernate.annotations.BatchSize;
+
+import java.math.BigDecimal;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
+
+@Entity
+@Table(name = "perfiles_auditor")
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class PerfilAuditor {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+
+    @OneToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "auditor_id", nullable = false, unique = true)
+    private Usuario auditor;
+
+    @Column(name = "foto_perfil")
+    private String fotoPerfil;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean disponible = true;
+
+    @Column(name = "auditorias_completadas", nullable = false)
+    @Builder.Default
+    private int auditoriasCompletadas = 0;
+
+    @Column(name = "calificacion_promedio", precision = 2, scale = 1)
+    private BigDecimal calificacionPromedio;
+
+    @Column(name = "total_resenas", nullable = false)
+    @Builder.Default
+    private int totalResenas = 0;
+
+    @Column(name = "tiempo_respuesta_horas")
+    private Integer tiempoRespuestaHoras;
+
+    @Column(name = "anios_experiencia")
+    private Integer aniosExperiencia;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private ProvinciaCR provincia;
+
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(name = "perfil_auditor_especialidades", joinColumns = @JoinColumn(name = "perfil_auditor_id"))
+    @Column(name = "especialidad", length = 30)
+    @Enumerated(EnumType.STRING)
+    @BatchSize(size = 50)
+    @Builder.Default
+    private Set<EspecialidadAuditor> especialidades = new HashSet<>();
+}
