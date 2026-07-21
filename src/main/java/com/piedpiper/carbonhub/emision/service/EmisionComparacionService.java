@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class EmisionComparacionService {
     private static final BigDecimal KG_POR_TONELADA = new BigDecimal("1000");
+    private static final BigDecimal CIEN = new BigDecimal("100");
     private static final BigDecimal UMBRAL_CERCA = new BigDecimal("80.0");
     private static final BigDecimal UMBRAL_SUPERADO = new BigDecimal("100.0");
 
@@ -41,7 +42,10 @@ public class EmisionComparacionService {
         LocalDate inicioAnio = LocalDate.of(anioComparar, 1, 1);
         LocalDate finAnio = inicioAnio.plusYears(1);
         BigDecimal huellaKg = Optional.ofNullable(
-                emisionRepository.sumCarbonKgByEmpresaIdAndFechaActividadEntre(empresaId, inicioAnio, finAnio)
+                emisionRepository.sumCarbonKgByEmpresaIdAndFechaActividadEntre(
+                        empresaId,
+                        inicioAnio,
+                        finAnio)
         ).orElse(BigDecimal.ZERO);
         BigDecimal huellaT = huellaKg.divide(KG_POR_TONELADA, 4, RoundingMode.HALF_UP);
 
@@ -63,7 +67,7 @@ public class EmisionComparacionService {
             LimiteEmisiones limite) {
         BigDecimal limiteT = limite.getLimiteMt();
         BigDecimal porcentaje = huellaT
-                .multiply(new BigDecimal("100"))
+                .multiply(CIEN)
                 .divide(limiteT, 1, RoundingMode.HALF_UP);
 
         return new ComparacionEmisionesResponseDTO(
