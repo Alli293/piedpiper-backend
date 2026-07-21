@@ -179,12 +179,13 @@ class RestablecerContrasenaServiceTest {
     @Test
     void validarTokenValidoDevuelveElEmail() {
         Usuario usuario = usuarioConTokenReset(TOKEN_VALIDO, Instant.now().plus(Duration.ofMinutes(30)));
-        when(usuarioRepository.findByTokenResetHashForUpdate(TokenVerificacionGenerator.hash(TOKEN_VALIDO)))
+        when(usuarioRepository.findByTokenResetHash(TokenVerificacionGenerator.hash(TOKEN_VALIDO)))
                 .thenReturn(Optional.of(usuario));
 
         ValidarTokenResetResponseDTO response = service.validarToken(TOKEN_VALIDO);
 
         assertThat(response.getEmail()).isEqualTo("ana.perez@example.com");
+        verify(usuarioRepository, never()).findByTokenResetHashForUpdate(any());
     }
 
     @Test
@@ -194,12 +195,12 @@ class RestablecerContrasenaServiceTest {
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.BAD_REQUEST);
 
-        verify(usuarioRepository, never()).findByTokenResetHashForUpdate(any());
+        verify(usuarioRepository, never()).findByTokenResetHash(any());
     }
 
     @Test
     void validarTokenInexistenteLanza410() {
-        when(usuarioRepository.findByTokenResetHashForUpdate(TokenVerificacionGenerator.hash(TOKEN_VALIDO)))
+        when(usuarioRepository.findByTokenResetHash(TokenVerificacionGenerator.hash(TOKEN_VALIDO)))
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.validarToken(TOKEN_VALIDO))
@@ -211,7 +212,7 @@ class RestablecerContrasenaServiceTest {
     @Test
     void validarTokenExpiradoLanza410() {
         Usuario usuario = usuarioConTokenReset(TOKEN_VALIDO, Instant.now().minus(Duration.ofMinutes(1)));
-        when(usuarioRepository.findByTokenResetHashForUpdate(TokenVerificacionGenerator.hash(TOKEN_VALIDO)))
+        when(usuarioRepository.findByTokenResetHash(TokenVerificacionGenerator.hash(TOKEN_VALIDO)))
                 .thenReturn(Optional.of(usuario));
 
         assertThatThrownBy(() -> service.validarToken(TOKEN_VALIDO))

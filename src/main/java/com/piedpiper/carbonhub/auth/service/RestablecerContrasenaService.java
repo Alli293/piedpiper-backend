@@ -17,6 +17,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Optional;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 
 @Service
@@ -68,13 +70,15 @@ public class RestablecerContrasenaService {
 
     @Transactional(readOnly = true)
     public ValidarTokenResetResponseDTO validarToken(String token) {
-        Usuario usuario = buscarPorTokenValido(token);
+        // Sin lock: no muta nada, y Postgres rechaza SELECT ... FOR UPDATE dentro de una
+        // transaccion read-only.
+        Usuario usuario = buscarPorTokenValido(token, usuarioRepository::findByTokenResetHash);
         return new ValidarTokenResetResponseDTO(usuario.getEmail());
     }
 
     @Transactional
     public MensajeResponseDTO restablecer(String token, String nuevaContrasena) {
-        Usuario usuario = buscarPorTokenValido(token);
+        Usuario usuario = buscarPorTokenValido(token, usuarioRepository::findByTokenResetHashForUpdate);
 
         try {
             usuario.setPasswordHash(passwordEncoder.encode(nuevaContrasena));
@@ -89,13 +93,13 @@ public class RestablecerContrasenaService {
         return new MensajeResponseDTO("Tu contraseña fue actualizada. Ya puedes iniciar sesión.");
     }
 
-    private Usuario buscarPorTokenValido(String token) {
+    private Usuario buscarPorTokenValido(String token, Function<String, Optional<Usuario>> buscador) {
         if (token == null || !TOKEN_FORMATO.matcher(token).matches()) {
             throw ApiException.tokenResetMalFormado();
         }
 
         String tokenHash = TokenVerificacionGenerator.hash(token);
-        Usuario usuario = usuarioRepository.findByTokenResetHashForUpdate(tokenHash)
+        Usuario usuario = buscador.apply(tokenHash)
                 .orElseThrow(ApiException::tokenResetInvalido);
 
         if (usuario.getTokenResetExpiracion() == null
