@@ -70,7 +70,7 @@ public class EmisionConsultaService {
 
     @Transactional
     public void eliminar(UUID id, UUID usuarioId) {
-        UUID empresaId = empresaId(usuarioId);
+        UUID empresaId = emisionEmpresaService.empresaId(usuarioId);
         Emision emision = emisionRepository.findByIdAndEmpresaId(id, empresaId)
                 .orElseThrow(() -> ApiException.recursoNoEncontrado("No se encontró la emisión solicitada."));
         emisionRepository.delete(emision);
