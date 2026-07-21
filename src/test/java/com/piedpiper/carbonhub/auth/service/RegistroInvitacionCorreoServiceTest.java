@@ -31,6 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -79,6 +80,8 @@ class RegistroInvitacionCorreoServiceTest {
         when(passwordEncoder.encode("clave1234")).thenReturn("hash-seguro");
         when(usuarioRepository.saveAndFlush(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
         when(jwtService.generar(any(Usuario.class))).thenReturn("jwt-app");
+        // RedirectResolver.paraUsuario resuelve a este mismo valor para un USUARIO_GENERAL con
+        // configuracionCompleta=false (el default al construir el usuario), asi que el stub sigue aplicando.
         when(usuarioAuthMapper.toAuthResponse(any(Usuario.class), eq("jwt-app"), eq("/perfil/configuracion-inicial")))
                 .thenReturn(new AuthResponseDTO(
                         "jwt-app", "USUARIO_GENERAL", "ACTIVO", "/perfil/configuracion-inicial"));
@@ -157,6 +160,41 @@ class RegistroInvitacionCorreoServiceTest {
                 .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
 
         verify(invitacionService, never()).marcarAceptada(any());
+        verify(usuarioAuthMapper, never()).toAuthResponse(any(), any(), any());
+    }
+
+    @Test
+    void fallaInesperadaAlMarcarLaInvitacionAceptadaLanza500EnVezDePropagarse() {
+        when(invitacionService.validarParaAceptar("token-invitacion")).thenReturn(invitacion());
+        when(usuarioRepository.existsByEmailIgnoreCase("colab@correo.com")).thenReturn(false);
+        when(passwordEncoder.encode("clave1234")).thenReturn("hash-seguro");
+        when(usuarioRepository.saveAndFlush(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
+        doThrow(new RuntimeException("fallo inesperado al marcar la invitacion"))
+                .when(invitacionService).marcarAceptada(any(Invitacion.class));
+
+        assertThatThrownBy(() -> service.registrar(request()))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+
+        verify(usuarioAuthMapper, never()).toAuthResponse(any(), any(), any());
+    }
+
+    @Test
+    void fallaInesperadaAlGenerarElTokenLanza500EnVezDePropagarse() {
+        when(invitacionService.validarParaAceptar("token-invitacion")).thenReturn(invitacion());
+        when(usuarioRepository.existsByEmailIgnoreCase("colab@correo.com")).thenReturn(false);
+        when(passwordEncoder.encode("clave1234")).thenReturn("hash-seguro");
+        when(usuarioRepository.saveAndFlush(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
+        when(jwtService.generar(any(Usuario.class)))
+                .thenThrow(new RuntimeException("fallo inesperado al generar el token"));
+
+        assertThatThrownBy(() -> service.registrar(request()))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+
+        verify(invitacionService).marcarAceptada(any(Invitacion.class));
         verify(usuarioAuthMapper, never()).toAuthResponse(any(), any(), any());
     }
 

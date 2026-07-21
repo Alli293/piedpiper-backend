@@ -66,6 +66,10 @@ public class RegistroInvitacionCorreoService {
 
         try {
             usuario = usuarioRepository.saveAndFlush(usuario);
+            invitacionService.marcarAceptada(invitacion);
+
+            String token = jwtService.generar(usuario);
+            return usuarioAuthMapper.toAuthResponse(usuario, token, RedirectResolver.paraUsuario(usuario));
         } catch (DataIntegrityViolationException e) {
             throw ApiException.cuentaDuplicada(
                     "Este correo ya tiene una cuenta en CarbonHub. ¿Deseas iniciar sesión?");
@@ -74,10 +78,5 @@ public class RegistroInvitacionCorreoService {
             throw ApiException.errorInterno(
                     "Ocurrió un error al registrar tu cuenta. Por favor, intenta nuevamente.");
         }
-
-        invitacionService.marcarAceptada(invitacion);
-
-        String token = jwtService.generar(usuario);
-        return usuarioAuthMapper.toAuthResponse(usuario, token, "/perfil/configuracion-inicial");
     }
 }
