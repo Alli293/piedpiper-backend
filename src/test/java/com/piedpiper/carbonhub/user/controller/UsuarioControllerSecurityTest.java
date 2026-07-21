@@ -88,7 +88,8 @@ class UsuarioControllerSecurityTest {
 
         mockMvc.perform(get("/api/usuarios/me/preferencias")
                         .header("Authorization", "Bearer token-invalido"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(header().doesNotExist("X-Refresh-Token"));
     }
 
     @Test
