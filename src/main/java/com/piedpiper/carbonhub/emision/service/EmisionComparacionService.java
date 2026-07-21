@@ -7,6 +7,7 @@ import com.piedpiper.carbonhub.limite.models.entities.LimiteEmisiones;
 import com.piedpiper.carbonhub.limite.repository.LimiteEmisionesRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.Year;
 import java.util.Optional;
 import java.util.UUID;
@@ -37,8 +38,10 @@ public class EmisionComparacionService {
         validarAnio(anioComparar);
 
         UUID empresaId = emisionEmpresaService.empresaId(usuarioId);
+        LocalDate inicioAnio = LocalDate.of(anioComparar, 1, 1);
+        LocalDate finAnio = inicioAnio.plusYears(1);
         BigDecimal huellaKg = Optional.ofNullable(
-                emisionRepository.sumCarbonKgByEmpresaIdAndAnio(empresaId, anioComparar)
+                emisionRepository.sumCarbonKgByEmpresaIdAndFechaActividadEntre(empresaId, inicioAnio, finAnio)
         ).orElse(BigDecimal.ZERO);
         BigDecimal huellaT = huellaKg.divide(KG_POR_TONELADA, 4, RoundingMode.HALF_UP);
 
@@ -50,7 +53,7 @@ public class EmisionComparacionService {
                         null,
                         null,
                         "sin_limite",
-                        "No se ha declarado un limite para " + anioComparar + "."
+                        "No se ha declarado un límite para " + anioComparar + "."
                 ));
     }
 

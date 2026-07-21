@@ -4,6 +4,7 @@ import com.piedpiper.carbonhub.emision.models.entities.Emision;
 import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -37,10 +38,12 @@ public interface EmisionRepository extends JpaRepository<Emision, UUID> {
             select sum(e.carbonKg)
             from Emision e
             where e.empresaId = :empresaId
-              and year(e.fechaActividad) = :anio
+              and e.fechaActividad >= :inicio
+              and e.fechaActividad < :fin
             """)
-    BigDecimal sumCarbonKgByEmpresaIdAndAnio(@Param("empresaId") UUID empresaId,
-                                             @Param("anio") Integer anio);
+    BigDecimal sumCarbonKgByEmpresaIdAndFechaActividadEntre(@Param("empresaId") UUID empresaId,
+                                                            @Param("inicio") LocalDate inicio,
+                                                            @Param("fin") LocalDate fin);
 
     Optional<Emision> findByIdAndEmpresaId(UUID id, UUID empresaId);
 }
