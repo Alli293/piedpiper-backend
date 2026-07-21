@@ -9,12 +9,14 @@ import com.piedpiper.carbonhub.emision.models.dtos.RegistrarEnvioRequestDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.RegistrarFlotaRequestDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.RegistrarVueloRequestDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.TipoVehiculoResponseDTO;
+import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
 import com.piedpiper.carbonhub.emision.service.EmisionConsultaService;
 import com.piedpiper.carbonhub.emision.service.EmisionElectricidadService;
 import com.piedpiper.carbonhub.emision.service.EmisionEnvioService;
 import com.piedpiper.carbonhub.emision.service.EmisionFlotaService;
 import com.piedpiper.carbonhub.emision.service.EmisionVueloService;
 import com.piedpiper.carbonhub.common.Autenticaciones;
+import com.piedpiper.carbonhub.exceptions.ApiException;
 
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -28,6 +30,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -57,8 +60,16 @@ public class EmisionController {
     }
 
     @GetMapping
-    public ResponseEntity<List<EmisionResponseDTO>> listar(Authentication authentication) {
-        return ResponseEntity.ok(emisionConsultaService.listar(Autenticaciones.usuarioId(authentication)));
+    public ResponseEntity<List<EmisionResponseDTO>> listar(
+            Authentication authentication,
+            @RequestParam(required = false) String categoria,
+            @RequestParam(required = false) Integer anio,
+            @RequestParam(required = false) Integer mes) {
+        return ResponseEntity.ok(emisionConsultaService.listar(
+                Autenticaciones.usuarioId(authentication),
+                normalizarCategoria(categoria),
+                anio,
+                mes));
     }
 
     @GetMapping("/{id}")
@@ -102,7 +113,8 @@ public class EmisionController {
     public ResponseEntity<EmisionResponseDTO> registrarVuelo(
             Authentication authentication,
             @Valid @RequestBody RegistrarVueloRequestDTO request) {
-        EmisionResponseDTO response = emisionVueloService.registrar(request, Autenticaciones.usuarioId(authentication));
+        UUID usuarioId = Autenticaciones.usuarioId(authentication);
+        EmisionResponseDTO response = emisionVueloService.registrar(request, usuarioId);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -119,5 +131,16 @@ public class EmisionController {
     public ResponseEntity<Void> eliminar(Authentication authentication, @PathVariable UUID id) {
         emisionConsultaService.eliminar(id, Autenticaciones.usuarioId(authentication));
         return ResponseEntity.noContent().build();
+    }
+
+    private CategoriaEmision normalizarCategoria(String categoria) {
+        if (categoria == null || categoria.isBlank() || "TODAS".equalsIgnoreCase(categoria)) {
+            return null;
+        }
+        try {
+            return CategoriaEmision.valueOf(categoria.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw ApiException.categoriaEmisionInvalida();
+        }
     }
 }

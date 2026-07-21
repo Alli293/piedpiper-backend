@@ -175,6 +175,16 @@ public class ApiException extends RuntimeException {
                 "Seleccione un método de transporte válido.");
     }
 
+    public static ApiException categoriaEmisionInvalida() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Categoría de emisión inválida.");
+    }
+
+    public static ApiException mesInvalido() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "El mes debe estar entre 1 y 12.");
+    }
+
     public static ApiException limiteConflicto() {
         return new ApiException(HttpStatus.CONFLICT,
                 "Conflicto al guardar el límite. Intente nuevamente.");
