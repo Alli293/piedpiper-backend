@@ -1,5 +1,6 @@
 package com.piedpiper.carbonhub.validacion.service;
 
+import com.piedpiper.carbonhub.auditor.service.PerfilAuditorService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
@@ -50,6 +51,8 @@ class ValidacionAuditorServiceTest {
     private UsuarioRepository usuarioRepository;
     @Mock
     private EnvioCorreoValidacionService envioCorreoValidacionService;
+    @Mock
+    private PerfilAuditorService perfilAuditorService;
     @Spy
     private ValidacionAuditorMapper validacionAuditorMapper =
             Mappers.getMapper(ValidacionAuditorMapper.class);
@@ -112,6 +115,7 @@ class ValidacionAuditorServiceTest {
         assertThat(captor.getValue().getDecision()).isEqualTo("aprobado");
         assertThat(captor.getValue().getAdministradorId()).isEqualTo(ADMIN_ID);
         verify(envioCorreoValidacionService).enviar(eq("Ana"), eq("ana@correo.com"), eq(true), eq(null));
+        verify(perfilAuditorService).asegurarPerfil(pendiente.getAuditor());
     }
 
     @Test
@@ -129,6 +133,7 @@ class ValidacionAuditorServiceTest {
         assertThat(response.getMotivoRechazo()).isEqualTo("La certificación adjunta está vencida.");
         verify(envioCorreoValidacionService).enviar(
                 eq("Ana"), eq("ana@correo.com"), eq(false), eq("La certificación adjunta está vencida."));
+        verify(perfilAuditorService, never()).asegurarPerfil(any());
     }
 
     @Test

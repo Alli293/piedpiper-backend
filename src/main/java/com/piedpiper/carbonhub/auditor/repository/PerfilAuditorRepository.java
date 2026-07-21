@@ -18,6 +18,8 @@ import java.util.UUID;
 
 public interface PerfilAuditorRepository extends JpaRepository<PerfilAuditor, UUID> {
 
+    boolean existsByAuditorId(UUID auditorId);
+
     String FILTROS = """
             where u.rol = :rol
               and u.estado = :estado

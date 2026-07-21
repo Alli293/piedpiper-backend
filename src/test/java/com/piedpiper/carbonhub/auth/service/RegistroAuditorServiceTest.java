@@ -3,6 +3,7 @@ package com.piedpiper.carbonhub.auth.service;
 import com.piedpiper.carbonhub.auth.models.dtos.AuthResponseDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.RegistroAuditorRequestDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.GoogleClaims;
+import com.piedpiper.carbonhub.auditor.service.PerfilAuditorService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.enums.Rol;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
@@ -31,6 +32,8 @@ class RegistroAuditorServiceTest {
     private UsuarioRepository usuarioRepository;
     @Mock
     private JwtService jwtService;
+    @Mock
+    private PerfilAuditorService perfilAuditorService;
 
     @InjectMocks
     private RegistroAuditorService service;
@@ -55,6 +58,7 @@ class RegistroAuditorServiceTest {
         assertThat(captor.getValue().getRol()).isEqualTo(Rol.AUDITOR_CERTIFICADO);
         assertThat(captor.getValue().isConfiguracionCompleta()).isFalse();
         assertThat(response.getRedirect()).isEqualTo("/perfil/configuracion-inicial");
+        verify(perfilAuditorService).asegurarPerfil(captor.getValue());
     }
 
     @Test
