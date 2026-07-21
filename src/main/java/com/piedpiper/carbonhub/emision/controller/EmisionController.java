@@ -113,7 +113,8 @@ public class EmisionController {
     public ResponseEntity<EmisionResponseDTO> registrarVuelo(
             Authentication authentication,
             @Valid @RequestBody RegistrarVueloRequestDTO request) {
-        EmisionResponseDTO response = emisionVueloService.registrar(request, Autenticaciones.usuarioId(authentication));
+        UUID usuarioId = Autenticaciones.usuarioId(authentication);
+        EmisionResponseDTO response = emisionVueloService.registrar(request, usuarioId);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -139,7 +140,7 @@ public class EmisionController {
         try {
             return CategoriaEmision.valueOf(categoria.trim().toUpperCase());
         } catch (IllegalArgumentException e) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Categoria de emision invalida.");
+            throw ApiException.categoriaEmisionInvalida();
         }
     }
 }

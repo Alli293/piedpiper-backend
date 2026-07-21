@@ -16,7 +16,6 @@ import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,7 +51,7 @@ public class EmisionConsultaService {
         validarMes(mes);
         return emisionRepository.findAllByEmpresaIdWithFilters(
                         empresaId(usuarioId),
-                        categoria == null ? null : categoria.name(),
+                        categoria,
                         anio,
                         mes)
                 .stream()
@@ -73,17 +72,13 @@ public class EmisionConsultaService {
 
     private Emision buscarPropia(UUID id, UUID usuarioId) {
         UUID empresaId = empresaId(usuarioId);
-        Emision emision = emisionRepository.findById(id)
+        return emisionRepository.findByIdAndEmpresaId(id, empresaId)
                 .orElseThrow(() -> ApiException.recursoNoEncontrado("No se encontró la emisión solicitada."));
-        if (!empresaId.equals(emision.getEmpresaId())) {
-            throw ApiException.accesoDenegado("No tiene permiso para acceder a este registro.");
-        }
-        return emision;
     }
 
     private void validarMes(Integer mes) {
         if (mes != null && (mes < 1 || mes > 12)) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "El mes debe estar entre 1 y 12.");
+            throw ApiException.mesInvalido();
         }
     }
 

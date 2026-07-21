@@ -1,6 +1,7 @@
 package com.piedpiper.carbonhub.emision.repository;
 
 import com.piedpiper.carbonhub.emision.models.entities.Emision;
+import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -18,16 +19,16 @@ public interface EmisionRepository extends JpaRepository<Emision, UUID> {
             left join fetch treat(e as EmisionVuelo).legs
             where e.empresaId = :empresaId
               and (:categoria is null
-                   or (:categoria = 'ELECTRICIDAD' and type(e) = EmisionElectricidad)
-                   or (:categoria = 'FLOTA' and type(e) = EmisionFlota)
-                   or (:categoria = 'VUELO' and type(e) = EmisionVuelo)
-                   or (:categoria = 'ENVIO' and type(e) = EmisionEnvio))
+                   or (:categoria = com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision.ELECTRICIDAD and type(e) = EmisionElectricidad)
+                   or (:categoria = com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision.FLOTA and type(e) = EmisionFlota)
+                   or (:categoria = com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision.VUELO and type(e) = EmisionVuelo)
+                   or (:categoria = com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision.ENVIO and type(e) = EmisionEnvio))
               and (:anio is null or year(e.fechaActividad) = :anio)
               and (:mes is null or month(e.fechaActividad) = :mes)
             order by e.fechaActividad desc, e.createdAt desc
             """)
     List<Emision> findAllByEmpresaIdWithFilters(@Param("empresaId") UUID empresaId,
-                                                 @Param("categoria") String categoria,
+                                                 @Param("categoria") CategoriaEmision categoria,
                                                  @Param("anio") Integer anio,
                                                  @Param("mes") Integer mes);
 
