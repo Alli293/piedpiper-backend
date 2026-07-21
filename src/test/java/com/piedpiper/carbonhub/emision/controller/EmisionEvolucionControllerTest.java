@@ -8,6 +8,7 @@ import com.piedpiper.carbonhub.emision.service.EmisionConsultaService;
 import com.piedpiper.carbonhub.emision.service.EmisionElectricidadService;
 import com.piedpiper.carbonhub.emision.service.EmisionEnvioService;
 import com.piedpiper.carbonhub.emision.service.EmisionEvolucionService;
+import com.piedpiper.carbonhub.emision.service.EmisionComparacionService;
 import com.piedpiper.carbonhub.emision.service.EmisionFlotaService;
 import com.piedpiper.carbonhub.emision.service.EmisionVueloService;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
@@ -66,6 +67,8 @@ class EmisionEvolucionControllerTest {
     private EmisionVueloService emisionVueloService;
     @MockitoBean
     private EmisionConsultaService emisionConsultaService;
+    @MockitoBean
+    private EmisionComparacionService emisionComparacionService;
     @MockitoBean
     private EmisionEvolucionService emisionEvolucionService;
     @MockitoBean

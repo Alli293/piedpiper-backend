@@ -2,6 +2,7 @@ package com.piedpiper.carbonhub.emision.controller;
 
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
 import com.piedpiper.carbonhub.auth.service.JwtService;
+import com.piedpiper.carbonhub.emision.models.dtos.ComparacionEmisionesResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionElectricidadResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionEnvioResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionFlotaResponseDTO;
@@ -16,6 +17,7 @@ import com.piedpiper.carbonhub.emision.models.enums.TipoVehiculo;
 import com.piedpiper.carbonhub.emision.models.enums.UnidadDistancia;
 import com.piedpiper.carbonhub.emision.models.enums.UnidadElectricidad;
 import com.piedpiper.carbonhub.emision.models.enums.UnidadPeso;
+import com.piedpiper.carbonhub.emision.service.EmisionComparacionService;
 import com.piedpiper.carbonhub.emision.service.EmisionConsultaService;
 import com.piedpiper.carbonhub.emision.service.EmisionElectricidadService;
 import com.piedpiper.carbonhub.emision.service.EmisionEnvioService;
@@ -50,6 +52,7 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -86,6 +89,8 @@ class EmisionControllerTest {
     private EmisionVueloService emisionVueloService;
     @MockitoBean
     private EmisionConsultaService emisionConsultaService;
+    @MockitoBean
+    private EmisionComparacionService emisionComparacionService;
     @MockitoBean
     private EmisionEvolucionService emisionEvolucionService;
     @MockitoBean
@@ -343,13 +348,94 @@ class EmisionControllerTest {
         response.setCategoria(CategoriaEmision.VUELO);
         response.setTitulo("Viaje aereo SFO-YYZ");
         response.setCarbonKg(new BigDecimal("237.5"));
-        when(emisionConsultaService.listar(any())).thenReturn(List.of(response));
+        when(emisionConsultaService.listar(any(), isNull(), isNull(), isNull())).thenReturn(List.of(response));
 
         mockMvc.perform(get("/api/emisiones")
                         .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].categoria").value("VUELO"))
                 .andExpect(jsonPath("$[0].carbonKg").value(237.5));
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void comparacionEmisionesDevuelve200() throws Exception {
+        ComparacionEmisionesResponseDTO response = new ComparacionEmisionesResponseDTO(
+                2026,
+                new BigDecimal("30.0000"),
+                new BigDecimal("50.0000"),
+                new BigDecimal("60.0"),
+                "dentro",
+                null);
+        when(emisionComparacionService.comparar(any(), eq(2026))).thenReturn(response);
+
+        mockMvc.perform(get("/api/emisiones/comparacion")
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA"))
+                        .param("anio", "2026"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.huellaAcumuladaT").value(30.0000))
+                .andExpect(jsonPath("$.limiteT").value(50.0000))
+                .andExpect(jsonPath("$.porcentajeConsumido").value(60.0))
+                .andExpect(jsonPath("$.estado").value("dentro"));
+
+        verify(emisionComparacionService).comparar(any(), eq(2026));
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void listarEmisionesConFiltrosDevuelve200() throws Exception {
+        EmisionResponseDTO response = new EmisionFlotaResponseDTO();
+        response.setId(UUID.randomUUID());
+        response.setCategoria(CategoriaEmision.FLOTA);
+        response.setTitulo("Recorrido Toyota Corolla");
+        response.setCarbonKg(new BigDecimal("18.9"));
+        when(emisionConsultaService.listar(any(), eq(CategoriaEmision.FLOTA), eq(2026), eq(7)))
+                .thenReturn(List.of(response));
+
+        mockMvc.perform(get("/api/emisiones")
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA"))
+                        .param("categoria", "FLOTA")
+                        .param("anio", "2026")
+                        .param("mes", "7"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].categoria").value("FLOTA"));
+
+        verify(emisionConsultaService).listar(any(), eq(CategoriaEmision.FLOTA), eq(2026), eq(7));
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void comparacionUsuarioSinEmpresaDevuelve422() throws Exception {
+        when(emisionComparacionService.comparar(any(), eq(2026)))
+                .thenThrow(ApiException.empresaNoConfigurada());
+
+        mockMvc.perform(get("/api/emisiones/comparacion")
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA"))
+                        .param("anio", "2026"))
+                .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void listarEmisionesCategoriaTodasNoFiltraPorCategoria() throws Exception {
+        when(emisionConsultaService.listar(any(), isNull(), eq(2026), isNull())).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/emisiones")
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA"))
+                        .param("categoria", "TODAS")
+                        .param("anio", "2026"))
+                .andExpect(status().isOk());
+
+        verify(emisionConsultaService).listar(any(), isNull(), eq(2026), isNull());
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void listarEmisionesCategoriaInvalidaDevuelve400() throws Exception {
+        mockMvc.perform(get("/api/emisiones")
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA"))
+                        .param("categoria", "OTRA"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -469,6 +555,10 @@ class EmisionControllerTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value(mensajeEsperado));
         mockMvc.perform(get("/api/emisiones/{id}", id))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value(mensajeEsperado));
+        mockMvc.perform(get("/api/emisiones/comparacion")
+                        .param("anio", "2026"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value(mensajeEsperado));
         mockMvc.perform(put("/api/emisiones/vuelo/{id}", id)
