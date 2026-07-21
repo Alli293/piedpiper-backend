@@ -17,6 +17,7 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -69,7 +70,7 @@ class ImaControllerTest {
                 .build();
         when(imaService.obtenerIma(anyInt(), anyInt(), any(UUID.class))).thenReturn(dto);
 
-        mockMvc.perform(get("/api/ima").param("anio", "2026").param("mes", "6"))
+        mockMvc.perform(get("/api/ima").param("anio", "2026").param("mes", "6").principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.cobertura").value(75.0))
                 .andExpect(jsonPath("$.consistencia").value(66.7))
@@ -81,28 +82,28 @@ class ImaControllerTest {
     @Test
     @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
     void mesInvalidoDevuelve400() throws Exception {
-        mockMvc.perform(get("/api/ima").param("anio", "2026").param("mes", "13"))
+        mockMvc.perform(get("/api/ima").param("anio", "2026").param("mes", "13").principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
     @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
     void mesNegativoDevuelve400() throws Exception {
-        mockMvc.perform(get("/api/ima").param("anio", "2026").param("mes", "0"))
+        mockMvc.perform(get("/api/ima").param("anio", "2026").param("mes", "0").principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
     @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
     void anioFueraDeRangoDevuelve400() throws Exception {
-        mockMvc.perform(get("/api/ima").param("anio", "1999").param("mes", "6"))
+        mockMvc.perform(get("/api/ima").param("anio", "1999").param("mes", "6").principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
     @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
     void periodoFuturoDevuelve400() throws Exception {
-        mockMvc.perform(get("/api/ima").param("anio", "2026").param("mes", "12"))
+        mockMvc.perform(get("/api/ima").param("anio", "2026").param("mes", "12").principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isBadRequest());
     }
 
@@ -119,7 +120,7 @@ class ImaControllerTest {
                 .build();
         when(imaService.obtenerIma(anyInt(), anyInt(), any(UUID.class))).thenReturn(dto);
 
-        mockMvc.perform(get("/api/ima").param("anio", "2026").param("mes", "6"))
+        mockMvc.perform(get("/api/ima").param("anio", "2026").param("mes", "6").principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.parcial").value(true))
                 .andExpect(jsonPath("$.motivoParcial").exists());
@@ -128,7 +129,7 @@ class ImaControllerTest {
     @Test
     @WithMockUser(username = "db2ed1e7-6719-4595-844e-68efffe146cf", roles = "AUDITOR_CERTIFICADO")
     void auditorNoTieneAcceso() throws Exception {
-        mockMvc.perform(get("/api/ima").param("anio", "2026").param("mes", "6"))
+        mockMvc.perform(get("/api/ima").param("anio", "2026").param("mes", "6").principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isForbidden());
     }
 
@@ -145,7 +146,7 @@ class ImaControllerTest {
                 .build();
         when(imaService.obtenerIma(anyInt(), anyInt(), any(UUID.class))).thenReturn(dto);
 
-        mockMvc.perform(get("/api/ima"))
+        mockMvc.perform(get("/api/ima").principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.ima").value(37.5));
     }

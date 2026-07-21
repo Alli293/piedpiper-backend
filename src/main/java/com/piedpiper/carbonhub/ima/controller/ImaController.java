@@ -7,6 +7,7 @@ import com.piedpiper.carbonhub.ima.service.ImaService;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -17,6 +18,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/ima")
+@PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
 public class ImaController {
 
     private final ImaService imaService;
@@ -26,8 +28,8 @@ public class ImaController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
     public ResponseEntity<ImaResponseDTO> obtenerIma(
+            Authentication authentication,
             @RequestParam(required = false) Integer anio,
             @RequestParam(required = false) Integer mes) {
 
@@ -40,7 +42,6 @@ public class ImaController {
             mes = hoy.getMonthValue();
         }
 
-        // Validaciones
         if (anio < 2000 || anio > hoy.getYear()) {
             throw new ApiException(org.springframework.http.HttpStatus.BAD_REQUEST,
                     "El año debe estar entre 2000 y " + hoy.getYear() + ".");
@@ -50,7 +51,6 @@ public class ImaController {
                     "El mes debe estar entre 1 y 12.");
         }
 
-        // Verificar que no sea un período futuro
         LocalDate periodoSolicitado = LocalDate.of(anio, mes, 1);
         LocalDate periodoActual = LocalDate.of(hoy.getYear(), hoy.getMonthValue(), 1);
         if (periodoSolicitado.isAfter(periodoActual)) {
@@ -58,8 +58,7 @@ public class ImaController {
                     "El período no puede ser futuro.");
         }
 
-        UUID usuarioId = Autenticaciones.usuarioId(
-                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication());
+        UUID usuarioId = Autenticaciones.usuarioId(authentication);
         ImaResponseDTO response = imaService.obtenerIma(anio, mes, usuarioId);
         return ResponseEntity.ok(response);
     }
