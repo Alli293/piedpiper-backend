@@ -1,5 +1,6 @@
 package com.piedpiper.carbonhub.user.controller;
 
+import com.piedpiper.carbonhub.auth.config.CorsConfig;
 import com.piedpiper.carbonhub.auth.config.JwtAuthenticationFilter;
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
 import com.piedpiper.carbonhub.auth.service.JwtService;
@@ -30,10 +31,11 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(UsuarioController.class)
-@Import({SecurityConfig.class, JwtAuthenticationFilter.class})
+@Import({SecurityConfig.class, JwtAuthenticationFilter.class, CorsConfig.class})
 class UsuarioControllerSecurityTest {
 
     @Autowired
@@ -86,7 +88,8 @@ class UsuarioControllerSecurityTest {
 
         mockMvc.perform(get("/api/usuarios/me/preferencias")
                         .header("Authorization", "Bearer token-invalido"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(header().doesNotExist("X-Refresh-Token"));
     }
 
     @Test
@@ -104,9 +107,11 @@ class UsuarioControllerSecurityTest {
                 .build()));
         when(preferenciasUsuarioService.obtenerPreferencias(any(UUID.class)))
                 .thenReturn(new PreferenciasUsuarioResponseDTO("ESPANOL", "CRC", "METRICO"));
+        when(jwtService.generar(any(Usuario.class))).thenReturn("token-renovado");
 
         mockMvc.perform(get("/api/usuarios/me/preferencias")
                         .header("Authorization", "Bearer token-valido"))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Refresh-Token", "token-renovado"));
     }
 }
