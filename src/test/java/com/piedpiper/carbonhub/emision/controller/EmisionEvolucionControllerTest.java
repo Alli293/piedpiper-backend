@@ -34,7 +34,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -139,16 +138,16 @@ class EmisionEvolucionControllerTest {
             BigDecimal valor = (mes == 1 || mes == 3 || mes == 7)
                     ? new BigDecimal("150.500")
                     : BigDecimal.ZERO;
-            serie.add(PuntoMensual.builder().mes(mes).totalCarbonKg(valor).build());
+            serie.add(new PuntoMensual(mes, valor));
         }
-        return EvolucionMensualDTO.builder().anio(anio).serie(serie).build();
+        return new EvolucionMensualDTO(anio, serie);
     }
 
     private EvolucionMensualDTO crearEvolucionVacia(int anio) {
         List<PuntoMensual> serie = new ArrayList<>();
         for (int mes = 1; mes <= 12; mes++) {
-            serie.add(PuntoMensual.builder().mes(mes).totalCarbonKg(BigDecimal.ZERO).build());
+            serie.add(new PuntoMensual(mes, BigDecimal.ZERO));
         }
-        return EvolucionMensualDTO.builder().anio(anio).serie(serie).build();
+        return new EvolucionMensualDTO(anio, serie);
     }
 }

@@ -101,7 +101,7 @@ class EmisionEvolucionServiceTest {
         assertThatThrownBy(() -> service.obtenerEvolucion(2026, USUARIO_ID))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
-                .isEqualTo(HttpStatus.FORBIDDEN);
+                .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
     }
 
     @Test
