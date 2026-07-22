@@ -45,6 +45,9 @@ class EmisionElectricidadServiceTest {
     @Mock
     private EmisionElectricidadMapper emisionElectricidadMapper;
 
+        @Mock
+    private com.piedpiper.carbonhub.ima.service.ImaCacheInvalidator imaCacheInvalidator;
+
     @InjectMocks
     private EmisionElectricidadService service;
 

@@ -45,15 +45,18 @@ public class EmisionEnvioService {
     private final EmisionRepository emisionRepository;
     private final UsuarioRepository usuarioRepository;
     private final EmisionEnvioMapper emisionEnvioMapper;
+    private final com.piedpiper.carbonhub.ima.service.ImaCacheInvalidator imaCacheInvalidator;
 
     public EmisionEnvioService(ClimatiqClient climatiqClient,
                                EmisionRepository emisionRepository,
                                UsuarioRepository usuarioRepository,
-                               EmisionEnvioMapper emisionEnvioMapper) {
+                               EmisionEnvioMapper emisionEnvioMapper,
+                               com.piedpiper.carbonhub.ima.service.ImaCacheInvalidator imaCacheInvalidator) {
         this.climatiqClient = climatiqClient;
         this.emisionRepository = emisionRepository;
         this.usuarioRepository = usuarioRepository;
         this.emisionEnvioMapper = emisionEnvioMapper;
+        this.imaCacheInvalidator = imaCacheInvalidator;
     }
 
     @Transactional
@@ -100,6 +103,7 @@ public class EmisionEnvioService {
                 .createdByUserId(usuarioId)
                 .build();
         emision = emisionRepository.save(emision);
+        imaCacheInvalidator.invalidar(usuario.getEmpresa().getId());
 
         return emisionEnvioMapper.toDto(emision);
     }

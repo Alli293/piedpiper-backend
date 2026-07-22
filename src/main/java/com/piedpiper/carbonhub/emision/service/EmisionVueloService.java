@@ -31,15 +31,18 @@ public class EmisionVueloService {
     private final EmisionRepository emisionRepository;
     private final UsuarioRepository usuarioRepository;
     private final EmisionVueloMapper emisionVueloMapper;
+    private final com.piedpiper.carbonhub.ima.service.ImaCacheInvalidator imaCacheInvalidator;
 
     public EmisionVueloService(EmisionVueloLocalCalculator calculator,
                                EmisionRepository emisionRepository,
                                UsuarioRepository usuarioRepository,
-                               EmisionVueloMapper emisionVueloMapper) {
+                               EmisionVueloMapper emisionVueloMapper,
+                               com.piedpiper.carbonhub.ima.service.ImaCacheInvalidator imaCacheInvalidator) {
         this.calculator = calculator;
         this.emisionRepository = emisionRepository;
         this.usuarioRepository = usuarioRepository;
         this.emisionVueloMapper = emisionVueloMapper;
+        this.imaCacheInvalidator = imaCacheInvalidator;
     }
 
     @Transactional
@@ -56,6 +59,7 @@ public class EmisionVueloService {
 
         aplicarDatos(emision, request, now);
         emision = emisionRepository.save(emision);
+        imaCacheInvalidator.invalidar(emision.getEmpresaId());
         return emisionVueloMapper.toDto(emision);
     }
 
@@ -71,6 +75,7 @@ public class EmisionVueloService {
 
         aplicarDatos(emision, request, Instant.now());
         emision = emisionRepository.save(emision);
+        imaCacheInvalidator.invalidar(emision.getEmpresaId());
         return emisionVueloMapper.toDto(emision);
     }
 

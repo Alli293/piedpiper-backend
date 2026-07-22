@@ -8,7 +8,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
@@ -27,7 +26,6 @@ public class ImaInterpretacionService {
     }
 
     @Async
-    @Transactional
     public void generarInterpretacion(UUID snapshotId) {
         try {
             ImaSnapshot snapshot = imaSnapshotRepository.findById(snapshotId).orElse(null);

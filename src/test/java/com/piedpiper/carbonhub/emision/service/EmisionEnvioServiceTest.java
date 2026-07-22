@@ -48,6 +48,9 @@ class EmisionEnvioServiceTest {
     @Mock
     private EmisionEnvioMapper emisionEnvioMapper;
 
+        @Mock
+    private com.piedpiper.carbonhub.ima.service.ImaCacheInvalidator imaCacheInvalidator;
+
     @InjectMocks
     private EmisionEnvioService service;
 

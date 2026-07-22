@@ -38,15 +38,18 @@ public class EmisionFlotaService {
     private final EmisionRepository emisionRepository;
     private final UsuarioRepository usuarioRepository;
     private final EmisionFlotaMapper emisionFlotaMapper;
+    private final com.piedpiper.carbonhub.ima.service.ImaCacheInvalidator imaCacheInvalidator;
 
     public EmisionFlotaService(ClimatiqClient climatiqClient,
                                EmisionRepository emisionRepository,
                                UsuarioRepository usuarioRepository,
-                               EmisionFlotaMapper emisionFlotaMapper) {
+                               EmisionFlotaMapper emisionFlotaMapper,
+                               com.piedpiper.carbonhub.ima.service.ImaCacheInvalidator imaCacheInvalidator) {
         this.climatiqClient = climatiqClient;
         this.emisionRepository = emisionRepository;
         this.usuarioRepository = usuarioRepository;
         this.emisionFlotaMapper = emisionFlotaMapper;
+        this.imaCacheInvalidator = imaCacheInvalidator;
     }
 
     public List<TipoVehiculoResponseDTO> listarTiposVehiculo() {
@@ -104,6 +107,7 @@ public class EmisionFlotaService {
                 .createdByUserId(usuarioId)
                 .build();
         emision = emisionRepository.save(emision);
+        imaCacheInvalidator.invalidar(usuario.getEmpresa().getId());
 
         return emisionFlotaMapper.toDto(emision);
     }

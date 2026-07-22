@@ -50,6 +50,9 @@ class EmisionFlotaServiceTest {
     @Mock
     private EmisionFlotaMapper emisionFlotaMapper;
 
+        @Mock
+    private com.piedpiper.carbonhub.ima.service.ImaCacheInvalidator imaCacheInvalidator;
+
     @InjectMocks
     private EmisionFlotaService service;
 
