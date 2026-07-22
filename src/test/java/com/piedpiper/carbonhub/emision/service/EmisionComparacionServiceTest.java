@@ -5,6 +5,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
 import com.piedpiper.carbonhub.emision.models.dtos.ComparacionEmisionesResponseDTO;
+import com.piedpiper.carbonhub.emision.models.entities.Emision;
+import com.piedpiper.carbonhub.emision.models.entities.EmisionElectricidad;
+import com.piedpiper.carbonhub.emision.models.entities.EmisionEnvio;
+import com.piedpiper.carbonhub.emision.models.entities.EmisionFlota;
+import com.piedpiper.carbonhub.emision.models.entities.EmisionVuelo;
+import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.limite.models.entities.LimiteEmisiones;
@@ -12,6 +18,7 @@ import com.piedpiper.carbonhub.limite.repository.LimiteEmisionesRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.Year;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -120,6 +127,35 @@ class EmisionComparacionServiceTest {
     }
 
     @Test
+    void calculaDesglosePorCategoria() {
+        givenEmpresa();
+        givenHuellaAnual("5236.000", 2026);
+        when(emisionRepository.findAllByEmpresaIdAndPeriodo(
+                EMPRESA_ID, LocalDate.of(2026, 1, 1), LocalDate.of(2027, 1, 1)))
+                .thenReturn(List.of(
+                        emision(new EmisionElectricidad(), "2357.000"),
+                        emision(new EmisionFlota(), "1466.000"),
+                        emision(new EmisionVuelo(), "942.000"),
+                        emision(new EmisionEnvio(), "471.000")
+                ));
+        when(limiteEmisionesRepository.findByEmpresaIdAndAnio(EMPRESA_ID, 2026))
+                .thenReturn(Optional.of(new LimiteEmisiones(EMPRESA_ID, 2026, new BigDecimal("12470.0000"))));
+
+        ComparacionEmisionesResponseDTO response = service.comparar(USUARIO_ID, 2026);
+
+        assertThat(response.getCategorias()).hasSize(4);
+        assertThat(response.getCategorias().get(0).getCategoria()).isEqualTo(CategoriaEmision.ELECTRICIDAD);
+        assertThat(response.getCategorias().get(0).getHuellaT()).isEqualByComparingTo("2.3570");
+        assertThat(response.getCategorias().get(0).getPorcentaje()).isEqualByComparingTo("45.0");
+        assertThat(response.getCategorias().get(1).getCategoria()).isEqualTo(CategoriaEmision.FLOTA);
+        assertThat(response.getCategorias().get(1).getPorcentaje()).isEqualByComparingTo("28.0");
+        assertThat(response.getCategorias().get(2).getCategoria()).isEqualTo(CategoriaEmision.VUELO);
+        assertThat(response.getCategorias().get(2).getPorcentaje()).isEqualByComparingTo("18.0");
+        assertThat(response.getCategorias().get(3).getCategoria()).isEqualTo(CategoriaEmision.ENVIO);
+        assertThat(response.getCategorias().get(3).getPorcentaje()).isEqualByComparingTo("9.0");
+    }
+
+    @Test
     void usaAnioActualCuandoAnioEsNull() {
         int anioActual = Year.now().getValue();
         givenEmpresa();
@@ -165,5 +201,10 @@ class EmisionComparacionServiceTest {
         when(emisionRepository.sumCarbonKgByEmpresaIdAndFechaActividadEntre(
                 EMPRESA_ID, LocalDate.of(anio, 1, 1), LocalDate.of(anio + 1, 1, 1)))
                 .thenReturn(carbonKg);
+    }
+
+    private Emision emision(Emision emision, String carbonKg) {
+        emision.setCarbonKg(new BigDecimal(carbonKg));
+        return emision;
     }
 }
