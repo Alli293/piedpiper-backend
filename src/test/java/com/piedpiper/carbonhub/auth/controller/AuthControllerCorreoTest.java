@@ -9,6 +9,7 @@ import com.piedpiper.carbonhub.auth.service.RegistroAuditorCorreoService;
 import com.piedpiper.carbonhub.auth.service.RegistroAuditorService;
 import com.piedpiper.carbonhub.auth.service.RegistroEmpresaCorreoService;
 import com.piedpiper.carbonhub.auth.service.RegistroEmpresaService;
+import com.piedpiper.carbonhub.auth.service.RegistroInvitacionCorreoService;
 import com.piedpiper.carbonhub.auth.service.RegistroInvitacionService;
 import com.piedpiper.carbonhub.auth.service.RegistroUsuarioCorreoService;
 import com.piedpiper.carbonhub.auth.service.RegistroUsuarioService;
@@ -43,6 +44,8 @@ class AuthControllerCorreoTest {
 
     @MockitoBean
     private RegistroInvitacionService registroInvitacionService;
+    @MockitoBean
+    private RegistroInvitacionCorreoService registroInvitacionCorreoService;
 
     @Autowired
     private MockMvc mockMvc;
