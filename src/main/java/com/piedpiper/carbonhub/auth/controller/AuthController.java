@@ -19,6 +19,7 @@ import com.piedpiper.carbonhub.auth.models.dtos.RegistroAuditorRequestDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.RegistroEmpresaCorreoRequestDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.RegistroEmpresaRequestDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.RegistroInvitacionCorreoRequestDTO;
+import com.piedpiper.carbonhub.auth.models.dtos.ReenviarVerificacionRequestDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.RegistroInvitacionRequestDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.RegistroPendienteResponseDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.RegistroUsuarioCorreoRequestDTO;
@@ -134,5 +135,11 @@ public class AuthController {
     @GetMapping("/verificar-correo")
     public ResponseEntity<MensajeResponseDTO> verificarCorreo(@RequestParam String token) {
         return ResponseEntity.ok(verificarCorreoService.verificar(token));
+    }
+
+    @PostMapping("/reenviar-verificacion")
+    public ResponseEntity<MensajeResponseDTO> reenviarVerificacion(
+            @Valid @RequestBody ReenviarVerificacionRequestDTO request) {
+        return ResponseEntity.ok(verificarCorreoService.reenviar(request.getEmail()));
     }
 }

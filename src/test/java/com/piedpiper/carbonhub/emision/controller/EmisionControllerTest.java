@@ -2,6 +2,7 @@ package com.piedpiper.carbonhub.emision.controller;
 
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
 import com.piedpiper.carbonhub.auth.service.JwtService;
+import com.piedpiper.carbonhub.emision.models.dtos.ComparacionEmisionesResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionElectricidadResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionEnvioResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionFlotaResponseDTO;
@@ -16,11 +17,13 @@ import com.piedpiper.carbonhub.emision.models.enums.TipoVehiculo;
 import com.piedpiper.carbonhub.emision.models.enums.UnidadDistancia;
 import com.piedpiper.carbonhub.emision.models.enums.UnidadElectricidad;
 import com.piedpiper.carbonhub.emision.models.enums.UnidadPeso;
+import com.piedpiper.carbonhub.emision.service.EmisionComparacionService;
 import com.piedpiper.carbonhub.emision.service.EmisionConsultaService;
 import com.piedpiper.carbonhub.emision.service.EmisionElectricidadService;
 import com.piedpiper.carbonhub.emision.service.EmisionEnvioService;
 import com.piedpiper.carbonhub.emision.service.EmisionFlotaService;
 import com.piedpiper.carbonhub.emision.service.EmisionVueloService;
+import com.piedpiper.carbonhub.emision.service.ReporteHuellaPdfService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
@@ -58,6 +61,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = EmisionController.class,
@@ -86,6 +91,10 @@ class EmisionControllerTest {
     private EmisionVueloService emisionVueloService;
     @MockitoBean
     private EmisionConsultaService emisionConsultaService;
+    @MockitoBean
+    private EmisionComparacionService emisionComparacionService;
+    @MockitoBean
+    private ReporteHuellaPdfService reporteHuellaPdfService;
     @MockitoBean
     private JwtService jwtService;
     @MockitoBean
@@ -352,6 +361,30 @@ class EmisionControllerTest {
 
     @Test
     @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void comparacionEmisionesDevuelve200() throws Exception {
+        ComparacionEmisionesResponseDTO response = new ComparacionEmisionesResponseDTO(
+                2026,
+                new BigDecimal("30.0000"),
+                new BigDecimal("50.0000"),
+                new BigDecimal("60.0"),
+                "dentro",
+                null);
+        when(emisionComparacionService.comparar(any(), eq(2026))).thenReturn(response);
+
+        mockMvc.perform(get("/api/emisiones/comparacion")
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA"))
+                        .param("anio", "2026"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.huellaAcumuladaT").value(30.0000))
+                .andExpect(jsonPath("$.limiteT").value(50.0000))
+                .andExpect(jsonPath("$.porcentajeConsumido").value(60.0))
+                .andExpect(jsonPath("$.estado").value("dentro"));
+
+        verify(emisionComparacionService).comparar(any(), eq(2026));
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
     void listarEmisionesConFiltrosDevuelve200() throws Exception {
         EmisionResponseDTO response = new EmisionFlotaResponseDTO();
         response.setId(UUID.randomUUID());
@@ -370,6 +403,18 @@ class EmisionControllerTest {
                 .andExpect(jsonPath("$[0].categoria").value("FLOTA"));
 
         verify(emisionConsultaService).listar(any(), eq(CategoriaEmision.FLOTA), eq(2026), eq(7));
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void comparacionUsuarioSinEmpresaDevuelve422() throws Exception {
+        when(emisionComparacionService.comparar(any(), eq(2026)))
+                .thenThrow(ApiException.empresaNoConfigurada());
+
+        mockMvc.perform(get("/api/emisiones/comparacion")
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA"))
+                        .param("anio", "2026"))
+                .andExpect(status().isUnprocessableEntity());
     }
 
     @Test
@@ -393,6 +438,26 @@ class EmisionControllerTest {
                         .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA"))
                         .param("categoria", "OTRA"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void exportarReportePdfDevuelveArchivoDescargable() throws Exception {
+        byte[] pdf = "%PDF-1.4 test".getBytes();
+        when(reporteHuellaPdfService.generar(any(), eq(2026), eq(7))).thenReturn(pdf);
+        when(reporteHuellaPdfService.nombreArchivo(2026, 7)).thenReturn("reporte-huella-2026-07.pdf");
+
+        mockMvc.perform(get("/api/emisiones/reporte/pdf")
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA"))
+                        .param("anio", "2026")
+                        .param("mes", "7"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_PDF))
+                .andExpect(header().string("Content-Disposition",
+                        "attachment; filename=\"reporte-huella-2026-07.pdf\""))
+                .andExpect(content().bytes(pdf));
+
+        verify(reporteHuellaPdfService).generar(any(), eq(2026), eq(7));
     }
 
     @Test
@@ -512,6 +577,10 @@ class EmisionControllerTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value(mensajeEsperado));
         mockMvc.perform(get("/api/emisiones/{id}", id))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value(mensajeEsperado));
+        mockMvc.perform(get("/api/emisiones/comparacion")
+                        .param("anio", "2026"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value(mensajeEsperado));
         mockMvc.perform(put("/api/emisiones/vuelo/{id}", id)

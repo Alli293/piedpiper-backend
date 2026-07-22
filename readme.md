@@ -48,6 +48,8 @@ JWT_SECRET
 JWT_EXPIRATION
 GEMINI_API_KEY
 CLIMATIQ_API_KEY
+GMAIL_USERNAME
+GMAIL_APP_PASSWORD
 ```
 
 #### Ejemplo de variables de entorno
@@ -61,9 +63,17 @@ CLIMATIQ_API_KEY
 | `JWT_EXPIRATION` | Tiempo de expiración del token en milisegundos | `3600000` (1 hora) |
 | `GEMINI_API_KEY` | API Key de Google Gemini (Spring AI) | `your_gemini_api_key_here` |
 | `CLIMATIQ_API_KEY` | API Key de Climatiq (climatiq.io) | `your_climatiq_api_key_here` |
+| `GMAIL_USERNAME` | Correo de la cuenta de Gmail dedicada del proyecto (SMTP) | `tu_correo@gmail.com` |
+| `GMAIL_APP_PASSWORD` | Contraseña de aplicación de esa cuenta de Gmail (no la contraseña normal) | `tu_app_password_de_gmail` |
 
-> ⚠️ **Importante:** `JWT_SECRET`, `GEMINI_API_KEY` y `CLIMATIQ_API_KEY` son credenciales sensibles. El valor real de cada una debe compartirse por un canal privado del equipo.
+> ⚠️ **Importante:** `JWT_SECRET`, `GEMINI_API_KEY`, `CLIMATIQ_API_KEY` y `GMAIL_APP_PASSWORD` son credenciales sensibles. El valor real de cada una debe compartirse por un canal privado del equipo.
 
+#### Envío de correos: `app.email.provider`
+
+No es una variable obligatoria — tiene un valor por defecto y **no necesitás configurarla** para correr el proyecto localmente.
+
+- Por defecto (`app.email.provider=stub`, o sin configurar nada) los correos de verificación **no se envían de verdad**: se loguea el enlace en la consola. Así nadie del equipo se bloquea por no tener credenciales de Gmail.
+- Para probar el envío real, configurá `APP_EMAIL_PROVIDER=gmail` (además de `GMAIL_USERNAME`/`GMAIL_APP_PASSWORD` reales) — esto activa `EmailVerificacionServiceImpl` en vez del stub.
 
 #### Configuración en IntelliJ
 
@@ -83,6 +93,8 @@ Como la mayoría del equipo usa IntelliJ, hay dos formas de configurar estas var
    JWT_EXPIRATION=3600000
    JWT_SECRET=<valor real, pedirlo al equipo>
    GEMINI_API_KEY=<valor real, pedirlo al equipo>
+   GMAIL_USERNAME=tu_correo@gmail.com
+   GMAIL_APP_PASSWORD=<valor real, pedirlo al equipo>
    ```
 
 5. Aplicar y correr normalmente.
@@ -99,6 +111,8 @@ Como la mayoría del equipo usa IntelliJ, hay dos formas de configurar estas var
    JWT_EXPIRATION=3600000
    JWT_SECRET=<valor real, pedirlo al equipo>
    GEMINI_API_KEY=<valor real, pedirlo al equipo>
+   GMAIL_USERNAME=tu_correo@gmail.com
+   GMAIL_APP_PASSWORD=<valor real, pedirlo al equipo>
    ```
 
 3. Ir a **Run → Edit Configurations…** y seleccionar la configuración de la app.

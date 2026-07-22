@@ -39,13 +39,28 @@ public class ApiException extends RuntimeException {
     }
 
     public static ApiException tokenVerificacionInvalido() {
-        return new ApiException(HttpStatus.NOT_FOUND,
-                "El enlace de verificación no es válido.");
+        return new ApiException(HttpStatus.GONE,
+                "Este enlace de verificación no es válido o expiró. Solicita uno nuevo.");
     }
 
-    public static ApiException tokenVerificacionExpirado() {
-        return new ApiException(HttpStatus.GONE,
-                "El enlace de verificación expiró. Solicita uno nuevo.");
+    public static ApiException tokenVerificacionMalFormado() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "El formato del enlace de verificación no es válido.");
+    }
+
+    public static ApiException correoYaVerificado() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Tu correo ya fue verificado. Inicia sesión.");
+    }
+
+    public static ApiException reenviosVerificacionExcedidos() {
+        return new ApiException(HttpStatus.TOO_MANY_REQUESTS,
+                "Has solicitado demasiados reenvíos. Intenta de nuevo en una hora.");
+    }
+
+    public static ApiException cuentaNoDisponible() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Esta cuenta no está disponible para verificación. Contacta a soporte.");
     }
 
     public static ApiException accesoDenegado(String mensaje) {
@@ -54,6 +69,10 @@ public class ApiException extends RuntimeException {
 
     public static ApiException valorNoSoportado(String mensaje) {
         return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, mensaje);
+    }
+
+    public static ApiException anioInvalido() {
+        return new ApiException(HttpStatus.BAD_REQUEST, "Año inválido.");
     }
 
     public static ApiException recursoNoEncontrado(String mensaje) {
