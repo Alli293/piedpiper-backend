@@ -103,7 +103,7 @@ class ImaControllerTest {
     @Test
     @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
     void periodoFuturoDevuelve400() throws Exception {
-        mockMvc.perform(get("/api/ima").param("anio", "2026").param("mes", "12").principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA")))
+        mockMvc.perform(get("/api/ima").param("anio", String.valueOf(java.time.LocalDate.now().plusMonths(1).getYear())).param("mes", String.valueOf(java.time.LocalDate.now().plusMonths(1).getMonthValue())).principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isBadRequest());
     }
 

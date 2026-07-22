@@ -36,19 +36,22 @@ public class ImaService {
     private final EmpresaRepository empresaRepository;
     private final UsuarioRepository usuarioRepository;
     private final ImaInterpretacionService interpretacionService;
+    private final com.piedpiper.carbonhub.ima.mappers.ImaSnapshotMapper imaSnapshotMapper;
 
     public ImaService(ImaSnapshotRepository imaSnapshotRepository,
                       AgregadoSectorialRepository agregadoSectorialRepository,
                       EmisionRepository emisionRepository,
                       EmpresaRepository empresaRepository,
                       UsuarioRepository usuarioRepository,
-                      ImaInterpretacionService interpretacionService) {
+                      ImaInterpretacionService interpretacionService,
+                      com.piedpiper.carbonhub.ima.mappers.ImaSnapshotMapper imaSnapshotMapper) {
         this.imaSnapshotRepository = imaSnapshotRepository;
         this.agregadoSectorialRepository = agregadoSectorialRepository;
         this.emisionRepository = emisionRepository;
         this.empresaRepository = empresaRepository;
         this.usuarioRepository = usuarioRepository;
         this.interpretacionService = interpretacionService;
+        this.imaSnapshotMapper = imaSnapshotMapper;
     }
 
     @Transactional
@@ -226,16 +229,6 @@ public class ImaService {
     }
 
     private ImaResponseDTO toDto(ImaSnapshot snapshot) {
-        return ImaResponseDTO.builder()
-                .cobertura(snapshot.getCobertura())
-                .puntajeIntensidadSectorial(snapshot.getPuntajeIntensidadSectorial())
-                .consistencia(snapshot.getConsistencia())
-                .ima(snapshot.getIma())
-                .parcial(snapshot.isParcial())
-                .motivoParcial(snapshot.getMotivoParcial())
-                .intensidad(snapshot.getIntensidad())
-                .calculatedAt(snapshot.getCalculatedAt())
-                .interpretacionIa(snapshot.getInterpretacionIa())
-                .build();
+        return imaSnapshotMapper.toDto(snapshot);
     }
 }
