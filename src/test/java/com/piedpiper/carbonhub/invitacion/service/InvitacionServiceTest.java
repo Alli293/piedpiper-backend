@@ -20,6 +20,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -195,7 +196,7 @@ class InvitacionServiceTest {
         when(usuarioRepository.findById(ADMIN_ID)).thenReturn(Optional.of(administrador()));
         when(invitacionRepository.findByIdAndEmpresaId(enviada.getId(), EMPRESA_ID))
                 .thenReturn(Optional.of(enviada));
-        when(invitacionRepository.save(any(Invitacion.class))).thenAnswer(i -> i.getArgument(0));
+        when(invitacionRepository.saveAndFlush(any(Invitacion.class))).thenAnswer(i -> i.getArgument(0));
         mockearMapperComoIdentidad();
 
         InvitacionResponseDTO response = service.revocar(ADMIN_ID, enviada.getId());
@@ -254,7 +255,7 @@ class InvitacionServiceTest {
     }
 
     @Test
-    void resolverTokenEnviadoVencidoPorFechaPersisteExpiradaYLanza410() {
+    void resolverTokenEnviadoVencidoPorFechaLanza410SinEscribir() {
         Invitacion vencida = invitacion(EstadoInvitacion.ENVIADA, Instant.now().minus(1, ChronoUnit.HOURS));
         when(invitacionRepository.findByTokenHash(any())).thenReturn(Optional.of(vencida));
 
@@ -263,9 +264,7 @@ class InvitacionServiceTest {
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.GONE);
 
-        ArgumentCaptor<Invitacion> captor = ArgumentCaptor.forClass(Invitacion.class);
-        verify(invitacionRepository).save(captor.capture());
-        assertThat(captor.getValue().getEstado()).isEqualTo(EstadoInvitacion.EXPIRADA);
+        verify(invitacionRepository, never()).save(any());
     }
 
     @Test
@@ -281,6 +280,53 @@ class InvitacionServiceTest {
     }
 
     @Test
+    void validarParaAceptarConEnviadaVencidaLanza410() {
+        Invitacion vencida = invitacion(EstadoInvitacion.ENVIADA, Instant.now().minus(1, ChronoUnit.HOURS));
+        when(invitacionRepository.findByTokenHash(any())).thenReturn(Optional.of(vencida));
+
+        assertThatThrownBy(() -> service.validarParaAceptar("token-plano"))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.GONE);
+
+        verify(invitacionRepository, never()).save(any());
+    }
+
+    @Test
+    void marcarAceptadaGuardaElEstadoYLaFechaDeAceptacion() {
+        Invitacion enviada = invitacion(EstadoInvitacion.ENVIADA, Instant.now().plus(1, ChronoUnit.DAYS));
+
+        service.marcarAceptada(enviada);
+
+        ArgumentCaptor<Invitacion> captor = ArgumentCaptor.forClass(Invitacion.class);
+        verify(invitacionRepository).saveAndFlush(captor.capture());
+        assertThat(captor.getValue().getEstado()).isEqualTo(EstadoInvitacion.ACEPTADA);
+        assertThat(captor.getValue().getFechaAceptacion()).isNotNull();
+    }
+
+    @Test
+    void marcarAceptadaConInvitacionNoEnviadaLanza409() {
+        Invitacion revocada = invitacion(EstadoInvitacion.REVOCADA, Instant.now().plus(1, ChronoUnit.DAYS));
+
+        assertThatThrownBy(() -> service.marcarAceptada(revocada))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getStatus()).isEqualTo(HttpStatus.CONFLICT));
+
+        verify(invitacionRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void marcarAceptadaConLockOptimistaLanza409() {
+        Invitacion enviada = invitacion(EstadoInvitacion.ENVIADA, Instant.now().plus(1, ChronoUnit.DAYS));
+        when(invitacionRepository.saveAndFlush(any(Invitacion.class)))
+                .thenThrow(new ObjectOptimisticLockingFailureException(Invitacion.class, enviada.getId()));
+
+        assertThatThrownBy(() -> service.marcarAceptada(enviada))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getStatus()).isEqualTo(HttpStatus.CONFLICT));
+    }
+
+    @Test
     void resolverTokenRevocadoLanza409YNoLoConfundeConInexistente() {
         Invitacion revocada = invitacion(EstadoInvitacion.REVOCADA, Instant.now().plus(1, ChronoUnit.DAYS));
         when(invitacionRepository.findByTokenHash(any())).thenReturn(Optional.of(revocada));
@@ -292,14 +338,26 @@ class InvitacionServiceTest {
     }
 
     @Test
-    void resolverTokenYaPersistidoComoExpiradaLanza409() {
+    void resolverTokenYaPersistidoComoExpiradaSigueDando410EnAccesosPosteriores() {
         Invitacion expirada = invitacion(EstadoInvitacion.EXPIRADA, Instant.now().minus(1, ChronoUnit.DAYS));
         when(invitacionRepository.findByTokenHash(any())).thenReturn(Optional.of(expirada));
 
         assertThatThrownBy(() -> service.resolver("token-plano"))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
-                .isEqualTo(HttpStatus.CONFLICT);
+                .isEqualTo(HttpStatus.GONE);
+        verify(invitacionRepository, never()).save(any());
+    }
+
+    @Test
+    void validarParaAceptarConEstadoPersistidoExpiradaSigueDando410() {
+        Invitacion expirada = invitacion(EstadoInvitacion.EXPIRADA, Instant.now().minus(1, ChronoUnit.DAYS));
+        when(invitacionRepository.findByTokenHash(any())).thenReturn(Optional.of(expirada));
+
+        assertThatThrownBy(() -> service.validarParaAceptar("token-plano"))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.GONE);
         verify(invitacionRepository, never()).save(any());
     }
 }
