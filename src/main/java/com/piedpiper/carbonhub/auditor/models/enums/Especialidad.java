@@ -1,0 +1,14 @@
+package com.piedpiper.carbonhub.auditor.models.enums;
+
+public enum Especialidad {
+    HUELLA_CARBONO,
+    ENERGIA_RENOVABLE,
+    GESTION_RESIDUOS,
+    EFICIENCIA_ENERGETICA,
+    BIODIVERSIDAD,
+    ECONOMIA_CIRCULAR,
+    TRANSPORTE_SOSTENIBLE,
+    AGUA_Y_SANEAMIENTO,
+    CAMBIO_CLIMATICO,
+    RESPONSABILIDAD_SOCIAL
+}
