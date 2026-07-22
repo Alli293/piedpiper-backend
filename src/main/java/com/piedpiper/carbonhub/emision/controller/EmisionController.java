@@ -61,7 +61,7 @@ public class EmisionController {
                              EmisionEnvioService emisionEnvioService,
                              EmisionVueloService emisionVueloService,
                              EmisionConsultaService emisionConsultaService,
-                             EmisionResumenService emisionResumenService) {
+                             EmisionResumenService emisionResumenService,
                              EmisionComparacionService emisionComparacionService,
                              ReporteHuellaPdfService reporteHuellaPdfService) {
         this.emisionElectricidadService = emisionElectricidadService;
