@@ -7,5 +7,7 @@ public enum InteresTuristico {
     GASTRONOMIA_LOCAL,
     CULTURA,
     PLAYAS,
-    BIENESTAR
+    BIENESTAR,
+    DEPORTES_EXTREMOS,
+    HISTORIA
 }
