@@ -17,7 +17,6 @@ import com.piedpiper.carbonhub.emision.service.EmisionFlotaService;
 import com.piedpiper.carbonhub.emision.service.EmisionResumenService;
 import com.piedpiper.carbonhub.emision.service.EmisionVueloService;
 import com.piedpiper.carbonhub.common.Autenticaciones;
-import com.piedpiper.carbonhub.exceptions.ApiException;
 
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;

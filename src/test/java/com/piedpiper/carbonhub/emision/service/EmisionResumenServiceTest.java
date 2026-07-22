@@ -94,6 +94,28 @@ class EmisionResumenServiceTest {
     }
 
     @Test
+    void losPorcentajesSuman100PorCientoConAjusteDeMayorResto() {
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
+        when(emisionRepository.findAllByEmpresaIdAndFechaActividadBetween(
+                EMPRESA_ID, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31)))
+                .thenReturn(List.of(electricidad("1.000"), flota("1.000"), envio("1.000")));
+
+        EmisionResumenResponseDTO resumen = service.resumen(2026, null, USUARIO_ID);
+
+        BigDecimal sumaPorcentajes = resumen.getCategorias().stream()
+                .map(ResumenCategoriaDTO::getPorcentaje)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        assertThat(sumaPorcentajes).isEqualByComparingTo("100.0");
+        assertThat(categoria(resumen, CategoriaEmision.ELECTRICIDAD).getPorcentaje())
+                .isEqualByComparingTo("33.4");
+        assertThat(categoria(resumen, CategoriaEmision.FLOTA).getPorcentaje())
+                .isEqualByComparingTo("33.3");
+        assertThat(categoria(resumen, CategoriaEmision.ENVIO).getPorcentaje())
+                .isEqualByComparingTo("33.3");
+    }
+
+    @Test
     void listaVaciaRetornaTotalesYPorcentajesEnCero() {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
         when(emisionRepository.findAllByEmpresaIdAndFechaActividadBetween(

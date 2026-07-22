@@ -64,12 +64,12 @@ public class EmisionResumenService {
             totalKg = totalKg.add(carbonKg);
         }
 
-        BigDecimal total = totalKg;
+        Map<CategoriaEmision, BigDecimal> porcentajes = porcentajesConMayorResto(subtotales, totalKg);
         List<ResumenCategoriaDTO> categorias = ORDEN_CATEGORIAS.stream()
                 .map(categoria -> ResumenCategoriaDTO.builder()
                         .categoria(categoria)
                         .totalKg(subtotales.getOrDefault(categoria, BigDecimal.ZERO))
-                        .porcentaje(porcentaje(subtotales.getOrDefault(categoria, BigDecimal.ZERO), total))
+                        .porcentaje(porcentajes.get(categoria))
                         .build())
                 .toList();
 
@@ -91,11 +91,51 @@ public class EmisionResumenService {
         }
     }
 
-    private BigDecimal porcentaje(BigDecimal subtotal, BigDecimal total) {
+    /**
+     * Calcula el porcentaje de cada categoría con ajuste de mayor resto (largest remainder),
+     * de modo que la suma de los porcentajes redondeados a 1 decimal sea siempre exactamente 100.0%
+     * (cuando total > 0).
+     */
+    private Map<CategoriaEmision, BigDecimal> porcentajesConMayorResto(
+            Map<CategoriaEmision, BigDecimal> subtotales, BigDecimal total) {
+
+        Map<CategoriaEmision, BigDecimal> resultado = new EnumMap<>(CategoriaEmision.class);
         if (total.compareTo(BigDecimal.ZERO) == 0) {
-            return BigDecimal.ZERO.setScale(1, RoundingMode.HALF_UP);
+            ORDEN_CATEGORIAS.forEach(categoria -> resultado.put(categoria, BigDecimal.ZERO.setScale(1, RoundingMode.HALF_UP)));
+            return resultado;
         }
-        return subtotal.multiply(CIEN).divide(total, 1, RoundingMode.HALF_UP);
+
+        BigDecimal decimas = BigDecimal.TEN;
+        Map<CategoriaEmision, BigDecimal> exactoEnDecimas = new EnumMap<>(CategoriaEmision.class);
+        Map<CategoriaEmision, BigDecimal> pisoEnDecimas = new EnumMap<>(CategoriaEmision.class);
+        int sumaPiso = 0;
+
+        for (CategoriaEmision categoria : ORDEN_CATEGORIAS) {
+            BigDecimal subtotal = subtotales.getOrDefault(categoria, BigDecimal.ZERO);
+            // porcentaje expresado en décimas (ej. 33.3% -> 333), con precisión completa
+            BigDecimal exacto = subtotal.multiply(CIEN).multiply(decimas)
+                    .divide(total, 6, RoundingMode.HALF_UP);
+            BigDecimal piso = exacto.setScale(0, RoundingMode.DOWN);
+            exactoEnDecimas.put(categoria, exacto);
+            pisoEnDecimas.put(categoria, piso);
+            sumaPiso += piso.intValue();
+        }
+
+        int faltante = 1000 - sumaPiso; // 1000 décimas = 100.0%
+
+        List<CategoriaEmision> porMayorResto = ORDEN_CATEGORIAS.stream()
+                .sorted((a, b) -> exactoEnDecimas.get(b).subtract(pisoEnDecimas.get(b))
+                        .compareTo(exactoEnDecimas.get(a).subtract(pisoEnDecimas.get(a))))
+                .toList();
+
+        for (int i = 0; i < porMayorResto.size(); i++) {
+            CategoriaEmision categoria = porMayorResto.get(i);
+            BigDecimal piso = pisoEnDecimas.get(categoria);
+            BigDecimal ajustado = i < faltante ? piso.add(BigDecimal.ONE) : piso;
+            resultado.put(categoria, ajustado.divide(decimas, 1, RoundingMode.HALF_UP));
+        }
+
+        return resultado;
     }
 
     private UUID empresaId(UUID usuarioId) {
