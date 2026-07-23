@@ -120,7 +120,7 @@ class ImaControllerTest {
                 .build();
         when(imaService.obtenerIma(anyInt(), anyInt(), any(UUID.class))).thenReturn(dto);
 
-        mockMvc.perform(get("/api/ima").param("anio", "2026").param("mes", "6").principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA")))
+        mockMvc.perform(get("/api/ima").param("anio", "2026").param("mes", "6").principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_USUARIO_GENERAL")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.parcial").value(true))
                 .andExpect(jsonPath("$.motivoParcial").exists());

@@ -9,6 +9,7 @@ import com.piedpiper.carbonhub.emision.models.entities.EmisionElectricidad;
 import com.piedpiper.carbonhub.emision.models.enums.UnidadElectricidad;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.ima.service.ImaCacheInvalidator;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
@@ -36,13 +37,13 @@ public class EmisionElectricidadService {
     private final EmisionRepository emisionRepository;
     private final UsuarioRepository usuarioRepository;
     private final EmisionElectricidadMapper emisionElectricidadMapper;
-    private final com.piedpiper.carbonhub.ima.service.ImaCacheInvalidator imaCacheInvalidator;
+    private final ImaCacheInvalidator imaCacheInvalidator;
 
     public EmisionElectricidadService(ClimatiqClient climatiqClient,
                                       EmisionRepository emisionRepository,
                                       UsuarioRepository usuarioRepository,
                                       EmisionElectricidadMapper emisionElectricidadMapper,
-                                      com.piedpiper.carbonhub.ima.service.ImaCacheInvalidator imaCacheInvalidator) {
+                                      ImaCacheInvalidator imaCacheInvalidator) {
         this.climatiqClient = climatiqClient;
         this.emisionRepository = emisionRepository;
         this.usuarioRepository = usuarioRepository;

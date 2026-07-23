@@ -5,6 +5,7 @@ import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.empresa.models.enums.SectorIndustrial;
 import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.ima.mappers.ImaSnapshotMapper;
 import com.piedpiper.carbonhub.ima.models.dtos.ImaResponseDTO;
 import com.piedpiper.carbonhub.ima.models.entities.AgregadoSectorial;
 import com.piedpiper.carbonhub.ima.models.entities.ImaSnapshot;
@@ -15,6 +16,8 @@ import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -36,7 +39,7 @@ public class ImaService {
     private final EmpresaRepository empresaRepository;
     private final UsuarioRepository usuarioRepository;
     private final ImaInterpretacionService interpretacionService;
-    private final com.piedpiper.carbonhub.ima.mappers.ImaSnapshotMapper imaSnapshotMapper;
+    private final ImaSnapshotMapper imaSnapshotMapper;
 
     public ImaService(ImaSnapshotRepository imaSnapshotRepository,
                       AgregadoSectorialRepository agregadoSectorialRepository,
@@ -44,7 +47,7 @@ public class ImaService {
                       EmpresaRepository empresaRepository,
                       UsuarioRepository usuarioRepository,
                       ImaInterpretacionService interpretacionService,
-                      com.piedpiper.carbonhub.ima.mappers.ImaSnapshotMapper imaSnapshotMapper) {
+                      ImaSnapshotMapper imaSnapshotMapper) {
         this.imaSnapshotRepository = imaSnapshotRepository;
         this.agregadoSectorialRepository = agregadoSectorialRepository;
         this.emisionRepository = emisionRepository;
@@ -159,9 +162,9 @@ public class ImaService {
 
         // Generar interpretación por IA después del commit
         final UUID snapshotId = snapshot.getId();
-        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
-            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
-                    new org.springframework.transaction.support.TransactionSynchronization() {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
                         @Override
                         public void afterCommit() {
                             interpretacionService.generarInterpretacion(snapshotId);

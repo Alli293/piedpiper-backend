@@ -10,6 +10,7 @@ import com.piedpiper.carbonhub.emision.models.enums.UnidadElectricidad;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.ima.service.ImaCacheInvalidator;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
@@ -45,8 +46,8 @@ class EmisionElectricidadServiceTest {
     @Mock
     private EmisionElectricidadMapper emisionElectricidadMapper;
 
-        @Mock
-    private com.piedpiper.carbonhub.ima.service.ImaCacheInvalidator imaCacheInvalidator;
+    @Mock
+    private ImaCacheInvalidator imaCacheInvalidator;
 
     @InjectMocks
     private EmisionElectricidadService service;
@@ -97,6 +98,7 @@ class EmisionElectricidadServiceTest {
         assertThat(guardada.getCreatedByUserId()).isEqualTo(USUARIO_ID);
         assertThat(guardada.getEmpresaId()).isEqualTo(EMPRESA_ID);
         assertThat(response.getCarbonKg()).isEqualByComparingTo("27.85");
+        verify(imaCacheInvalidator).invalidar(EMPRESA_ID);
     }
 
     @Test

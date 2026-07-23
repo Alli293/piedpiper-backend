@@ -16,6 +16,7 @@ import com.piedpiper.carbonhub.emision.models.entities.EmisionVuelo;
 import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.ima.service.ImaCacheInvalidator;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -53,7 +54,7 @@ class EmisionConsultaServiceTest {
     @Mock
     private EmisionFlotaMapper emisionFlotaMapper;
     @Mock
-    private com.piedpiper.carbonhub.ima.service.ImaCacheInvalidator imaCacheInvalidator;
+    private ImaCacheInvalidator imaCacheInvalidator;
 
     @InjectMocks
     private EmisionConsultaService service;
