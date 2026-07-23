@@ -68,12 +68,21 @@ public class ApiException extends RuntimeException {
                 "El formato del enlace no es válido.");
     }
 
+    public static ApiException cuentaNoDisponible() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Esta cuenta no está disponible para verificación. Contacta a soporte.");
+    }
+
     public static ApiException accesoDenegado(String mensaje) {
         return new ApiException(HttpStatus.FORBIDDEN, mensaje);
     }
 
     public static ApiException valorNoSoportado(String mensaje) {
         return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, mensaje);
+    }
+
+    public static ApiException anioInvalido() {
+        return new ApiException(HttpStatus.BAD_REQUEST, "Año inválido.");
     }
 
     public static ApiException recursoNoEncontrado(String mensaje) {
@@ -188,6 +197,11 @@ public class ApiException extends RuntimeException {
     public static ApiException combinacionVehiculoInvalida() {
         return new ApiException(HttpStatus.BAD_REQUEST,
                 "Seleccione un combustible válido para este tipo de vehículo.");
+    }
+
+    public static ApiException anioConsultaInvalido() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "El año indicado no es válido.");
     }
 
     public static ApiException metodoTransporteNoSoportado() {

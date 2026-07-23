@@ -12,7 +12,6 @@ import com.piedpiper.carbonhub.auth.service.RegistroInvitacionCorreoService;
 import com.piedpiper.carbonhub.auth.service.RegistroInvitacionService;
 import com.piedpiper.carbonhub.auth.service.RegistroUsuarioCorreoService;
 import com.piedpiper.carbonhub.auth.service.RegistroUsuarioService;
-import com.piedpiper.carbonhub.auth.service.RestablecerContrasenaService;
 import com.piedpiper.carbonhub.auth.service.VerificarCorreoService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
@@ -39,15 +38,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         excludeFilters = @ComponentScan.Filter(
                 type = FilterType.ASSIGNABLE_TYPE, classes = SecurityConfig.class))
 @AutoConfigureMockMvc(addFilters = false)
-class AuthControllerInvitacionTest {
+class AuthControllerInvitacionCorreoTest {
 
     @Autowired
     private MockMvc mockMvc;
 
     @MockitoBean
-    private RegistroInvitacionService registroInvitacionService;
-    @MockitoBean
     private RegistroInvitacionCorreoService registroInvitacionCorreoService;
+    @MockitoBean
+    private RegistroInvitacionService registroInvitacionService;
     @MockitoBean
     private RegistroUsuarioService registroUsuarioService;
     @MockitoBean
@@ -68,18 +67,17 @@ class AuthControllerInvitacionTest {
     private JwtService jwtService;
     @MockitoBean
     private UsuarioRepository usuarioRepository;
-    @MockitoBean
-    private RestablecerContrasenaService restablecerContrasenaService;
 
     private static final String REQUEST_JSON =
-            "{\"tokenInvitacion\":\"token-inv\",\"idToken\":\"id-token\",\"aceptaTerminos\":true}";
+            "{\"tokenInvitacion\":\"token-inv\",\"nombre\":\"Ana\",\"apellidos\":\"Torres\","
+                    + "\"contrasena\":\"clave1234\",\"confirmarContrasena\":\"clave1234\",\"aceptaTerminos\":true}";
 
     @Test
-    void registroPorInvitacionValidoDevuelve201() throws Exception {
-        when(registroInvitacionService.registrar(any())).thenReturn(new AuthResponseDTO(
+    void registroPorInvitacionCorreoValidoDevuelve201() throws Exception {
+        when(registroInvitacionCorreoService.registrar(any())).thenReturn(new AuthResponseDTO(
                 "jwt-app", "USUARIO_GENERAL", "ACTIVO", "/perfil/configuracion-inicial"));
 
-        mockMvc.perform(post("/api/auth/registro/invitacion")
+        mockMvc.perform(post("/api/auth/registro/invitacion/correo")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(REQUEST_JSON))
                 .andExpect(status().isCreated())
@@ -89,41 +87,40 @@ class AuthControllerInvitacionTest {
 
     @Test
     void tokenDeInvitacionInexistenteDevuelve404() throws Exception {
-        when(registroInvitacionService.registrar(any())).thenThrow(ApiException.invitacionInvalida());
+        when(registroInvitacionCorreoService.registrar(any())).thenThrow(ApiException.invitacionInvalida());
 
-        mockMvc.perform(post("/api/auth/registro/invitacion")
+        mockMvc.perform(post("/api/auth/registro/invitacion/correo")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(REQUEST_JSON))
                 .andExpect(status().isNotFound());
     }
 
     @Test
-    void invitacionExpiradaDevuelve410() throws Exception {
-        when(registroInvitacionService.registrar(any())).thenThrow(ApiException.invitacionExpirada());
+    void invitacionRevocadaDevuelve409() throws Exception {
+        when(registroInvitacionCorreoService.registrar(any())).thenThrow(ApiException.invitacionNoDisponible());
 
-        mockMvc.perform(post("/api/auth/registro/invitacion")
+        mockMvc.perform(post("/api/auth/registro/invitacion/correo")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(REQUEST_JSON))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void invitacionExpiradaDevuelve410() throws Exception {
+        when(registroInvitacionCorreoService.registrar(any())).thenThrow(ApiException.invitacionExpirada());
+
+        mockMvc.perform(post("/api/auth/registro/invitacion/correo")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(REQUEST_JSON))
                 .andExpect(status().isGone());
     }
 
     @Test
-    void correoNoCoincidenteDevuelve403() throws Exception {
-        when(registroInvitacionService.registrar(any()))
-                .thenThrow(ApiException.invitacionCorreoNoCoincide());
-
-        mockMvc.perform(post("/api/auth/registro/invitacion")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(REQUEST_JSON))
-                .andExpect(status().isForbidden());
-    }
-
-    @Test
-    void subDuplicadoDevuelve409() throws Exception {
-        when(registroInvitacionService.registrar(any())).thenThrow(ApiException.cuentaDuplicada(
+    void correoDuplicadoDevuelve409() throws Exception {
+        when(registroInvitacionCorreoService.registrar(any())).thenThrow(ApiException.cuentaDuplicada(
                 "Este correo ya tiene una cuenta en CarbonHub. ¿Deseas iniciar sesión?"));
 
-        mockMvc.perform(post("/api/auth/registro/invitacion")
+        mockMvc.perform(post("/api/auth/registro/invitacion/correo")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(REQUEST_JSON))
                 .andExpect(status().isConflict());
@@ -131,9 +128,50 @@ class AuthControllerInvitacionTest {
 
     @Test
     void sinTokenDeInvitacionDevuelve400() throws Exception {
-        mockMvc.perform(post("/api/auth/registro/invitacion")
+        mockMvc.perform(post("/api/auth/registro/invitacion/correo")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"idToken\":\"id-token\",\"aceptaTerminos\":true}"))
+                        .content("{\"nombre\":\"Ana\",\"apellidos\":\"Torres\",\"contrasena\":\"clave1234\","
+                                + "\"confirmarContrasena\":\"clave1234\",\"aceptaTerminos\":true}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void sinNombreDevuelve400() throws Exception {
+        mockMvc.perform(post("/api/auth/registro/invitacion/correo")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tokenInvitacion\":\"token-inv\",\"apellidos\":\"Torres\","
+                                + "\"contrasena\":\"clave1234\",\"confirmarContrasena\":\"clave1234\","
+                                + "\"aceptaTerminos\":true}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void sinApellidosDevuelve400() throws Exception {
+        mockMvc.perform(post("/api/auth/registro/invitacion/correo")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tokenInvitacion\":\"token-inv\",\"nombre\":\"Ana\","
+                                + "\"contrasena\":\"clave1234\",\"confirmarContrasena\":\"clave1234\","
+                                + "\"aceptaTerminos\":true}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void contrasenasQueNoCoincidenDevuelve400() throws Exception {
+        mockMvc.perform(post("/api/auth/registro/invitacion/correo")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tokenInvitacion\":\"token-inv\",\"nombre\":\"Ana\",\"apellidos\":\"Torres\","
+                                + "\"contrasena\":\"clave1234\",\"confirmarContrasena\":\"otra-clave1\","
+                                + "\"aceptaTerminos\":true}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void sinAceptarTerminosDevuelve400() throws Exception {
+        mockMvc.perform(post("/api/auth/registro/invitacion/correo")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tokenInvitacion\":\"token-inv\",\"nombre\":\"Ana\",\"apellidos\":\"Torres\","
+                                + "\"contrasena\":\"clave1234\",\"confirmarContrasena\":\"clave1234\","
+                                + "\"aceptaTerminos\":false}"))
                 .andExpect(status().isBadRequest());
     }
 }

@@ -51,11 +51,14 @@ public class VerificarCorreoService {
         }
 
         String tokenHash = TokenVerificacionGenerator.hash(token);
-        Usuario usuario = usuarioRepository.findByTokenVerificacionHash(tokenHash)
+        Usuario usuario = usuarioRepository.findByTokenVerificacionHashForUpdate(tokenHash)
                 .orElseThrow(ApiException::tokenVerificacionInvalido);
 
-        if (usuario.getEstado() != EstadoUsuario.PENDIENTE_VERIFICACION) {
+        if (usuario.getEstado() == EstadoUsuario.ACTIVO || usuario.getEstado() == EstadoUsuario.PENDIENTE_VALIDACION) {
             throw ApiException.correoYaVerificado();
+        }
+        if (usuario.getEstado() != EstadoUsuario.PENDIENTE_VERIFICACION) {
+            throw ApiException.cuentaNoDisponible();
         }
 
         if (usuario.getTokenVerificacionExpiracion() == null
@@ -87,7 +90,7 @@ public class VerificarCorreoService {
 
     @Transactional
     public MensajeResponseDTO reenviar(String email) {
-        Optional<Usuario> usuarioOpt = usuarioRepository.findByEmailIgnoreCase(email.trim());
+        Optional<Usuario> usuarioOpt = usuarioRepository.findByEmailIgnoreCaseForUpdate(email.trim());
 
         if (usuarioOpt.isPresent()) {
             Usuario usuario = usuarioOpt.get();
