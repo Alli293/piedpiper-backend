@@ -7,6 +7,7 @@ import com.piedpiper.carbonhub.auth.config.SecurityConfig;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.PreferenciasViajeRequestDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.PreferenciasViajeResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.service.PreferenciasViajeService;
+import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.exceptions.GlobalExceptionHandler;
 
 import org.junit.jupiter.api.Test;
@@ -148,6 +149,45 @@ class EcoRutaPreferenciasControllerTest {
                         .contentType("application/json")
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_USUARIO_INDIVIDUAL")
+    void postConPresupuestoDemasiadoLargoDevuelve400() throws Exception {
+        PreferenciasViajeRequestDTO request = requestValido();
+        request.setPresupuesto("x".repeat(101));
+
+        mockMvc.perform(post("/api/ecoruta/preferencias")
+                        .principal(authentication("ROLE_USUARIO_INDIVIDUAL"))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_USUARIO_INDIVIDUAL")
+    void postConUbicacionActualDemasiadoLargaDevuelve400() throws Exception {
+        PreferenciasViajeRequestDTO request = requestValido();
+        request.setUbicacionActual("x".repeat(201));
+
+        mockMvc.perform(post("/api/ecoruta/preferencias")
+                        .principal(authentication("ROLE_USUARIO_INDIVIDUAL"))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_USUARIO_INDIVIDUAL")
+    void postConConflictoDeGuardadoDevuelve409() throws Exception {
+        when(service.guardar(any(UUID.class), any(PreferenciasViajeRequestDTO.class)))
+                .thenThrow(ApiException.preferenciasViajeConflicto());
+
+        mockMvc.perform(post("/api/ecoruta/preferencias")
+                        .principal(authentication("ROLE_USUARIO_INDIVIDUAL"))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(requestValido())))
+                .andExpect(status().isConflict());
     }
 
     @Test

@@ -20,6 +20,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 
 import java.time.Instant;
@@ -171,6 +172,33 @@ class PreferenciasViajeServiceTest {
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
 
         verify(preferenciasViajeRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void guardarConDobleGuardadoSimultaneoLanza409() {
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
+        when(preferenciasViajeRepository.findByUsuario_Id(USUARIO_ID)).thenReturn(Optional.empty());
+        when(preferenciasViajeRepository.saveAndFlush(any(PreferenciasViaje.class)))
+                .thenThrow(new DataIntegrityViolationException("duplicate key value violates unique constraint"));
+
+        assertThatThrownBy(() -> service.guardar(USUARIO_ID, requestValido()))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.CONFLICT);
+    }
+
+    @Test
+    void guardarConInteresesRepetidosLosDeduplica() {
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
+        when(preferenciasViajeRepository.findByUsuario_Id(USUARIO_ID)).thenReturn(Optional.empty());
+        when(preferenciasViajeRepository.saveAndFlush(any(PreferenciasViaje.class)))
+                .thenAnswer(i -> i.getArgument(0));
+        PreferenciasViajeRequestDTO request = requestValido();
+        request.setIntereses(List.of("NATURALEZA", "AVENTURA", "NATURALEZA"));
+
+        PreferenciasViajeResponseDTO response = service.guardar(USUARIO_ID, request);
+
+        assertThat(response.getIntereses()).containsExactly("NATURALEZA", "AVENTURA");
     }
 
     @Test

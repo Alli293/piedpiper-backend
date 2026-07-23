@@ -20,6 +20,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -33,7 +34,13 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "preferencias_viaje")
+@Table(
+        name = "preferencias_viaje",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_preferencias_viaje_usuario",
+                columnNames = {"usuario_id"}
+        )
+)
 @Getter
 @Setter
 @Builder
@@ -46,7 +53,7 @@ public class PreferenciasViaje {
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "usuario_id", nullable = false, unique = true)
+    @JoinColumn(name = "usuario_id", nullable = false)
     private Usuario usuario;
 
     @Column(name = "cantidad_dias", nullable = false)

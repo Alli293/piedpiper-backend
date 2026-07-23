@@ -38,6 +38,7 @@ public class PreferenciasViajeRequestDTO {
     @NotBlank(message = "Selecciona el tipo de viaje.")
     private String tipoViaje;
 
+    @Size(max = 100, message = "El presupuesto no puede superar 100 caracteres.")
     private String presupuesto;
 
     @NotEmpty(message = "Selecciona al menos una actividad de interés.")
@@ -45,6 +46,7 @@ public class PreferenciasViajeRequestDTO {
 
     private String provinciaPreferida;
 
+    @Size(max = 200, message = "La ubicación no puede superar 200 caracteres.")
     private String ubicacionActual;
 
     private boolean buscarCercaDeMi;

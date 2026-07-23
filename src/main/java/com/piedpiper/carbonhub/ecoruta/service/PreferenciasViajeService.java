@@ -16,10 +16,12 @@ import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -57,7 +59,7 @@ public class PreferenciasViajeService {
         Optional<Provincia> provincia = request.getProvinciaPreferida() != null
                 ? Catalogos.desde(Provincia.class, request.getProvinciaPreferida())
                 : Optional.empty();
-        List<InteresTuristico> intereses = new ArrayList<>();
+        LinkedHashSet<InteresTuristico> intereses = new LinkedHashSet<>();
 
         List<String> errores = new ArrayList<>();
         if (tipoViaje.isEmpty()) {
@@ -86,7 +88,7 @@ public class PreferenciasViajeService {
         entidad.setFechaInicio(request.getFechaInicio());
         entidad.setTipoViaje(tipoViaje.get());
         entidad.setPresupuesto(request.getPresupuesto());
-        entidad.setIntereses(intereses);
+        entidad.setIntereses(new ArrayList<>(intereses));
         entidad.setProvinciaPreferida(provincia.orElse(null));
         entidad.setUbicacionActual(request.getUbicacionActual());
         entidad.setBuscarCercaDeMi(request.isBuscarCercaDeMi());
@@ -95,6 +97,8 @@ public class PreferenciasViajeService {
 
         try {
             preferenciasViajeRepository.saveAndFlush(entidad);
+        } catch (DataIntegrityViolationException e) {
+            throw ApiException.preferenciasViajeConflicto();
         } catch (DataAccessException e) {
             log.error("Error inesperado al guardar las preferencias de viaje del usuario {}", usuarioId, e);
             throw ApiException.errorInterno(
