@@ -56,6 +56,10 @@ public class ApiException extends RuntimeException {
         return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, mensaje);
     }
 
+    public static ApiException anioInvalido() {
+        return new ApiException(HttpStatus.BAD_REQUEST, "Año inválido.");
+    }
+
     public static ApiException recursoNoEncontrado(String mensaje) {
         return new ApiException(HttpStatus.NOT_FOUND, mensaje);
     }
@@ -144,19 +148,25 @@ public class ApiException extends RuntimeException {
                 "Esta invitación ya fue utilizada.");
     }
 
-    public static ApiException anioFueraDeRango(int anioMaximo) {
-        return new ApiException(HttpStatus.BAD_REQUEST,
-                "El año debe estar entre 2000 y " + anioMaximo + ".");
+    public static ApiException solicitudNoEncontrada() {
+        return new ApiException(HttpStatus.NOT_FOUND,
+                "Esta solicitud no fue encontrada.");
     }
 
-    public static ApiException mesInvalido() {
-        return new ApiException(HttpStatus.BAD_REQUEST,
-                "El mes debe estar entre 1 y 12.");
+    public static ApiException solicitudYaProcesada() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Esta solicitud ya fue procesada por otro administrador.");
     }
 
-    public static ApiException periodoFuturo() {
-        return new ApiException(HttpStatus.BAD_REQUEST,
-                "El período no puede ser futuro.");
+    public static ApiException solicitudConflictoConcurrente() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Esta solicitud ya fue procesada. Recarga la página para ver el estado actualizado.");
+    }
+
+    public static ApiException invitacionCorreoNoCoincide() {
+        return new ApiException(HttpStatus.FORBIDDEN,
+                "La cuenta de Google que seleccionaste no corresponde al correo de esta invitación. "
+                        + "Inicia sesión con la cuenta indicada.");
     }
 
     public static ApiException combinacionVehiculoInvalida() {
@@ -169,8 +179,22 @@ public class ApiException extends RuntimeException {
                 "Seleccione un método de transporte válido.");
     }
 
+    public static ApiException categoriaEmisionInvalida() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Categoría de emisión inválida.");
+    }
+
+    public static ApiException mesInvalido() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "El mes debe estar entre 1 y 12.");
+    }
+
     public static ApiException limiteConflicto() {
         return new ApiException(HttpStatus.CONFLICT,
                 "Conflicto al guardar el límite. Intente nuevamente.");
+    }
+
+    public static ApiException periodoImaInvalido(String mensaje) {
+        return new ApiException(HttpStatus.BAD_REQUEST, mensaje);
     }
 }

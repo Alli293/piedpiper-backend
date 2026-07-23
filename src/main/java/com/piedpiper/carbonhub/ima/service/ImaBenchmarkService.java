@@ -173,8 +173,8 @@ public class ImaBenchmarkService {
         Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> ApiException.errorInterno("No se pudo identificar al usuario autenticado."));
         Empresa empresa = usuario.getEmpresa();
-        if (empresa == null) {
-            throw ApiException.accesoDenegado("El usuario autenticado no pertenece a una empresa.");
+        if (empresa == null || empresa.getId() == null) {
+            throw ApiException.empresaNoConfigurada();
         }
         return empresa;
     }

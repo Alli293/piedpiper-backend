@@ -5,6 +5,7 @@ import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.empresa.models.enums.SectorIndustrial;
 import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.ima.mappers.ImaSnapshotMapper;
 import com.piedpiper.carbonhub.ima.models.dtos.ImaResponseDTO;
 import com.piedpiper.carbonhub.ima.models.entities.AgregadoSectorial;
 import com.piedpiper.carbonhub.ima.models.entities.ImaSnapshot;
@@ -15,6 +16,8 @@ import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -26,25 +29,32 @@ import java.util.UUID;
 @Service
 public class ImaService {
 
+    private static final int TOTAL_CATEGORIAS = 4;
+    private static final int MESES_VENTANA = 12;
+    private static final int UMBRAL_EMPRESAS_SECTOR = 5;
+
     private final ImaSnapshotRepository imaSnapshotRepository;
     private final AgregadoSectorialRepository agregadoSectorialRepository;
     private final EmisionRepository emisionRepository;
     private final EmpresaRepository empresaRepository;
     private final UsuarioRepository usuarioRepository;
     private final ImaInterpretacionService interpretacionService;
+    private final ImaSnapshotMapper imaSnapshotMapper;
 
     public ImaService(ImaSnapshotRepository imaSnapshotRepository,
                       AgregadoSectorialRepository agregadoSectorialRepository,
                       EmisionRepository emisionRepository,
                       EmpresaRepository empresaRepository,
                       UsuarioRepository usuarioRepository,
-                      ImaInterpretacionService interpretacionService) {
+                      ImaInterpretacionService interpretacionService,
+                      ImaSnapshotMapper imaSnapshotMapper) {
         this.imaSnapshotRepository = imaSnapshotRepository;
         this.agregadoSectorialRepository = agregadoSectorialRepository;
         this.emisionRepository = emisionRepository;
         this.empresaRepository = empresaRepository;
         this.usuarioRepository = usuarioRepository;
         this.interpretacionService = interpretacionService;
+        this.imaSnapshotMapper = imaSnapshotMapper;
     }
 
     @Transactional
@@ -63,15 +73,19 @@ public class ImaService {
 
         // Ventana: últimos 12 meses terminando en el mes del período (inclusive)
         LocalDate hasta = LocalDate.of(anio, mes, 1).plusMonths(1).minusDays(1);
-        LocalDate desde = LocalDate.of(anio, mes, 1).minusMonths(ImaCalculos.MESES_VENTANA - 1);
+        LocalDate desde = LocalDate.of(anio, mes, 1).minusMonths(MESES_VENTANA - 1);
 
         // Cobertura
         long categoriasPresentes = emisionRepository.contarCategoriasConRegistro(empresaId, desde, hasta);
-        BigDecimal cobertura = ImaCalculos.cobertura(categoriasPresentes);
+        BigDecimal cobertura = BigDecimal.valueOf(categoriasPresentes)
+                .multiply(BigDecimal.valueOf(100))
+                .divide(BigDecimal.valueOf(TOTAL_CATEGORIAS), 1, RoundingMode.HALF_UP);
 
         // Consistencia
         long mesesConDatos = emisionRepository.contarMesesConRegistro(empresaId, desde, hasta);
-        BigDecimal consistencia = ImaCalculos.consistencia(mesesConDatos);
+        BigDecimal consistencia = BigDecimal.valueOf(mesesConDatos)
+                .multiply(BigDecimal.valueOf(100))
+                .divide(BigDecimal.valueOf(MESES_VENTANA), 1, RoundingMode.HALF_UP);
 
         // Intensidad
         BigDecimal totalCarbonKg = emisionRepository.sumarCarbonKgEnVentana(empresaId, desde, hasta);
@@ -80,7 +94,9 @@ public class ImaService {
 
         if (cantidadEmpleados != null && cantidadEmpleados > 0) {
             // t CO₂e por empleado
-            intensidadToneladas = ImaCalculos.intensidadToneladasPorEmpleado(totalCarbonKg, cantidadEmpleados);
+            intensidadToneladas = totalCarbonKg
+                    .divide(BigDecimal.valueOf(1000), 6, RoundingMode.HALF_UP)
+                    .divide(BigDecimal.valueOf(cantidadEmpleados), 6, RoundingMode.HALF_UP);
         }
 
         // Puntaje de intensidad sectorial
@@ -94,13 +110,20 @@ public class ImaService {
         if (cantidadEmpleados == null || cantidadEmpleados <= 0) {
             parcial = true;
             motivoParcial = "Completa el número de empleados de tu empresa para calcular tu Puntaje de intensidad sectorial.";
-        } else if (agregado.getCantidadEmpresas() < ImaCalculos.UMBRAL_EMPRESAS_SECTOR) {
+        } else if (agregado.getCantidadEmpresas() < UMBRAL_EMPRESAS_SECTOR) {
             parcial = true;
             motivoParcial = "Tu sector aún no tiene suficientes empresas (mínimo 5) para calcular el Puntaje de intensidad sectorial ni el benchmark.";
         } else {
             // Calcular puntaje: min(100, max(0, 50 × intensidadPromedio / intensidad))
-            puntajeIntensidad = ImaCalculos.puntajeIntensidadSectorial(
-                    intensidadToneladas, agregado.getIntensidadPromedio());
+            if (intensidadToneladas.compareTo(BigDecimal.ZERO) == 0) {
+                puntajeIntensidad = BigDecimal.valueOf(100);
+            } else {
+                BigDecimal intensidadPromedio = agregado.getIntensidadPromedio();
+                puntajeIntensidad = BigDecimal.valueOf(50)
+                        .multiply(intensidadPromedio)
+                        .divide(intensidadToneladas, 1, RoundingMode.HALF_UP);
+                puntajeIntensidad = puntajeIntensidad.max(BigDecimal.ZERO).min(BigDecimal.valueOf(100));
+            }
         }
 
         // Verificar si hay emisiones
@@ -110,7 +133,14 @@ public class ImaService {
         }
 
         // IMA
-        BigDecimal ima = ImaCalculos.ima(cobertura, puntajeIntensidad, consistencia);
+        BigDecimal ima;
+        if (puntajeIntensidad != null) {
+            ima = cobertura.add(puntajeIntensidad).add(consistencia)
+                    .divide(BigDecimal.valueOf(3), 1, RoundingMode.HALF_UP);
+        } else {
+            ima = cobertura.add(consistencia)
+                    .divide(BigDecimal.valueOf(2), 1, RoundingMode.HALF_UP);
+        }
 
         Instant now = Instant.now();
 
@@ -130,8 +160,17 @@ public class ImaService {
 
         snapshot = imaSnapshotRepository.save(snapshot);
 
-        // Generar interpretación por IA de forma asíncrona
-        interpretacionService.generarInterpretacion(snapshot);
+        // Generar interpretación por IA después del commit
+        final UUID snapshotId = snapshot.getId();
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            interpretacionService.generarInterpretacion(snapshotId);
+                        }
+                    });
+        }
 
         return toDto(snapshot);
     }
@@ -144,7 +183,7 @@ public class ImaService {
 
     private AgregadoSectorial generarAgregadoSectorial(SectorIndustrial sector, int anio, int mes,
                                                         LocalDate desde, LocalDate hasta) {
-        // Una sola query que cuenta empresas elegibles y calcula intensidad promedio
+        // Pre-filtrar empresas del sector con empleados, luego una query por empresa elegible
         List<Empresa> empresasSector = empresaRepository.findAll().stream()
                 .filter(e -> e.getSectorIndustrial() == sector)
                 .filter(e -> e.getCantidadEmpleados() != null && e.getCantidadEmpleados() > 0)
@@ -155,7 +194,10 @@ public class ImaService {
         for (Empresa emp : empresasSector) {
             BigDecimal carbonKg = emisionRepository.sumarCarbonKgEnVentana(emp.getId(), desde, hasta);
             if (carbonKg.compareTo(BigDecimal.ZERO) > 0) {
-                intensidades.add(ImaCalculos.intensidadToneladasPorEmpleado(carbonKg, emp.getCantidadEmpleados()));
+                BigDecimal intensidad = carbonKg
+                        .divide(BigDecimal.valueOf(1000), 6, RoundingMode.HALF_UP)
+                        .divide(BigDecimal.valueOf(emp.getCantidadEmpleados()), 6, RoundingMode.HALF_UP);
+                intensidades.add(intensidad);
             }
         }
 
@@ -168,7 +210,7 @@ public class ImaService {
                 .cantidadEmpresas(cantidadEmpresas)
                 .calculatedAt(Instant.now());
 
-        if (cantidadEmpresas >= ImaCalculos.UMBRAL_EMPRESAS_SECTOR) {
+        if (cantidadEmpresas >= UMBRAL_EMPRESAS_SECTOR) {
             BigDecimal sumaIntensidad = intensidades.stream()
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             BigDecimal intensidadPromedio = sumaIntensidad
@@ -184,22 +226,12 @@ public class ImaService {
         Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> ApiException.errorInterno("No se pudo identificar al usuario autenticado."));
         if (usuario.getEmpresa() == null || usuario.getEmpresa().getId() == null) {
-            throw ApiException.accesoDenegado("El usuario autenticado no pertenece a una empresa.");
+            throw ApiException.empresaNoConfigurada();
         }
         return usuario.getEmpresa().getId();
     }
 
     private ImaResponseDTO toDto(ImaSnapshot snapshot) {
-        return ImaResponseDTO.builder()
-                .cobertura(snapshot.getCobertura())
-                .puntajeIntensidadSectorial(snapshot.getPuntajeIntensidadSectorial())
-                .consistencia(snapshot.getConsistencia())
-                .ima(snapshot.getIma())
-                .parcial(snapshot.isParcial())
-                .motivoParcial(snapshot.getMotivoParcial())
-                .intensidad(snapshot.getIntensidad())
-                .calculatedAt(snapshot.getCalculatedAt())
-                .interpretacionIa(snapshot.getInterpretacionIa())
-                .build();
+        return imaSnapshotMapper.toDto(snapshot);
     }
 }

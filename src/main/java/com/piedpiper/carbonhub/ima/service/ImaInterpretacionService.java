@@ -8,7 +8,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+
+import java.util.UUID;
 
 @Service
 public class ImaInterpretacionService {
@@ -25,9 +26,11 @@ public class ImaInterpretacionService {
     }
 
     @Async
-    @Transactional
-    public void generarInterpretacion(ImaSnapshot snapshot) {
+    public void generarInterpretacion(UUID snapshotId) {
         try {
+            ImaSnapshot snapshot = imaSnapshotRepository.findById(snapshotId).orElse(null);
+            if (snapshot == null) return;
+
             String prompt = construirPrompt(snapshot);
             String interpretacion = chatClient.prompt()
                     .user(prompt)
@@ -38,7 +41,7 @@ public class ImaInterpretacionService {
             imaSnapshotRepository.save(snapshot);
         } catch (Exception e) {
             log.warn("No se pudo generar la interpretación IA para snapshot {}: {}",
-                    snapshot.getId(), e.getMessage());
+                    snapshotId, e.getMessage());
         }
     }
 

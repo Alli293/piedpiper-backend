@@ -67,16 +67,17 @@ public class ImaController {
         }
 
         if (anio < 2000 || anio > hoy.getYear()) {
-            throw ApiException.anioFueraDeRango(hoy.getYear());
+            throw ApiException.periodoImaInvalido(
+                    "El año debe estar entre 2000 y " + hoy.getYear() + ".");
         }
         if (mes < 1 || mes > 12) {
-            throw ApiException.mesInvalido();
+            throw ApiException.periodoImaInvalido("El mes debe estar entre 1 y 12.");
         }
 
         LocalDate periodoSolicitado = LocalDate.of(anio, mes, 1);
         LocalDate periodoActual = LocalDate.of(hoy.getYear(), hoy.getMonthValue(), 1);
         if (periodoSolicitado.isAfter(periodoActual)) {
-            throw ApiException.periodoFuturo();
+            throw ApiException.periodoImaInvalido("El período no puede ser futuro.");
         }
 
         return new Periodo(anio, mes);

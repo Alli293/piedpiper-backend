@@ -51,10 +51,21 @@ class ImaServiceTest {
     @Mock
     private UsuarioRepository usuarioRepository;
     @Mock
+    private com.piedpiper.carbonhub.ima.mappers.ImaSnapshotMapper imaSnapshotMapper;
+    @Mock
     private ImaInterpretacionService interpretacionService;
 
     @InjectMocks
     private ImaService service;
+
+    @org.junit.jupiter.api.BeforeEach
+    void configurarMapper() {
+        org.mockito.Mockito.lenient().when(imaSnapshotMapper.toDto(org.mockito.ArgumentMatchers.any())).thenAnswer(i -> {
+            var s = (com.piedpiper.carbonhub.ima.models.entities.ImaSnapshot) i.getArgument(0);
+            if (s == null) return null;
+            return com.piedpiper.carbonhub.ima.models.dtos.ImaResponseDTO.builder().cobertura(s.getCobertura()).puntajeIntensidadSectorial(s.getPuntajeIntensidadSectorial()).consistencia(s.getConsistencia()).ima(s.getIma()).parcial(s.isParcial()).motivoParcial(s.getMotivoParcial()).intensidad(s.getIntensidad()).calculatedAt(s.getCalculatedAt()).interpretacionIa(s.getInterpretacionIa()).build();
+        });
+    }
 
     @Test
     void snapshotExistenteSeDevuelveSinRecalcular() {
@@ -218,7 +229,7 @@ class ImaServiceTest {
         assertThatThrownBy(() -> service.obtenerIma(2026, 6, USUARIO_ID))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
-                .isEqualTo(HttpStatus.FORBIDDEN);
+                .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
     }
 
     // --- helpers ---

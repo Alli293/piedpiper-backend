@@ -5,6 +5,7 @@ import com.piedpiper.carbonhub.auth.service.RegistroAuditorCorreoService;
 import com.piedpiper.carbonhub.auth.service.RegistroAuditorService;
 import com.piedpiper.carbonhub.auth.service.RegistroEmpresaCorreoService;
 import com.piedpiper.carbonhub.auth.service.RegistroEmpresaService;
+import com.piedpiper.carbonhub.auth.service.RegistroInvitacionService;
 import com.piedpiper.carbonhub.auth.service.RegistroUsuarioCorreoService;
 import com.piedpiper.carbonhub.auth.service.RegistroUsuarioService;
 import com.piedpiper.carbonhub.auth.service.VerificarCorreoService;
@@ -16,6 +17,7 @@ import com.piedpiper.carbonhub.auth.models.dtos.RegistroAuditorCorreoRequestDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.RegistroAuditorRequestDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.RegistroEmpresaCorreoRequestDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.RegistroEmpresaRequestDTO;
+import com.piedpiper.carbonhub.auth.models.dtos.RegistroInvitacionRequestDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.RegistroPendienteResponseDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.RegistroUsuarioCorreoRequestDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.RegistroUsuarioRequestDTO;
@@ -41,6 +43,7 @@ public class AuthController {
     private final RegistroUsuarioCorreoService registroUsuarioCorreoService;
     private final RegistroEmpresaCorreoService registroEmpresaCorreoService;
     private final VerificarCorreoService verificarCorreoService;
+    private final RegistroInvitacionService registroInvitacionService;
 
     public AuthController(RegistroUsuarioService registroUsuarioService,
                           RegistroEmpresaService registroEmpresaService,
@@ -49,7 +52,8 @@ public class AuthController {
                           LoginService loginService,
                           RegistroUsuarioCorreoService registroUsuarioCorreoService,
                           RegistroEmpresaCorreoService registroEmpresaCorreoService,
-                          VerificarCorreoService verificarCorreoService) {
+                          VerificarCorreoService verificarCorreoService,
+                          RegistroInvitacionService registroInvitacionService) {
         this.registroUsuarioService = registroUsuarioService;
         this.registroEmpresaService = registroEmpresaService;
         this.registroAuditorService = registroAuditorService;
@@ -58,6 +62,7 @@ public class AuthController {
         this.registroUsuarioCorreoService = registroUsuarioCorreoService;
         this.registroEmpresaCorreoService = registroEmpresaCorreoService;
         this.verificarCorreoService = verificarCorreoService;
+        this.registroInvitacionService = registroInvitacionService;
     }
 
     @PostMapping("/registro/usuario")
@@ -79,6 +84,13 @@ public class AuthController {
             @Valid @RequestBody RegistroAuditorRequestDTO request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(registroAuditorService.registrar(request));
+    }
+
+    @PostMapping("/registro/invitacion")
+    public ResponseEntity<AuthResponseDTO> registrarPorInvitacion(
+            @Valid @RequestBody RegistroInvitacionRequestDTO request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(registroInvitacionService.registrar(request));
     }
 
     @PostMapping("/login")

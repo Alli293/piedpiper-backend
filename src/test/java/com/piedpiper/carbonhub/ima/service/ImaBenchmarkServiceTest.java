@@ -4,6 +4,7 @@ import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.empresa.models.enums.SectorIndustrial;
 import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
+import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.ima.models.dtos.BenchmarkSectorialResponseDTO;
 import com.piedpiper.carbonhub.ima.models.dtos.ImaResponseDTO;
 import com.piedpiper.carbonhub.ima.models.entities.AgregadoSectorial;
@@ -24,7 +25,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.http.HttpStatus;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -191,6 +195,20 @@ class ImaBenchmarkServiceTest {
         assertThat(resultado.isBenchmarkDisponible()).isFalse();
         assertThat(resultado.getIma()).isNull();
         assertThat(agregado.getPromedioIma()).isNull();
+    }
+
+    @Test
+    void usuarioSinEmpresaDevuelve422() {
+        Usuario sinEmpresa = Usuario.builder().id(USUARIO_ID).empresa(null).build();
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(sinEmpresa));
+
+        assertThatThrownBy(() -> service.obtenerBenchmark(2026, 6, USUARIO_ID))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> assertThat(((ApiException) ex).getStatus())
+                        .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY));
+
+        verify(imaService, never()).obtenerIma(any(), any(), any());
+        verify(agregadoSectorialRepository, never()).save(any());
     }
 
     private void prepararEscenario(ImaResponseDTO propio, AgregadoSectorial agregado) {
