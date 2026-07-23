@@ -189,6 +189,11 @@ public class ApiException extends RuntimeException {
                 "Seleccione un combustible válido para este tipo de vehículo.");
     }
 
+    public static ApiException anioConsultaInvalido() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "El año indicado no es válido.");
+    }
+
     public static ApiException metodoTransporteNoSoportado() {
         return new ApiException(HttpStatus.BAD_REQUEST,
                 "Seleccione un método de transporte válido.");

@@ -1,6 +1,11 @@
 package com.piedpiper.carbonhub.emision.repository;
 
 import com.piedpiper.carbonhub.emision.models.entities.Emision;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
 import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -55,4 +60,6 @@ public interface EmisionRepository extends JpaRepository<Emision, UUID> {
                                                @Param("fin") LocalDate fin);
 
     Optional<Emision> findByIdAndEmpresaId(UUID id, UUID empresaId);
+
+    List<Emision> findAllByEmpresaIdAndFechaActividadBetween(UUID empresaId, LocalDate desde, LocalDate hasta);
 }
