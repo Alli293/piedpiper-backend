@@ -697,7 +697,7 @@ class EmisionControllerTest {
     @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
     void resumenConMesFueraDeRangoDevuelve400() throws Exception {
         when(emisionResumenService.resumen(eq(2026), eq(13), any()))
-                .thenThrow(ApiException.mesConsultaInvalido());
+                .thenThrow(ApiException.mesInvalido());
 
         mockMvc.perform(get("/api/emisiones/resumen").param("anio", "2026").param("mes", "13")
                         .principal(principalDe("41ce47ab-a46c-4306-8c46-2688dc97fa73")))

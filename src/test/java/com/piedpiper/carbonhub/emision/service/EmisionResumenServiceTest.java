@@ -7,10 +7,7 @@ import com.piedpiper.carbonhub.emision.models.entities.EmisionEnvio;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionFlota;
 import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
-import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.exceptions.ApiException;
-import com.piedpiper.carbonhub.user.models.entities.Usuario;
-import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,7 +19,6 @@ import org.springframework.http.HttpStatus;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -40,14 +36,14 @@ class EmisionResumenServiceTest {
     @Mock
     private EmisionRepository emisionRepository;
     @Mock
-    private UsuarioRepository usuarioRepository;
+    private EmisionEmpresaService emisionEmpresaService;
 
     @InjectMocks
     private EmisionResumenService service;
 
     @Test
     void agrupaPorCategoriaYSumaCarbonKg() {
-        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
+        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
         when(emisionRepository.findAllByEmpresaIdAndFechaActividadBetween(
                 EMPRESA_ID, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31)))
                 .thenReturn(List.of(
@@ -80,7 +76,7 @@ class EmisionResumenServiceTest {
 
     @Test
     void redondeaElPorcentajeAUnDecimal() {
-        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
+        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
         when(emisionRepository.findAllByEmpresaIdAndFechaActividadBetween(
                 EMPRESA_ID, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31)))
                 .thenReturn(List.of(electricidad("1.000"), flota("2.000")));
@@ -95,7 +91,7 @@ class EmisionResumenServiceTest {
 
     @Test
     void losPorcentajesSuman100PorCientoConAjusteDeMayorResto() {
-        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
+        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
         when(emisionRepository.findAllByEmpresaIdAndFechaActividadBetween(
                 EMPRESA_ID, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31)))
                 .thenReturn(List.of(electricidad("1.000"), flota("1.000"), envio("1.000")));
@@ -117,7 +113,7 @@ class EmisionResumenServiceTest {
 
     @Test
     void listaVaciaRetornaTotalesYPorcentajesEnCero() {
-        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
+        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
         when(emisionRepository.findAllByEmpresaIdAndFechaActividadBetween(
                 EMPRESA_ID, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31)))
                 .thenReturn(List.of());
@@ -136,7 +132,7 @@ class EmisionResumenServiceTest {
 
     @Test
     void periodoMensualConsultaSoloElRangoDelMes() {
-        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
+        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
         when(emisionRepository.findAllByEmpresaIdAndFechaActividadBetween(
                 EMPRESA_ID, LocalDate.of(2026, 2, 1), LocalDate.of(2026, 2, 28)))
                 .thenReturn(List.of(envio("10.000")));
@@ -169,8 +165,7 @@ class EmisionResumenServiceTest {
 
     @Test
     void usuarioSinEmpresaLanzaEmpresaNoConfigurada() {
-        when(usuarioRepository.findById(USUARIO_ID))
-                .thenReturn(Optional.of(Usuario.builder().id(USUARIO_ID).build()));
+        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenThrow(ApiException.empresaNoConfigurada());
 
         assertThatThrownBy(() -> service.resumen(2026, null, USUARIO_ID))
                 .isInstanceOf(ApiException.class)
@@ -204,13 +199,6 @@ class EmisionResumenServiceTest {
         return EmisionEnvio.builder()
                 .empresaId(EMPRESA_ID)
                 .carbonKg(new BigDecimal(carbonKg))
-                .build();
-    }
-
-    private static Usuario usuario() {
-        return Usuario.builder()
-                .id(USUARIO_ID)
-                .empresa(Empresa.builder().id(EMPRESA_ID).build())
                 .build();
     }
 }
