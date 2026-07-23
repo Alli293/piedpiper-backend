@@ -9,25 +9,24 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/catalogos")
 public class CatalogoController {
 
     @GetMapping("/especialidades")
-    public ResponseEntity<List<String>> listarEspecialidades() {
-        List<String> valores = Arrays.stream(Especialidad.values())
-                .map(Enum::name)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(valores);
+    public ResponseEntity<List<CatalogoItemDTO>> listarEspecialidades() {
+        List<CatalogoItemDTO> items = Arrays.stream(Especialidad.values())
+                .map(e -> new CatalogoItemDTO(e.name(), CatalogoItemDTO.etiquetaDesdeEnum(e.name())))
+                .toList();
+        return ResponseEntity.ok(items);
     }
 
-    @GetMapping("/zonas-cobertura")
-    public ResponseEntity<List<String>> listarZonasCobertura() {
-        List<String> valores = Arrays.stream(ZonaCobertura.values())
-                .map(Enum::name)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(valores);
+    @GetMapping("/zonas")
+    public ResponseEntity<List<CatalogoItemDTO>> listarZonasCobertura() {
+        List<CatalogoItemDTO> items = Arrays.stream(ZonaCobertura.values())
+                .map(e -> new CatalogoItemDTO(e.name(), CatalogoItemDTO.etiquetaDesdeEnum(e.name())))
+                .toList();
+        return ResponseEntity.ok(items);
     }
 }
