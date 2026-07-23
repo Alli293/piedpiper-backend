@@ -21,7 +21,6 @@ import com.piedpiper.carbonhub.emision.models.entities.EmisionVuelo;
 import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -64,43 +63,31 @@ class EmisionConsultaServiceTest {
         EmisionElectricidadResponseDTO dto = new EmisionElectricidadResponseDTO();
         dto.setId(EMISION_ID);
         when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
-        when(emisionRepository.findAllByEmpresaIdOrderByFechaActividadDescCreatedAtDesc(EMPRESA_ID))
+        when(emisionRepository.findAllByEmpresaIdWithFilters(EMPRESA_ID, null, null, null))
                 .thenReturn(List.of(emision));
         when(emisionElectricidadMapper.toDto(emision)).thenReturn(dto);
 
         List<EmisionResponseDTO> response = service.listar(USUARIO_ID, null, null, null);
 
         assertThat(response).containsExactly(dto);
-        verify(emisionRepository).findAllByEmpresaIdOrderByFechaActividadDescCreatedAtDesc(EMPRESA_ID);
+        verify(emisionRepository).findAllByEmpresaIdWithFilters(EMPRESA_ID, null, null, null);
     }
 
     @Test
     void listarAplicaFiltrosDeCategoriaAnioYMes() {
-        EmisionElectricidad electricidad = EmisionElectricidad.builder()
-                .empresaId(EMPRESA_ID)
-                .fechaActividad(LocalDate.of(2026, 7, 1))
-                .build();
         EmisionFlota flota = EmisionFlota.builder()
                 .empresaId(EMPRESA_ID)
-                .fechaActividad(LocalDate.of(2026, 7, 2))
-                .build();
-        EmisionFlota flotaOtroMes = EmisionFlota.builder()
-                .empresaId(EMPRESA_ID)
-                .fechaActividad(LocalDate.of(2026, 8, 2))
                 .build();
         EmisionFlotaResponseDTO dto = new EmisionFlotaResponseDTO();
         when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
-        when(emisionRepository.findAllByEmpresaIdAndFechaActividadGreaterThanEqualAndFechaActividadLessThanOrderByFechaActividadDescCreatedAtDesc(
-                EMPRESA_ID, LocalDate.of(2026, 1, 1), LocalDate.of(2027, 1, 1)))
-                .thenReturn(List.of(electricidad, flota, flotaOtroMes));
+        when(emisionRepository.findAllByEmpresaIdWithFilters(EMPRESA_ID, CategoriaEmision.FLOTA, 2026, 7))
+                .thenReturn(List.of(flota));
         when(emisionFlotaMapper.toDto(flota)).thenReturn(dto);
 
         List<EmisionResponseDTO> response = service.listar(USUARIO_ID, CategoriaEmision.FLOTA, 2026, 7);
 
         assertThat(response).containsExactly(dto);
-        verify(emisionRepository)
-                .findAllByEmpresaIdAndFechaActividadGreaterThanEqualAndFechaActividadLessThanOrderByFechaActividadDescCreatedAtDesc(
-                        EMPRESA_ID, LocalDate.of(2026, 1, 1), LocalDate.of(2027, 1, 1));
+        verify(emisionRepository).findAllByEmpresaIdWithFilters(EMPRESA_ID, CategoriaEmision.FLOTA, 2026, 7);
     }
 
     @Test
@@ -124,7 +111,7 @@ class EmisionConsultaServiceTest {
         EmisionFlotaResponseDTO flotaDto = new EmisionFlotaResponseDTO();
 
         when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
-        when(emisionRepository.findAllByEmpresaIdOrderByFechaActividadDescCreatedAtDesc(EMPRESA_ID))
+        when(emisionRepository.findAllByEmpresaIdWithFilters(EMPRESA_ID, null, null, null))
                 .thenReturn(List.of(electricidad, vuelo, envio, flota));
         when(emisionElectricidadMapper.toDto(electricidad)).thenReturn(electricidadDto);
         when(emisionVueloMapper.toDto(vuelo)).thenReturn(vueloDto);

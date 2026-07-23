@@ -10,31 +10,43 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.piedpiper.carbonhub.auth.config.JwtAuthenticationFilter;
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
-import com.piedpiper.carbonhub.auth.service.JwtService;
 import com.piedpiper.carbonhub.dashboard.models.dtos.ResumenHuellaDashboardResponseDTO;
 import com.piedpiper.carbonhub.dashboard.service.DashboardHuellaService;
-import com.piedpiper.carbonhub.user.models.entities.Usuario;
-import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
-import com.piedpiper.carbonhub.user.models.enums.MetodoAuth;
-import com.piedpiper.carbonhub.user.models.enums.Rol;
-import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
-import io.jsonwebtoken.Claims;
 import java.math.BigDecimal;
-import java.time.Instant;
-import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.security.oauth2.client.OAuth2ClientAutoConfiguration;
+import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.authentication.TestingAuthenticationToken;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-@WebMvcTest(DashboardController.class)
-@Import({SecurityConfig.class, JwtAuthenticationFilter.class})
+@WebMvcTest(controllers = DashboardController.class,
+        excludeAutoConfiguration = {SecurityAutoConfiguration.class, OAuth2ClientAutoConfiguration.class},
+        excludeFilters = @ComponentScan.Filter(
+                type = FilterType.ASSIGNABLE_TYPE, classes = {
+                        SecurityConfig.class,
+                        JwtAuthenticationFilter.class
+                }))
+@AutoConfigureMockMvc(addFilters = false)
+@Import(DashboardControllerTest.MethodSecurityTestConfig.class)
 class DashboardControllerTest {
 
-    private static final UUID USUARIO_ID = UUID.fromString("33333333-3333-3333-3333-333333333333");
+    @TestConfiguration
+    @EnableMethodSecurity
+    static class MethodSecurityTestConfig {
+    }
+
+    private static final String USUARIO_ID = "33333333-3333-3333-3333-333333333333";
 
     @Autowired
     private MockMvc mockMvc;
@@ -42,16 +54,14 @@ class DashboardControllerTest {
     @MockitoBean
     private DashboardHuellaService dashboardHuellaService;
 
-    @MockitoBean
-    private JwtService jwtService;
-
-    @MockitoBean
-    private UsuarioRepository usuarioRepository;
+    private TestingAuthenticationToken principal(String authority) {
+        return new TestingAuthenticationToken(USUARIO_ID, "password", authority);
+    }
 
     @Test
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
     void obtenerHuellaMesActualDevuelve200() throws Exception {
-        configurarTokenValido();
-        when(dashboardHuellaService.obtenerResumen(USUARIO_ID, "mes_actual", 2021))
+        when(dashboardHuellaService.obtenerResumen(UUID.fromString(USUARIO_ID), "mes_actual", 2021))
                 .thenReturn(new ResumenHuellaDashboardResponseDTO(
                         "mes_actual",
                         new BigDecimal("5.2360"),
@@ -60,7 +70,7 @@ class DashboardControllerTest {
                 ));
 
         mockMvc.perform(get("/api/dashboard/huella")
-                        .header("Authorization", "Bearer token-valido")
+                        .principal(principal("ROLE_ADMINISTRADOR_EMPRESA"))
                         .param("periodo", "mes_actual")
                         .param("anio", "2021"))
                 .andExpect(status().isOk())
@@ -68,13 +78,13 @@ class DashboardControllerTest {
                 .andExpect(jsonPath("$.variacionPorcentual").value(30.9))
                 .andExpect(jsonPath("$.tieneDatos").value(true));
 
-        verify(dashboardHuellaService).obtenerResumen(USUARIO_ID, "mes_actual", 2021);
+        verify(dashboardHuellaService).obtenerResumen(UUID.fromString(USUARIO_ID), "mes_actual", 2021);
     }
 
     @Test
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
     void periodoInvalidoUsaMesActualPorDefecto() throws Exception {
-        configurarTokenValido();
-        when(dashboardHuellaService.obtenerResumen(USUARIO_ID, "otro", 2021))
+        when(dashboardHuellaService.obtenerResumen(UUID.fromString(USUARIO_ID), "otro", 2021))
                 .thenReturn(new ResumenHuellaDashboardResponseDTO(
                         "mes_actual",
                         BigDecimal.ZERO,
@@ -83,7 +93,7 @@ class DashboardControllerTest {
                 ));
 
         mockMvc.perform(get("/api/dashboard/huella")
-                        .header("Authorization", "Bearer token-valido")
+                        .principal(principal("ROLE_ADMINISTRADOR_EMPRESA"))
                         .param("periodo", "otro")
                         .param("anio", "2021"))
                 .andExpect(status().isOk())
@@ -92,9 +102,9 @@ class DashboardControllerTest {
     }
 
     @Test
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
     void periodoOmitidoUsaMesActualPorDefecto() throws Exception {
-        configurarTokenValido();
-        when(dashboardHuellaService.obtenerResumen(USUARIO_ID, null, null))
+        when(dashboardHuellaService.obtenerResumen(UUID.fromString(USUARIO_ID), null, null))
                 .thenReturn(new ResumenHuellaDashboardResponseDTO(
                         "mes_actual",
                         BigDecimal.ZERO,
@@ -103,31 +113,20 @@ class DashboardControllerTest {
                 ));
 
         mockMvc.perform(get("/api/dashboard/huella")
-                        .header("Authorization", "Bearer token-valido"))
+                        .principal(principal("ROLE_ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.periodoSeleccionado").value("mes_actual"));
 
-        verify(dashboardHuellaService).obtenerResumen(eq(USUARIO_ID), isNull(), isNull());
+        verify(dashboardHuellaService).obtenerResumen(eq(UUID.fromString(USUARIO_ID)), isNull(), isNull());
     }
 
     @Test
-    void sinTokenDevuelve401() throws Exception {
+    @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
+    void rolNoAutorizadoDevuelve403() throws Exception {
         mockMvc.perform(get("/api/dashboard/huella")
+                        .principal(principal("ROLE_AUDITOR_CERTIFICADO"))
                         .param("periodo", "mes_actual"))
-                .andExpect(status().isUnauthorized());
-    }
-
-    private void configurarTokenValido() {
-        Claims claims = org.mockito.Mockito.mock(Claims.class);
-        when(claims.getSubject()).thenReturn(USUARIO_ID.toString());
-        when(jwtService.parsear("token-valido")).thenReturn(claims);
-        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(Usuario.builder()
-                .id(USUARIO_ID)
-                .email("admin@carbonhub.test")
-                .rol(Rol.ADMINISTRADOR_EMPRESA)
-                .estado(EstadoUsuario.ACTIVO)
-                .metodoAuth(MetodoAuth.CORREO)
-                .fechaRegistro(Instant.now())
-                .build()));
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("No tiene permisos para realizar esta acción."));
     }
 }

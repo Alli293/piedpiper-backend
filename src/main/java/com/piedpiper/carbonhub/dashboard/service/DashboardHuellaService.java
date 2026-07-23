@@ -1,15 +1,17 @@
 package com.piedpiper.carbonhub.dashboard.service;
 
+import com.piedpiper.carbonhub.common.HuellasCarbono;
 import com.piedpiper.carbonhub.dashboard.models.dtos.ResumenHuellaDashboardResponseDTO;
-import com.piedpiper.carbonhub.emision.models.entities.Emision;
+import com.piedpiper.carbonhub.dashboard.models.enums.PeriodoDashboard;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
 import com.piedpiper.carbonhub.emision.service.EmisionEmpresaService;
+import com.piedpiper.carbonhub.exceptions.ApiException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.Year;
 import java.time.YearMonth;
-import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,11 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class DashboardHuellaService {
 
-    private static final BigDecimal KG_POR_TONELADA = new BigDecimal("1000");
     private static final BigDecimal CIEN = new BigDecimal("100");
-    private static final String PERIODO_MES_ACTUAL = "mes_actual";
-    private static final String PERIODO_TRIMESTRE = "trimestre";
-    private static final String PERIODO_ANIO = "a\u00f1o";
 
     private final EmisionRepository emisionRepository;
     private final EmisionEmpresaService emisionEmpresaService;
@@ -34,46 +32,41 @@ public class DashboardHuellaService {
 
     @Transactional(readOnly = true)
     public ResumenHuellaDashboardResponseDTO obtenerResumen(UUID usuarioId, String periodo, Integer anio) {
-        String periodoNormalizado = normalizarPeriodo(periodo);
-        Integer anioConsultar = normalizarAnio(anio);
+        PeriodoDashboard periodoNormalizado = PeriodoDashboard.desde(periodo)
+                .orElse(PeriodoDashboard.POR_DEFECTO);
+        int anioConsultar = anio == null ? Year.now().getValue() : anio;
+        validarAnio(anioConsultar);
         UUID empresaId = emisionEmpresaService.empresaId(usuarioId);
         RangoPeriodo rango = rangoActual(periodoNormalizado, anioConsultar, LocalDate.now());
 
-        List<Emision> emisionesActuales = emisiones(empresaId, rango.inicio(), rango.fin());
-        BigDecimal huellaActualKg = totalKg(emisionesActuales);
-        BigDecimal huellaTotalT = toneladasDesdeKg(huellaActualKg);
-        BigDecimal variacion = emisionesActuales.isEmpty() ? null : variacionPorcentual(empresaId, rango, huellaActualKg);
+        TotalPeriodo actual = totalPeriodo(empresaId, rango);
+        BigDecimal huellaTotalT = HuellasCarbono.toneladasDesdeKg(actual.carbonKg());
+        BigDecimal variacion = actual.tieneDatos()
+                ? variacionPorcentual(empresaId, rango, actual.carbonKg())
+                : null;
 
         return new ResumenHuellaDashboardResponseDTO(
-                periodoNormalizado,
+                periodoNormalizado.getValor(),
                 huellaTotalT,
                 variacion,
-                !emisionesActuales.isEmpty()
+                actual.tieneDatos()
         );
     }
 
-    private String normalizarPeriodo(String periodo) {
-        if (PERIODO_TRIMESTRE.equals(periodo) || PERIODO_ANIO.equals(periodo)) {
-            return periodo;
-        }
-        return PERIODO_MES_ACTUAL;
-    }
-
-    private Integer normalizarAnio(Integer anio) {
+    private void validarAnio(Integer anio) {
         int anioActual = Year.now().getValue();
-        if (anio == null || anio < 1900 || anio > anioActual + 1) {
-            return anioActual;
+        if (anio < 1900 || anio > anioActual + 1) {
+            throw ApiException.anioInvalido();
         }
-        return anio;
     }
 
-    private RangoPeriodo rangoActual(String periodo, Integer anio, LocalDate hoy) {
-        if (PERIODO_TRIMESTRE.equals(periodo)) {
+    private RangoPeriodo rangoActual(PeriodoDashboard periodo, Integer anio, LocalDate hoy) {
+        if (PeriodoDashboard.TRIMESTRE == periodo) {
             int mesInicial = (((hoy.getMonthValue() - 1) / 3) * 3) + 1;
             LocalDate inicio = LocalDate.of(anio, mesInicial, 1);
             return new RangoPeriodo(inicio, inicio.plusMonths(3), periodo);
         }
-        if (PERIODO_ANIO.equals(periodo)) {
+        if (PeriodoDashboard.ANIO == periodo) {
             LocalDate inicio = Year.of(anio).atDay(1);
             return new RangoPeriodo(inicio, inicio.plusYears(1), periodo);
         }
@@ -83,13 +76,12 @@ public class DashboardHuellaService {
     }
 
     private BigDecimal variacionPorcentual(UUID empresaId, RangoPeriodo rango, BigDecimal actualKg) {
-        RangoPeriodo anterior = rango.anterior();
-        List<Emision> emisionesAnteriores = emisiones(empresaId, anterior.inicio(), anterior.fin());
-        if (emisionesAnteriores.isEmpty()) {
+        TotalPeriodo anterior = totalPeriodo(empresaId, rango.anterior());
+        if (!anterior.tieneDatos()) {
             return null;
         }
 
-        BigDecimal anteriorKg = totalKg(emisionesAnteriores);
+        BigDecimal anteriorKg = anterior.carbonKg();
         if (anteriorKg.compareTo(BigDecimal.ZERO) == 0) {
             return null;
         }
@@ -99,27 +91,23 @@ public class DashboardHuellaService {
                 .divide(anteriorKg, 1, RoundingMode.HALF_UP);
     }
 
-    private List<Emision> emisiones(UUID empresaId, LocalDate inicio, LocalDate fin) {
-        List<Emision> emisiones = emisionRepository.findAllByEmpresaIdAndPeriodo(empresaId, inicio, fin);
-        return emisiones == null ? List.of() : emisiones;
+    private TotalPeriodo totalPeriodo(UUID empresaId, RangoPeriodo rango) {
+        BigDecimal carbonKg = emisionRepository.sumCarbonKgByEmpresaIdAndFechaActividadEntre(
+                empresaId,
+                rango.inicio(),
+                rango.fin());
+        return new TotalPeriodo(Optional.ofNullable(carbonKg).orElse(BigDecimal.ZERO), carbonKg != null);
     }
 
-    private BigDecimal totalKg(List<Emision> emisiones) {
-        return emisiones.stream()
-                .map(Emision::getCarbonKg)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    private record TotalPeriodo(BigDecimal carbonKg, boolean tieneDatos) {
     }
 
-    private BigDecimal toneladasDesdeKg(BigDecimal kg) {
-        return kg.divide(KG_POR_TONELADA, 4, RoundingMode.HALF_UP);
-    }
-
-    private record RangoPeriodo(LocalDate inicio, LocalDate fin, String periodo) {
+    private record RangoPeriodo(LocalDate inicio, LocalDate fin, PeriodoDashboard periodo) {
         private RangoPeriodo anterior() {
-            if (PERIODO_TRIMESTRE.equals(periodo)) {
+            if (PeriodoDashboard.TRIMESTRE == periodo) {
                 return new RangoPeriodo(inicio.minusMonths(3), inicio, periodo);
             }
-            if (PERIODO_ANIO.equals(periodo)) {
+            if (PeriodoDashboard.ANIO == periodo) {
                 return new RangoPeriodo(inicio.minusYears(1), inicio, periodo);
             }
             return new RangoPeriodo(inicio.minusMonths(1), inicio, periodo);

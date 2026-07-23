@@ -13,7 +13,6 @@ import com.piedpiper.carbonhub.emision.models.entities.EmisionVuelo;
 import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -46,11 +45,12 @@ public class EmisionConsultaService {
     @Transactional(readOnly = true)
     public List<EmisionResponseDTO> listar(UUID usuarioId, CategoriaEmision categoria, Integer anio, Integer mes) {
         validarMes(mes);
-        UUID empresaId = emisionEmpresaService.empresaId(usuarioId);
-        return emisionesPorPeriodo(empresaId, anio)
+        return emisionRepository.findAllByEmpresaIdWithFilters(
+                        emisionEmpresaService.empresaId(usuarioId),
+                        categoria,
+                        anio,
+                        mes)
                 .stream()
-                .filter(emision -> cumpleCategoria(emision, categoria))
-                .filter(emision -> cumpleMes(emision, mes))
                 .map(this::toDto)
                 .toList();
     }
@@ -75,27 +75,6 @@ public class EmisionConsultaService {
         if (mes != null && (mes < 1 || mes > 12)) {
             throw ApiException.mesInvalido();
         }
-    }
-
-    private List<Emision> emisionesPorPeriodo(UUID empresaId, Integer anio) {
-        if (anio == null) {
-            return emisionRepository.findAllByEmpresaIdOrderByFechaActividadDescCreatedAtDesc(empresaId);
-        }
-
-        LocalDate inicio = LocalDate.of(anio, 1, 1);
-        return emisionRepository
-                .findAllByEmpresaIdAndFechaActividadGreaterThanEqualAndFechaActividadLessThanOrderByFechaActividadDescCreatedAtDesc(
-                        empresaId,
-                        inicio,
-                        inicio.plusYears(1));
-    }
-
-    private boolean cumpleCategoria(Emision emision, CategoriaEmision categoria) {
-        return categoria == null || emision.getCategoria() == categoria;
-    }
-
-    private boolean cumpleMes(Emision emision, Integer mes) {
-        return mes == null || emision.getFechaActividad().getMonthValue() == mes;
     }
 
     private EmisionResponseDTO toDto(Emision emision) {
