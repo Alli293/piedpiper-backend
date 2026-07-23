@@ -19,15 +19,14 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.function.Function;
-import java.util.regex.Pattern;
 
 @Service
 public class RestablecerContrasenaService {
 
     private static final Logger log = LoggerFactory.getLogger(RestablecerContrasenaService.class);
 
-    private static final Pattern TOKEN_FORMATO = Pattern.compile("^[A-Za-z0-9_-]{43}$");
     private static final int MAX_SOLICITUDES_POR_HORA = 3;
+    private static final long HORAS_EXPIRACION_RESET = 1;
     private static final String MENSAJE_SOLICITUD_UNIFORME =
             "Si existe una cuenta con ese correo, te enviamos un enlace para restablecer tu contraseña.";
 
@@ -58,7 +57,7 @@ public class RestablecerContrasenaService {
 
             String token = TokenVerificacionGenerator.generar();
             usuario.setTokenResetHash(TokenVerificacionGenerator.hash(token));
-            usuario.setTokenResetExpiracion(TokenVerificacionGenerator.calcularExpiracion(1));
+            usuario.setTokenResetExpiracion(TokenVerificacionGenerator.calcularExpiracion(HORAS_EXPIRACION_RESET));
             usuarioRepository.saveAndFlush(usuario);
 
             enviarTrasCommit(() ->
@@ -94,7 +93,7 @@ public class RestablecerContrasenaService {
     }
 
     private Usuario buscarPorTokenValido(String token, Function<String, Optional<Usuario>> buscador) {
-        if (token == null || !TOKEN_FORMATO.matcher(token).matches()) {
+        if (!TokenVerificacionGenerator.formatoValido(token)) {
             throw ApiException.tokenResetMalFormado();
         }
 
