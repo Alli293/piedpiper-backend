@@ -147,9 +147,14 @@ public class ImaInterpretacionService {
             return false;
         }
 
-        if (cantidadEmpleados != null && prompt.contains(cantidadEmpleados.toString())) {
-            log.error("ALERTA DE SEGURIDAD: Datos sensibles detectados en prompt de IA. Tipo: cantidadEmpleados");
-            return false;
+        if (cantidadEmpleados != null) {
+            String empleadosStr = cantidadEmpleados.toString();
+            // Only check if the number is specific enough (>= 3 digits) to avoid false positives
+            // with common prompt numbers like scores (0-100) or sector counts
+            if (empleadosStr.length() >= 3 && prompt.contains(empleadosStr)) {
+                log.error("ALERTA DE SEGURIDAD: Datos sensibles detectados en prompt de IA. Tipo: cantidadEmpleados");
+                return false;
+            }
         }
 
         return true;

@@ -195,7 +195,7 @@ class ImaServicePropertyTest {
     @Tag("Feature: interpretacion-ima-ia, Property 6: Reintento cuando interpretación previa es No disponible")
     void reintentoGeneraInterpretacionCuandoPreviaEsNoDisponible(
             @ForAll("interpretacionNoDisponible") String interpretacionPrevia
-    ) {
+    ) throws InterruptedException {
         int anio = 2024;
         int mes = 6;
 
@@ -225,7 +225,9 @@ class ImaServicePropertyTest {
         // Act
         imaService.obtenerIma(anio, mes, USUARIO_ID);
 
-        // Assert: interpretacionService.generarInterpretacion was called exactly once
+        // Assert: interpretacionService.generarInterpretacion is called asynchronously
+        // Wait briefly for the async CompletableFuture to execute
+        Thread.sleep(200);
         verify(interpretacionService, times(1)).generarInterpretacion(
                 eq(snapshotExistente),
                 any(String.class),

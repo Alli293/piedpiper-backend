@@ -64,31 +64,34 @@ public class ImaService {
         // Buscar snapshot en caché
         return imaSnapshotRepository.findByEmpresaIdAndAnioAndMes(empresaId, anio, mes)
                 .map(snapshot -> {
-                    // Re-intentar si la interpretación previa es "No disponible" o null
+                    // Re-intentar en background si la interpretación previa es "No disponible" o null
                     if (snapshot.getInterpretacion() == null
                             || "No disponible".equals(snapshot.getInterpretacion())) {
-                        reintenteInterpretacion(snapshot, empresaId, anio, mes);
+                        reintenteInterpretacionAsync(snapshot, empresaId, anio, mes);
                     }
                     return toDto(snapshot);
                 })
                 .orElseGet(() -> calcularYPersistir(empresaId, anio, mes));
     }
 
-    private void reintenteInterpretacion(ImaSnapshot snapshot, UUID empresaId, int anio, int mes) {
-        try {
-            Empresa empresa = empresaRepository.findById(empresaId).orElse(null);
-            if (empresa == null) return;
+    private void reintenteInterpretacionAsync(ImaSnapshot snapshot, UUID empresaId, int anio, int mes) {
+        // Ejecutar en background para no bloquear la respuesta HTTP
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            try {
+                Empresa empresa = empresaRepository.findById(empresaId).orElse(null);
+                if (empresa == null) return;
 
-            SectorIndustrial sector = empresa.getSectorIndustrial();
-            LocalDate hasta = LocalDate.of(anio, mes, 1).plusMonths(1).minusDays(1);
-            LocalDate desde = LocalDate.of(anio, mes, 1).minusMonths(MESES_VENTANA - 1);
-            AgregadoSectorial agregado = calcularAgregadoSectorial(sector, anio, mes, desde, hasta);
-            String tendencia = calcularTendencia(empresaId, anio, mes, snapshot.getIma());
+                SectorIndustrial sector = empresa.getSectorIndustrial();
+                LocalDate hasta = LocalDate.of(anio, mes, 1).plusMonths(1).minusDays(1);
+                LocalDate desde = LocalDate.of(anio, mes, 1).minusMonths(MESES_VENTANA - 1);
+                AgregadoSectorial agregado = calcularAgregadoSectorial(sector, anio, mes, desde, hasta);
+                String tendencia = calcularTendencia(empresaId, anio, mes, snapshot.getIma());
 
-            interpretacionService.generarInterpretacion(snapshot, sector.name(), agregado, tendencia);
-        } catch (Exception e) {
-            // No bloquear la respuesta si el reintento falla
-        }
+                interpretacionService.generarInterpretacion(snapshot, sector.name(), agregado, tendencia);
+            } catch (Exception e) {
+                // No bloquear — error ya loggeado por interpretacionService
+            }
+        });
     }
 
     private ImaResponseDTO calcularYPersistir(UUID empresaId, int anio, int mes) {

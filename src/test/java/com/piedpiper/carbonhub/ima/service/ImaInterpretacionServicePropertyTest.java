@@ -363,7 +363,7 @@ class ImaInterpretacionServicePropertyTest {
     void verificarPrivacidad_detectsCantidadEmpleadosInPrompt(
             @ForAll("nonEmptyAlphanumeric") String nombreEmpresa,
             @ForAll("randomUUID") UUID empresaId,
-            @ForAll @IntRange(min = 1, max = 100000) int cantidadEmpleados
+            @ForAll @IntRange(min = 100, max = 100000) int cantidadEmpleados
     ) {
         // Construct prompt that CONTAINS the sensitive cantidadEmpleados
         String promptWithEmpleados = "Sector: Manufactura\nEmpleados: " + cantidadEmpleados + "\nIMA: 80";
