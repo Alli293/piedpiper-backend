@@ -51,7 +51,7 @@ class DashboardControllerTest {
     @Test
     void obtenerHuellaMesActualDevuelve200() throws Exception {
         configurarTokenValido();
-        when(dashboardHuellaService.obtenerResumen(USUARIO_ID, "mes_actual"))
+        when(dashboardHuellaService.obtenerResumen(USUARIO_ID, "mes_actual", 2021))
                 .thenReturn(new ResumenHuellaDashboardResponseDTO(
                         "mes_actual",
                         new BigDecimal("5.2360"),
@@ -61,19 +61,20 @@ class DashboardControllerTest {
 
         mockMvc.perform(get("/api/dashboard/huella")
                         .header("Authorization", "Bearer token-valido")
-                        .param("periodo", "mes_actual"))
+                        .param("periodo", "mes_actual")
+                        .param("anio", "2021"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.huellaTotalT").value(5.2360))
                 .andExpect(jsonPath("$.variacionPorcentual").value(30.9))
                 .andExpect(jsonPath("$.tieneDatos").value(true));
 
-        verify(dashboardHuellaService).obtenerResumen(USUARIO_ID, "mes_actual");
+        verify(dashboardHuellaService).obtenerResumen(USUARIO_ID, "mes_actual", 2021);
     }
 
     @Test
     void periodoInvalidoUsaMesActualPorDefecto() throws Exception {
         configurarTokenValido();
-        when(dashboardHuellaService.obtenerResumen(USUARIO_ID, "otro"))
+        when(dashboardHuellaService.obtenerResumen(USUARIO_ID, "otro", 2021))
                 .thenReturn(new ResumenHuellaDashboardResponseDTO(
                         "mes_actual",
                         BigDecimal.ZERO,
@@ -83,7 +84,8 @@ class DashboardControllerTest {
 
         mockMvc.perform(get("/api/dashboard/huella")
                         .header("Authorization", "Bearer token-valido")
-                        .param("periodo", "otro"))
+                        .param("periodo", "otro")
+                        .param("anio", "2021"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.periodoSeleccionado").value("mes_actual"))
                 .andExpect(jsonPath("$.tieneDatos").value(false));
@@ -92,7 +94,7 @@ class DashboardControllerTest {
     @Test
     void periodoOmitidoUsaMesActualPorDefecto() throws Exception {
         configurarTokenValido();
-        when(dashboardHuellaService.obtenerResumen(USUARIO_ID, null))
+        when(dashboardHuellaService.obtenerResumen(USUARIO_ID, null, null))
                 .thenReturn(new ResumenHuellaDashboardResponseDTO(
                         "mes_actual",
                         BigDecimal.ZERO,
@@ -105,7 +107,7 @@ class DashboardControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.periodoSeleccionado").value("mes_actual"));
 
-        verify(dashboardHuellaService).obtenerResumen(eq(USUARIO_ID), isNull());
+        verify(dashboardHuellaService).obtenerResumen(eq(USUARIO_ID), isNull(), isNull());
     }
 
     @Test

@@ -48,7 +48,7 @@ class DashboardHuellaServiceTest {
         when(emisionRepository.findAllByEmpresaIdAndPeriodo(EMPRESA_ID, inicioMesAnterior, inicioMes))
                 .thenReturn(List.of(emision("4000")));
 
-        ResumenHuellaDashboardResponseDTO response = service.obtenerResumen(USUARIO_ID, "mes_actual");
+        ResumenHuellaDashboardResponseDTO response = service.obtenerResumen(USUARIO_ID, "mes_actual", null);
 
         assertThat(response.getPeriodoSeleccionado()).isEqualTo("mes_actual");
         assertThat(response.getHuellaTotalT()).isEqualByComparingTo("5.2360");
@@ -65,7 +65,7 @@ class DashboardHuellaServiceTest {
         when(emisionRepository.findAllByEmpresaIdAndPeriodo(EMPRESA_ID, inicioMes, finMes))
                 .thenReturn(List.of());
 
-        ResumenHuellaDashboardResponseDTO response = service.obtenerResumen(USUARIO_ID, "mes_actual");
+        ResumenHuellaDashboardResponseDTO response = service.obtenerResumen(USUARIO_ID, "mes_actual", null);
 
         assertThat(response.getHuellaTotalT()).isEqualByComparingTo("0.0000");
         assertThat(response.getVariacionPorcentual()).isNull();
@@ -84,7 +84,7 @@ class DashboardHuellaServiceTest {
         when(emisionRepository.findAllByEmpresaIdAndPeriodo(EMPRESA_ID, inicioMesAnterior, inicioMes))
                 .thenReturn(List.of());
 
-        ResumenHuellaDashboardResponseDTO response = service.obtenerResumen(USUARIO_ID, "mes_actual");
+        ResumenHuellaDashboardResponseDTO response = service.obtenerResumen(USUARIO_ID, "mes_actual", null);
 
         assertThat(response.getHuellaTotalT()).isEqualByComparingTo("2.5000");
         assertThat(response.getVariacionPorcentual()).isNull();
@@ -100,10 +100,37 @@ class DashboardHuellaServiceTest {
         when(emisionRepository.findAllByEmpresaIdAndPeriodo(eq(EMPRESA_ID), eq(inicioMes), eq(finMes)))
                 .thenReturn(List.of());
 
-        ResumenHuellaDashboardResponseDTO response = service.obtenerResumen(USUARIO_ID, "semana");
+        ResumenHuellaDashboardResponseDTO response = service.obtenerResumen(USUARIO_ID, "semana", null);
 
         assertThat(response.getPeriodoSeleccionado()).isEqualTo("mes_actual");
         verify(emisionRepository).findAllByEmpresaIdAndPeriodo(EMPRESA_ID, inicioMes, finMes);
+    }
+
+    @Test
+    void resumenMesActualUsaAnioSeleccionado() {
+        int anioSeleccionado = 2021;
+        LocalDate hoy = LocalDate.now();
+        LocalDate inicioMesSeleccionado = LocalDate.of(anioSeleccionado, hoy.getMonth(), 1);
+        LocalDate finMesSeleccionado = inicioMesSeleccionado.plusMonths(1);
+
+        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
+        when(emisionRepository.findAllByEmpresaIdAndPeriodo(
+                EMPRESA_ID,
+                inicioMesSeleccionado,
+                finMesSeleccionado))
+                .thenReturn(List.of());
+
+        ResumenHuellaDashboardResponseDTO response = service.obtenerResumen(
+                USUARIO_ID,
+                "mes_actual",
+                anioSeleccionado);
+
+        assertThat(response.getHuellaTotalT()).isEqualByComparingTo("0.0000");
+        assertThat(response.isTieneDatos()).isFalse();
+        verify(emisionRepository).findAllByEmpresaIdAndPeriodo(
+                EMPRESA_ID,
+                inicioMesSeleccionado,
+                finMesSeleccionado);
     }
 
     private Emision emision(String carbonKg) {

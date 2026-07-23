@@ -25,9 +25,11 @@ public class DashboardController {
     @GetMapping("/huella")
     public ResponseEntity<ResumenHuellaDashboardResponseDTO> obtenerHuella(
             Authentication authentication,
-            @RequestParam(required = false) String periodo) {
+            @RequestParam(required = false) String periodo,
+            @RequestParam(required = false) Integer anio) {
         return ResponseEntity.ok(dashboardHuellaService.obtenerResumen(
                 Autenticaciones.usuarioId(authentication),
-                periodo));
+                periodo,
+                anio));
     }
 }

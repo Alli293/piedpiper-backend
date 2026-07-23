@@ -33,10 +33,11 @@ public class DashboardHuellaService {
     }
 
     @Transactional(readOnly = true)
-    public ResumenHuellaDashboardResponseDTO obtenerResumen(UUID usuarioId, String periodo) {
+    public ResumenHuellaDashboardResponseDTO obtenerResumen(UUID usuarioId, String periodo, Integer anio) {
         String periodoNormalizado = normalizarPeriodo(periodo);
+        Integer anioConsultar = normalizarAnio(anio);
         UUID empresaId = emisionEmpresaService.empresaId(usuarioId);
-        RangoPeriodo rango = rangoActual(periodoNormalizado, LocalDate.now());
+        RangoPeriodo rango = rangoActual(periodoNormalizado, anioConsultar, LocalDate.now());
 
         List<Emision> emisionesActuales = emisiones(empresaId, rango.inicio(), rango.fin());
         BigDecimal huellaActualKg = totalKg(emisionesActuales);
@@ -58,18 +59,26 @@ public class DashboardHuellaService {
         return PERIODO_MES_ACTUAL;
     }
 
-    private RangoPeriodo rangoActual(String periodo, LocalDate hoy) {
+    private Integer normalizarAnio(Integer anio) {
+        int anioActual = Year.now().getValue();
+        if (anio == null || anio < 1900 || anio > anioActual + 1) {
+            return anioActual;
+        }
+        return anio;
+    }
+
+    private RangoPeriodo rangoActual(String periodo, Integer anio, LocalDate hoy) {
         if (PERIODO_TRIMESTRE.equals(periodo)) {
             int mesInicial = (((hoy.getMonthValue() - 1) / 3) * 3) + 1;
-            LocalDate inicio = LocalDate.of(hoy.getYear(), mesInicial, 1);
+            LocalDate inicio = LocalDate.of(anio, mesInicial, 1);
             return new RangoPeriodo(inicio, inicio.plusMonths(3), periodo);
         }
         if (PERIODO_ANIO.equals(periodo)) {
-            LocalDate inicio = Year.of(hoy.getYear()).atDay(1);
+            LocalDate inicio = Year.of(anio).atDay(1);
             return new RangoPeriodo(inicio, inicio.plusYears(1), periodo);
         }
 
-        LocalDate inicio = YearMonth.from(hoy).atDay(1);
+        LocalDate inicio = YearMonth.of(anio, hoy.getMonth()).atDay(1);
         return new RangoPeriodo(inicio, inicio.plusMonths(1), periodo);
     }
 
