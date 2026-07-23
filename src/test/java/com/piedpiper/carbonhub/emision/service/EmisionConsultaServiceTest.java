@@ -63,14 +63,14 @@ class EmisionConsultaServiceTest {
         EmisionElectricidadResponseDTO dto = new EmisionElectricidadResponseDTO();
         dto.setId(EMISION_ID);
         when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
-        when(emisionRepository.findAllByEmpresaIdWithFilters(EMPRESA_ID, null, null, null))
+        when(emisionRepository.findAllByEmpresaIdWithFilters(EMPRESA_ID, null, null))
                 .thenReturn(List.of(emision));
         when(emisionElectricidadMapper.toDto(emision)).thenReturn(dto);
 
         List<EmisionResponseDTO> response = service.listar(USUARIO_ID, null, null, null);
 
         assertThat(response).containsExactly(dto);
-        verify(emisionRepository).findAllByEmpresaIdWithFilters(EMPRESA_ID, null, null, null);
+        verify(emisionRepository).findAllByEmpresaIdWithFilters(EMPRESA_ID, null, null);
     }
 
     @Test
@@ -80,14 +80,14 @@ class EmisionConsultaServiceTest {
                 .build();
         EmisionFlotaResponseDTO dto = new EmisionFlotaResponseDTO();
         when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
-        when(emisionRepository.findAllByEmpresaIdWithFilters(EMPRESA_ID, CategoriaEmision.FLOTA, 2026, 7))
+        when(emisionRepository.findAllFlotaByEmpresaIdWithFilters(EMPRESA_ID, 2026, 7))
                 .thenReturn(List.of(flota));
         when(emisionFlotaMapper.toDto(flota)).thenReturn(dto);
 
         List<EmisionResponseDTO> response = service.listar(USUARIO_ID, CategoriaEmision.FLOTA, 2026, 7);
 
         assertThat(response).containsExactly(dto);
-        verify(emisionRepository).findAllByEmpresaIdWithFilters(EMPRESA_ID, CategoriaEmision.FLOTA, 2026, 7);
+        verify(emisionRepository).findAllFlotaByEmpresaIdWithFilters(EMPRESA_ID, 2026, 7);
     }
 
     @Test
@@ -111,7 +111,7 @@ class EmisionConsultaServiceTest {
         EmisionFlotaResponseDTO flotaDto = new EmisionFlotaResponseDTO();
 
         when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
-        when(emisionRepository.findAllByEmpresaIdWithFilters(EMPRESA_ID, null, null, null))
+        when(emisionRepository.findAllByEmpresaIdWithFilters(EMPRESA_ID, null, null))
                 .thenReturn(List.of(electricidad, vuelo, envio, flota));
         when(emisionElectricidadMapper.toDto(electricidad)).thenReturn(electricidadDto);
         when(emisionVueloMapper.toDto(vuelo)).thenReturn(vueloDto);
