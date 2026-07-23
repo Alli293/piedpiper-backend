@@ -9,6 +9,7 @@ import com.piedpiper.carbonhub.auth.service.RegistroAuditorCorreoService;
 import com.piedpiper.carbonhub.auth.service.RegistroAuditorService;
 import com.piedpiper.carbonhub.auth.service.RegistroEmpresaCorreoService;
 import com.piedpiper.carbonhub.auth.service.RegistroEmpresaService;
+import com.piedpiper.carbonhub.auth.service.RegistroInvitacionCorreoService;
 import com.piedpiper.carbonhub.auth.service.RegistroInvitacionService;
 import com.piedpiper.carbonhub.auth.service.RegistroUsuarioCorreoService;
 import com.piedpiper.carbonhub.auth.service.RegistroUsuarioService;
@@ -68,6 +69,8 @@ class AuthControllerResetContrasenaTest {
     private RestablecerContrasenaService restablecerContrasenaService;
     @MockitoBean
     private RegistroInvitacionService registroInvitacionService;
+    @MockitoBean
+    private RegistroInvitacionCorreoService registroInvitacionCorreoService;
 
     private static final String MENSAJE_UNIFORME =
             "Si existe una cuenta con ese correo, te enviamos un enlace para restablecer tu contraseña.";

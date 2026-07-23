@@ -12,6 +12,7 @@ import com.piedpiper.carbonhub.auth.service.RegistroInvitacionCorreoService;
 import com.piedpiper.carbonhub.auth.service.RegistroInvitacionService;
 import com.piedpiper.carbonhub.auth.service.RegistroUsuarioCorreoService;
 import com.piedpiper.carbonhub.auth.service.RegistroUsuarioService;
+import com.piedpiper.carbonhub.auth.service.RestablecerContrasenaService;
 import com.piedpiper.carbonhub.auth.service.VerificarCorreoService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
@@ -63,6 +64,8 @@ class AuthControllerInvitacionCorreoTest {
     private RegistroEmpresaCorreoService registroEmpresaCorreoService;
     @MockitoBean
     private VerificarCorreoService verificarCorreoService;
+    @MockitoBean
+    private RestablecerContrasenaService restablecerContrasenaService;
     @MockitoBean
     private JwtService jwtService;
     @MockitoBean
