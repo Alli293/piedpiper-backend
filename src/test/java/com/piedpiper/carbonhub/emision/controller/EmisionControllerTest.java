@@ -7,6 +7,8 @@ import com.piedpiper.carbonhub.emision.models.dtos.EmisionElectricidadResponseDT
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionEnvioResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionFlotaResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionResponseDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.EmisionResumenResponseDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.EmisionResumenResponseDTO.ResumenCategoriaDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.TipoVehiculoResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.TipoVehiculoResponseDTO.CombustibleResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionVueloResponseDTO;
@@ -22,7 +24,9 @@ import com.piedpiper.carbonhub.emision.service.EmisionConsultaService;
 import com.piedpiper.carbonhub.emision.service.EmisionElectricidadService;
 import com.piedpiper.carbonhub.emision.service.EmisionEnvioService;
 import com.piedpiper.carbonhub.emision.service.EmisionFlotaService;
+import com.piedpiper.carbonhub.emision.service.EmisionResumenService;
 import com.piedpiper.carbonhub.emision.service.EmisionVueloService;
+import com.piedpiper.carbonhub.emision.service.ReporteHuellaPdfService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
@@ -37,8 +41,10 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -60,6 +66,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = EmisionController.class,
@@ -89,7 +97,11 @@ class EmisionControllerTest {
     @MockitoBean
     private EmisionConsultaService emisionConsultaService;
     @MockitoBean
+    private EmisionResumenService emisionResumenService;
+    @MockitoBean
     private EmisionComparacionService emisionComparacionService;
+    @MockitoBean
+    private ReporteHuellaPdfService reporteHuellaPdfService;
     @MockitoBean
     private JwtService jwtService;
     @MockitoBean
@@ -437,6 +449,26 @@ class EmisionControllerTest {
 
     @Test
     @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void exportarReportePdfDevuelveArchivoDescargable() throws Exception {
+        byte[] pdf = "%PDF-1.4 test".getBytes();
+        when(reporteHuellaPdfService.generar(any(), eq(2026), eq(7))).thenReturn(pdf);
+        when(reporteHuellaPdfService.nombreArchivo(2026, 7)).thenReturn("reporte-huella-2026-07.pdf");
+
+        mockMvc.perform(get("/api/emisiones/reporte/pdf")
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA"))
+                        .param("anio", "2026")
+                        .param("mes", "7"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_PDF))
+                .andExpect(header().string("Content-Disposition",
+                        "attachment; filename=\"reporte-huella-2026-07.pdf\""))
+                .andExpect(content().bytes(pdf));
+
+        verify(reporteHuellaPdfService).generar(any(), eq(2026), eq(7));
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
     void cuerpoFlotaInvalidoDevuelve400() throws Exception {
         String invalido = "{\"titulo\":\"Recorrido\",\"tipoVehiculo\":\"AUTOMOVIL\",\"combustible\":\"GASOLINA\","
                 + "\"distanceValue\":-5,\"distanceUnit\":\"km\",\"fechaActividad\":\"2026-07-01\"}";
@@ -631,6 +663,80 @@ class EmisionControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(request))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void resumenComoAdministradorDevuelve200ConLaEstructuraEsperada() throws Exception {
+        when(emisionResumenService.resumen(eq(2026), eq(null), any())).thenReturn(resumenValido());
+
+        mockMvc.perform(get("/api/emisiones/resumen").param("anio", "2026")
+                        .principal(principalDe("41ce47ab-a46c-4306-8c46-2688dc97fa73")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.anio").value(2026))
+                .andExpect(jsonPath("$.totalKg").value(1000.0))
+                .andExpect(jsonPath("$.totalT").value(1.0))
+                .andExpect(jsonPath("$.categorias.length()").value(4))
+                .andExpect(jsonPath("$.categorias[0].categoria").value("ELECTRICIDAD"))
+                .andExpect(jsonPath("$.categorias[0].totalKg").value(500.0))
+                .andExpect(jsonPath("$.categorias[0].porcentaje").value(50.0))
+                .andExpect(jsonPath("$.categorias[3].categoria").value("ENVIO"));
+    }
+
+    @Test
+    @WithMockUser(username = "db2ed1e7-6719-4595-844e-68efffe146cf", roles = "USUARIO_GENERAL")
+    void resumenComoUsuarioGeneralDevuelve200() throws Exception {
+        when(emisionResumenService.resumen(eq(2026), eq(3), any())).thenReturn(resumenValido());
+
+        mockMvc.perform(get("/api/emisiones/resumen").param("anio", "2026").param("mes", "3")
+                        .principal(principalDe("db2ed1e7-6719-4595-844e-68efffe146cf")))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void resumenConMesFueraDeRangoDevuelve400() throws Exception {
+        when(emisionResumenService.resumen(eq(2026), eq(13), any()))
+                .thenThrow(ApiException.mesInvalido());
+
+        mockMvc.perform(get("/api/emisiones/resumen").param("anio", "2026").param("mes", "13")
+                        .principal(principalDe("41ce47ab-a46c-4306-8c46-2688dc97fa73")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("El mes debe estar entre 1 y 12."));
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void resumenSinAnioDevuelve400() throws Exception {
+        mockMvc.perform(get("/api/emisiones/resumen")
+                        .principal(principalDe("41ce47ab-a46c-4306-8c46-2688dc97fa73")))
+                .andExpect(status().isBadRequest());
+    }
+
+    private static Authentication principalDe(String usuarioId) {
+        return new UsernamePasswordAuthenticationToken(usuarioId, null);
+    }
+
+    private static EmisionResumenResponseDTO resumenValido() {
+        return EmisionResumenResponseDTO.builder()
+                .anio(2026)
+                .totalKg(new BigDecimal("1000.000"))
+                .totalT(new BigDecimal("1.000"))
+                .categorias(List.of(
+                        categoria(CategoriaEmision.ELECTRICIDAD, "500.000", "50.0"),
+                        categoria(CategoriaEmision.FLOTA, "300.000", "30.0"),
+                        categoria(CategoriaEmision.VUELO, "0", "0.0"),
+                        categoria(CategoriaEmision.ENVIO, "200.000", "20.0")))
+                .build();
+    }
+
+    private static ResumenCategoriaDTO categoria(CategoriaEmision categoria, String totalKg,
+                                                 String porcentaje) {
+        return ResumenCategoriaDTO.builder()
+                .categoria(categoria)
+                .totalKg(new BigDecimal(totalKg))
+                .porcentaje(new BigDecimal(porcentaje))
+                .build();
     }
 
 }
