@@ -136,7 +136,7 @@ class AuditorControllerTest {
     @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
     void especialidadInvalidaDevuelve400() throws Exception {
         when(auditorDirectorioService.listar(any()))
-                .thenThrow(ApiException.especialidadAuditorInvalida());
+                .thenThrow(ApiException.especialidadAuditorInvalida("INVALIDA"));
 
         mockMvc.perform(get("/api/auditores").param("especialidades", "INVALIDA")
                         .principal(principal("ADMINISTRADOR_EMPRESA")))

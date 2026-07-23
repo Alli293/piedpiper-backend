@@ -14,7 +14,6 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
-import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -47,14 +46,10 @@ class CatalogosAuditorControllerTest {
     @MockitoBean
     private UsuarioRepository usuarioRepository;
 
-    private static TestingAuthenticationToken principal() {
-        return new TestingAuthenticationToken(USUARIO_ID, "password", "ROLE_ADMINISTRADOR_EMPRESA");
-    }
-
     @Test
     @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
     void especialidadesDevuelveElCatalogoConValorYEtiqueta() throws Exception {
-        mockMvc.perform(get("/api/catalogos/especialidades").principal(principal()))
+        mockMvc.perform(get("/api/catalogos/especialidades"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(5))
                 .andExpect(jsonPath("$[0].valor").value("AGROINDUSTRIA"))
@@ -64,7 +59,7 @@ class CatalogosAuditorControllerTest {
     @Test
     @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
     void zonasDevuelveLasProvincias() throws Exception {
-        mockMvc.perform(get("/api/catalogos/zonas").principal(principal()))
+        mockMvc.perform(get("/api/catalogos/zonas"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(7))
                 .andExpect(jsonPath("$[0].valor").value("SAN_JOSE"))
@@ -74,7 +69,7 @@ class CatalogosAuditorControllerTest {
     @Test
     @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_PLATAFORMA")
     void rolNoAutorizadoDevuelve403() throws Exception {
-        mockMvc.perform(get("/api/catalogos/especialidades").principal(principal()))
+        mockMvc.perform(get("/api/catalogos/especialidades"))
                 .andExpect(status().isForbidden());
     }
 }

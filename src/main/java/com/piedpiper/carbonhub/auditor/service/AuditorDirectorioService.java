@@ -123,7 +123,7 @@ public class AuditorDirectorioService {
             return null;
         }
         return ProvinciaCR.desde(zonaGeografica)
-                .orElseThrow(ApiException::zonaAuditorInvalida);
+                .orElseThrow(() -> ApiException.zonaAuditorInvalida(zonaGeografica));
     }
 
     private BigDecimal validarCalificacion(BigDecimal calificacionMinima) {
@@ -144,7 +144,7 @@ public class AuditorDirectorioService {
         return especialidades.stream()
                 .filter(valor -> valor != null && !valor.isBlank())
                 .map(valor -> EspecialidadAuditor.desde(valor)
-                        .orElseThrow(ApiException::especialidadAuditorInvalida))
+                        .orElseThrow(() -> ApiException.especialidadAuditorInvalida(valor)))
                 .collect(Collectors.toCollection(() -> EnumSet.noneOf(EspecialidadAuditor.class)));
     }
 }
