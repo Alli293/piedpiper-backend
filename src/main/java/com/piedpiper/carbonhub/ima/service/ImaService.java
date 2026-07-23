@@ -63,8 +63,32 @@ public class ImaService {
 
         // Buscar snapshot en caché
         return imaSnapshotRepository.findByEmpresaIdAndAnioAndMes(empresaId, anio, mes)
-                .map(this::toDto)
+                .map(snapshot -> {
+                    // Re-intentar si la interpretación previa es "No disponible" o null
+                    if (snapshot.getInterpretacion() == null
+                            || "No disponible".equals(snapshot.getInterpretacion())) {
+                        reintenteInterpretacion(snapshot, empresaId, anio, mes);
+                    }
+                    return toDto(snapshot);
+                })
                 .orElseGet(() -> calcularYPersistir(empresaId, anio, mes));
+    }
+
+    private void reintenteInterpretacion(ImaSnapshot snapshot, UUID empresaId, int anio, int mes) {
+        try {
+            Empresa empresa = empresaRepository.findById(empresaId).orElse(null);
+            if (empresa == null) return;
+
+            SectorIndustrial sector = empresa.getSectorIndustrial();
+            LocalDate hasta = LocalDate.of(anio, mes, 1).plusMonths(1).minusDays(1);
+            LocalDate desde = LocalDate.of(anio, mes, 1).minusMonths(MESES_VENTANA - 1);
+            AgregadoSectorial agregado = calcularAgregadoSectorial(sector, anio, mes, desde, hasta);
+            String tendencia = calcularTendencia(empresaId, anio, mes, snapshot.getIma());
+
+            interpretacionService.generarInterpretacion(snapshot, sector.name(), agregado, tendencia);
+        } catch (Exception e) {
+            // No bloquear la respuesta si el reintento falla
+        }
     }
 
     private ImaResponseDTO calcularYPersistir(UUID empresaId, int anio, int mes) {
@@ -160,22 +184,39 @@ public class ImaService {
 
         snapshot = imaSnapshotRepository.save(snapshot);
 
+        // Calcular tendencia
+        String tendencia = calcularTendencia(empresaId, anio, mes, ima);
+
         // Generar interpretación por IA después del commit
         final ImaSnapshot snapshotFinal = snapshot;
-        final String sectorNombre = sector.name();
+        final String sectorNombreFinal = sector.name();
         final AgregadoSectorial agregadoFinal = agregado;
+        final String tendenciaFinal = tendencia;
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(
                     new TransactionSynchronization() {
                         @Override
                         public void afterCommit() {
                             interpretacionService.generarInterpretacion(
-                                    snapshotFinal, sectorNombre, agregadoFinal, "Sin datos previos");
+                                    snapshotFinal, sectorNombreFinal, agregadoFinal, tendenciaFinal);
                         }
                     });
         }
 
         return toDto(snapshot);
+    }
+
+    private String calcularTendencia(UUID empresaId, int anio, int mes, BigDecimal imaActual) {
+        int prevMes = mes == 1 ? 12 : mes - 1;
+        int prevAnio = mes == 1 ? anio - 1 : anio;
+        return imaSnapshotRepository.findByEmpresaIdAndAnioAndMes(empresaId, prevAnio, prevMes)
+                .map(prev -> {
+                    int cmp = imaActual.compareTo(prev.getIma());
+                    if (cmp > 0) return "Subió";
+                    if (cmp < 0) return "Bajó";
+                    return "Estable";
+                })
+                .orElse("Sin datos previos");
     }
 
     private AgregadoSectorial calcularAgregadoSectorial(SectorIndustrial sector, int anio, int mes,
