@@ -65,6 +65,9 @@ public class ImaSnapshot {
     @Column(name = "calculated_at", nullable = false)
     private Instant calculatedAt;
 
-    @Column(name = "interpretacion_ia", columnDefinition = "TEXT")
-    private String interpretacionIa;
+    @Column(name = "interpretacion", columnDefinition = "TEXT")
+    private String interpretacion;
+
+    @Column(name = "siguiente_paso", columnDefinition = "TEXT")
+    private String siguientePaso;
 }
