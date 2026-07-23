@@ -38,6 +38,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/auth/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/verificar-correo").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/invitaciones/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/catalogos/**").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(e -> e.authenticationEntryPoint(
                         new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
