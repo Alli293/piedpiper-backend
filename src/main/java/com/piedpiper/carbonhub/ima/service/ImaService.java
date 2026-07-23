@@ -161,13 +161,16 @@ public class ImaService {
         snapshot = imaSnapshotRepository.save(snapshot);
 
         // Generar interpretación por IA después del commit
-        final UUID snapshotId = snapshot.getId();
+        final ImaSnapshot snapshotFinal = snapshot;
+        final String sectorNombre = sector.name();
+        final AgregadoSectorial agregadoFinal = agregado;
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(
                     new TransactionSynchronization() {
                         @Override
                         public void afterCommit() {
-                            interpretacionService.generarInterpretacion(snapshotId);
+                            interpretacionService.generarInterpretacion(
+                                    snapshotFinal, sectorNombre, agregadoFinal, "Sin datos previos");
                         }
                     });
         }
