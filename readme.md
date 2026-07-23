@@ -186,7 +186,8 @@ security.jwt.expiration-time=${JWT_EXPIRATION}
 
 ```
 spring.ai.google.genai.api-key=${GEMINI_API_KEY}
-spring.ai.google.genai.chat.options.model=gemini-3.5-flash
+spring.ai.google.genai.chat.options.model=gemini-2.0-flash
+spring.ai.google.genai.chat.options.temperature=0.2
 ```
 
 ---
