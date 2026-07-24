@@ -10,6 +10,7 @@ import com.piedpiper.carbonhub.emision.models.dtos.RegistrarElectricidadRequestD
 import com.piedpiper.carbonhub.emision.models.dtos.RegistrarEnvioRequestDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.RegistrarFlotaRequestDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.RegistrarVueloRequestDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.EmisionResumenResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.TipoVehiculoResponseDTO;
 import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
 import com.piedpiper.carbonhub.emision.service.EmisionComparacionService;
@@ -17,6 +18,7 @@ import com.piedpiper.carbonhub.emision.service.EmisionConsultaService;
 import com.piedpiper.carbonhub.emision.service.EmisionElectricidadService;
 import com.piedpiper.carbonhub.emision.service.EmisionEnvioService;
 import com.piedpiper.carbonhub.emision.service.EmisionFlotaService;
+import com.piedpiper.carbonhub.emision.service.EmisionResumenService;
 import com.piedpiper.carbonhub.emision.service.EmisionVueloService;
 import com.piedpiper.carbonhub.emision.service.ReporteHuellaPdfService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
@@ -50,6 +52,7 @@ public class EmisionController {
     private final EmisionEnvioService emisionEnvioService;
     private final EmisionVueloService emisionVueloService;
     private final EmisionConsultaService emisionConsultaService;
+    private final EmisionResumenService emisionResumenService;
     private final EmisionComparacionService emisionComparacionService;
     private final ReporteHuellaPdfService reporteHuellaPdfService;
 
@@ -58,6 +61,7 @@ public class EmisionController {
                              EmisionEnvioService emisionEnvioService,
                              EmisionVueloService emisionVueloService,
                              EmisionConsultaService emisionConsultaService,
+                             EmisionResumenService emisionResumenService,
                              EmisionComparacionService emisionComparacionService,
                              ReporteHuellaPdfService reporteHuellaPdfService) {
         this.emisionElectricidadService = emisionElectricidadService;
@@ -65,6 +69,7 @@ public class EmisionController {
         this.emisionEnvioService = emisionEnvioService;
         this.emisionVueloService = emisionVueloService;
         this.emisionConsultaService = emisionConsultaService;
+        this.emisionResumenService = emisionResumenService;
         this.emisionComparacionService = emisionComparacionService;
         this.reporteHuellaPdfService = reporteHuellaPdfService;
     }
@@ -104,6 +109,15 @@ public class EmisionController {
                 normalizarCategoria(categoria),
                 anio,
                 mes));
+    }
+
+    @GetMapping("/resumen")
+    public ResponseEntity<EmisionResumenResponseDTO> resumen(
+            @RequestParam Integer anio,
+            @RequestParam(required = false) Integer mes,
+            Authentication authentication) {
+        return ResponseEntity.ok(
+                emisionResumenService.resumen(anio, mes, Autenticaciones.usuarioId(authentication)));
     }
 
     @GetMapping("/{id}")

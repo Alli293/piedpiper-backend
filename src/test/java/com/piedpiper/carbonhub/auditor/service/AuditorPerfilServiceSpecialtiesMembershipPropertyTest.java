@@ -4,7 +4,7 @@ import com.piedpiper.carbonhub.auditor.mappers.PerfilAuditorMapper;
 import com.piedpiper.carbonhub.auditor.models.dtos.ActualizarPerfilAuditorRequestDTO;
 import com.piedpiper.carbonhub.auditor.models.dtos.PerfilAuditorResponseDTO;
 import com.piedpiper.carbonhub.auditor.models.entities.PerfilAuditor;
-import com.piedpiper.carbonhub.auditor.models.enums.Especialidad;
+import com.piedpiper.carbonhub.auditor.models.enums.EspecialidadAuditor;
 import com.piedpiper.carbonhub.auditor.models.enums.ZonaCobertura;
 import com.piedpiper.carbonhub.auditor.repository.PerfilAuditorRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
@@ -39,7 +39,7 @@ import static org.mockito.Mockito.when;
 // Validates: Requirements 3.2
 class AuditorPerfilServiceSpecialtiesMembershipPropertyTest {
 
-    private static final Set<String> VALID_ESPECIALIDADES = Arrays.stream(Especialidad.values())
+    private static final Set<String> VALID_ESPECIALIDADES = Arrays.stream(EspecialidadAuditor.values())
             .map(Enum::name)
             .collect(Collectors.toSet());
 
@@ -129,11 +129,11 @@ class AuditorPerfilServiceSpecialtiesMembershipPropertyTest {
     @Provide
     Arbitrary<List<String>> validEspecialidadesList() {
         // Generate lists of 1-8 valid Especialidad enum values
-        return Arbitraries.of(Especialidad.values())
+        return Arbitraries.of(EspecialidadAuditor.values())
                 .map(Enum::name)
                 .list()
                 .ofMinSize(1)
-                .ofMaxSize(8)
+                .ofMaxSize(5)
                 .uniqueElements();
     }
 

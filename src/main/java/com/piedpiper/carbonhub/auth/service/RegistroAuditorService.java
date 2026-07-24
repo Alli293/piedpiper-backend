@@ -3,6 +3,7 @@ package com.piedpiper.carbonhub.auth.service;
 import com.piedpiper.carbonhub.auth.models.dtos.AuthResponseDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.RegistroAuditorRequestDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.GoogleClaims;
+import com.piedpiper.carbonhub.auditor.service.PerfilAuditorService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
 import com.piedpiper.carbonhub.user.models.enums.MetodoAuth;
@@ -20,13 +21,16 @@ public class RegistroAuditorService {
     private final GoogleTokenVerifier googleTokenVerifier;
     private final UsuarioRepository usuarioRepository;
     private final JwtService jwtService;
+    private final PerfilAuditorService perfilAuditorService;
 
     public RegistroAuditorService(GoogleTokenVerifier googleTokenVerifier,
                                   UsuarioRepository usuarioRepository,
-                                  JwtService jwtService) {
+                                  JwtService jwtService,
+                                  PerfilAuditorService perfilAuditorService) {
         this.googleTokenVerifier = googleTokenVerifier;
         this.usuarioRepository = usuarioRepository;
         this.jwtService = jwtService;
+        this.perfilAuditorService = perfilAuditorService;
     }
 
     @Transactional
@@ -53,6 +57,7 @@ public class RegistroAuditorService {
                 .fechaRegistro(Instant.now())
                 .build();
         auditor = usuarioRepository.save(auditor);
+        perfilAuditorService.asegurarPerfil(auditor);
 
         String token = jwtService.generar(auditor);
         return new AuthResponseDTO(token, auditor.getRol().name(), auditor.getEstado().name(),

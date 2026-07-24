@@ -4,7 +4,7 @@ import com.piedpiper.carbonhub.auditor.mappers.PerfilAuditorMapper;
 import com.piedpiper.carbonhub.auditor.models.dtos.ActualizarPerfilAuditorRequestDTO;
 import com.piedpiper.carbonhub.auditor.models.dtos.PerfilAuditorResponseDTO;
 import com.piedpiper.carbonhub.auditor.models.entities.PerfilAuditor;
-import com.piedpiper.carbonhub.auditor.models.enums.Especialidad;
+import com.piedpiper.carbonhub.auditor.models.enums.EspecialidadAuditor;
 import com.piedpiper.carbonhub.auditor.models.enums.ZonaCobertura;
 import com.piedpiper.carbonhub.auditor.repository.PerfilAuditorRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -25,7 +26,7 @@ import java.util.stream.Collectors;
 @Service
 public class AuditorPerfilService {
 
-    private static final Set<String> ESPECIALIDADES_VALIDAS = Arrays.stream(Especialidad.values())
+    private static final Set<String> ESPECIALIDADES_VALIDAS = Arrays.stream(EspecialidadAuditor.values())
             .map(Enum::name)
             .collect(Collectors.toSet());
 
@@ -84,7 +85,10 @@ public class AuditorPerfilService {
                         .auditor(auditor)
                         .build());
 
-        perfil.setEspecialidades(perfilAuditorMapper.listToCsv(request.getEspecialidades()));
+        Set<EspecialidadAuditor> especialidades = request.getEspecialidades().stream()
+                .map(EspecialidadAuditor::valueOf)
+                .collect(Collectors.toCollection(HashSet::new));
+        perfil.setEspecialidades(especialidades);
         perfil.setZonasCobertura(perfilAuditorMapper.listToCsv(request.getZonasCobertura()));
         perfil.setDisponible(request.getDisponible());
         perfil.setDescripcionProfesional(request.getDescripcionProfesional());

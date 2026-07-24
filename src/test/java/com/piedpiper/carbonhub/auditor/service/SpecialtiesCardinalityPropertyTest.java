@@ -1,7 +1,7 @@
 package com.piedpiper.carbonhub.auditor.service;
 
 import com.piedpiper.carbonhub.auditor.models.dtos.ActualizarPerfilAuditorRequestDTO;
-import com.piedpiper.carbonhub.auditor.models.enums.Especialidad;
+import com.piedpiper.carbonhub.auditor.models.enums.EspecialidadAuditor;
 
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
@@ -32,7 +32,7 @@ class SpecialtiesCardinalityPropertyTest {
         validator = factory.getValidator();
     }
 
-    private static final List<String> VALID_ESPECIALIDADES = Arrays.stream(Especialidad.values())
+    private static final List<String> VALID_ESPECIALIDADES = Arrays.stream(EspecialidadAuditor.values())
             .map(Enum::name)
             .collect(Collectors.toList());
 

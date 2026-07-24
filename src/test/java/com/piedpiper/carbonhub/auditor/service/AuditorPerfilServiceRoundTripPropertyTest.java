@@ -5,7 +5,7 @@ import com.piedpiper.carbonhub.auditor.mappers.PerfilAuditorMapperImpl;
 import com.piedpiper.carbonhub.auditor.models.dtos.ActualizarPerfilAuditorRequestDTO;
 import com.piedpiper.carbonhub.auditor.models.dtos.PerfilAuditorResponseDTO;
 import com.piedpiper.carbonhub.auditor.models.entities.PerfilAuditor;
-import com.piedpiper.carbonhub.auditor.models.enums.Especialidad;
+import com.piedpiper.carbonhub.auditor.models.enums.EspecialidadAuditor;
 import com.piedpiper.carbonhub.auditor.models.enums.ZonaCobertura;
 import com.piedpiper.carbonhub.auditor.repository.PerfilAuditorRepository;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
@@ -76,8 +76,8 @@ class AuditorPerfilServiceRoundTripPropertyTest {
     @Provide
     Arbitrary<ActualizarPerfilAuditorRequestDTO> validDtos() {
         Arbitrary<List<String>> especialidades = Arbitraries.of(
-                Arrays.stream(Especialidad.values()).map(Enum::name).toList()
-        ).list().ofMinSize(1).ofMaxSize(8).uniqueElements();
+                Arrays.stream(EspecialidadAuditor.values()).map(Enum::name).toList()
+        ).list().ofMinSize(1).ofMaxSize(5).uniqueElements();
 
         Arbitrary<List<String>> zonas = Arbitraries.of(
                 Arrays.stream(ZonaCobertura.values()).map(Enum::name).toList()

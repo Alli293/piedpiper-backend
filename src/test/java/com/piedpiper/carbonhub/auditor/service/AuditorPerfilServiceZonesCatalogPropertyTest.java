@@ -2,6 +2,7 @@ package com.piedpiper.carbonhub.auditor.service;
 
 import com.piedpiper.carbonhub.auditor.mappers.PerfilAuditorMapper;
 import com.piedpiper.carbonhub.auditor.models.dtos.ActualizarPerfilAuditorRequestDTO;
+import com.piedpiper.carbonhub.auditor.models.enums.EspecialidadAuditor;
 import com.piedpiper.carbonhub.auditor.models.enums.ZonaCobertura;
 import com.piedpiper.carbonhub.auditor.repository.PerfilAuditorRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
@@ -61,7 +62,7 @@ class AuditorPerfilServiceZonesCatalogPropertyTest {
         when(usuarioRepository.findById(id)).thenReturn(Optional.of(usuario));
 
         ActualizarPerfilAuditorRequestDTO dto = new ActualizarPerfilAuditorRequestDTO(
-                List.of("HUELLA_CARBONO"),
+                List.of(EspecialidadAuditor.ENERGIA_RENOVABLE.name()),
                 List.of(invalidZona),
                 true,
                 "Descripción de prueba"

@@ -4,6 +4,7 @@ import com.piedpiper.carbonhub.auditor.mappers.PerfilAuditorMapper;
 import com.piedpiper.carbonhub.auditor.models.dtos.ActualizarPerfilAuditorRequestDTO;
 import com.piedpiper.carbonhub.auditor.models.dtos.PerfilAuditorResponseDTO;
 import com.piedpiper.carbonhub.auditor.models.entities.PerfilAuditor;
+import com.piedpiper.carbonhub.auditor.models.enums.EspecialidadAuditor;
 import com.piedpiper.carbonhub.auditor.repository.PerfilAuditorRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
@@ -19,8 +20,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -49,10 +52,10 @@ class AuditorPerfilServiceTest {
 
     private ActualizarPerfilAuditorRequestDTO requestValido() {
         return new ActualizarPerfilAuditorRequestDTO(
-                List.of("HUELLA_CARBONO", "ENERGIA_RENOVABLE"),
+                List.of("ENERGIA_RENOVABLE", "AGROINDUSTRIA"),
                 List.of("SAN_JOSE", "HEREDIA"),
                 true,
-                "Auditor con experiencia en huella de carbono."
+                "Auditor con experiencia en energía renovable."
         );
     }
 
@@ -73,10 +76,10 @@ class AuditorPerfilServiceTest {
     private PerfilAuditorResponseDTO responseEsperado() {
         return new PerfilAuditorResponseDTO(
                 AUDITOR_ID,
-                List.of("HUELLA_CARBONO", "ENERGIA_RENOVABLE"),
+                List.of("AGROINDUSTRIA", "ENERGIA_RENOVABLE"),
                 List.of("SAN_JOSE", "HEREDIA"),
                 true,
-                "Auditor con experiencia en huella de carbono.",
+                "Auditor con experiencia en energía renovable.",
                 Instant.now()
         );
     }
@@ -145,7 +148,7 @@ class AuditorPerfilServiceTest {
                 .thenReturn(Optional.of(auditorActivo()));
 
         ActualizarPerfilAuditorRequestDTO request = new ActualizarPerfilAuditorRequestDTO(
-                List.of("HUELLA_CARBONO", "VALOR_INVENTADO"),
+                List.of("ENERGIA_RENOVABLE", "VALOR_INVENTADO"),
                 List.of("SAN_JOSE"),
                 true,
                 null
@@ -170,7 +173,7 @@ class AuditorPerfilServiceTest {
                 .thenReturn(Optional.of(auditorActivo()));
 
         ActualizarPerfilAuditorRequestDTO request = new ActualizarPerfilAuditorRequestDTO(
-                List.of("HUELLA_CARBONO"),
+                List.of("ENERGIA_RENOVABLE"),
                 List.of("SAN_JOSE", "ZONA_FANTASMA"),
                 true,
                 null
@@ -197,8 +200,6 @@ class AuditorPerfilServiceTest {
                 .thenReturn(Optional.empty());
         when(perfilAuditorRepository.save(any()))
                 .thenAnswer(invocation -> invocation.getArgument(0));
-        when(perfilAuditorMapper.listToCsv(List.of("HUELLA_CARBONO", "ENERGIA_RENOVABLE")))
-                .thenReturn("HUELLA_CARBONO,ENERGIA_RENOVABLE");
         when(perfilAuditorMapper.listToCsv(List.of("SAN_JOSE", "HEREDIA")))
                 .thenReturn("SAN_JOSE,HEREDIA");
 
@@ -211,10 +212,11 @@ class AuditorPerfilServiceTest {
         verify(perfilAuditorRepository).save(captor.capture());
         PerfilAuditor saved = captor.getValue();
 
-        assertThat(saved.getEspecialidades()).isEqualTo("HUELLA_CARBONO,ENERGIA_RENOVABLE");
+        assertThat(saved.getEspecialidades()).containsExactlyInAnyOrder(
+                EspecialidadAuditor.ENERGIA_RENOVABLE, EspecialidadAuditor.AGROINDUSTRIA);
         assertThat(saved.getZonasCobertura()).isEqualTo("SAN_JOSE,HEREDIA");
         assertThat(saved.isDisponible()).isTrue();
-        assertThat(saved.getDescripcionProfesional()).isEqualTo("Auditor con experiencia en huella de carbono.");
+        assertThat(saved.getDescripcionProfesional()).isEqualTo("Auditor con experiencia en energía renovable.");
         assertThat(saved.getActualizadoEn()).isNotNull();
         assertThat(saved.getAuditor().getId()).isEqualTo(AUDITOR_ID);
 
@@ -229,7 +231,7 @@ class AuditorPerfilServiceTest {
         PerfilAuditor perfilExistente = PerfilAuditor.builder()
                 .id(UUID.randomUUID())
                 .auditor(auditor)
-                .especialidades("BIODIVERSIDAD")
+                .especialidades(new HashSet<>(Set.of(EspecialidadAuditor.MANUFACTURA)))
                 .zonasCobertura("CARTAGO")
                 .disponible(false)
                 .descripcionProfesional("Descripción anterior")
@@ -242,8 +244,6 @@ class AuditorPerfilServiceTest {
                 .thenReturn(Optional.of(perfilExistente));
         when(perfilAuditorRepository.save(any()))
                 .thenAnswer(invocation -> invocation.getArgument(0));
-        when(perfilAuditorMapper.listToCsv(List.of("HUELLA_CARBONO", "ENERGIA_RENOVABLE")))
-                .thenReturn("HUELLA_CARBONO,ENERGIA_RENOVABLE");
         when(perfilAuditorMapper.listToCsv(List.of("SAN_JOSE", "HEREDIA")))
                 .thenReturn("SAN_JOSE,HEREDIA");
 
@@ -258,10 +258,11 @@ class AuditorPerfilServiceTest {
 
         // Verifica que se actualizó el perfil existente (mismo id)
         assertThat(saved.getId()).isEqualTo(perfilExistente.getId());
-        assertThat(saved.getEspecialidades()).isEqualTo("HUELLA_CARBONO,ENERGIA_RENOVABLE");
+        assertThat(saved.getEspecialidades()).containsExactlyInAnyOrder(
+                EspecialidadAuditor.ENERGIA_RENOVABLE, EspecialidadAuditor.AGROINDUSTRIA);
         assertThat(saved.getZonasCobertura()).isEqualTo("SAN_JOSE,HEREDIA");
         assertThat(saved.isDisponible()).isTrue();
-        assertThat(saved.getDescripcionProfesional()).isEqualTo("Auditor con experiencia en huella de carbono.");
+        assertThat(saved.getDescripcionProfesional()).isEqualTo("Auditor con experiencia en energía renovable.");
         assertThat(saved.getActualizadoEn()).isNotNull();
 
         assertThat(result).isEqualTo(expected);

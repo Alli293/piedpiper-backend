@@ -1,6 +1,6 @@
 package com.piedpiper.carbonhub.common;
 
-import com.piedpiper.carbonhub.auditor.models.enums.Especialidad;
+import com.piedpiper.carbonhub.auditor.models.enums.EspecialidadAuditor;
 import com.piedpiper.carbonhub.auditor.models.enums.ZonaCobertura;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,7 +16,7 @@ public class CatalogoController {
 
     @GetMapping("/especialidades")
     public ResponseEntity<List<CatalogoItemDTO>> listarEspecialidades() {
-        List<CatalogoItemDTO> items = Arrays.stream(Especialidad.values())
+        List<CatalogoItemDTO> items = Arrays.stream(EspecialidadAuditor.values())
                 .map(e -> new CatalogoItemDTO(e.name(), CatalogoItemDTO.etiquetaDesdeEnum(e.name())))
                 .toList();
         return ResponseEntity.ok(items);
