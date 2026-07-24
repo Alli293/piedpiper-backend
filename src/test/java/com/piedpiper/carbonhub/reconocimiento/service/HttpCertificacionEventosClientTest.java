@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
+import java.net.ServerSocket;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.UUID;
@@ -72,6 +73,23 @@ class HttpCertificacionEventosClientTest {
                 "No se pudo comunicar con el modulo de Certificacion.");
     }
 
+    @Test
+    void conexionNoDisponibleLanzaCertificacionNoDisponible() throws IOException {
+        int puerto = puertoLocalLibre();
+        HttpCertificacionEventosClient client = new HttpCertificacionEventosClient(
+                "http://localhost:" + puerto,
+                "/api/certificacion/eventos",
+                200);
+
+        CertificacionNoDisponibleException exception = catchThrowableOfType(
+                () -> client.enviar(requestValido()),
+                CertificacionNoDisponibleException.class);
+
+        assertThat(exception).isNotNull();
+        assertThat(exception.getMessage()).isEqualTo(
+                "No se pudo comunicar con el modulo de Certificacion.");
+    }
+
     private HttpCertificacionEventosClient clientApuntandoA(int statusCode) throws IOException {
         servidor = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
         servidor.createContext("/api/certificacion/eventos", exchange -> {
@@ -92,6 +110,12 @@ class HttpCertificacionEventosClientTest {
                 "http://localhost:" + puerto,
                 "/api/certificacion/eventos",
                 2000);
+    }
+
+    private static int puertoLocalLibre() throws IOException {
+        try (ServerSocket socket = new ServerSocket(0)) {
+            return socket.getLocalPort();
+        }
     }
 
     private static EventoCertificacionRequestDTO requestValido() {

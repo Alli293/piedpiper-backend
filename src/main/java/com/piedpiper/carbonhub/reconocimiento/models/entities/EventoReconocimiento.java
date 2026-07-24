@@ -39,6 +39,7 @@ public class EventoReconocimiento {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    // Se conserva como UUID plano para evitar joins en el log de auditoria de reconocimiento.
     @Column(name = "usuario_id", nullable = false)
     private UUID usuarioId;
 
@@ -70,6 +71,13 @@ public class EventoReconocimiento {
 
     public void marcarPendienteReintento(String mensajeError, Instant fechaIntento) {
         estadoEnvio = EstadoEnvioCertificacion.PENDIENTE_REINTENTO;
+        fechaUltimoIntento = fechaIntento;
+        intentosEnvio++;
+        ultimoError = recortarError(mensajeError);
+    }
+
+    public void marcarReintentosAgotados(String mensajeError, Instant fechaIntento) {
+        estadoEnvio = EstadoEnvioCertificacion.REINTENTOS_AGOTADOS;
         fechaUltimoIntento = fechaIntento;
         intentosEnvio++;
         ultimoError = recortarError(mensajeError);

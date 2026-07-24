@@ -6,6 +6,7 @@ import com.piedpiper.carbonhub.reconocimiento.models.dtos.RegistrarEventoReconoc
 import com.piedpiper.carbonhub.reconocimiento.service.EventoReconocimientoService;
 
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -29,7 +30,7 @@ public class EventoReconocimientoController {
     public ResponseEntity<EventoReconocimientoResponseDTO> registrar(
             Authentication authentication,
             @Valid @RequestBody RegistrarEventoReconocimientoRequestDTO request) {
-        return ResponseEntity.ok(eventoReconocimientoService.registrar(
+        return ResponseEntity.status(HttpStatus.CREATED).body(eventoReconocimientoService.registrar(
                 request, Autenticaciones.usuarioId(authentication)));
     }
 }

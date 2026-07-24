@@ -4,5 +4,6 @@ public enum EstadoEnvioCertificacion {
     PENDIENTE_ENVIO,
     ENVIADO,
     PENDIENTE_REINTENTO,
-    FUERA_CATALOGO
+    FUERA_CATALOGO,
+    REINTENTOS_AGOTADOS
 }
