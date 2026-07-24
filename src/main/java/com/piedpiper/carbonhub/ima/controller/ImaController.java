@@ -2,10 +2,10 @@ package com.piedpiper.carbonhub.ima.controller;
 
 import com.piedpiper.carbonhub.common.Autenticaciones;
 import com.piedpiper.carbonhub.exceptions.ApiException;
-import com.piedpiper.carbonhub.ima.models.dtos.BenchmarkSectorialResponseDTO;
 import com.piedpiper.carbonhub.ima.models.dtos.ImaResponseDTO;
-import com.piedpiper.carbonhub.ima.service.ImaBenchmarkService;
+import com.piedpiper.carbonhub.ima.models.dtos.ImaTendenciaResponseDTO;
 import com.piedpiper.carbonhub.ima.service.ImaService;
+import com.piedpiper.carbonhub.ima.service.ImaTendenciaService;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -24,11 +24,11 @@ import java.util.UUID;
 public class ImaController {
 
     private final ImaService imaService;
-    private final ImaBenchmarkService imaBenchmarkService;
+    private final ImaTendenciaService imaTendenciaService;
 
-    public ImaController(ImaService imaService, ImaBenchmarkService imaBenchmarkService) {
+    public ImaController(ImaService imaService, ImaTendenciaService imaTendenciaService) {
         this.imaService = imaService;
-        this.imaBenchmarkService = imaBenchmarkService;
+        this.imaTendenciaService = imaTendenciaService;
     }
 
     @GetMapping
@@ -37,26 +37,6 @@ public class ImaController {
             @RequestParam(required = false) Integer anio,
             @RequestParam(required = false) Integer mes) {
 
-        Periodo periodo = resolverPeriodo(anio, mes);
-        UUID usuarioId = Autenticaciones.usuarioId(authentication);
-        ImaResponseDTO response = imaService.obtenerIma(periodo.anio(), periodo.mes(), usuarioId);
-        return ResponseEntity.ok(response);
-    }
-
-    @GetMapping("/benchmark")
-    public ResponseEntity<BenchmarkSectorialResponseDTO> obtenerBenchmark(
-            Authentication authentication,
-            @RequestParam(required = false) Integer anio,
-            @RequestParam(required = false) Integer mes) {
-
-        Periodo periodo = resolverPeriodo(anio, mes);
-        UUID usuarioId = Autenticaciones.usuarioId(authentication);
-        BenchmarkSectorialResponseDTO response =
-                imaBenchmarkService.obtenerBenchmark(periodo.anio(), periodo.mes(), usuarioId);
-        return ResponseEntity.ok(response);
-    }
-
-    private Periodo resolverPeriodo(Integer anio, Integer mes) {
         LocalDate hoy = LocalDate.now();
 
         if (anio == null) {
@@ -80,9 +60,23 @@ public class ImaController {
             throw ApiException.periodoImaInvalido("El período no puede ser futuro.");
         }
 
-        return new Periodo(anio, mes);
+        UUID usuarioId = Autenticaciones.usuarioId(authentication);
+        ImaResponseDTO response = imaService.obtenerIma(anio, mes, usuarioId);
+        return ResponseEntity.ok(response);
     }
 
-    private record Periodo(int anio, int mes) {
+    @GetMapping("/tendencia")
+    public ResponseEntity<ImaTendenciaResponseDTO> obtenerTendencia(
+            Authentication authentication,
+            @RequestParam(required = false) Integer mesesAtras) {
+
+        if (mesesAtras != null
+                && (mesesAtras < 1 || mesesAtras > ImaTendenciaService.MESES_VENTANA_MAXIMA)) {
+            throw ApiException.periodoImaInvalido(
+                    "La ventana debe estar entre 1 y " + ImaTendenciaService.MESES_VENTANA_MAXIMA + " meses.");
+        }
+
+        UUID usuarioId = Autenticaciones.usuarioId(authentication);
+        return ResponseEntity.ok(imaTendenciaService.obtenerTendencia(mesesAtras, usuarioId));
     }
 }
