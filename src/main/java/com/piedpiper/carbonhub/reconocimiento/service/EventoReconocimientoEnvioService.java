@@ -7,6 +7,7 @@ import com.piedpiper.carbonhub.reconocimiento.repository.EventoReconocimientoRep
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -30,8 +31,18 @@ public class EventoReconocimientoEnvioService {
         this.certificacionEventosClient = certificacionEventosClient;
     }
 
+    @Async
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void enviarAsync(UUID eventoId) {
+        enviarInterno(eventoId);
+    }
+
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void enviar(UUID eventoId) {
+        enviarInterno(eventoId);
+    }
+
+    private void enviarInterno(UUID eventoId) {
         EventoReconocimiento evento = eventoReconocimientoRepository.findById(eventoId).orElse(null);
         if (evento == null) {
             log.warn("No se encontro el evento de reconocimiento {} para enviar a Certificacion", eventoId);
@@ -52,6 +63,11 @@ public class EventoReconocimientoEnvioService {
             evento.marcarPendienteReintento(e.getMessage(), fechaIntento);
             eventoReconocimientoRepository.saveAndFlush(evento);
             log.warn("Evento {} quedo pendiente para reintento por fallo de Certificacion",
+                    evento.getId(), e);
+        } catch (RuntimeException e) {
+            evento.marcarPendienteReintento("No se pudo enviar el evento a Certificacion.", fechaIntento);
+            eventoReconocimientoRepository.saveAndFlush(evento);
+            log.warn("Evento {} quedo pendiente para reintento por error inesperado al enviar a Certificacion",
                     evento.getId(), e);
         }
     }

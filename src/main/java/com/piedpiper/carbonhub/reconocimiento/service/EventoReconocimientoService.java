@@ -61,6 +61,12 @@ public class EventoReconocimientoService {
         EventoReconocimiento evento = EventoReconocimientoCodigo.desde(codigoRecibido)
                 .map(catalogo -> eventoValido(usuarioId, catalogo))
                 .orElseGet(() -> eventoFueraCatalogo(usuarioId, codigoRecibido));
+        EventoReconocimiento existente = eventoReconocimientoRepository
+                .findByUsuarioIdAndEventoGenerado(usuarioId, evento.getEventoGenerado())
+                .orElse(null);
+        if (existente != null) {
+            return eventoReconocimientoMapper.toDto(existente);
+        }
 
         EventoReconocimiento guardado = eventoReconocimientoRepository.save(evento);
         if (guardado.getEstadoEnvio() == EstadoEnvioCertificacion.PENDIENTE_ENVIO) {
@@ -104,11 +110,11 @@ public class EventoReconocimientoService {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    eventoReconocimientoEnvioService.enviar(eventoId);
+                    eventoReconocimientoEnvioService.enviarAsync(eventoId);
                 }
             });
         } else {
-            eventoReconocimientoEnvioService.enviar(eventoId);
+            eventoReconocimientoEnvioService.enviarAsync(eventoId);
         }
     }
 }

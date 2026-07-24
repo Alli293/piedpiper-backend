@@ -75,6 +75,23 @@ class EventoReconocimientoEnvioServiceTest {
     }
 
     @Test
+    void errorInesperado_dejaEventoEnColaDeReintento() {
+        EventoReconocimiento evento = eventoPendiente();
+        when(eventoReconocimientoRepository.findById(EVENTO_ID)).thenReturn(Optional.of(evento));
+        doThrow(new IllegalStateException("Fallo inesperado"))
+                .when(certificacionEventosClient).enviar(any());
+
+        service.enviar(EVENTO_ID);
+
+        ArgumentCaptor<EventoReconocimiento> eventoCaptor = ArgumentCaptor.forClass(EventoReconocimiento.class);
+        verify(eventoReconocimientoRepository).saveAndFlush(eventoCaptor.capture());
+        EventoReconocimiento guardado = eventoCaptor.getValue();
+        assertThat(guardado.getEstadoEnvio()).isEqualTo(EstadoEnvioCertificacion.PENDIENTE_REINTENTO);
+        assertThat(guardado.getIntentosEnvio()).isEqualTo(1);
+        assertThat(guardado.getUltimoError()).isEqualTo("No se pudo enviar el evento a Certificacion.");
+    }
+
+    @Test
     void reintentoProcesaEventosPendientes() {
         EventoReconocimiento evento = eventoPendiente();
         evento.setEstadoEnvio(EstadoEnvioCertificacion.PENDIENTE_REINTENTO);

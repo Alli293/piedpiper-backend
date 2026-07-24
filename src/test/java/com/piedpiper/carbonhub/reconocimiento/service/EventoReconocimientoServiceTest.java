@@ -74,7 +74,7 @@ class EventoReconocimientoServiceTest {
         assertThat(guardado.getFechaEvento()).isBeforeOrEqualTo(Instant.now());
         assertThat(guardado.getEstadoEnvio()).isEqualTo(EstadoEnvioCertificacion.PENDIENTE_ENVIO);
 
-        verify(eventoReconocimientoEnvioService).enviar(guardado.getId());
+        verify(eventoReconocimientoEnvioService).enviarAsync(guardado.getId());
         assertThat(response.getEstadoEnvio()).isEqualTo(EstadoEnvioCertificacion.PENDIENTE_ENVIO);
     }
 
@@ -94,7 +94,31 @@ class EventoReconocimientoServiceTest {
         verify(eventoReconocimientoRepository).save(captor.capture());
         assertThat(captor.getValue().getEstadoEnvio()).isEqualTo(EstadoEnvioCertificacion.FUERA_CATALOGO);
         assertThat(response.getEventoGenerado()).isEqualTo("evento_desconocido");
-        verify(eventoReconocimientoEnvioService, never()).enviar(any());
+        verify(eventoReconocimientoEnvioService, never()).enviarAsync(any());
+    }
+
+    @Test
+    void eventoDuplicado_devuelveExistenteSinRegistrarNiReenviar() {
+        EventoReconocimiento existente = EventoReconocimiento.builder()
+                .id(UUID.randomUUID())
+                .usuarioId(USUARIO_ID)
+                .eventoGenerado("primer_itinerario_generado")
+                .fechaEvento(Instant.parse("2026-07-23T18:00:00Z"))
+                .estadoEnvio(EstadoEnvioCertificacion.PENDIENTE_ENVIO)
+                .build();
+        EventoReconocimientoResponseDTO dto = response(existente);
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario(EstadoUsuario.ACTIVO)));
+        when(eventoReconocimientoRepository.findByUsuarioIdAndEventoGenerado(
+                USUARIO_ID, "primer_itinerario_generado")).thenReturn(Optional.of(existente));
+        when(eventoReconocimientoMapper.toDto(existente)).thenReturn(dto);
+
+        EventoReconocimientoResponseDTO response = service.registrar(
+                new RegistrarEventoReconocimientoRequestDTO(USUARIO_ID, "primer_itinerario_generado"),
+                USUARIO_ID);
+
+        assertThat(response).isSameAs(dto);
+        verify(eventoReconocimientoRepository, never()).save(any());
+        verify(eventoReconocimientoEnvioService, never()).enviarAsync(any());
     }
 
     @Test
