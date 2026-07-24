@@ -108,5 +108,34 @@ public interface EmisionRepository extends JpaRepository<Emision, UUID> {
 
     Optional<Emision> findByIdAndEmpresaId(UUID id, UUID empresaId);
 
+    @Query("""
+            select count(distinct type(e))
+            from Emision e
+            where e.empresaId = :empresaId
+              and e.fechaActividad between :desde and :hasta
+            """)
+    long contarCategoriasConRegistro(@Param("empresaId") UUID empresaId,
+                                     @Param("desde") LocalDate desde,
+                                     @Param("hasta") LocalDate hasta);
+
+    @Query("""
+            select count(distinct (extract(year from e.fechaActividad) * 100 + extract(month from e.fechaActividad)))
+            from Emision e
+            where e.empresaId = :empresaId
+              and e.fechaActividad between :desde and :hasta
+            """)
+    long contarMesesConRegistro(@Param("empresaId") UUID empresaId,
+                                @Param("desde") LocalDate desde,
+                                @Param("hasta") LocalDate hasta);
+
+    @Query("""
+            select coalesce(sum(e.carbonKg), 0)
+            from Emision e
+            where e.empresaId = :empresaId
+              and e.fechaActividad between :desde and :hasta
+            """)
+    BigDecimal sumarCarbonKgEnVentana(@Param("empresaId") UUID empresaId,
+                                      @Param("desde") LocalDate desde,
+                                      @Param("hasta") LocalDate hasta);
     List<Emision> findAllByEmpresaIdAndFechaActividadBetween(UUID empresaId, LocalDate desde, LocalDate hasta);
 }

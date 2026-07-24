@@ -13,6 +13,7 @@ import com.piedpiper.carbonhub.emision.models.enums.TipoVehiculo;
 import com.piedpiper.carbonhub.emision.models.enums.UnidadDistancia;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.ima.service.ImaCacheInvalidator;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
@@ -38,15 +39,18 @@ public class EmisionFlotaService {
     private final EmisionRepository emisionRepository;
     private final UsuarioRepository usuarioRepository;
     private final EmisionFlotaMapper emisionFlotaMapper;
+    private final ImaCacheInvalidator imaCacheInvalidator;
 
     public EmisionFlotaService(ClimatiqClient climatiqClient,
                                EmisionRepository emisionRepository,
                                UsuarioRepository usuarioRepository,
-                               EmisionFlotaMapper emisionFlotaMapper) {
+                               EmisionFlotaMapper emisionFlotaMapper,
+                               ImaCacheInvalidator imaCacheInvalidator) {
         this.climatiqClient = climatiqClient;
         this.emisionRepository = emisionRepository;
         this.usuarioRepository = usuarioRepository;
         this.emisionFlotaMapper = emisionFlotaMapper;
+        this.imaCacheInvalidator = imaCacheInvalidator;
     }
 
     public List<TipoVehiculoResponseDTO> listarTiposVehiculo() {
@@ -104,6 +108,7 @@ public class EmisionFlotaService {
                 .createdByUserId(usuarioId)
                 .build();
         emision = emisionRepository.save(emision);
+        imaCacheInvalidator.invalidar(usuario.getEmpresa().getId());
 
         return emisionFlotaMapper.toDto(emision);
     }

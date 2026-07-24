@@ -204,6 +204,11 @@ public class ApiException extends RuntimeException {
                 "Categoría de emisión inválida.");
     }
 
+    public static ApiException ordenamientoAuditoresInvalido() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "El criterio de ordenamiento no es válido.");
+    }
+
     public static ApiException mesInvalido() {
         return new ApiException(HttpStatus.BAD_REQUEST,
                 "El mes debe estar entre 1 y 12.");
@@ -212,5 +217,9 @@ public class ApiException extends RuntimeException {
     public static ApiException limiteConflicto() {
         return new ApiException(HttpStatus.CONFLICT,
                 "Conflicto al guardar el límite. Intente nuevamente.");
+    }
+
+    public static ApiException periodoImaInvalido(String mensaje) {
+        return new ApiException(HttpStatus.BAD_REQUEST, mensaje);
     }
 }

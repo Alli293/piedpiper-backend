@@ -21,6 +21,7 @@ import com.piedpiper.carbonhub.emision.models.entities.EmisionVuelo;
 import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.ima.service.ImaCacheInvalidator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -50,6 +51,8 @@ class EmisionConsultaServiceTest {
     private EmisionEnvioMapper emisionEnvioMapper;
     @Mock
     private EmisionFlotaMapper emisionFlotaMapper;
+    @Mock
+    private ImaCacheInvalidator imaCacheInvalidator;
 
     @InjectMocks
     private EmisionConsultaService service;
