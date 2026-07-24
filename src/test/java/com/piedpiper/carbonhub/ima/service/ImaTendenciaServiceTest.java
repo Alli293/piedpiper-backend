@@ -52,6 +52,10 @@ class ImaTendenciaServiceTest {
         mesActual = YearMonth.from(LocalDate.now());
     }
 
+    /**
+     * Agregado con promedio sectorial poblado: representa un mes en que el sector
+     * alcanzó el umbral de empresas elegibles y por tanto ImaService expuso promedioIma.
+     */
     private AgregadoSectorial agregadoConPromedio(YearMonth periodo, int cantidadEmpresas, String promedioIma) {
         return AgregadoSectorial.builder()
                 .sector(SectorIndustrial.AGROINDUSTRIA)
@@ -62,6 +66,10 @@ class ImaTendenciaServiceTest {
                 .build();
     }
 
+    /**
+     * Agregado sin promedio (promedioIma == null): el sector no alcanzó el umbral,
+     * exactamente como lo persiste ImaService cuando hay menos de 5 empresas elegibles.
+     */
     private AgregadoSectorial agregadoSinPromedio(YearMonth periodo, int cantidadEmpresas) {
         return AgregadoSectorial.builder()
                 .sector(SectorIndustrial.AGROINDUSTRIA)

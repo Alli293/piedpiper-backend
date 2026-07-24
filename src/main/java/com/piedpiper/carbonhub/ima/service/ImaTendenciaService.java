@@ -60,6 +60,7 @@ public class ImaTendenciaService {
                 .build();
     }
 
+    /** Valida la ventana solicitada; ausente equivale a la ventana máxima. */
     private int resolverVentana(Integer mesesAtras) {
         if (mesesAtras == null) {
             return MESES_VENTANA_MAXIMA;
@@ -71,6 +72,10 @@ public class ImaTendenciaService {
         return mesesAtras;
     }
 
+    /**
+     * Construye un punto por cada mes de la ventana. Los meses sin dato quedan en null:
+     * no se rellenan con ceros para que la gráfica no invente valores.
+     */
     private List<ImaTendenciaPuntoDTO> construirSerie(YearMonth desde, int ventana,
                                                       Map<YearMonth, BigDecimal> imaPorMes,
                                                       Map<YearMonth, BigDecimal> promedioPorMes) {
@@ -97,6 +102,14 @@ public class ImaTendenciaService {
         return porMes;
     }
 
+    /**
+     * Toma el promedio sectorial ya persistido en AgregadoSectorial, que es la misma
+     * población filtrada (empresas elegibles, sin snapshots parciales) que expone
+     * ImaService en /api/ima y /api/ima/benchmark. Se descarta cualquier mes cuyo
+     * promedioIma sea null: ese null es exactamente la señal de que el sector no
+     * alcanzó el umbral de empresas elegibles, así que /tendencia no dibuja línea
+     * sectorial donde /benchmark tampoco la mostraría.
+     */
     private Map<YearMonth, BigDecimal> indexarPromediosSectoriales(Empresa empresa,
                                                                    YearMonth desde, YearMonth hasta) {
         List<AgregadoSectorial> agregados = agregadoSectorialRepository.findVentana(

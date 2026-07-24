@@ -16,6 +16,10 @@ public interface ImaSnapshotRepository extends JpaRepository<ImaSnapshot, UUID> 
 
     void deleteAllByEmpresaId(UUID empresaId);
 
+    /**
+     * Snapshots de la empresa dentro de una ventana [desde, hasta] expresada como (anio, mes).
+     * El orden por (anio, mes) permite recorrer la serie cronológicamente sin reordenar en memoria.
+     */
     @Query("""
             SELECT s FROM ImaSnapshot s
             WHERE s.empresaId = :empresaId
