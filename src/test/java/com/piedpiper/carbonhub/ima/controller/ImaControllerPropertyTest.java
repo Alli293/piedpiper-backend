@@ -69,7 +69,7 @@ class ImaControllerPropertyTest {
         // Simple mock for Property 7 tests
         imaService = Mockito.mock(ImaService.class);
         imaBenchmarkService = Mockito.mock(ImaBenchmarkService.class);
-        controller = new ImaController(imaService, imaBenchmarkService);
+        controller = new ImaController(imaService, imaBenchmarkService, Mockito.mock(com.piedpiper.carbonhub.ima.service.ImaTendenciaService.class));
         authentication = new TestingAuthenticationToken(
                 "41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA");
 
