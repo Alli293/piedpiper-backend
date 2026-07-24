@@ -14,6 +14,7 @@ import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -30,15 +31,18 @@ public class EventoReconocimientoService {
     private final EventoReconocimientoRepository eventoReconocimientoRepository;
     private final UsuarioRepository usuarioRepository;
     private final EventoReconocimientoEnvioService eventoReconocimientoEnvioService;
+    private final EventoReconocimientoPersistenciaService eventoReconocimientoPersistenciaService;
     private final EventoReconocimientoMapper eventoReconocimientoMapper;
 
     public EventoReconocimientoService(EventoReconocimientoRepository eventoReconocimientoRepository,
                                        UsuarioRepository usuarioRepository,
                                        EventoReconocimientoEnvioService eventoReconocimientoEnvioService,
+                                       EventoReconocimientoPersistenciaService eventoReconocimientoPersistenciaService,
                                        EventoReconocimientoMapper eventoReconocimientoMapper) {
         this.eventoReconocimientoRepository = eventoReconocimientoRepository;
         this.usuarioRepository = usuarioRepository;
         this.eventoReconocimientoEnvioService = eventoReconocimientoEnvioService;
+        this.eventoReconocimientoPersistenciaService = eventoReconocimientoPersistenciaService;
         this.eventoReconocimientoMapper = eventoReconocimientoMapper;
     }
 
@@ -68,11 +72,28 @@ public class EventoReconocimientoService {
             return eventoReconocimientoMapper.toDto(existente);
         }
 
-        EventoReconocimiento guardado = eventoReconocimientoRepository.save(evento);
+        EventoReconocimiento guardado;
+        try {
+            guardado = eventoReconocimientoPersistenciaService.guardarNuevo(evento);
+        } catch (DataIntegrityViolationException e) {
+            EventoReconocimiento concurrente = obtenerEventoRegistradoConcurrentemente(
+                    usuarioId, evento.getEventoGenerado(), e);
+            log.warn("Evento de reconocimiento concurrente detectado para usuario {} y codigo {}",
+                    usuarioId, evento.getEventoGenerado());
+            return eventoReconocimientoMapper.toDto(concurrente);
+        }
         if (guardado.getEstadoEnvio() == EstadoEnvioCertificacion.PENDIENTE_ENVIO) {
             enviarTrasCommit(guardado.getId());
         }
         return eventoReconocimientoMapper.toDto(guardado);
+    }
+
+    private EventoReconocimiento obtenerEventoRegistradoConcurrentemente(
+            UUID usuarioId,
+            String eventoGenerado,
+            DataIntegrityViolationException exception) {
+        return eventoReconocimientoRepository.findByUsuarioIdAndEventoGenerado(usuarioId, eventoGenerado)
+                .orElseThrow(() -> exception);
     }
 
     private EventoReconocimiento eventoValido(UUID usuarioId, EventoReconocimientoCodigo catalogo) {
