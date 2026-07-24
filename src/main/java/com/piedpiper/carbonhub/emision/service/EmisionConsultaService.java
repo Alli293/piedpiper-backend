@@ -53,11 +53,8 @@ public class EmisionConsultaService {
     @Transactional(readOnly = true)
     public List<EmisionResponseDTO> listar(UUID usuarioId, CategoriaEmision categoria, Integer anio, Integer mes) {
         validarMes(mes);
-        return emisionRepository.findAllByEmpresaIdWithFilters(
-                        emisionEmpresaService.empresaId(usuarioId),
-                        categoria,
-                        anio,
-                        mes)
+        UUID empresaId = emisionEmpresaService.empresaId(usuarioId);
+        return listarPorCategoria(empresaId, categoria, anio, mes)
                 .stream()
                 .map(this::toDto)
                 .toList();
@@ -86,6 +83,23 @@ public class EmisionConsultaService {
         if (mes != null && (mes < 1 || mes > 12)) {
             throw ApiException.mesInvalido();
         }
+    }
+
+    private List<Emision> listarPorCategoria(
+            UUID empresaId,
+            CategoriaEmision categoria,
+            Integer anio,
+            Integer mes) {
+        if (categoria == null) {
+            return emisionRepository.findAllByEmpresaIdWithFilters(empresaId, anio, mes);
+        }
+
+        return switch (categoria) {
+            case ELECTRICIDAD -> emisionRepository.findAllElectricidadByEmpresaIdWithFilters(empresaId, anio, mes);
+            case FLOTA -> emisionRepository.findAllFlotaByEmpresaIdWithFilters(empresaId, anio, mes);
+            case VUELO -> emisionRepository.findAllVueloByEmpresaIdWithFilters(empresaId, anio, mes);
+            case ENVIO -> emisionRepository.findAllEnvioByEmpresaIdWithFilters(empresaId, anio, mes);
+        };
     }
 
     private EmisionResponseDTO toDto(Emision emision) {

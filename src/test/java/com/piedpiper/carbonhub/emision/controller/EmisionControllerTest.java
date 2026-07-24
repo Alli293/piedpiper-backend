@@ -375,7 +375,8 @@ class EmisionControllerTest {
                 new BigDecimal("50.0000"),
                 new BigDecimal("60.0"),
                 "dentro",
-                null);
+                null,
+                List.of());
         when(emisionComparacionService.comparar(any(), eq(2026))).thenReturn(response);
 
         mockMvc.perform(get("/api/emisiones/comparacion")
@@ -385,7 +386,8 @@ class EmisionControllerTest {
                 .andExpect(jsonPath("$.huellaAcumuladaT").value(30.0000))
                 .andExpect(jsonPath("$.limiteT").value(50.0000))
                 .andExpect(jsonPath("$.porcentajeConsumido").value(60.0))
-                .andExpect(jsonPath("$.estado").value("dentro"));
+                .andExpect(jsonPath("$.estado").value("dentro"))
+                .andExpect(jsonPath("$.categorias").isArray());
 
         verify(emisionComparacionService).comparar(any(), eq(2026));
     }
