@@ -2,6 +2,8 @@ package com.piedpiper.carbonhub.exceptions;
 
 import org.springframework.http.HttpStatus;
 
+import java.util.List;
+
 public class ApiException extends RuntimeException {
 
     private final HttpStatus status;
@@ -229,12 +231,36 @@ public class ApiException extends RuntimeException {
                 "Conflicto al guardar el límite. Intente nuevamente.");
     }
 
+    public static ApiException perfilNoPropio() {
+        return new ApiException(HttpStatus.FORBIDDEN,
+                "No tiene permiso para editar este perfil.");
+    }
+
+    public static ApiException cuentaNoValidada() {
+        return new ApiException(HttpStatus.FORBIDDEN,
+                "Tu cuenta debe estar validada para actualizar tu perfil de directorio.");
+    }
+
+    public static ApiException especialidadesInvalidas(List<String> invalidas) {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Las siguientes especialidades no son válidas: " + String.join(", ", invalidas) + ".");
+    }
+
+    public static ApiException zonasInvalidas(List<String> invalidas) {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Las siguientes zonas de cobertura no son válidas: " + String.join(", ", invalidas) + ".");
+    }
+
     public static ApiException preferenciasViajeConflicto() {
         return new ApiException(HttpStatus.CONFLICT,
                 "Conflicto al guardar tus preferencias. Intenta nuevamente.");
     }
 
     public static ApiException periodoImaInvalido(String mensaje) {
+        return new ApiException(HttpStatus.BAD_REQUEST, mensaje);
+    }
+
+    public static ApiException datosInvalidos(String mensaje) {
         return new ApiException(HttpStatus.BAD_REQUEST, mensaje);
     }
 }

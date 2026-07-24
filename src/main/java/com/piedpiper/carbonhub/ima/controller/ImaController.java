@@ -4,8 +4,10 @@ import com.piedpiper.carbonhub.common.Autenticaciones;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.ima.models.dtos.BenchmarkSectorialResponseDTO;
 import com.piedpiper.carbonhub.ima.models.dtos.ImaResponseDTO;
+import com.piedpiper.carbonhub.ima.models.dtos.ImaTendenciaResponseDTO;
 import com.piedpiper.carbonhub.ima.service.ImaBenchmarkService;
 import com.piedpiper.carbonhub.ima.service.ImaService;
+import com.piedpiper.carbonhub.ima.service.ImaTendenciaService;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -25,10 +27,14 @@ public class ImaController {
 
     private final ImaService imaService;
     private final ImaBenchmarkService imaBenchmarkService;
+    private final ImaTendenciaService imaTendenciaService;
 
-    public ImaController(ImaService imaService, ImaBenchmarkService imaBenchmarkService) {
+    public ImaController(ImaService imaService,
+                         ImaBenchmarkService imaBenchmarkService,
+                         ImaTendenciaService imaTendenciaService) {
         this.imaService = imaService;
         this.imaBenchmarkService = imaBenchmarkService;
+        this.imaTendenciaService = imaTendenciaService;
     }
 
     @GetMapping
@@ -54,6 +60,15 @@ public class ImaController {
         BenchmarkSectorialResponseDTO response =
                 imaBenchmarkService.obtenerBenchmark(periodo.anio(), periodo.mes(), usuarioId);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/tendencia")
+    public ResponseEntity<ImaTendenciaResponseDTO> obtenerTendencia(
+            Authentication authentication,
+            @RequestParam(required = false) Integer mesesAtras) {
+
+        UUID usuarioId = Autenticaciones.usuarioId(authentication);
+        return ResponseEntity.ok(imaTendenciaService.obtenerTendencia(mesesAtras, usuarioId));
     }
 
     private Periodo resolverPeriodo(Integer anio, Integer mes) {
