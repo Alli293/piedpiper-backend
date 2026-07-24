@@ -7,6 +7,8 @@ import com.piedpiper.carbonhub.emision.models.dtos.EmisionElectricidadResponseDT
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionEnvioResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionFlotaResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionResponseDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.EvolucionMensualResponseDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.EvolucionMensualResponseDTO.PuntoMensual;
 import com.piedpiper.carbonhub.emision.models.dtos.TipoVehiculoResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.TipoVehiculoResponseDTO.CombustibleResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionVueloResponseDTO;
@@ -47,6 +49,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -634,6 +637,89 @@ class EmisionControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(request))
                 .andExpect(status().isBadRequest());
+    }
+
+    // --- Tests para /api/emisiones/evolucion ---
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void evolucionConAnioValidoDevuelve200ConDocePuntos() throws Exception {
+        EvolucionMensualResponseDTO dto = crearEvolucionConDatos(2026);
+        when(emisionEvolucionService.obtenerEvolucion(any(), any(UUID.class))).thenReturn(dto);
+
+        mockMvc.perform(get("/api/emisiones/evolucion").param("anio", "2026")
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.anio").value(2026))
+                .andExpect(jsonPath("$.serie.length()").value(12))
+                .andExpect(jsonPath("$.serie[0].mes").value(1))
+                .andExpect(jsonPath("$.serie[11].mes").value(12));
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void evolucionSinParametroAnioUsaAnioActualDevuelve200() throws Exception {
+        EvolucionMensualResponseDTO dto = crearEvolucionVacia(2026);
+        when(emisionEvolucionService.obtenerEvolucion(any(), any(UUID.class))).thenReturn(dto);
+
+        mockMvc.perform(get("/api/emisiones/evolucion")
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.anio").value(2026))
+                .andExpect(jsonPath("$.serie.length()").value(12));
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void evolucionConMesesSinDatosDevuelveCero() throws Exception {
+        EvolucionMensualResponseDTO dto = crearEvolucionVacia(2020);
+        when(emisionEvolucionService.obtenerEvolucion(any(), any(UUID.class))).thenReturn(dto);
+
+        mockMvc.perform(get("/api/emisiones/evolucion").param("anio", "2020")
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.serie[0].totalCarbonKg").value(0))
+                .andExpect(jsonPath("$.serie[5].totalCarbonKg").value(0))
+                .andExpect(jsonPath("$.serie[11].totalCarbonKg").value(0));
+    }
+
+    @Test
+    @WithMockUser(username = "db2ed1e7-6719-4595-844e-68efffe146cf", roles = "AUDITOR_CERTIFICADO")
+    void evolucionConRolNoAutorizadoDevuelve403() throws Exception {
+        mockMvc.perform(get("/api/emisiones/evolucion").param("anio", "2026")
+                        .principal(new TestingAuthenticationToken(
+                                "db2ed1e7-6719-4595-844e-68efffe146cf", "password", "ROLE_AUDITOR_CERTIFICADO")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void evolucionConAnioInvalidoDevuelve400() throws Exception {
+        when(emisionEvolucionService.obtenerEvolucion(any(), any(UUID.class)))
+                .thenThrow(ApiException.anioInvalido());
+
+        mockMvc.perform(get("/api/emisiones/evolucion").param("anio", "1800")
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA")))
+                .andExpect(status().isBadRequest());
+    }
+
+    private EvolucionMensualResponseDTO crearEvolucionConDatos(int anio) {
+        List<PuntoMensual> serie = new ArrayList<>();
+        for (int mes = 1; mes <= 12; mes++) {
+            BigDecimal valor = (mes == 1 || mes == 3 || mes == 7)
+                    ? new BigDecimal("150.500")
+                    : BigDecimal.ZERO;
+            serie.add(new PuntoMensual(mes, valor));
+        }
+        return new EvolucionMensualResponseDTO(anio, serie);
+    }
+
+    private EvolucionMensualResponseDTO crearEvolucionVacia(int anio) {
+        List<PuntoMensual> serie = new ArrayList<>();
+        for (int mes = 1; mes <= 12; mes++) {
+            serie.add(new PuntoMensual(mes, BigDecimal.ZERO));
+        }
+        return new EvolucionMensualResponseDTO(anio, serie);
     }
 
 }

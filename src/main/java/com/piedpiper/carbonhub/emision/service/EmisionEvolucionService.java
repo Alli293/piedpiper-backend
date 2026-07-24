@@ -1,11 +1,9 @@
 package com.piedpiper.carbonhub.emision.service;
 
-import com.piedpiper.carbonhub.emision.models.dtos.EvolucionMensualDTO;
-import com.piedpiper.carbonhub.emision.models.dtos.EvolucionMensualDTO.PuntoMensual;
+import com.piedpiper.carbonhub.emision.models.dtos.EvolucionMensualResponseDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.EvolucionMensualResponseDTO.PuntoMensual;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
-import com.piedpiper.carbonhub.user.models.entities.Usuario;
-import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,19 +20,20 @@ import java.util.UUID;
 public class EmisionEvolucionService {
 
     private final EmisionRepository emisionRepository;
-    private final UsuarioRepository usuarioRepository;
+    private final EmisionEmpresaService emisionEmpresaService;
 
     public EmisionEvolucionService(EmisionRepository emisionRepository,
-                                   UsuarioRepository usuarioRepository) {
+                                   EmisionEmpresaService emisionEmpresaService) {
         this.emisionRepository = emisionRepository;
-        this.usuarioRepository = usuarioRepository;
+        this.emisionEmpresaService = emisionEmpresaService;
     }
 
     @Transactional(readOnly = true)
-    public EvolucionMensualDTO obtenerEvolucion(Integer anio, UUID usuarioId) {
-        UUID empresaId = empresaId(usuarioId);
+    public EvolucionMensualResponseDTO obtenerEvolucion(Integer anio, UUID usuarioId) {
+        UUID empresaId = emisionEmpresaService.empresaId(usuarioId);
 
         int anioEfectivo = anio != null ? anio : Year.now().getValue();
+        validarAnio(anioEfectivo);
 
         List<Object[]> resultados = emisionRepository.sumarCarbonKgPorMes(empresaId, anioEfectivo);
 
@@ -50,15 +49,13 @@ public class EmisionEvolucionService {
             serie.add(new PuntoMensual(mes, porMes.getOrDefault(mes, BigDecimal.ZERO)));
         }
 
-        return new EvolucionMensualDTO(anioEfectivo, serie);
+        return new EvolucionMensualResponseDTO(anioEfectivo, serie);
     }
 
-    private UUID empresaId(UUID usuarioId) {
-        Usuario usuario = usuarioRepository.findById(usuarioId)
-                .orElseThrow(() -> ApiException.errorInterno("No se pudo identificar al usuario autenticado."));
-        if (usuario.getEmpresa() == null || usuario.getEmpresa().getId() == null) {
-            throw ApiException.empresaNoConfigurada();
+    private void validarAnio(int anio) {
+        int anioActual = Year.now().getValue();
+        if (anio < 1900 || anio > anioActual + 1) {
+            throw ApiException.anioInvalido();
         }
-        return usuario.getEmpresa().getId();
     }
 }

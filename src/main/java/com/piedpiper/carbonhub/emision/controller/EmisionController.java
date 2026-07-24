@@ -6,7 +6,7 @@ import com.piedpiper.carbonhub.emision.models.dtos.EmisionElectricidadResponseDT
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionEnvioResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionFlotaResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionResponseDTO;
-import com.piedpiper.carbonhub.emision.models.dtos.EvolucionMensualDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.EvolucionMensualResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.RegistrarElectricidadRequestDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.RegistrarEnvioRequestDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.RegistrarFlotaRequestDTO;
@@ -151,7 +151,7 @@ public class EmisionController {
     }
 
     @GetMapping("/evolucion")
-    public ResponseEntity<EvolucionMensualDTO> evolucion(
+    public ResponseEntity<EvolucionMensualResponseDTO> evolucion(
             Authentication authentication,
             @RequestParam(required = false) Integer anio) {
         return ResponseEntity.ok(emisionEvolucionService.obtenerEvolucion(anio, Autenticaciones.usuarioId(authentication)));

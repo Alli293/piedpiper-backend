@@ -1,12 +1,9 @@
 package com.piedpiper.carbonhub.emision.service;
 
-import com.piedpiper.carbonhub.emision.models.dtos.EvolucionMensualDTO;
-import com.piedpiper.carbonhub.emision.models.dtos.EvolucionMensualDTO.PuntoMensual;
+import com.piedpiper.carbonhub.emision.models.dtos.EvolucionMensualResponseDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.EvolucionMensualResponseDTO.PuntoMensual;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
-import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.exceptions.ApiException;
-import com.piedpiper.carbonhub.user.models.entities.Usuario;
-import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,7 +14,6 @@ import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -33,21 +29,21 @@ class EmisionEvolucionServiceTest {
     @Mock
     private EmisionRepository emisionRepository;
     @Mock
-    private UsuarioRepository usuarioRepository;
+    private EmisionEmpresaService emisionEmpresaService;
 
     @InjectMocks
     private EmisionEvolucionService service;
 
     @Test
     void serieCompletaConDatosEnVariosMeses() {
-        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
+        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
         when(emisionRepository.sumarCarbonKgPorMes(EMPRESA_ID, 2026)).thenReturn(List.of(
                 new Object[]{1, new BigDecimal("150.500")},
                 new Object[]{3, new BigDecimal("200.000")},
                 new Object[]{7, new BigDecimal("80.250")}
         ));
 
-        EvolucionMensualDTO resultado = service.obtenerEvolucion(2026, USUARIO_ID);
+        EvolucionMensualResponseDTO resultado = service.obtenerEvolucion(2026, USUARIO_ID);
 
         assertThat(resultado.getAnio()).isEqualTo(2026);
         assertThat(resultado.getSerie()).hasSize(12);
@@ -69,10 +65,10 @@ class EmisionEvolucionServiceTest {
 
     @Test
     void anioSinDatosDevuelveDocePuntosEnCero() {
-        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
+        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
         when(emisionRepository.sumarCarbonKgPorMes(EMPRESA_ID, 2020)).thenReturn(List.of());
 
-        EvolucionMensualDTO resultado = service.obtenerEvolucion(2020, USUARIO_ID);
+        EvolucionMensualResponseDTO resultado = service.obtenerEvolucion(2020, USUARIO_ID);
 
         assertThat(resultado.getAnio()).isEqualTo(2020);
         assertThat(resultado.getSerie()).hasSize(12);
@@ -82,10 +78,10 @@ class EmisionEvolucionServiceTest {
 
     @Test
     void serieTieneDocePuntosConMesesOrdenados() {
-        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
+        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
         when(emisionRepository.sumarCarbonKgPorMes(EMPRESA_ID, 2025)).thenReturn(List.of());
 
-        EvolucionMensualDTO resultado = service.obtenerEvolucion(2025, USUARIO_ID);
+        EvolucionMensualResponseDTO resultado = service.obtenerEvolucion(2025, USUARIO_ID);
 
         List<PuntoMensual> serie = resultado.getSerie();
         for (int i = 0; i < 12; i++) {
@@ -95,8 +91,7 @@ class EmisionEvolucionServiceTest {
 
     @Test
     void usuarioSinEmpresaLanzaExcepcion() {
-        Usuario sinEmpresa = Usuario.builder().id(USUARIO_ID).build();
-        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(sinEmpresa));
+        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenThrow(ApiException.empresaNoConfigurada());
 
         assertThatThrownBy(() -> service.obtenerEvolucion(2026, USUARIO_ID))
                 .isInstanceOf(ApiException.class)
@@ -106,7 +101,8 @@ class EmisionEvolucionServiceTest {
 
     @Test
     void usuarioNoExistenteLanzaExcepcion() {
-        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.empty());
+        when(emisionEmpresaService.empresaId(USUARIO_ID))
+                .thenThrow(ApiException.errorInterno("No se pudo identificar al usuario autenticado."));
 
         assertThatThrownBy(() -> service.obtenerEvolucion(2026, USUARIO_ID))
                 .isInstanceOf(ApiException.class)
@@ -114,10 +110,13 @@ class EmisionEvolucionServiceTest {
                 .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    private Usuario usuario() {
-        return Usuario.builder()
-                .id(USUARIO_ID)
-                .empresa(Empresa.builder().id(EMPRESA_ID).build())
-                .build();
+    @Test
+    void anioInvalidoDevuelveError() {
+        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
+
+        assertThatThrownBy(() -> service.obtenerEvolucion(1899, USUARIO_ID))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
     }
 }

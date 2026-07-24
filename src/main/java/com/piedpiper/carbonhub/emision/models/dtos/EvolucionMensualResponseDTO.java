@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class EvolucionMensualDTO {
+public class EvolucionMensualResponseDTO {
 
     private int anio;
     private List<PuntoMensual> serie;

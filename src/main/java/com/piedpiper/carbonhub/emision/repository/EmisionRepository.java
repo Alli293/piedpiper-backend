@@ -48,11 +48,11 @@ public interface EmisionRepository extends JpaRepository<Emision, UUID> {
     Optional<Emision> findByIdAndEmpresaId(UUID id, UUID empresaId);
 
     @Query("""
-            select extract(month from e.fechaActividad), coalesce(sum(e.carbonKg), 0)
+            select month(e.fechaActividad), sum(e.carbonKg)
             from Emision e
             where e.empresaId = :empresaId
-              and extract(year from e.fechaActividad) = :anio
-            group by extract(month from e.fechaActividad)
+              and year(e.fechaActividad) = :anio
+            group by month(e.fechaActividad)
             """)
     List<Object[]> sumarCarbonKgPorMes(@Param("empresaId") UUID empresaId,
                                        @Param("anio") int anio);
