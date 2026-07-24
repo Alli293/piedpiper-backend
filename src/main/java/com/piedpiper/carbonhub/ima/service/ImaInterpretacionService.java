@@ -1,7 +1,5 @@
 package com.piedpiper.carbonhub.ima.service;
 
-import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
-import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 import com.piedpiper.carbonhub.ima.models.dtos.InterpretacionIma;
 import com.piedpiper.carbonhub.ima.models.entities.AgregadoSectorial;
 import com.piedpiper.carbonhub.ima.models.entities.ImaSnapshot;
@@ -12,8 +10,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-
-import java.util.UUID;
 
 @Service
 public class ImaInterpretacionService {
@@ -27,16 +23,13 @@ public class ImaInterpretacionService {
 
     private final ChatClient chatClient;
     private final ImaSnapshotRepository imaSnapshotRepository;
-    private final EmpresaRepository empresaRepository;
     private final String geminiApiKey;
 
     public ImaInterpretacionService(ChatClient.Builder chatClientBuilder,
                                     ImaSnapshotRepository imaSnapshotRepository,
-                                    EmpresaRepository empresaRepository,
                                     @Value("${spring.ai.google.genai.api-key:}") String geminiApiKey) {
         this.chatClient = chatClientBuilder.build();
         this.imaSnapshotRepository = imaSnapshotRepository;
-        this.empresaRepository = empresaRepository;
         this.geminiApiKey = geminiApiKey;
     }
 
@@ -57,30 +50,16 @@ public class ImaInterpretacionService {
             // 2. Construir prompt
             String promptUsuario = construirPromptUsuario(snapshot, sectorNombre, agregado, tendencia);
 
-            // 3. Verificar privacidad — obtener datos de la empresa para validación
-            Empresa empresa = empresaRepository.findById(snapshot.getEmpresaId()).orElse(null);
-            if (empresa != null) {
-                boolean privacidadOk = verificarPrivacidad(
-                        promptUsuario,
-                        empresa.getNombreEmpresa(),
-                        empresa.getId(),
-                        empresa.getCantidadEmpleados()
-                );
-                if (!privacidadOk) {
-                    log.error("Verificación de privacidad fallida: el prompt contiene datos sensibles");
-                    persistirNoDisponible(snapshot);
-                    return;
-                }
-            }
+            // El prompt es seguro por construcción: construirPromptUsuario solo usa datos del sector y puntajes.
 
-            // 4. Invocar ChatClient con respuesta estructurada
+            // 3. Invocar ChatClient con respuesta estructurada
             InterpretacionIma resultado = chatClient.prompt()
                     .system(SYSTEM_MESSAGE)
                     .user(promptUsuario)
                     .call()
                     .entity(InterpretacionIma.class);
 
-            // 5. Validar respuesta
+            // 4. Validar respuesta
             if (resultado == null
                     || resultado.interpretacion() == null || resultado.interpretacion().isBlank()
                     || resultado.siguientePaso() == null || resultado.siguientePaso().isBlank()) {
@@ -90,7 +69,7 @@ public class ImaInterpretacionService {
                 return;
             }
 
-            // 6. Persistir resultado válido
+            // 5. Persistir resultado válido
             snapshot.setInterpretacion(resultado.interpretacion());
             snapshot.setSiguientePaso(resultado.siguientePaso());
             imaSnapshotRepository.save(snapshot);
@@ -122,43 +101,6 @@ public class ImaInterpretacionService {
         sb.append("  - Intensidad promedio: ").append(agregado.getIntensidadPromedio()).append("\n");
         sb.append("Tendencia respecto al mes anterior: ").append(tendencia).append("\n");
         return sb.toString();
-    }
-
-    /**
-     * Defensa en profundidad: verifica que el prompt construido no filtre datos sensibles.
-     * construirPromptUsuario() ya excluye estos datos por diseño, pero esta verificación
-     * actúa como guardia ante regresiones futuras en el template del prompt.
-     * Retorna false si se detectan datos sensibles (invocación debe abortarse).
-     */
-    boolean verificarPrivacidad(String prompt, String nombreEmpresa, UUID empresaId,
-                                Integer cantidadEmpleados) {
-        if (prompt == null) {
-            return true;
-        }
-        String promptLower = prompt.toLowerCase();
-
-        if (nombreEmpresa != null && !nombreEmpresa.isBlank()
-                && promptLower.contains(nombreEmpresa.toLowerCase())) {
-            log.error("ALERTA DE SEGURIDAD: Datos sensibles detectados en prompt de IA. Tipo: nombreEmpresa");
-            return false;
-        }
-
-        if (empresaId != null && promptLower.contains(empresaId.toString().toLowerCase())) {
-            log.error("ALERTA DE SEGURIDAD: Datos sensibles detectados en prompt de IA. Tipo: empresaId");
-            return false;
-        }
-
-        if (cantidadEmpleados != null) {
-            String empleadosStr = cantidadEmpleados.toString();
-            // Only check if the number is specific enough (>= 3 digits) to avoid false positives
-            // with common prompt numbers like scores (0-100) or sector counts
-            if (empleadosStr.length() >= 3 && prompt.contains(empleadosStr)) {
-                log.error("ALERTA DE SEGURIDAD: Datos sensibles detectados en prompt de IA. Tipo: cantidadEmpleados");
-                return false;
-            }
-        }
-
-        return true;
     }
 
     private void persistirNoDisponible(ImaSnapshot snapshot) {

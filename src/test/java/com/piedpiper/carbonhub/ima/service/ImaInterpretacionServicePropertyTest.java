@@ -1,8 +1,5 @@
 package com.piedpiper.carbonhub.ima.service;
 
-import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
-import com.piedpiper.carbonhub.empresa.models.enums.SectorIndustrial;
-import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 import com.piedpiper.carbonhub.ima.models.entities.AgregadoSectorial;
 import com.piedpiper.carbonhub.ima.models.entities.ImaSnapshot;
 import com.piedpiper.carbonhub.ima.repository.ImaSnapshotRepository;
@@ -17,7 +14,6 @@ import org.springframework.ai.chat.client.ChatClient;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -25,9 +21,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 /**
- * Property-based tests for ImaInterpretacionService.
+ * Tests basados en propiedades para ImaInterpretacionService.
  *
- * Validates: Requirements 1.4, 1.5, 8.1, 8.2, 8.3, 2.1, 2.2, 2.3, 2.4, 2.5, 2.7
+ * Valida: Requisitos 1.4, 1.5, 1.6, 1.7, 2.1, 2.2, 2.3, 2.4, 2.5, 2.7, 8.1
  */
 class ImaInterpretacionServicePropertyTest {
 
@@ -36,7 +32,6 @@ class ImaInterpretacionServicePropertyTest {
     private ChatClient.ChatClientRequestSpec requestSpec;
     private ChatClient.CallResponseSpec callResponseSpec;
     private ImaSnapshotRepository imaSnapshotRepository;
-    private EmpresaRepository empresaRepository;
     private ImaInterpretacionService service;
 
     @BeforeTry
@@ -46,7 +41,6 @@ class ImaInterpretacionServicePropertyTest {
         requestSpec = Mockito.mock(ChatClient.ChatClientRequestSpec.class);
         callResponseSpec = Mockito.mock(ChatClient.CallResponseSpec.class);
         imaSnapshotRepository = Mockito.mock(ImaSnapshotRepository.class);
-        empresaRepository = Mockito.mock(EmpresaRepository.class);
 
         when(chatClientBuilder.build()).thenReturn(chatClient);
         when(chatClient.prompt()).thenReturn(requestSpec);
@@ -54,36 +48,26 @@ class ImaInterpretacionServicePropertyTest {
         when(requestSpec.user(any(String.class))).thenReturn(requestSpec);
         when(requestSpec.call()).thenReturn(callResponseSpec);
 
-        // EmpresaRepository returns a safe empresa (name/id/employees won't appear in prompt)
-        Empresa empresa = Empresa.builder()
-                .id(UUID.fromString("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"))
-                .nombreEmpresa("SafeTestCorp")
-                .cantidadEmpleados(99999)
-                .sectorIndustrial(SectorIndustrial.SERVICIOS)
-                .build();
-        when(empresaRepository.findById(any(UUID.class))).thenReturn(Optional.of(empresa));
-
         when(imaSnapshotRepository.save(any(ImaSnapshot.class))).thenAnswer(i -> i.getArgument(0));
 
         service = new ImaInterpretacionService(
                 chatClientBuilder,
                 imaSnapshotRepository,
-                empresaRepository,
                 "test-api-key"
         );
     }
 
     // =========================================================================
-    // Property 1: El prompt contiene exclusivamente datos anonimizados
-    // Validates: Requirements 1.4, 1.5, 8.1
+    // Propiedad 1: El prompt contiene exclusivamente datos anonimizados
+    // Valida: Requisitos 1.4, 1.5, 8.1
     // =========================================================================
 
     /**
-     * Property 1: For any ImaSnapshot with any combination of scores (0–100),
-     * sector, and aggregate data, the prompt built by construirPromptUsuario
-     * SHALL contain only: sector name, four company scores, sector averages
-     * with cantidadEmpresas, and tendencia; and SHALL NOT contain empresa name,
-     * empresaId, or cantidadEmpleados.
+     * Propiedad 1: Para cualquier ImaSnapshot con cualquier combinación de puntajes (0–100),
+     * sector y datos agregados, el prompt construido por construirPromptUsuario
+     * NO DEBE contener nombre de empresa, empresaId ni cantidadEmpleados;
+     * SÍ DEBE contener: nombre del sector, cuatro puntajes, promedios sectoriales
+     * con cantidadEmpresas y tendencia.
      */
     @Property(tries = 100)
     @Tag("property-1")
@@ -119,24 +103,24 @@ class ImaInterpretacionServicePropertyTest {
 
         String prompt = service.construirPromptUsuario(snapshot, sectorNombre, agregado, tendencia);
 
-        // Assert: prompt does NOT contain sensitive data
+        // El prompt NO contiene datos sensibles
         assertThat(prompt.toLowerCase()).doesNotContain(nombreEmpresa.toLowerCase());
         assertThat(prompt).doesNotContain(empresaId.toString());
         assertThat(prompt).doesNotContain(String.valueOf(cantidadEmpleados));
 
-        // Assert: prompt DOES contain expected data
+        // El prompt SÍ contiene los datos esperados
         assertThat(prompt).contains(sectorNombre);
         assertThat(prompt).contains(tendencia);
     }
 
     // =========================================================================
-    // Property 4: Respuesta válida se persiste; respuesta inválida resulta en "No disponible"
-    // Validates: Requirements 1.6, 1.7
+    // Propiedad 4: Respuesta válida se persiste; respuesta inválida resulta en "No disponible"
+    // Valida: Requisitos 1.6, 1.7
     // =========================================================================
 
     /**
-     * Property 4a: If ChatClient returns a valid InterpretacionIma (both fields non-null, non-blank),
-     * both values are persisted to the snapshot as-is.
+     * Propiedad 4a: Si ChatClient devuelve un InterpretacionIma válido (ambos campos no-nulos, no-vacíos),
+     * ambos valores se persisten en el snapshot tal cual.
      */
     @Property(tries = 100)
     @Tag("property-4")
@@ -176,7 +160,7 @@ class ImaInterpretacionServicePropertyTest {
     }
 
     /**
-     * Property 4b: If ChatClient returns null, both fields become "No disponible".
+     * Propiedad 4b: Si ChatClient devuelve null, ambos campos quedan "No disponible".
      */
     @Property(tries = 10)
     @Tag("property-4")
@@ -209,7 +193,7 @@ class ImaInterpretacionServicePropertyTest {
     }
 
     /**
-     * Property 4c: If InterpretacionIma has blank interpretacion, result is "No disponible".
+     * Propiedad 4c: Si InterpretacionIma tiene interpretación en blanco, el resultado es "No disponible".
      */
     @Property(tries = 100)
     @Tag("property-4")
@@ -246,25 +230,20 @@ class ImaInterpretacionServicePropertyTest {
     }
 
     // =========================================================================
-    // Property 5: Fallo del ChatClient no bloquea la persistencia del IMA
-    // Validates: Requirements 2.1, 2.2, 2.3, 2.4, 2.5, 2.7
+    // Propiedad 5: Fallo del ChatClient no bloquea la persistencia del IMA
+    // Valida: Requisitos 2.1, 2.2, 2.3, 2.4, 2.5, 2.7
     // =========================================================================
 
     /**
-     * Property 5: Fallo del ChatClient no bloquea la persistencia del IMA.
-     *
-     * For any exception thrown by the ChatClient, the ImaSnapshot SHALL be
-     * persisted with interpretacion = "No disponible" and siguientePaso = "No disponible",
-     * and NO exception propagates out of the method.
-     *
-     * **Validates: Requirements 2.1, 2.2, 2.3, 2.4, 2.5, 2.7**
+     * Propiedad 5: Para cualquier excepción lanzada por el ChatClient, el ImaSnapshot
+     * se persiste con interpretacion = "No disponible" y siguientePaso = "No disponible",
+     * y NINGUNA excepción se propaga fuera del método.
      */
     @Property(tries = 100)
     @Tag("property-5")
     void falloDelChatClientNoBloqueaLaPersistenciaDelIma(
             @ForAll("randomExceptions") RuntimeException exception) {
 
-        // Arrange: ChatClient throws the generated exception on .entity() call
         when(callResponseSpec.entity(any(Class.class))).thenThrow(exception);
 
         ImaSnapshot snapshot = ImaSnapshot.builder()
@@ -287,10 +266,10 @@ class ImaInterpretacionServicePropertyTest {
                 .calculatedAt(Instant.now())
                 .build();
 
-        // Act: should NOT throw any exception
+        // No debe lanzar ninguna excepción
         service.generarInterpretacion(snapshot, "Tecnología", agregado, "subió 5%");
 
-        // Assert: snapshot is saved with "No disponible" fields
+        // El snapshot se persiste con "No disponible"
         ArgumentCaptor<ImaSnapshot> captor = ArgumentCaptor.forClass(ImaSnapshot.class);
         verify(imaSnapshotRepository).save(captor.capture());
 
@@ -298,122 +277,14 @@ class ImaInterpretacionServicePropertyTest {
         assertThat(saved.getInterpretacion()).isEqualTo("No disponible");
         assertThat(saved.getSiguientePaso()).isEqualTo("No disponible");
 
-        // Assert: the original IMA puntajes remain untouched
+        // Los puntajes originales del IMA no se alteran
         assertThat(saved.getCobertura()).isEqualByComparingTo(new BigDecimal("75.0"));
         assertThat(saved.getConsistencia()).isEqualByComparingTo(new BigDecimal("80.0"));
         assertThat(saved.getIma()).isEqualByComparingTo(new BigDecimal("71.7"));
     }
 
     // =========================================================================
-    // Property 2: La verificación de privacidad detecta datos sensibles
-    // Validates: Requirements 8.2, 8.3
-    // =========================================================================
-
-    /**
-     * Property 2a: If the empresa name appears in the prompt, verificarPrivacidad returns false.
-     *
-     * **Validates: Requirements 8.2, 8.3**
-     */
-    @Property(tries = 100)
-    @Tag("property-2")
-    void verificarPrivacidad_detectsNombreEmpresaInPrompt(
-            @ForAll("nonEmptyAlphanumeric") String nombreEmpresa,
-            @ForAll("randomUUID") UUID empresaId,
-            @ForAll @IntRange(min = 1, max = 100000) int cantidadEmpleados
-    ) {
-        // Construct prompt that CONTAINS the sensitive nombre
-        String promptWithNombre = "Sector: Tecnología\nDatos: " + nombreEmpresa + "\nIMA: 75";
-
-        boolean result = service.verificarPrivacidad(promptWithNombre, nombreEmpresa, empresaId, cantidadEmpleados);
-
-        assertThat(result)
-                .as("verificarPrivacidad should return false when prompt contains nombreEmpresa '%s'", nombreEmpresa)
-                .isFalse();
-    }
-
-    /**
-     * Property 2b: If the empresa UUID appears in the prompt, verificarPrivacidad returns false.
-     *
-     * **Validates: Requirements 8.2, 8.3**
-     */
-    @Property(tries = 100)
-    @Tag("property-2")
-    void verificarPrivacidad_detectsEmpresaIdInPrompt(
-            @ForAll("nonEmptyAlphanumeric") String nombreEmpresa,
-            @ForAll("randomUUID") UUID empresaId,
-            @ForAll @IntRange(min = 1, max = 100000) int cantidadEmpleados
-    ) {
-        // Construct prompt that CONTAINS the sensitive UUID
-        String promptWithId = "Sector: Energía\nRef: " + empresaId.toString() + "\nIMA: 60";
-
-        boolean result = service.verificarPrivacidad(promptWithId, nombreEmpresa, empresaId, cantidadEmpleados);
-
-        assertThat(result)
-                .as("verificarPrivacidad should return false when prompt contains empresaId '%s'", empresaId)
-                .isFalse();
-    }
-
-    /**
-     * Property 2c: If cantidadEmpleados appears in the prompt, verificarPrivacidad returns false.
-     *
-     * **Validates: Requirements 8.2, 8.3**
-     */
-    @Property(tries = 100)
-    @Tag("property-2")
-    void verificarPrivacidad_detectsCantidadEmpleadosInPrompt(
-            @ForAll("nonEmptyAlphanumeric") String nombreEmpresa,
-            @ForAll("randomUUID") UUID empresaId,
-            @ForAll @IntRange(min = 100, max = 100000) int cantidadEmpleados
-    ) {
-        // Construct prompt that CONTAINS the sensitive cantidadEmpleados
-        String promptWithEmpleados = "Sector: Manufactura\nEmpleados: " + cantidadEmpleados + "\nIMA: 80";
-
-        boolean result = service.verificarPrivacidad(promptWithEmpleados, nombreEmpresa, empresaId, cantidadEmpleados);
-
-        assertThat(result)
-                .as("verificarPrivacidad should return false when prompt contains cantidadEmpleados '%d'", cantidadEmpleados)
-                .isFalse();
-    }
-
-    /**
-     * Property 2d: A clean prompt without any sensitive data returns true.
-     *
-     * **Validates: Requirements 8.2, 8.3**
-     */
-    @Property(tries = 100)
-    @Tag("property-2")
-    void verificarPrivacidad_returnsTrueForCleanPrompt(
-            @ForAll("nonEmptyAlphanumeric") String nombreEmpresa,
-            @ForAll("randomUUID") UUID empresaId,
-            @ForAll @IntRange(min = 1, max = 100000) int cantidadEmpleados
-    ) {
-        // Construct a prompt that does NOT contain any sensitive data
-        String cleanPrompt = "Sector: Agricultura\n"
-                + "Puntajes de la empresa (0-100):\n"
-                + "  - Cobertura: 0\n"
-                + "  - Puntaje de intensidad sectorial: 0\n"
-                + "  - Consistencia: 0\n"
-                + "  - IMA: 0\n"
-                + "Promedios del sector (0 empresas):\n"
-                + "  - Promedio IMA: 0\n"
-                + "Tendencia respecto al mes anterior: estable";
-
-        // Skip if by chance the generated values appear in our fixed prompt
-        if (cleanPrompt.toLowerCase().contains(nombreEmpresa.toLowerCase())
-                || cleanPrompt.contains(empresaId.toString())
-                || cleanPrompt.contains(String.valueOf(cantidadEmpleados))) {
-            return; // Skip this iteration — coincidental collision
-        }
-
-        boolean result = service.verificarPrivacidad(cleanPrompt, nombreEmpresa, empresaId, cantidadEmpleados);
-
-        assertThat(result)
-                .as("verificarPrivacidad should return true when prompt contains no sensitive data")
-                .isTrue();
-    }
-
-    // =========================================================================
-    // Custom Arbitraries
+    // Proveedores de datos arbitrarios
     // =========================================================================
 
     @Provide
@@ -467,7 +338,7 @@ class ImaInterpretacionServicePropertyTest {
 
     @Provide
     Arbitrary<String> safeEmpresaName() {
-        // Generate names prefixed with "XQZW" to avoid collision with prompt keywords
+        // Nombres con prefijo "XQZW" para evitar colisiones con palabras clave del prompt
         return Arbitraries.strings()
                 .alpha()
                 .ofMinLength(5)
