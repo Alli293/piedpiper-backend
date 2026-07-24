@@ -36,6 +36,7 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/auth/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/certificacion/eventos").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/verificar-correo").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/reset-contrasena").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/invitaciones/*").permitAll()
