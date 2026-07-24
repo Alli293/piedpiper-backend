@@ -10,8 +10,6 @@ import com.piedpiper.carbonhub.ima.models.dtos.ImaResponseDTO;
 import com.piedpiper.carbonhub.ima.models.entities.AgregadoSectorial;
 import com.piedpiper.carbonhub.ima.models.enums.PosicionBenchmark;
 import com.piedpiper.carbonhub.ima.repository.AgregadoSectorialRepository;
-import com.piedpiper.carbonhub.user.models.entities.Usuario;
-import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,23 +32,20 @@ public class ImaBenchmarkService {
     private final AgregadoSectorialRepository agregadoSectorialRepository;
     private final EmisionRepository emisionRepository;
     private final EmpresaRepository empresaRepository;
-    private final UsuarioRepository usuarioRepository;
 
     public ImaBenchmarkService(ImaService imaService,
                                AgregadoSectorialRepository agregadoSectorialRepository,
                                EmisionRepository emisionRepository,
-                               EmpresaRepository empresaRepository,
-                               UsuarioRepository usuarioRepository) {
+                               EmpresaRepository empresaRepository) {
         this.imaService = imaService;
         this.agregadoSectorialRepository = agregadoSectorialRepository;
         this.emisionRepository = emisionRepository;
         this.empresaRepository = empresaRepository;
-        this.usuarioRepository = usuarioRepository;
     }
 
     @Transactional
     public BenchmarkSectorialResponseDTO obtenerBenchmark(int anio, int mes, UUID usuarioId) {
-        Empresa empresa = resolverEmpresa(usuarioId);
+        Empresa empresa = imaService.empresaDe(usuarioId);
         ImaResponseDTO propio = imaService.obtenerIma(anio, mes, usuarioId);
 
         AgregadoSectorial agregado = agregadoSectorialRepository
@@ -169,13 +164,4 @@ public class ImaBenchmarkService {
         return PosicionBenchmark.EN_LINEA;
     }
 
-    private Empresa resolverEmpresa(UUID usuarioId) {
-        Usuario usuario = usuarioRepository.findById(usuarioId)
-                .orElseThrow(() -> ApiException.errorInterno("No se pudo identificar al usuario autenticado."));
-        Empresa empresa = usuario.getEmpresa();
-        if (empresa == null || empresa.getId() == null) {
-            throw ApiException.empresaNoConfigurada();
-        }
-        return empresa;
-    }
 }

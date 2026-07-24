@@ -10,8 +10,6 @@ import com.piedpiper.carbonhub.ima.models.dtos.ImaResponseDTO;
 import com.piedpiper.carbonhub.ima.models.entities.AgregadoSectorial;
 import com.piedpiper.carbonhub.ima.models.enums.PosicionBenchmark;
 import com.piedpiper.carbonhub.ima.repository.AgregadoSectorialRepository;
-import com.piedpiper.carbonhub.user.models.entities.Usuario;
-import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -48,8 +46,6 @@ class ImaBenchmarkServiceTest {
     private EmisionRepository emisionRepository;
     @Mock
     private EmpresaRepository empresaRepository;
-    @Mock
-    private UsuarioRepository usuarioRepository;
 
     @InjectMocks
     private ImaBenchmarkService service;
@@ -198,9 +194,8 @@ class ImaBenchmarkServiceTest {
     }
 
     @Test
-    void usuarioSinEmpresaDevuelve422() {
-        Usuario sinEmpresa = Usuario.builder().id(USUARIO_ID).empresa(null).build();
-        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(sinEmpresa));
+    void usuarioSinEmpresaPropagaEl422() {
+        when(imaService.empresaDe(USUARIO_ID)).thenThrow(ApiException.empresaNoConfigurada());
 
         assertThatThrownBy(() -> service.obtenerBenchmark(2026, 6, USUARIO_ID))
                 .isInstanceOf(ApiException.class)
@@ -211,8 +206,21 @@ class ImaBenchmarkServiceTest {
         verify(agregadoSectorialRepository, never()).save(any());
     }
 
+    @Test
+    void agregadoSectorialInexistenteDevuelve500() {
+        when(imaService.empresaDe(USUARIO_ID)).thenReturn(empresa());
+        when(imaService.obtenerIma(2026, 6, USUARIO_ID)).thenReturn(propio("70.0"));
+        when(agregadoSectorialRepository.findBySectorAndAnioAndMes(SectorIndustrial.SERVICIOS, 2026, 6))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.obtenerBenchmark(2026, 6, USUARIO_ID))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> assertThat(((ApiException) ex).getStatus())
+                        .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR));
+    }
+
     private void prepararEscenario(ImaResponseDTO propio, AgregadoSectorial agregado) {
-        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
+        when(imaService.empresaDe(USUARIO_ID)).thenReturn(empresa());
         when(imaService.obtenerIma(2026, 6, USUARIO_ID)).thenReturn(propio);
         when(agregadoSectorialRepository.findBySectorAndAnioAndMes(SectorIndustrial.SERVICIOS, 2026, 6))
                 .thenReturn(Optional.of(agregado));
@@ -248,13 +256,10 @@ class ImaBenchmarkServiceTest {
         return agregado;
     }
 
-    private Usuario usuario() {
-        return Usuario.builder()
-                .id(USUARIO_ID)
-                .empresa(Empresa.builder()
-                        .id(EMPRESA_ID)
-                        .sectorIndustrial(SectorIndustrial.SERVICIOS)
-                        .build())
+    private Empresa empresa() {
+        return Empresa.builder()
+                .id(EMPRESA_ID)
+                .sectorIndustrial(SectorIndustrial.SERVICIOS)
                 .build();
     }
 }
