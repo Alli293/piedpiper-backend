@@ -11,6 +11,7 @@ import com.piedpiper.carbonhub.emision.models.enums.UnidadDistancia;
 import com.piedpiper.carbonhub.emision.models.enums.UnidadPeso;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.ima.service.ImaCacheInvalidator;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
@@ -47,6 +48,9 @@ class EmisionEnvioServiceTest {
     private UsuarioRepository usuarioRepository;
     @Mock
     private EmisionEnvioMapper emisionEnvioMapper;
+
+    @Mock
+    private ImaCacheInvalidator imaCacheInvalidator;
 
     @InjectMocks
     private EmisionEnvioService service;
@@ -102,6 +106,7 @@ class EmisionEnvioServiceTest {
         assertThat(guardada.getTransportMethod()).isEqualTo(MetodoTransporte.TRUCK);
         assertThat(guardada.getEstimatedAt()).isNotNull();
         assertThat(response.getCarbonKg()).isEqualByComparingTo("35.500");
+        verify(imaCacheInvalidator).invalidar(guardada.getEmpresaId());
     }
 
     @Test

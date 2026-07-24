@@ -28,7 +28,7 @@ Everything hangs off `com.piedpiper.carbonhub`, organized **by domain**, not by 
     enums/             Domain enums
 ```
 
-Current domains: `auth`, `emision`, `empresa`, `invitacion`, `limite`, `notification`, `user`.
+Current domains: `auditor`, `auth`, `emision`, `empresa`, `ima`, `invitacion`, `limite`, `notification`, `user`.
 
 Cross-cutting packages:
 - `common/` — shared utilities (`Autenticaciones`, `Catalogos`, `ApiErrorDTO`)
@@ -250,8 +250,19 @@ public class Invitacion {
 - [ ] `./mvnw test` green (with `JAVA_HOME` pointing at JDK 21).
 - [ ] No new compiler warnings (unused imports, deprecated APIs).
 - [ ] No dead code: unreachable guards, no-op annotations, empty config classes, unused imports.
+- [ ] Check local coverage if touching logic-heavy code: `./mvnw test` also generates a JaCoCo report at `target/site/jacoco/index.html`. There is no hard coverage gate yet; this is a self-check, not a blocker.
 - [ ] PR title and body **in Spanish**, following `.github/PULL_REQUEST_TEMPLATE.md`.
 - [ ] Touched an entity? Consider the schema impact: the project runs `ddl-auto=update` **with no migration tool**. Hibernate does not rename tables or columns — a rename creates a new structure and orphans the old data.
+
+### Local SonarQube analysis (optional)
+
+Self-hosted, local-only — not wired into CI.
+
+1. `docker compose -f docker-compose.sonar.yml up -d` (from `docker/`), wait for `http://localhost:9000` to come up.
+2. Log in, create a local project, and generate an analysis token from **My Account → Security** (first time only).
+3. `./mvnw verify sonar:sonar -Dsonar.token=<your local token>`.
+4. View results at `http://localhost:9000/dashboard?id=<projectKey>`.
+5. `docker compose -f docker-compose.sonar.yml down` when done — independent of the app's Postgres container (`docker-compose.yml`).
 
 ---
 
@@ -266,3 +277,5 @@ Not examples to follow. Documented so nobody half-fixes or replicates them:
 | Spring AI dependency declared but unused | Intentional — will be used soon |
 | `spring.jpa.open-in-view` unset (defaults to `true`, known anti-pattern) | Pending |
 | `ddl-auto=update` with no Flyway/Liquibase | Pending; risky for production |
+| No `jacoco:check` coverage threshold enforced | Pending a baseline measurement |
+| SonarQube analysis is local-only, not wired into CI | Intentional for now (self-hosted, no CI runner access) |

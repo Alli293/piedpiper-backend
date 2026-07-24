@@ -10,6 +10,7 @@ import com.piedpiper.carbonhub.emision.models.enums.UnidadDistancia;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.ima.service.ImaCacheInvalidator;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
@@ -49,6 +50,9 @@ class EmisionVueloServiceTest {
     private UsuarioRepository usuarioRepository;
     @Mock
     private EmisionVueloMapper emisionVueloMapper;
+
+    @Mock
+    private ImaCacheInvalidator imaCacheInvalidator;
 
     @InjectMocks
     private EmisionVueloService service;
@@ -100,6 +104,7 @@ class EmisionVueloServiceTest {
         assertThat(guardada.getLegs().get(0).getDepartureAirport()).isEqualTo("SFO");
         assertThat(guardada.getLegs().get(1).getCabinClass()).isEqualTo(CabinClass.PREMIUM);
         assertThat(response.getCarbonKg()).isEqualByComparingTo("2364.788");
+        verify(imaCacheInvalidator).invalidar(EMPRESA_ID);
     }
 
     @Test

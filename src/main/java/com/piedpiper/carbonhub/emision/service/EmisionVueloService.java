@@ -9,6 +9,7 @@ import com.piedpiper.carbonhub.emision.models.enums.CabinClass;
 import com.piedpiper.carbonhub.emision.models.enums.UnidadDistancia;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.ima.service.ImaCacheInvalidator;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
@@ -31,15 +32,18 @@ public class EmisionVueloService {
     private final EmisionRepository emisionRepository;
     private final UsuarioRepository usuarioRepository;
     private final EmisionVueloMapper emisionVueloMapper;
+    private final ImaCacheInvalidator imaCacheInvalidator;
 
     public EmisionVueloService(EmisionVueloLocalCalculator calculator,
                                EmisionRepository emisionRepository,
                                UsuarioRepository usuarioRepository,
-                               EmisionVueloMapper emisionVueloMapper) {
+                               EmisionVueloMapper emisionVueloMapper,
+                               ImaCacheInvalidator imaCacheInvalidator) {
         this.calculator = calculator;
         this.emisionRepository = emisionRepository;
         this.usuarioRepository = usuarioRepository;
         this.emisionVueloMapper = emisionVueloMapper;
+        this.imaCacheInvalidator = imaCacheInvalidator;
     }
 
     @Transactional
@@ -56,6 +60,7 @@ public class EmisionVueloService {
 
         aplicarDatos(emision, request, now);
         emision = emisionRepository.save(emision);
+        imaCacheInvalidator.invalidar(emision.getEmpresaId());
         return emisionVueloMapper.toDto(emision);
     }
 
@@ -71,6 +76,7 @@ public class EmisionVueloService {
 
         aplicarDatos(emision, request, Instant.now());
         emision = emisionRepository.save(emision);
+        imaCacheInvalidator.invalidar(emision.getEmpresaId());
         return emisionVueloMapper.toDto(emision);
     }
 

@@ -14,9 +14,12 @@ import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
 import java.util.Collection;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface PerfilAuditorRepository extends JpaRepository<PerfilAuditor, UUID> {
+
+    Optional<PerfilAuditor> findByAuditorId(UUID auditorId);
 
     boolean existsByAuditorId(UUID auditorId);
 

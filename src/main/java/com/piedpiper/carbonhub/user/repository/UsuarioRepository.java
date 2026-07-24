@@ -23,6 +23,8 @@ public interface UsuarioRepository extends JpaRepository<Usuario, UUID> {
 
     Optional<Usuario> findByTokenVerificacionHash(String tokenVerificacionHash);
 
+    Optional<Usuario> findByTokenResetHash(String tokenResetHash);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT u FROM Usuario u WHERE u.tokenVerificacionHash = :tokenVerificacionHash")
     Optional<Usuario> findByTokenVerificacionHashForUpdate(
@@ -31,4 +33,8 @@ public interface UsuarioRepository extends JpaRepository<Usuario, UUID> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT u FROM Usuario u WHERE LOWER(u.email) = LOWER(:email)")
     Optional<Usuario> findByEmailIgnoreCaseForUpdate(@Param("email") String email);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT u FROM Usuario u WHERE u.tokenResetHash = :tokenResetHash")
+    Optional<Usuario> findByTokenResetHashForUpdate(@Param("tokenResetHash") String tokenResetHash);
 }
