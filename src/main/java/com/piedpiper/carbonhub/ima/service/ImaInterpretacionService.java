@@ -130,7 +130,9 @@ public class ImaInterpretacionService {
     }
 
     /**
-     * Verifica que el prompt no contiene datos sensibles de la empresa.
+     * Defensa en profundidad: verifica que el prompt construido no filtre datos sensibles.
+     * construirPromptUsuario() ya excluye estos datos por diseño, pero esta verificación
+     * actúa como guardia ante regresiones futuras en el template del prompt.
      * Retorna false si se detectan datos sensibles (invocación debe abortarse).
      */
     boolean verificarPrivacidad(String prompt, String nombreEmpresa, UUID empresaId,

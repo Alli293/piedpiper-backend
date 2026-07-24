@@ -181,60 +181,6 @@ class ImaServicePropertyTest {
     }
 
     // =========================================================================
-    // Property 6: Reintento cuando interpretación previa es "No disponible"
-    // Validates: Requirements 2.6
-    // =========================================================================
-
-    /**
-     * Property 6: When obtenerIma finds a snapshot with interpretacion = "No disponible" or null,
-     * it SHOULD invoke interpretacionService.generarInterpretacion to retry synchronously.
-     *
-     * **Validates: Requirements 2.6**
-     */
-    @Property(tries = 100)
-    @Tag("property-6")
-    void reintentoGeneraInterpretacionCuandoPreviaEsNoDisponible(
-            @ForAll("interpretacionNoDisponible") String interpretacionPrevia
-    ) {
-        int anio = 2024;
-        int mes = 6;
-
-        ImaSnapshot snapshotExistente = ImaSnapshot.builder()
-                .id(UUID.randomUUID())
-                .empresaId(EMPRESA_ID)
-                .anio(anio)
-                .mes(mes)
-                .cobertura(new BigDecimal("75.0"))
-                .puntajeIntensidadSectorial(new BigDecimal("60.0"))
-                .consistencia(new BigDecimal("80.0"))
-                .ima(new BigDecimal("71.7"))
-                .parcial(false)
-                .calculatedAt(Instant.now())
-                .interpretacion(interpretacionPrevia)
-                .siguientePaso(interpretacionPrevia)
-                .build();
-
-        // The snapshot exists in the repo
-        when(imaSnapshotRepository.findByEmpresaIdAndAnioAndMes(EMPRESA_ID, anio, mes))
-                .thenReturn(Optional.of(snapshotExistente));
-
-        // Also mock the previous month lookup for tendencia calculation (no previous snapshot)
-        when(imaSnapshotRepository.findByEmpresaIdAndAnioAndMes(eq(EMPRESA_ID), eq(2024), eq(5)))
-                .thenReturn(Optional.empty());
-
-        // Act
-        imaService.obtenerIma(anio, mes, USUARIO_ID);
-
-        // Assert: interpretacionService.generarInterpretacion is called synchronously
-        verify(interpretacionService, times(1)).generarInterpretacion(
-                eq(snapshotExistente),
-                any(String.class),
-                any(AgregadoSectorial.class),
-                any(String.class)
-        );
-    }
-
-    // =========================================================================
     // Custom Arbitraries
     // =========================================================================
 

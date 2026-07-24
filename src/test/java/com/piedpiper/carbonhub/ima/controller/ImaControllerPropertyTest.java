@@ -144,7 +144,7 @@ class ImaControllerPropertyTest {
      * **Validates: Requirements 3.3**
      */
     @Property(tries = 100)
-    @Tag("Feature: interpretacion-ima-ia, Property 7: Parámetros de período inválidos producen HTTP 400")
+    @Tag("property-7")
     void anioMenorA2000ProduceHttp400(
             @ForAll @IntRange(min = -10000, max = 1999) int anioInvalido
     ) {
@@ -166,7 +166,7 @@ class ImaControllerPropertyTest {
      * **Validates: Requirements 3.3**
      */
     @Property(tries = 100)
-    @Tag("Feature: interpretacion-ima-ia, Property 7: Parámetros de período inválidos producen HTTP 400")
+    @Tag("property-7")
     void anioMayorAlActualProduceHttp400(
             @ForAll("anioFuturo") int anioInvalido
     ) {
@@ -188,7 +188,7 @@ class ImaControllerPropertyTest {
      * **Validates: Requirements 3.3**
      */
     @Property(tries = 100)
-    @Tag("Feature: interpretacion-ima-ia, Property 7: Parámetros de período inválidos producen HTTP 400")
+    @Tag("property-7")
     void mesMenorA1ProduceHttp400(
             @ForAll @IntRange(min = -10000, max = 0) int mesInvalido
     ) {
@@ -210,7 +210,7 @@ class ImaControllerPropertyTest {
      * **Validates: Requirements 3.3**
      */
     @Property(tries = 100)
-    @Tag("Feature: interpretacion-ima-ia, Property 7: Parámetros de período inválidos producen HTTP 400")
+    @Tag("property-7")
     void mesMayorA12ProduceHttp400(
             @ForAll @IntRange(min = 13, max = 10000) int mesInvalido
     ) {
@@ -233,7 +233,7 @@ class ImaControllerPropertyTest {
      * **Validates: Requirements 3.3**
      */
     @Property(tries = 100)
-    @Tag("Feature: interpretacion-ima-ia, Property 7: Parámetros de período inválidos producen HTTP 400")
+    @Tag("property-7")
     void periodoFuturoMismoAnioProduceHttp400(
             @ForAll("mesFuturoMismoAnio") int mesFuturo
     ) {
@@ -260,7 +260,7 @@ class ImaControllerPropertyTest {
      * **Validates: Requirements 3.4, 3.5**
      */
     @Property(tries = 100)
-    @Tag("Feature: interpretacion-ima-ia, Property 8: Interpretación persistida se retorna íntegramente en la respuesta")
+    @Tag("property-8")
     void interpretacionPersistidaSeRetornaIntegramenteEnLaRespuesta(
             @ForAll("randomInterpretacion") String interpretacion,
             @ForAll("randomSiguientePaso") String siguientePaso,
@@ -303,7 +303,7 @@ class ImaControllerPropertyTest {
      * **Validates: Requirements 3.4, 3.5**
      */
     @Property(tries = 100)
-    @Tag("Feature: interpretacion-ima-ia, Property 8: Interpretación persistida se retorna íntegramente en la respuesta")
+    @Tag("property-8")
     void noDisponibleSeRetornaExactamenteComoEstaPersistido(
             @ForAll @IntRange(min = 2020, max = 2025) int anio,
             @ForAll @IntRange(min = 1, max = 12) int mes
