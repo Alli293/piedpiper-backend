@@ -23,13 +23,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(controllers = CatalogosAuditorController.class,
+@WebMvcTest(controllers = AuditorCatalogosController.class,
         excludeAutoConfiguration = {SecurityAutoConfiguration.class, OAuth2ClientAutoConfiguration.class},
         excludeFilters = @ComponentScan.Filter(
                 type = FilterType.ASSIGNABLE_TYPE, classes = SecurityConfig.class))
 @AutoConfigureMockMvc(addFilters = false)
-@Import(CatalogosAuditorControllerTest.MethodSecurityTestConfig.class)
-class CatalogosAuditorControllerTest {
+@Import(AuditorCatalogosControllerTest.MethodSecurityTestConfig.class)
+class AuditorCatalogosControllerTest {
 
     @TestConfiguration
     @EnableMethodSecurity

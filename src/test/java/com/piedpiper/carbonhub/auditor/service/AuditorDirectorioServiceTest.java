@@ -8,6 +8,7 @@ import com.piedpiper.carbonhub.auditor.models.enums.EspecialidadAuditor;
 import com.piedpiper.carbonhub.auditor.models.enums.ProvinciaCR;
 import com.piedpiper.carbonhub.auditor.repository.PerfilAuditorRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
+import org.springframework.http.HttpStatus;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
 import com.piedpiper.carbonhub.user.models.enums.Rol;
@@ -199,7 +200,9 @@ class AuditorDirectorioServiceTest {
         FiltrarAuditoresRequestDTO f = filtros();
         f.setOrdenamiento("POR_PRECIO");
 
-        assertThatThrownBy(() -> servicio().listar(f)).isInstanceOf(ApiException.class);
+        assertThatThrownBy(() -> servicio().listar(f))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
     }
 
     @Test
@@ -263,7 +266,9 @@ class AuditorDirectorioServiceTest {
         FiltrarAuditoresRequestDTO f = filtros();
         f.setCalificacionMinima(new BigDecimal("6.0"));
 
-        assertThatThrownBy(() -> servicio().listar(f)).isInstanceOf(ApiException.class);
+        assertThatThrownBy(() -> servicio().listar(f))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
     }
 
     @Test
@@ -271,7 +276,9 @@ class AuditorDirectorioServiceTest {
         FiltrarAuditoresRequestDTO f = filtros();
         f.setZonaGeografica("MARTE");
 
-        assertThatThrownBy(() -> servicio().listar(f)).isInstanceOf(ApiException.class);
+        assertThatThrownBy(() -> servicio().listar(f))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
     }
 
     @Test
@@ -279,7 +286,9 @@ class AuditorDirectorioServiceTest {
         FiltrarAuditoresRequestDTO f = filtros();
         f.setEspecialidades(List.of("NUCLEAR"));
 
-        assertThatThrownBy(() -> servicio().listar(f)).isInstanceOf(ApiException.class);
+        assertThatThrownBy(() -> servicio().listar(f))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
     }
 
     private PerfilAuditor perfil() {

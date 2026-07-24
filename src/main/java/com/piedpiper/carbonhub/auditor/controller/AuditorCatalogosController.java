@@ -16,7 +16,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/catalogos")
 @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL', 'AUDITOR_CERTIFICADO')")
-public class CatalogosAuditorController {
+public class AuditorCatalogosController {
 
     @GetMapping("/especialidades")
     public ResponseEntity<List<CatalogoItemResponseDTO>> especialidades() {
