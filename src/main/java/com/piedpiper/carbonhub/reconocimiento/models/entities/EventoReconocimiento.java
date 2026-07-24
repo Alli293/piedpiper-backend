@@ -10,6 +10,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -20,7 +21,10 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "eventos_reconocimiento")
+@Table(name = "eventos_reconocimiento",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_eventos_reconocimiento_usuario_evento",
+                columnNames = {"usuario_id", "evento_generado"}))
 @Getter
 @Setter
 @Builder
@@ -35,6 +39,7 @@ public class EventoReconocimiento {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    // Se conserva como UUID plano para evitar joins en el log de auditoria de reconocimiento.
     @Column(name = "usuario_id", nullable = false)
     private UUID usuarioId;
 
@@ -66,6 +71,13 @@ public class EventoReconocimiento {
 
     public void marcarPendienteReintento(String mensajeError, Instant fechaIntento) {
         estadoEnvio = EstadoEnvioCertificacion.PENDIENTE_REINTENTO;
+        fechaUltimoIntento = fechaIntento;
+        intentosEnvio++;
+        ultimoError = recortarError(mensajeError);
+    }
+
+    public void marcarReintentosAgotados(String mensajeError, Instant fechaIntento) {
+        estadoEnvio = EstadoEnvioCertificacion.REINTENTOS_AGOTADOS;
         fechaUltimoIntento = fechaIntento;
         intentosEnvio++;
         ultimoError = recortarError(mensajeError);

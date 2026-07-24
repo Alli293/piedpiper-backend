@@ -1,11 +1,14 @@
 package com.piedpiper.carbonhub.auditor.service;
 
 import com.piedpiper.carbonhub.auditor.mappers.PerfilAuditorMapperImpl;
+import com.piedpiper.carbonhub.auditor.models.dtos.FiltrarAuditoresRequestDTO;
 import com.piedpiper.carbonhub.auditor.models.dtos.PaginaAuditoresResponseDTO;
 import com.piedpiper.carbonhub.auditor.models.entities.PerfilAuditor;
 import com.piedpiper.carbonhub.auditor.models.enums.EspecialidadAuditor;
+import com.piedpiper.carbonhub.auditor.models.enums.ProvinciaCR;
 import com.piedpiper.carbonhub.auditor.repository.PerfilAuditorRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
+import org.springframework.http.HttpStatus;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
 import com.piedpiper.carbonhub.user.models.enums.Rol;
@@ -28,6 +31,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
@@ -41,20 +45,40 @@ class AuditorDirectorioServiceTest {
 
     @Captor
     private ArgumentCaptor<Pageable> pageableCaptor;
+    @Captor
+    private ArgumentCaptor<Set<EspecialidadAuditor>> especialidadesCaptor;
 
     private AuditorDirectorioService servicio() {
         return new AuditorDirectorioService(perfilAuditorRepository, new PerfilAuditorMapperImpl());
     }
 
+    private FiltrarAuditoresRequestDTO filtros() {
+        FiltrarAuditoresRequestDTO f = new FiltrarAuditoresRequestDTO();
+        f.setPagina(0);
+        f.setTamanioPagina(12);
+        f.setOrdenamiento("CALIFICACION");
+        return f;
+    }
+
+    private void prepararRepositorio() {
+        when(perfilAuditorRepository.buscarDirectorio(
+                any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), any(), any()))
+                .thenReturn(new PageImpl<>(List.of()));
+    }
+
     @Test
     void listaSoloAuditoresActivosYMapeaElResumen() {
-        when(perfilAuditorRepository.buscarDirectorio(any(), any(), any(), any()))
+        when(perfilAuditorRepository.buscarDirectorio(
+                any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), any(), any()))
                 .thenReturn(new PageImpl<>(List.of(perfil())));
+        FiltrarAuditoresRequestDTO f = filtros();
+        f.setTerminoBusqueda("Ana");
 
-        PaginaAuditoresResponseDTO resultado = servicio().listar("Ana", 0, 12, "CALIFICACION");
+        PaginaAuditoresResponseDTO resultado = servicio().listar(f);
 
         verify(perfilAuditorRepository).buscarDirectorio(
-                eq(Rol.AUDITOR_CERTIFICADO), eq(EstadoUsuario.ACTIVO), eq("Ana"), any(Pageable.class));
+                eq(Rol.AUDITOR_CERTIFICADO), eq(EstadoUsuario.ACTIVO), eq("Ana"),
+                isNull(), isNull(), eq(false), eq(false), any(), any(Pageable.class));
         assertThat(resultado.getContenido()).hasSize(1);
         assertThat(resultado.getContenido().get(0).getNombre()).isEqualTo("Ana Mora");
         assertThat(resultado.getContenido().get(0).getEspecialidadesPrincipales()).hasSize(3);
@@ -63,52 +87,63 @@ class AuditorDirectorioServiceTest {
 
     @Test
     void terminoDeBusquedaConUnCaracterSeIgnora() {
-        when(perfilAuditorRepository.buscarDirectorio(any(), any(), isNull(), any()))
-                .thenReturn(new PageImpl<>(List.of()));
+        prepararRepositorio();
+        FiltrarAuditoresRequestDTO f = filtros();
+        f.setTerminoBusqueda("a");
 
-        servicio().listar("a", 0, 12, null);
+        servicio().listar(f);
 
         verify(perfilAuditorRepository).buscarDirectorio(
-                eq(Rol.AUDITOR_CERTIFICADO), eq(EstadoUsuario.ACTIVO), isNull(), any(Pageable.class));
+                eq(Rol.AUDITOR_CERTIFICADO), eq(EstadoUsuario.ACTIVO), isNull(),
+                any(), any(), anyBoolean(), anyBoolean(), any(), any());
     }
 
     @Test
     void terminoDeBusquedaConMasDeCienCaracteresSeIgnora() {
-        when(perfilAuditorRepository.buscarDirectorio(any(), any(), isNull(), any()))
-                .thenReturn(new PageImpl<>(List.of()));
+        prepararRepositorio();
+        FiltrarAuditoresRequestDTO f = filtros();
+        f.setTerminoBusqueda("a".repeat(101));
 
-        servicio().listar("a".repeat(101), 0, 12, null);
+        servicio().listar(f);
 
-        verify(perfilAuditorRepository).buscarDirectorio(any(), any(), isNull(), any());
+        verify(perfilAuditorRepository).buscarDirectorio(
+                any(), any(), isNull(), any(), any(), anyBoolean(), anyBoolean(), any(), any());
     }
 
     @Test
     void losComodinesDeLikeSeEliminanDelTermino() {
-        when(perfilAuditorRepository.buscarDirectorio(any(), any(), any(), any()))
-                .thenReturn(new PageImpl<>(List.of()));
+        prepararRepositorio();
+        FiltrarAuditoresRequestDTO f = filtros();
+        f.setTerminoBusqueda("%An_a%");
 
-        servicio().listar("%An_a%", 0, 12, null);
+        servicio().listar(f);
 
         verify(perfilAuditorRepository).buscarDirectorio(
-                eq(Rol.AUDITOR_CERTIFICADO), eq(EstadoUsuario.ACTIVO), eq("Ana"), any(Pageable.class));
+                any(), any(), eq("Ana"), any(), any(), anyBoolean(), anyBoolean(), any(), any());
     }
 
     @Test
     void unTerminoDeSoloComodinesQuedaIgnorado() {
-        when(perfilAuditorRepository.buscarDirectorio(any(), any(), isNull(), any()))
-                .thenReturn(new PageImpl<>(List.of()));
+        prepararRepositorio();
+        FiltrarAuditoresRequestDTO f = filtros();
+        f.setTerminoBusqueda("%%%");
 
-        servicio().listar("%%%", 0, 12, null);
+        servicio().listar(f);
 
-        verify(perfilAuditorRepository).buscarDirectorio(any(), any(), isNull(), any());
+        verify(perfilAuditorRepository).buscarDirectorio(
+                any(), any(), isNull(), any(), any(), anyBoolean(), anyBoolean(), any(), any());
     }
 
     @Test
     void tamanioDePaginaFueraDeRangoUsaElValorPorDefecto() {
-        when(perfilAuditorRepository.buscarDirectorio(any(), any(), any(), pageableCaptor.capture()))
+        when(perfilAuditorRepository.buscarDirectorio(
+                any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), any(), pageableCaptor.capture()))
                 .thenReturn(new PageImpl<>(List.of()));
+        FiltrarAuditoresRequestDTO f = filtros();
+        f.setPagina(2);
+        f.setTamanioPagina(500);
 
-        servicio().listar(null, 2, 500, null);
+        servicio().listar(f);
 
         assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(12);
         assertThat(pageableCaptor.getValue().getPageNumber()).isEqualTo(2);
@@ -116,10 +151,13 @@ class AuditorDirectorioServiceTest {
 
     @Test
     void ordenamientoPorAuditoriasCompletadasSeTraduceASortDescendente() {
-        when(perfilAuditorRepository.buscarDirectorio(any(), any(), any(), pageableCaptor.capture()))
+        when(perfilAuditorRepository.buscarDirectorio(
+                any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), any(), pageableCaptor.capture()))
                 .thenReturn(new PageImpl<>(List.of()));
+        FiltrarAuditoresRequestDTO f = filtros();
+        f.setOrdenamiento("AUDITORIAS_COMPLETADAS");
 
-        servicio().listar(null, 0, 12, "AUDITORIAS_COMPLETADAS");
+        servicio().listar(f);
 
         Sort.Order orden = pageableCaptor.getValue().getSort().getOrderFor("auditoriasCompletadas");
         assertThat(orden).isNotNull();
@@ -128,10 +166,13 @@ class AuditorDirectorioServiceTest {
 
     @Test
     void ordenamientoPorTiempoDeRespuestaEsAscendenteConNulosAlFinal() {
-        when(perfilAuditorRepository.buscarDirectorio(any(), any(), any(), pageableCaptor.capture()))
+        when(perfilAuditorRepository.buscarDirectorio(
+                any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), any(), pageableCaptor.capture()))
                 .thenReturn(new PageImpl<>(List.of()));
+        FiltrarAuditoresRequestDTO f = filtros();
+        f.setOrdenamiento("TIEMPO_RESPUESTA");
 
-        servicio().listar(null, 0, 12, "TIEMPO_RESPUESTA");
+        servicio().listar(f);
 
         Sort.Order orden = pageableCaptor.getValue().getSort().getOrderFor("tiempoRespuestaHoras");
         assertThat(orden).isNotNull();
@@ -141,10 +182,13 @@ class AuditorDirectorioServiceTest {
 
     @Test
     void ordenamientoPorDefectoEsCalificacionDescendente() {
-        when(perfilAuditorRepository.buscarDirectorio(any(), any(), any(), pageableCaptor.capture()))
+        when(perfilAuditorRepository.buscarDirectorio(
+                any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), any(), pageableCaptor.capture()))
                 .thenReturn(new PageImpl<>(List.of()));
+        FiltrarAuditoresRequestDTO f = filtros();
+        f.setOrdenamiento(null);
 
-        servicio().listar(null, 0, 12, null);
+        servicio().listar(f);
 
         Sort.Order orden = pageableCaptor.getValue().getSort().getOrderFor("calificacionPromedio");
         assertThat(orden).isNotNull();
@@ -153,8 +197,112 @@ class AuditorDirectorioServiceTest {
 
     @Test
     void ordenamientoInvalidoLanza400() {
-        assertThatThrownBy(() -> servicio().listar(null, 0, 12, "POR_PRECIO"))
-                .isInstanceOf(ApiException.class);
+        FiltrarAuditoresRequestDTO f = filtros();
+        f.setOrdenamiento("POR_PRECIO");
+
+        assertThatThrownBy(() -> servicio().listar(f))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
+    }
+
+    @Test
+    void filtroDeZonaSoloSePasaAlRepositorio() {
+        prepararRepositorio();
+        FiltrarAuditoresRequestDTO f = filtros();
+        f.setZonaGeografica("SAN_JOSE");
+
+        servicio().listar(f);
+
+        verify(perfilAuditorRepository).buscarDirectorio(
+                any(), any(), any(), eq(ProvinciaCR.SAN_JOSE), isNull(),
+                eq(false), eq(false), any(), any());
+    }
+
+    @Test
+    void filtroDeCalificacionSoloSePasaAlRepositorio() {
+        prepararRepositorio();
+        FiltrarAuditoresRequestDTO f = filtros();
+        f.setCalificacionMinima(new BigDecimal("4.0"));
+
+        servicio().listar(f);
+
+        verify(perfilAuditorRepository).buscarDirectorio(
+                any(), any(), any(), isNull(), eq(new BigDecimal("4.0")),
+                eq(false), eq(false), any(), any());
+    }
+
+    @Test
+    void filtroDeSoloDisponiblesSePasaAlRepositorio() {
+        prepararRepositorio();
+        FiltrarAuditoresRequestDTO f = filtros();
+        f.setSoloDisponibles(true);
+
+        servicio().listar(f);
+
+        verify(perfilAuditorRepository).buscarDirectorio(
+                any(), any(), any(), isNull(), isNull(), eq(true), eq(false), any(), any());
+    }
+
+    @Test
+    void filtrosCombinadosSePasanAlRepositorioConOperadorAnd() {
+        when(perfilAuditorRepository.buscarDirectorio(
+                any(), any(), any(), eq(ProvinciaCR.SAN_JOSE), eq(new BigDecimal("4.0")),
+                eq(true), eq(true), especialidadesCaptor.capture(), any()))
+                .thenReturn(new PageImpl<>(List.of()));
+        FiltrarAuditoresRequestDTO f = filtros();
+        f.setZonaGeografica("SAN_JOSE");
+        f.setCalificacionMinima(new BigDecimal("4.0"));
+        f.setSoloDisponibles(true);
+        f.setEspecialidades(List.of("AGROINDUSTRIA", "MANUFACTURA"));
+
+        servicio().listar(f);
+
+        assertThat(especialidadesCaptor.getValue())
+                .containsExactlyInAnyOrder(EspecialidadAuditor.AGROINDUSTRIA, EspecialidadAuditor.MANUFACTURA);
+    }
+
+    @Test
+    void calificacionMinimaFueraDeRangoSeIgnora() {
+        prepararRepositorio();
+        FiltrarAuditoresRequestDTO f = filtros();
+        f.setCalificacionMinima(new BigDecimal("6.0"));
+
+        servicio().listar(f);
+
+        verify(perfilAuditorRepository).buscarDirectorio(
+                any(), any(), any(), any(), isNull(), anyBoolean(), anyBoolean(), any(), any());
+    }
+
+    @Test
+    void calificacionMinimaValidaSeAplica() {
+        prepararRepositorio();
+        FiltrarAuditoresRequestDTO f = filtros();
+        f.setCalificacionMinima(new BigDecimal("4.0"));
+
+        servicio().listar(f);
+
+        verify(perfilAuditorRepository).buscarDirectorio(
+                any(), any(), any(), any(), eq(new BigDecimal("4.0")), anyBoolean(), anyBoolean(), any(), any());
+    }
+
+    @Test
+    void zonaInvalidaLanza400() {
+        FiltrarAuditoresRequestDTO f = filtros();
+        f.setZonaGeografica("MARTE");
+
+        assertThatThrownBy(() -> servicio().listar(f))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
+    }
+
+    @Test
+    void especialidadInvalidaLanza400() {
+        FiltrarAuditoresRequestDTO f = filtros();
+        f.setEspecialidades(List.of("NUCLEAR"));
+
+        assertThatThrownBy(() -> servicio().listar(f))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
     }
 
     private PerfilAuditor perfil() {

@@ -63,7 +63,7 @@ class EventoReconocimientoControllerTest {
 
     @Test
     @WithMockUser(username = USUARIO_ID, roles = "USUARIO_INDIVIDUAL")
-    void postEventoValidoDevuelve200() throws Exception {
+    void postEventoValidoDevuelve201() throws Exception {
         when(eventoReconocimientoService.registrar(any(), any())).thenReturn(response(
                 "primer_itinerario_generado", EstadoEnvioCertificacion.ENVIADO));
 
@@ -73,7 +73,7 @@ class EventoReconocimientoControllerTest {
                         .content("""
                                 {"usuario_id":"41ce47ab-a46c-4306-8c46-2688dc97fa73",
                                  "evento_generado":"primer_itinerario_generado"}"""))
-                .andExpect(status().isOk())
+                .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.evento_generado").value("primer_itinerario_generado"))
                 .andExpect(jsonPath("$.estado_envio").value("ENVIADO"));
 
@@ -82,7 +82,7 @@ class EventoReconocimientoControllerTest {
 
     @Test
     @WithMockUser(username = USUARIO_ID, roles = "USUARIO_INDIVIDUAL")
-    void eventoFueraDeCatalogoDevuelve200SinErrorParaElCliente() throws Exception {
+    void eventoFueraDeCatalogoDevuelve201SinErrorParaElCliente() throws Exception {
         when(eventoReconocimientoService.registrar(any(), any())).thenReturn(response(
                 "evento_desconocido", EstadoEnvioCertificacion.FUERA_CATALOGO));
 
@@ -92,13 +92,13 @@ class EventoReconocimientoControllerTest {
                         .content("""
                                 {"usuario_id":"41ce47ab-a46c-4306-8c46-2688dc97fa73",
                                  "evento_generado":"evento_desconocido"}"""))
-                .andExpect(status().isOk())
+                .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.estado_envio").value("FUERA_CATALOGO"));
     }
 
     @Test
     @WithMockUser(username = USUARIO_ID, roles = "USUARIO_INDIVIDUAL")
-    void fallaDeCertificacionDevuelve200ConEventoEnCola() throws Exception {
+    void fallaDeCertificacionDevuelve201ConEventoEnCola() throws Exception {
         when(eventoReconocimientoService.registrar(any(), any())).thenReturn(response(
                 "primer_itinerario_generado", EstadoEnvioCertificacion.PENDIENTE_REINTENTO));
 
@@ -108,7 +108,7 @@ class EventoReconocimientoControllerTest {
                         .content("""
                                 {"usuario_id":"41ce47ab-a46c-4306-8c46-2688dc97fa73",
                                  "evento_generado":"primer_itinerario_generado"}"""))
-                .andExpect(status().isOk())
+                .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.estado_envio").value("PENDIENTE_REINTENTO"));
     }
 

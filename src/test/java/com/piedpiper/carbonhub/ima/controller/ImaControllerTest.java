@@ -77,10 +77,12 @@ class ImaControllerTest {
                 .parcial(false)
                 .intensidad(new BigDecimal("1.818182"))
                 .calculatedAt(Instant.now())
+                .interpretacion("Tu IMA es bueno respecto al sector.")
+                .siguientePaso("Registra más emisiones para mejorar la cobertura.")
                 .build();
         when(imaService.obtenerIma(anyInt(), anyInt(), any(UUID.class))).thenReturn(dto);
 
-        mockMvc.perform(get("/api/ima").param("anio", "2026").param("mes", "6").principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA")))
+        mockMvc.perform(get("/api/ima").param("anio", "2024").param("mes", "6").principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.cobertura").value(75.0))
                 .andExpect(jsonPath("$.consistencia").value(66.7))
@@ -92,14 +94,14 @@ class ImaControllerTest {
     @Test
     @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
     void mesInvalidoDevuelve400() throws Exception {
-        mockMvc.perform(get("/api/ima").param("anio", "2026").param("mes", "13").principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA")))
+        mockMvc.perform(get("/api/ima").param("anio", "2024").param("mes", "13").principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
     @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
     void mesNegativoDevuelve400() throws Exception {
-        mockMvc.perform(get("/api/ima").param("anio", "2026").param("mes", "0").principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA")))
+        mockMvc.perform(get("/api/ima").param("anio", "2024").param("mes", "0").principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isBadRequest());
     }
 
@@ -130,7 +132,7 @@ class ImaControllerTest {
                 .build();
         when(imaService.obtenerIma(anyInt(), anyInt(), any(UUID.class))).thenReturn(dto);
 
-        mockMvc.perform(get("/api/ima").param("anio", "2026").param("mes", "6").principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA")))
+        mockMvc.perform(get("/api/ima").param("anio", "2024").param("mes", "6").principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_USUARIO_GENERAL")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.parcial").value(true))
                 .andExpect(jsonPath("$.motivoParcial").exists());
@@ -139,7 +141,7 @@ class ImaControllerTest {
     @Test
     @WithMockUser(username = "db2ed1e7-6719-4595-844e-68efffe146cf", roles = "AUDITOR_CERTIFICADO")
     void auditorNoTieneAcceso() throws Exception {
-        mockMvc.perform(get("/api/ima").param("anio", "2026").param("mes", "6").principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA")))
+        mockMvc.perform(get("/api/ima").param("anio", "2024").param("mes", "6").principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isForbidden());
     }
 
@@ -159,6 +161,50 @@ class ImaControllerTest {
         mockMvc.perform(get("/api/ima").principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.ima").value(37.5));
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void respuestaIncluyeCamposInterpretacionYSiguientePaso() throws Exception {
+        ImaResponseDTO dto = ImaResponseDTO.builder()
+                .cobertura(new BigDecimal("80.0"))
+                .consistencia(new BigDecimal("70.0"))
+                .puntajeIntensidadSectorial(new BigDecimal("60.0"))
+                .ima(new BigDecimal("70.0"))
+                .parcial(false)
+                .intensidad(new BigDecimal("1.5"))
+                .calculatedAt(Instant.now())
+                .interpretacion("Tu empresa muestra un desempeño ambiental sólido en comparación con el sector.")
+                .siguientePaso("Registra las emisiones de transporte para mejorar tu cobertura.")
+                .build();
+        when(imaService.obtenerIma(anyInt(), anyInt(), any(UUID.class))).thenReturn(dto);
+
+        mockMvc.perform(get("/api/ima").param("anio", "2024").param("mes", "6")
+                        .principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.interpretacion").value("Tu empresa muestra un desempeño ambiental sólido en comparación con el sector."))
+                .andExpect(jsonPath("$.siguientePaso").value("Registra las emisiones de transporte para mejorar tu cobertura."));
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void respuestaConInterpretacionNoDisponible() throws Exception {
+        ImaResponseDTO dto = ImaResponseDTO.builder()
+                .cobertura(new BigDecimal("50.0"))
+                .consistencia(new BigDecimal("25.0"))
+                .ima(new BigDecimal("37.5"))
+                .parcial(true)
+                .calculatedAt(Instant.now())
+                .interpretacion("No disponible")
+                .siguientePaso("No disponible")
+                .build();
+        when(imaService.obtenerIma(anyInt(), anyInt(), any(UUID.class))).thenReturn(dto);
+
+        mockMvc.perform(get("/api/ima").param("anio", "2024").param("mes", "6")
+                        .principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.interpretacion").value("No disponible"))
+                .andExpect(jsonPath("$.siguientePaso").value("No disponible"));
     }
 
     @Test

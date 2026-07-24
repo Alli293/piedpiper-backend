@@ -1,72 +1,111 @@
 package com.piedpiper.carbonhub.ima.service;
 
+import com.piedpiper.carbonhub.ima.models.dtos.InterpretacionIma;
+import com.piedpiper.carbonhub.ima.models.entities.AgregadoSectorial;
 import com.piedpiper.carbonhub.ima.models.entities.ImaSnapshot;
 import com.piedpiper.carbonhub.ima.repository.ImaSnapshotRepository;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.scheduling.annotation.Async;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-
-import java.util.UUID;
 
 @Service
 public class ImaInterpretacionService {
 
     private static final Logger log = LoggerFactory.getLogger(ImaInterpretacionService.class);
 
+    static final String NO_DISPONIBLE = "No disponible";
+    static final String SYSTEM_MESSAGE = "Eres un asesor de sostenibilidad. Responde en español de Costa Rica, "
+            + "en tono claro y profesional. Devuelve solo una interpretación de 2 a 4 oraciones y un único "
+            + "siguiente paso accionable. No inventes cifras que no estén en los datos.";
+
     private final ChatClient chatClient;
     private final ImaSnapshotRepository imaSnapshotRepository;
+    private final String geminiApiKey;
 
     public ImaInterpretacionService(ChatClient.Builder chatClientBuilder,
-                                    ImaSnapshotRepository imaSnapshotRepository) {
+                                    ImaSnapshotRepository imaSnapshotRepository,
+                                    @Value("${spring.ai.google.genai.api-key:}") String geminiApiKey) {
         this.chatClient = chatClientBuilder.build();
         this.imaSnapshotRepository = imaSnapshotRepository;
+        this.geminiApiKey = geminiApiKey;
     }
 
-    @Async
-    public void generarInterpretacion(UUID snapshotId) {
+    /**
+     * Genera y persiste la interpretación del IMA usando ChatClient (Gemini).
+     * Cualquier fallo resulta en "No disponible" sin afectar el IMA.
+     */
+    public void generarInterpretacion(ImaSnapshot snapshot, String sectorNombre,
+                                       AgregadoSectorial agregado, String tendencia) {
         try {
-            ImaSnapshot snapshot = imaSnapshotRepository.findById(snapshotId).orElse(null);
-            if (snapshot == null) return;
+            // 1. Verificar API key configurada
+            if (geminiApiKey == null || geminiApiKey.isBlank()) {
+                log.error("GEMINI_API_KEY no está configurada");
+                persistirNoDisponible(snapshot);
+                return;
+            }
 
-            String prompt = construirPrompt(snapshot);
-            String interpretacion = chatClient.prompt()
-                    .user(prompt)
+            // 2. Construir prompt
+            String promptUsuario = construirPromptUsuario(snapshot, sectorNombre, agregado, tendencia);
+
+            // El prompt es seguro por construcción: construirPromptUsuario solo usa datos del sector y puntajes.
+
+            // 3. Invocar ChatClient con respuesta estructurada
+            InterpretacionIma resultado = chatClient.prompt()
+                    .system(SYSTEM_MESSAGE)
+                    .user(promptUsuario)
                     .call()
-                    .content();
+                    .entity(InterpretacionIma.class);
 
-            snapshot.setInterpretacionIa(interpretacion);
+            // 4. Validar respuesta
+            if (resultado == null
+                    || resultado.interpretacion() == null || resultado.interpretacion().isBlank()
+                    || resultado.siguientePaso() == null || resultado.siguientePaso().isBlank()) {
+                log.warn("Respuesta del ChatClient inválida o con campos vacíos para snapshot {}",
+                        snapshot.getId());
+                persistirNoDisponible(snapshot);
+                return;
+            }
+
+            // 5. Persistir resultado válido
+            snapshot.setInterpretacion(resultado.interpretacion());
+            snapshot.setSiguientePaso(resultado.siguientePaso());
             imaSnapshotRepository.save(snapshot);
+
         } catch (Exception e) {
-            log.warn("No se pudo generar la interpretación IA para snapshot {}: {}",
-                    snapshotId, e.getMessage());
+            log.warn("Error generando interpretación IA para snapshot {}: {}",
+                    snapshot.getId(), e.getMessage());
+            persistirNoDisponible(snapshot);
         }
     }
 
-    private String construirPrompt(ImaSnapshot snapshot) {
+    /**
+     * Construye el prompt de usuario con datos anonimizados del sector.
+     */
+    String construirPromptUsuario(ImaSnapshot snapshot, String sectorNombre,
+                                   AgregadoSectorial agregado, String tendencia) {
         StringBuilder sb = new StringBuilder();
-        sb.append("Eres un consultor de sostenibilidad corporativa. ")
-                .append("Genera una interpretación breve (máximo 3 oraciones) del siguiente Índice de Madurez Ambiental (IMA) ")
-                .append("para una empresa. Usa un tono profesional y orientado a la acción.\n\n")
-                .append("Período: ").append(snapshot.getMes()).append("/").append(snapshot.getAnio()).append("\n")
-                .append("Cobertura: ").append(snapshot.getCobertura()).append("/100\n")
-                .append("Consistencia: ").append(snapshot.getConsistencia()).append("/100\n");
-
-        if (snapshot.getPuntajeIntensidadSectorial() != null) {
-            sb.append("Puntaje de intensidad sectorial: ")
-                    .append(snapshot.getPuntajeIntensidadSectorial()).append("/100\n");
-        } else {
-            sb.append("Puntaje de intensidad sectorial: No disponible (datos insuficientes)\n");
-        }
-
-        sb.append("IMA total: ").append(snapshot.getIma()).append("/100\n");
-
-        if (snapshot.isParcial()) {
-            sb.append("Nota: El IMA es parcial. ").append(snapshot.getMotivoParcial()).append("\n");
-        }
-
+        sb.append("Sector: ").append(sectorNombre).append("\n");
+        sb.append("Puntajes de la empresa (0–100):\n");
+        sb.append("  - Cobertura: ").append(snapshot.getCobertura()).append("\n");
+        sb.append("  - Puntaje de intensidad sectorial: ")
+                .append(snapshot.getPuntajeIntensidadSectorial() != null
+                        ? snapshot.getPuntajeIntensidadSectorial()
+                        : NO_DISPONIBLE)
+                .append("\n");
+        sb.append("  - Consistencia: ").append(snapshot.getConsistencia()).append("\n");
+        sb.append("  - IMA: ").append(snapshot.getIma()).append("\n");
+        sb.append("Promedios del sector (").append(agregado.getCantidadEmpresas()).append(" empresas):\n");
+        sb.append("  - Intensidad promedio: ").append(agregado.getIntensidadPromedio()).append("\n");
+        sb.append("Tendencia respecto al mes anterior: ").append(tendencia).append("\n");
         return sb.toString();
+    }
+
+    private void persistirNoDisponible(ImaSnapshot snapshot) {
+        snapshot.setInterpretacion(NO_DISPONIBLE);
+        snapshot.setSiguientePaso(NO_DISPONIBLE);
+        imaSnapshotRepository.save(snapshot);
     }
 }

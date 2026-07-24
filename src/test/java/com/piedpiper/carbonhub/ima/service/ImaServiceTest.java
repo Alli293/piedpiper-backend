@@ -63,7 +63,7 @@ class ImaServiceTest {
         org.mockito.Mockito.lenient().when(imaSnapshotMapper.toDto(org.mockito.ArgumentMatchers.any())).thenAnswer(i -> {
             var s = (com.piedpiper.carbonhub.ima.models.entities.ImaSnapshot) i.getArgument(0);
             if (s == null) return null;
-            return com.piedpiper.carbonhub.ima.models.dtos.ImaResponseDTO.builder().cobertura(s.getCobertura()).puntajeIntensidadSectorial(s.getPuntajeIntensidadSectorial()).consistencia(s.getConsistencia()).ima(s.getIma()).parcial(s.isParcial()).motivoParcial(s.getMotivoParcial()).intensidad(s.getIntensidad()).calculatedAt(s.getCalculatedAt()).interpretacionIa(s.getInterpretacionIa()).build();
+            return com.piedpiper.carbonhub.ima.models.dtos.ImaResponseDTO.builder().cobertura(s.getCobertura()).puntajeIntensidadSectorial(s.getPuntajeIntensidadSectorial()).consistencia(s.getConsistencia()).ima(s.getIma()).parcial(s.isParcial()).motivoParcial(s.getMotivoParcial()).intensidad(s.getIntensidad()).calculatedAt(s.getCalculatedAt()).interpretacion(s.getInterpretacion()).siguientePaso(s.getSiguientePaso()).build();
         });
     }
 
