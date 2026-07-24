@@ -41,6 +41,8 @@ class ImaTendenciaServiceTest {
     private ImaSnapshotRepository imaSnapshotRepository;
     @Mock
     private UsuarioRepository usuarioRepository;
+    @Mock
+    private ImaEventosService imaEventosService;
 
     @InjectMocks
     private ImaTendenciaService imaTendenciaService;

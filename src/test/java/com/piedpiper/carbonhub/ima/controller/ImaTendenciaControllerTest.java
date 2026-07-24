@@ -2,8 +2,10 @@ package com.piedpiper.carbonhub.ima.controller;
 
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
 import com.piedpiper.carbonhub.auth.service.JwtService;
+import com.piedpiper.carbonhub.ima.models.dtos.ImaEventoDTO;
 import com.piedpiper.carbonhub.ima.models.dtos.ImaTendenciaPuntoDTO;
 import com.piedpiper.carbonhub.ima.models.dtos.ImaTendenciaResponseDTO;
+import com.piedpiper.carbonhub.ima.models.enums.TipoEventoIma;
 import com.piedpiper.carbonhub.ima.service.ImaService;
 import com.piedpiper.carbonhub.ima.service.ImaTendenciaService;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
@@ -72,6 +74,12 @@ class ImaTendenciaControllerTest {
         return ImaTendenciaResponseDTO.builder()
                 .mesesAtras(12)
                 .sinDatosSectoriales(false)
+                .eventos(List.of(
+                        ImaEventoDTO.builder()
+                                .mes("2026-06")
+                                .tipo(TipoEventoIma.CRUCE_SECTOR)
+                                .texto("En junio 2026 tu IMA superó el promedio de tu sector.")
+                                .build()))
                 .serie(List.of(
                         ImaTendenciaPuntoDTO.builder()
                                 .mes("2026-05")
@@ -99,7 +107,11 @@ class ImaTendenciaControllerTest {
                 .andExpect(jsonPath("$.serie[0].mes").value("2026-05"))
                 .andExpect(jsonPath("$.serie[0].imaEmpresa").value(68.0))
                 .andExpect(jsonPath("$.serie[0].imaPromedioSector").value(63.5))
-                .andExpect(jsonPath("$.serie[1].imaPromedioSector").doesNotExist());
+                .andExpect(jsonPath("$.serie[1].imaPromedioSector").doesNotExist())
+                .andExpect(jsonPath("$.eventos.length()").value(1))
+                .andExpect(jsonPath("$.eventos[0].mes").value("2026-06"))
+                .andExpect(jsonPath("$.eventos[0].tipo").value("CRUCE_SECTOR"))
+                .andExpect(jsonPath("$.eventos[0].texto").exists());
     }
 
     @Test

@@ -91,4 +91,35 @@ public interface EmisionRepository extends JpaRepository<Emision, UUID> {
                                       @Param("desde") LocalDate desde,
                                       @Param("hasta") LocalDate hasta);
     List<Emision> findAllByEmpresaIdAndFechaActividadBetween(UUID empresaId, LocalDate desde, LocalDate hasta);
+
+    /**
+     * Categorías distintas registradas por la empresa en cada mes, desde :desde en adelante.
+     * Se usa para detectar meses sin registros y la primera aparición de cada categoría.
+     * La categoría se resuelve con un CASE sobre type(e) porque la jerarquía es SINGLE_TABLE
+     * y el enum no está mapeado como columna propia.
+     */
+    @Query("""
+            select distinct year(e.fechaActividad) as anio,
+                   month(e.fechaActividad) as mes,
+                   case
+                       when type(e) = EmisionElectricidad then 'ELECTRICIDAD'
+                       when type(e) = EmisionFlota then 'FLOTA'
+                       when type(e) = EmisionVuelo then 'VUELO'
+                       else 'ENVIO'
+                   end as categoria
+            from Emision e
+            where e.empresaId = :empresaId
+              and e.fechaActividad >= :desde
+            """)
+    List<CategoriaMensual> listarCategoriasPorMes(@Param("empresaId") UUID empresaId,
+                                                  @Param("desde") LocalDate desde);
+
+    /** Proyección de una categoría registrada en un período concreto. */
+    interface CategoriaMensual {
+        Integer getAnio();
+
+        Integer getMes();
+
+        String getCategoria();
+    }
 }

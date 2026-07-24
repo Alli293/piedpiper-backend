@@ -21,4 +21,7 @@ public class ImaTendenciaResponseDTO {
 
     /** true cuando en toda la ventana el sector nunca alcanzó el mínimo de empresas. */
     private boolean sinDatosSectoriales;
+
+    /** Eventos detectados sobre la serie; vacía si no hay ninguno (no es error). */
+    private List<ImaEventoDTO> eventos;
 }
