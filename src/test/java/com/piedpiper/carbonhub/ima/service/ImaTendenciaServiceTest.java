@@ -3,16 +3,19 @@ package com.piedpiper.carbonhub.ima.service;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.empresa.models.enums.SectorIndustrial;
 import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.ima.models.dtos.ImaEventoDTO;
 import com.piedpiper.carbonhub.ima.models.dtos.ImaTendenciaPuntoDTO;
 import com.piedpiper.carbonhub.ima.models.dtos.ImaTendenciaResponseDTO;
 import com.piedpiper.carbonhub.ima.models.entities.AgregadoSectorial;
 import com.piedpiper.carbonhub.ima.models.entities.ImaSnapshot;
+import com.piedpiper.carbonhub.ima.models.enums.TipoEventoIma;
 import com.piedpiper.carbonhub.ima.repository.AgregadoSectorialRepository;
 import com.piedpiper.carbonhub.ima.repository.ImaSnapshotRepository;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -27,6 +30,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -41,6 +47,8 @@ class ImaTendenciaServiceTest {
     private AgregadoSectorialRepository agregadoSectorialRepository;
     @Mock
     private ImaService imaService;
+    @Mock
+    private ImaEventosService imaEventosService;
 
     @InjectMocks
     private ImaTendenciaService imaTendenciaService;
@@ -50,6 +58,9 @@ class ImaTendenciaServiceTest {
     @BeforeEach
     void setUp() {
         mesActual = YearMonth.from(LocalDate.now());
+        // Por defecto la detección no aporta eventos: los tests de serie/sector no dependen de ella.
+        // Es lenient porque algunos tests fallan en la validación antes de invocar la detección.
+        lenient().when(imaEventosService.detectar(any(), any(), any(), any())).thenReturn(List.of());
     }
 
     /**
@@ -210,5 +221,33 @@ class ImaTendenciaServiceTest {
 
         assertThatThrownBy(() -> imaTendenciaService.obtenerTendencia(12, USUARIO_ID))
                 .isInstanceOf(ApiException.class);
+    }
+
+    @Test
+    void invocaLaDeteccionDeEventosConLaSerieYPropagaElResultado() {
+        mockEmpresa();
+        when(imaSnapshotRepository.findVentana(any(), anyInt(), anyInt(), anyInt(), anyInt()))
+                .thenReturn(List.of(snapshot(mesActual, "70.0")));
+        mockAgregados(agregadoConPromedio(mesActual, 6, "60.0"));
+
+        ImaEventoDTO evento = ImaEventoDTO.builder()
+                .mes(mesActual.toString())
+                .tipo(TipoEventoIma.CRUCE_SECTOR)
+                .texto("evento de prueba")
+                .build();
+        when(imaEventosService.detectar(eq(EMPRESA_ID), any(), any(), any()))
+                .thenReturn(List.of(evento));
+
+        ImaTendenciaResponseDTO respuesta = imaTendenciaService.obtenerTendencia(2, USUARIO_ID);
+
+        // La detección recibe exactamente la serie que construyó el servicio, no otra.
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<ImaTendenciaPuntoDTO>> serieCaptor =
+                ArgumentCaptor.forClass(List.class);
+        verify(imaEventosService).detectar(eq(EMPRESA_ID), serieCaptor.capture(), any(), any());
+        assertThat(serieCaptor.getValue()).isSameAs(respuesta.getSerie());
+
+        // Y los eventos detectados se propagan tal cual al response.
+        assertThat(respuesta.getEventos()).containsExactly(evento);
     }
 }

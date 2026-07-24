@@ -1,12 +1,12 @@
 package com.piedpiper.carbonhub.emision.repository;
 
 import com.piedpiper.carbonhub.emision.models.entities.Emision;
+import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -25,8 +25,8 @@ public interface EmisionRepository extends JpaRepository<Emision, UUID> {
             order by e.fechaActividad desc, e.createdAt desc
             """)
     List<Emision> findAllByEmpresaIdWithFilters(@Param("empresaId") UUID empresaId,
-                                                 @Param("anio") Integer anio,
-                                                 @Param("mes") Integer mes);
+                                                @Param("anio") Integer anio,
+                                                @Param("mes") Integer mes);
 
     @Query("""
             select e
@@ -145,4 +145,37 @@ public interface EmisionRepository extends JpaRepository<Emision, UUID> {
                                       @Param("desde") LocalDate desde,
                                       @Param("hasta") LocalDate hasta);
     List<Emision> findAllByEmpresaIdAndFechaActividadBetween(UUID empresaId, LocalDate desde, LocalDate hasta);
+
+    /**
+     * Categorías distintas registradas por la empresa en cada mes, desde :desde en adelante.
+     * Se usa para detectar meses sin registros y la primera aparición de cada categoría.
+     * La categoría se resuelve con un CASE sobre type(e) porque la jerarquía es SINGLE_TABLE
+     * y el enum no está mapeado como columna propia. Cada subtipo se compara de forma
+     * explícita (incluido EmisionEnvio): si se agrega un quinto subtipo sin actualizar esta
+     * consulta, la fila queda con categoria null y no se clasifica silenciosamente como ENVIO.
+     */
+    @Query("""
+            select distinct year(e.fechaActividad) as anio,
+                   month(e.fechaActividad) as mes,
+                   case
+                       when type(e) = EmisionElectricidad then com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision.ELECTRICIDAD
+                       when type(e) = EmisionFlota then com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision.FLOTA
+                       when type(e) = EmisionVuelo then com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision.VUELO
+                       when type(e) = EmisionEnvio then com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision.ENVIO
+                   end as categoria
+            from Emision e
+            where e.empresaId = :empresaId
+              and e.fechaActividad >= :desde
+            """)
+    List<CategoriaMensual> listarCategoriasPorMes(@Param("empresaId") UUID empresaId,
+                                                  @Param("desde") LocalDate desde);
+
+    /** Proyección de una categoría registrada en un período concreto. */
+    interface CategoriaMensual {
+        Integer getAnio();
+
+        Integer getMes();
+
+        CategoriaEmision getCategoria();
+    }
 }

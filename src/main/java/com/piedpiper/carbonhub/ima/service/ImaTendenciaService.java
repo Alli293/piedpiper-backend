@@ -2,6 +2,7 @@ package com.piedpiper.carbonhub.ima.service;
 
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.ima.models.dtos.ImaEventoDTO;
 import com.piedpiper.carbonhub.ima.models.dtos.ImaTendenciaPuntoDTO;
 import com.piedpiper.carbonhub.ima.models.dtos.ImaTendenciaResponseDTO;
 import com.piedpiper.carbonhub.ima.models.entities.AgregadoSectorial;
@@ -31,13 +32,16 @@ public class ImaTendenciaService {
     private final ImaSnapshotRepository imaSnapshotRepository;
     private final AgregadoSectorialRepository agregadoSectorialRepository;
     private final ImaService imaService;
+    private final ImaEventosService imaEventosService;
 
     public ImaTendenciaService(ImaSnapshotRepository imaSnapshotRepository,
                                AgregadoSectorialRepository agregadoSectorialRepository,
-                               ImaService imaService) {
+                               ImaService imaService,
+                               ImaEventosService imaEventosService) {
         this.imaSnapshotRepository = imaSnapshotRepository;
         this.agregadoSectorialRepository = agregadoSectorialRepository;
         this.imaService = imaService;
+        this.imaEventosService = imaEventosService;
     }
 
     @Transactional(readOnly = true)
@@ -52,11 +56,13 @@ public class ImaTendenciaService {
         Map<YearMonth, BigDecimal> promedioPorMes = indexarPromediosSectoriales(empresa, desde, hasta);
 
         List<ImaTendenciaPuntoDTO> serie = construirSerie(desde, ventana, imaPorMes, promedioPorMes);
+        List<ImaEventoDTO> eventos = imaEventosService.detectar(empresa.getId(), serie, desde, hasta);
 
         return ImaTendenciaResponseDTO.builder()
                 .mesesAtras(ventana)
                 .serie(serie)
                 .sinDatosSectoriales(promedioPorMes.isEmpty())
+                .eventos(eventos)
                 .build();
     }
 

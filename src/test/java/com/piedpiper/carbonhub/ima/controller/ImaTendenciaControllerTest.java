@@ -2,10 +2,12 @@ package com.piedpiper.carbonhub.ima.controller;
 
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
 import com.piedpiper.carbonhub.auth.service.JwtService;
-import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.ima.models.dtos.ImaEventoDTO;
 import com.piedpiper.carbonhub.ima.models.dtos.ImaTendenciaPuntoDTO;
 import com.piedpiper.carbonhub.ima.models.dtos.ImaTendenciaResponseDTO;
+import com.piedpiper.carbonhub.ima.models.enums.TipoEventoIma;
 import com.piedpiper.carbonhub.ima.service.ImaBenchmarkService;
+import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.ima.service.ImaService;
 import com.piedpiper.carbonhub.ima.service.ImaTendenciaService;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
@@ -31,7 +33,6 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -75,6 +76,12 @@ class ImaTendenciaControllerTest {
         return ImaTendenciaResponseDTO.builder()
                 .mesesAtras(12)
                 .sinDatosSectoriales(false)
+                .eventos(List.of(
+                        ImaEventoDTO.builder()
+                                .mes("2026-06")
+                                .tipo(TipoEventoIma.CRUCE_SECTOR)
+                                .texto("En junio 2026 tu IMA superó el promedio de tu sector.")
+                                .build()))
                 .serie(List.of(
                         ImaTendenciaPuntoDTO.builder()
                                 .mes("2026-05")
@@ -102,7 +109,11 @@ class ImaTendenciaControllerTest {
                 .andExpect(jsonPath("$.serie[0].mes").value("2026-05"))
                 .andExpect(jsonPath("$.serie[0].imaEmpresa").value(68.0))
                 .andExpect(jsonPath("$.serie[0].imaPromedioSector").value(63.5))
-                .andExpect(jsonPath("$.serie[1].imaPromedioSector").doesNotExist());
+                .andExpect(jsonPath("$.serie[1].imaPromedioSector").doesNotExist())
+                .andExpect(jsonPath("$.eventos.length()").value(1))
+                .andExpect(jsonPath("$.eventos[0].mes").value("2026-06"))
+                .andExpect(jsonPath("$.eventos[0].tipo").value("CRUCE_SECTOR"))
+                .andExpect(jsonPath("$.eventos[0].texto").exists());
     }
 
     @Test
@@ -119,7 +130,9 @@ class ImaTendenciaControllerTest {
     @Test
     @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
     void mesesAtrasCeroDevuelve400() throws Exception {
-        when(imaTendenciaService.obtenerTendencia(eq(0), any(UUID.class)))
+        // La validacion de la ventana vive en el servicio (resolverVentana); el controller
+        // delega y deja que la ApiException se traduzca a 400 via el manejador global.
+        when(imaTendenciaService.obtenerTendencia(nullable(Integer.class), any(UUID.class)))
                 .thenThrow(ApiException.periodoImaInvalido("La ventana debe estar entre 1 y 12 meses."));
 
         mockMvc.perform(get("/api/ima/tendencia").param("mesesAtras", "0")
@@ -130,7 +143,7 @@ class ImaTendenciaControllerTest {
     @Test
     @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
     void mesesAtrasMayorADoceDevuelve400() throws Exception {
-        when(imaTendenciaService.obtenerTendencia(eq(13), any(UUID.class)))
+        when(imaTendenciaService.obtenerTendencia(nullable(Integer.class), any(UUID.class)))
                 .thenThrow(ApiException.periodoImaInvalido("La ventana debe estar entre 1 y 12 meses."));
 
         mockMvc.perform(get("/api/ima/tendencia").param("mesesAtras", "13")
