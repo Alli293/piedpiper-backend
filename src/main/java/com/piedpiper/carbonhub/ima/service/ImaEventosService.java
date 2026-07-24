@@ -10,15 +10,17 @@ import com.piedpiper.carbonhub.ima.models.enums.TipoEventoIma;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.TreeSet;
 import java.util.UUID;
 
 /**
@@ -60,7 +62,7 @@ public class ImaEventosService {
         eventos.addAll(detectarHuecosDatos(serie, categoriasPorMes));
         eventos.addAll(detectarNuevasCategorias(categoriasPorMes, desde, hasta));
 
-        eventos.sort(java.util.Comparator.comparing(ImaEventoDTO::getMes)
+        eventos.sort(Comparator.comparing(ImaEventoDTO::getMes)
                 .thenComparing(evento -> evento.getTipo().name()));
         return eventos;
     }
@@ -88,9 +90,9 @@ public class ImaEventosService {
                                 .tipo(TipoEventoIma.CRUCE_SECTOR)
                                 .texto(signoActual > 0
                                         ? "En " + nombrarMes(actual.getMes())
-                                                + " tu IMA superó el promedio de tu sector."
+                                          + " tu IMA superó el promedio de tu sector."
                                         : "En " + nombrarMes(actual.getMes())
-                                                + " tu IMA quedó por debajo del promedio de tu sector.")
+                                          + " tu IMA quedó por debajo del promedio de tu sector.")
                                 .build());
                     }
                 }
@@ -114,7 +116,7 @@ public class ImaEventosService {
      * Un único marcador en el mes con la mayor variación absoluta respecto al mes
      * anterior con dato. En caso de empate se conserva la primera ocurrencia.
      */
-    private java.util.Optional<ImaEventoDTO> detectarMayorVariacion(List<ImaTendenciaPuntoDTO> serie) {
+    private Optional<ImaEventoDTO> detectarMayorVariacion(List<ImaTendenciaPuntoDTO> serie) {
         BigDecimal mayorDelta = null;
         BigDecimal deltaConSigno = null;
         String mesMayor = null;
@@ -122,9 +124,13 @@ public class ImaEventosService {
 
         for (ImaTendenciaPuntoDTO actual : serie) {
             if (actual.getImaEmpresa() == null) {
+                // Un mes sin dato corta la comparación: el próximo punto con dato no debe
+                // medirse contra un mes que ya no es su predecesor inmediato. Sin este reset
+                // se reportaría como "mayor cambio" un delta que en realidad atraviesa un hueco.
+                anterior = null;
                 continue;
             }
-            if (anterior != null) {
+            if (anterior != null && esMesSiguiente(anterior, actual)) {
                 BigDecimal delta = actual.getImaEmpresa().subtract(anterior.getImaEmpresa());
                 BigDecimal absoluto = delta.abs();
                 if (mayorDelta == null || absoluto.compareTo(mayorDelta) > 0) {
@@ -137,11 +143,11 @@ public class ImaEventosService {
         }
 
         if (mesMayor == null || mayorDelta.compareTo(BigDecimal.ZERO) == 0) {
-            return java.util.Optional.empty();
+            return Optional.empty();
         }
 
         String signo = deltaConSigno.signum() > 0 ? "+" : "-";
-        return java.util.Optional.of(ImaEventoDTO.builder()
+        return Optional.of(ImaEventoDTO.builder()
                 .mes(mesMayor)
                 .tipo(TipoEventoIma.MAYOR_VARIACION)
                 .texto("En " + nombrarMes(mesMayor) + " registraste tu mayor cambio de IMA ("
@@ -202,7 +208,7 @@ public class ImaEventosService {
      */
     private Map<YearMonth, Set<CategoriaEmision>> cargarCategoriasPorMes(UUID empresaId) {
         List<CategoriaMensual> filas = emisionRepository.listarCategoriasPorMes(
-                empresaId, java.time.LocalDate.of(1970, 1, 1));
+                empresaId, LocalDate.of(1970, 1, 1));
 
         Map<YearMonth, Set<CategoriaEmision>> porMes = new HashMap<>();
         for (CategoriaMensual fila : filas) {
@@ -215,7 +221,7 @@ public class ImaEventosService {
     /** Ordena las categorías de un mes por nombre, para que el resultado sea determinista. */
     private List<CategoriaEmision> ordenarPorNombre(Set<CategoriaEmision> categorias) {
         List<CategoriaEmision> ordenadas = new ArrayList<>(categorias);
-        ordenadas.sort(java.util.Comparator.comparing(CategoriaEmision::name));
+        ordenadas.sort(Comparator.comparing(CategoriaEmision::name));
         return ordenadas;
     }
 

@@ -26,7 +26,6 @@ import java.util.UUID;
 public class ImaController {
 
     private final ImaService imaService;
-    private final ImaTendenciaService imaTendenciaService;
     private final ImaBenchmarkService imaBenchmarkService;
     private final ImaTendenciaService imaTendenciaService;
 
@@ -34,7 +33,6 @@ public class ImaController {
                          ImaBenchmarkService imaBenchmarkService,
                          ImaTendenciaService imaTendenciaService) {
         this.imaService = imaService;
-        this.imaTendenciaService = imaTendenciaService;
         this.imaBenchmarkService = imaBenchmarkService;
         this.imaTendenciaService = imaTendenciaService;
     }
@@ -101,20 +99,5 @@ public class ImaController {
     }
 
     private record Periodo(int anio, int mes) {
-    }
-
-    @GetMapping("/tendencia")
-    public ResponseEntity<ImaTendenciaResponseDTO> obtenerTendencia(
-            Authentication authentication,
-            @RequestParam(required = false) Integer mesesAtras) {
-
-        if (mesesAtras != null
-                && (mesesAtras < 1 || mesesAtras > ImaTendenciaService.MESES_VENTANA_MAXIMA)) {
-            throw ApiException.periodoImaInvalido(
-                    "La ventana debe estar entre 1 y " + ImaTendenciaService.MESES_VENTANA_MAXIMA + " meses.");
-        }
-
-        UUID usuarioId = Autenticaciones.usuarioId(authentication);
-        return ResponseEntity.ok(imaTendenciaService.obtenerTendencia(mesesAtras, usuarioId));
     }
 }

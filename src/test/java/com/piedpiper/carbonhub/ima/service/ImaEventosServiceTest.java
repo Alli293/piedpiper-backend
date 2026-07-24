@@ -174,6 +174,49 @@ class ImaEventosServiceTest {
     }
 
     @Test
+    void noReportaMayorVariacionAtravesandoUnHueco() {
+        // Escenario del review: enero=50, febrero/marzo sin dato, abril=90. El delta 90-50=40
+        // NO debe reportarse como "mayor cambio en un mes" porque abarca un hueco de tres meses.
+        // El único delta válido es entre puntos consecutivos con dato; aquí no hay ninguno,
+        // así que no se emite MAYOR_VARIACION.
+        mockCategorias(categoria(2026, 1, CategoriaEmision.ELECTRICIDAD),
+                categoria(2026, 4, CategoriaEmision.ELECTRICIDAD));
+        List<ImaTendenciaPuntoDTO> serie = List.of(
+                punto("2026-01", "50.0", null),
+                punto("2026-02", null, null),
+                punto("2026-03", null, null),
+                punto("2026-04", "90.0", null));
+
+        List<ImaEventoDTO> eventos = detectar(serie);
+
+        assertThat(eventos).noneMatch(e -> e.getTipo() == TipoEventoIma.MAYOR_VARIACION);
+    }
+
+    @Test
+    void reportaMayorVariacionSoloEntreMesesConsecutivosConDato() {
+        // Control: con un hueco temprano pero un par consecutivo real (marzo→abril),
+        // la variación se mide sobre ese par y no sobre el salto que cruza el hueco.
+        mockCategorias(categoria(2026, 1, CategoriaEmision.ELECTRICIDAD),
+                categoria(2026, 3, CategoriaEmision.ELECTRICIDAD),
+                categoria(2026, 4, CategoriaEmision.ELECTRICIDAD));
+        List<ImaTendenciaPuntoDTO> serie = List.of(
+                punto("2026-01", "50.0", null),
+                punto("2026-02", null, null),
+                punto("2026-03", "55.0", null),
+                punto("2026-04", "62.0", null));
+
+        List<ImaEventoDTO> eventos = detectar(serie);
+
+        assertThat(eventos)
+                .filteredOn(e -> e.getTipo() == TipoEventoIma.MAYOR_VARIACION)
+                .singleElement()
+                .satisfies(evento -> {
+                    assertThat(evento.getMes()).isEqualTo("2026-04");
+                    assertThat(evento.getTexto()).contains("+7");
+                });
+    }
+
+    @Test
     void noEmiteMayorVariacionCuandoLaSerieEsPlana() {
         mockCategorias(categoria(2026, 1, CategoriaEmision.ELECTRICIDAD), categoria(2026, 2, CategoriaEmision.ELECTRICIDAD));
         List<ImaTendenciaPuntoDTO> serie = List.of(

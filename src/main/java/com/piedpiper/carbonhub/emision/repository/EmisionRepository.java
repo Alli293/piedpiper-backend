@@ -1,12 +1,12 @@
 package com.piedpiper.carbonhub.emision.repository;
 
 import com.piedpiper.carbonhub.emision.models.entities.Emision;
+import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -25,8 +25,8 @@ public interface EmisionRepository extends JpaRepository<Emision, UUID> {
             order by e.fechaActividad desc, e.createdAt desc
             """)
     List<Emision> findAllByEmpresaIdWithFilters(@Param("empresaId") UUID empresaId,
-                                                 @Param("anio") Integer anio,
-                                                 @Param("mes") Integer mes);
+                                                @Param("anio") Integer anio,
+                                                @Param("mes") Integer mes);
 
     @Query("""
             select e

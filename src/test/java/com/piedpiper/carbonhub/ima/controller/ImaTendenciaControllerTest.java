@@ -7,6 +7,7 @@ import com.piedpiper.carbonhub.ima.models.dtos.ImaTendenciaPuntoDTO;
 import com.piedpiper.carbonhub.ima.models.dtos.ImaTendenciaResponseDTO;
 import com.piedpiper.carbonhub.ima.models.enums.TipoEventoIma;
 import com.piedpiper.carbonhub.ima.service.ImaBenchmarkService;
+import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.ima.service.ImaService;
 import com.piedpiper.carbonhub.ima.service.ImaTendenciaService;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
@@ -33,8 +34,6 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.nullable;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -131,21 +130,25 @@ class ImaTendenciaControllerTest {
     @Test
     @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
     void mesesAtrasCeroDevuelve400() throws Exception {
+        // La validacion de la ventana vive en el servicio (resolverVentana); el controller
+        // delega y deja que la ApiException se traduzca a 400 via el manejador global.
+        when(imaTendenciaService.obtenerTendencia(nullable(Integer.class), any(UUID.class)))
+                .thenThrow(ApiException.periodoImaInvalido("La ventana debe estar entre 1 y 12 meses."));
+
         mockMvc.perform(get("/api/ima/tendencia").param("mesesAtras", "0")
                         .principal(principal("ROLE_ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isBadRequest());
-
-        verify(imaTendenciaService, never()).obtenerTendencia(nullable(Integer.class), any(UUID.class));
     }
 
     @Test
     @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
     void mesesAtrasMayorADoceDevuelve400() throws Exception {
+        when(imaTendenciaService.obtenerTendencia(nullable(Integer.class), any(UUID.class)))
+                .thenThrow(ApiException.periodoImaInvalido("La ventana debe estar entre 1 y 12 meses."));
+
         mockMvc.perform(get("/api/ima/tendencia").param("mesesAtras", "13")
                         .principal(principal("ROLE_ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isBadRequest());
-
-        verify(imaTendenciaService, never()).obtenerTendencia(nullable(Integer.class), any(UUID.class));
     }
 
     @Test

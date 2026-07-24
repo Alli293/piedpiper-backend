@@ -5,11 +5,10 @@ import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.ima.models.dtos.ImaEventoDTO;
 import com.piedpiper.carbonhub.ima.models.dtos.ImaTendenciaPuntoDTO;
 import com.piedpiper.carbonhub.ima.models.dtos.ImaTendenciaResponseDTO;
+import com.piedpiper.carbonhub.ima.models.entities.AgregadoSectorial;
 import com.piedpiper.carbonhub.ima.models.entities.ImaSnapshot;
+import com.piedpiper.carbonhub.ima.repository.AgregadoSectorialRepository;
 import com.piedpiper.carbonhub.ima.repository.ImaSnapshotRepository;
-import com.piedpiper.carbonhub.ima.repository.ImaSnapshotRepository.PromedioSectorialMensual;
-import com.piedpiper.carbonhub.user.models.entities.Usuario;
-import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,17 +27,20 @@ import java.util.UUID;
 public class ImaTendenciaService {
 
     public static final int MESES_VENTANA_MAXIMA = 12;
-    private static final int UMBRAL_EMPRESAS_SECTOR = 5;
+
 
     private final ImaSnapshotRepository imaSnapshotRepository;
-    private final UsuarioRepository usuarioRepository;
+    private final AgregadoSectorialRepository agregadoSectorialRepository;
+    private final ImaService imaService;
     private final ImaEventosService imaEventosService;
 
     public ImaTendenciaService(ImaSnapshotRepository imaSnapshotRepository,
-                               UsuarioRepository usuarioRepository,
+                               AgregadoSectorialRepository agregadoSectorialRepository,
+                               ImaService imaService,
                                ImaEventosService imaEventosService) {
         this.imaSnapshotRepository = imaSnapshotRepository;
-        this.usuarioRepository = usuarioRepository;
+        this.agregadoSectorialRepository = agregadoSectorialRepository;
+        this.imaService = imaService;
         this.imaEventosService = imaEventosService;
     }
 
@@ -131,12 +133,4 @@ public class ImaTendenciaService {
         return porMes;
     }
 
-    private Empresa resolverEmpresa(UUID usuarioId) {
-        Usuario usuario = usuarioRepository.findById(usuarioId)
-                .orElseThrow(() -> ApiException.errorInterno("No se pudo identificar al usuario autenticado."));
-        if (usuario.getEmpresa() == null || usuario.getEmpresa().getId() == null) {
-            throw ApiException.empresaNoConfigurada();
-        }
-        return usuario.getEmpresa();
-    }
 }
