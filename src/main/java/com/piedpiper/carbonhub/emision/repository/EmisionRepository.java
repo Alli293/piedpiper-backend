@@ -12,9 +12,6 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 
 public interface EmisionRepository extends JpaRepository<Emision, UUID> {
 
@@ -107,6 +104,16 @@ public interface EmisionRepository extends JpaRepository<Emision, UUID> {
                                                @Param("fin") LocalDate fin);
 
     Optional<Emision> findByIdAndEmpresaId(UUID id, UUID empresaId);
+
+    @Query("""
+            select month(e.fechaActividad), sum(e.carbonKg)
+            from Emision e
+            where e.empresaId = :empresaId
+              and year(e.fechaActividad) = :anio
+            group by month(e.fechaActividad)
+            """)
+    List<Object[]> sumarCarbonKgPorMes(@Param("empresaId") UUID empresaId,
+                                       @Param("anio") int anio);
 
     @Query("""
             select count(distinct type(e))
