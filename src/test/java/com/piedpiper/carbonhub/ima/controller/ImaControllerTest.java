@@ -2,7 +2,11 @@ package com.piedpiper.carbonhub.ima.controller;
 
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
 import com.piedpiper.carbonhub.auth.service.JwtService;
+import com.piedpiper.carbonhub.ima.models.dtos.BenchmarkDimensionDTO;
+import com.piedpiper.carbonhub.ima.models.dtos.BenchmarkSectorialResponseDTO;
 import com.piedpiper.carbonhub.ima.models.dtos.ImaResponseDTO;
+import com.piedpiper.carbonhub.ima.models.enums.PosicionBenchmark;
+import com.piedpiper.carbonhub.ima.service.ImaBenchmarkService;
 import com.piedpiper.carbonhub.ima.service.ImaService;
 import com.piedpiper.carbonhub.ima.service.ImaTendenciaService;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
@@ -25,6 +29,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -52,6 +57,8 @@ class ImaControllerTest {
 
     @MockitoBean
     private ImaService imaService;
+    @MockitoBean
+    private ImaBenchmarkService imaBenchmarkService;
     @MockitoBean
     private ImaTendenciaService imaTendenciaService;
     @MockitoBean
@@ -106,7 +113,7 @@ class ImaControllerTest {
     @Test
     @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
     void periodoFuturoDevuelve400() throws Exception {
-        mockMvc.perform(get("/api/ima").param("anio", String.valueOf(java.time.LocalDate.now().plusMonths(1).getYear())).param("mes", String.valueOf(java.time.LocalDate.now().plusMonths(1).getMonthValue())).principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA")))
+        mockMvc.perform(get("/api/ima").param("anio", "2026").param("mes", "12").principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isBadRequest());
     }
 
@@ -123,7 +130,7 @@ class ImaControllerTest {
                 .build();
         when(imaService.obtenerIma(anyInt(), anyInt(), any(UUID.class))).thenReturn(dto);
 
-        mockMvc.perform(get("/api/ima").param("anio", "2026").param("mes", "6").principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_USUARIO_GENERAL")))
+        mockMvc.perform(get("/api/ima").param("anio", "2026").param("mes", "6").principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.parcial").value(true))
                 .andExpect(jsonPath("$.motivoParcial").exists());
@@ -152,5 +159,76 @@ class ImaControllerTest {
         mockMvc.perform(get("/api/ima").principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.ima").value(37.5));
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void benchmarkValidoDevuelve200ConLasCuatroDimensiones() throws Exception {
+        BenchmarkSectorialResponseDTO dto = BenchmarkSectorialResponseDTO.builder()
+                .benchmarkDisponible(true)
+                .cantidadEmpresas(6)
+                .imaParcial(false)
+                .ima(dimension("70.0", "60.0", PosicionBenchmark.POR_ENCIMA))
+                .cobertura(dimension("75.0", "70.0", PosicionBenchmark.POR_ENCIMA))
+                .puntajeIntensidadSectorial(dimension("61.0", "60.0", PosicionBenchmark.EN_LINEA))
+                .consistencia(dimension("50.0", "55.0", PosicionBenchmark.POR_DEBAJO))
+                .build();
+        when(imaBenchmarkService.obtenerBenchmark(anyInt(), anyInt(), any(UUID.class))).thenReturn(dto);
+
+        mockMvc.perform(get("/api/ima/benchmark").param("anio", "2026").param("mes", "6").principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.benchmarkDisponible").value(true))
+                .andExpect(jsonPath("$.cantidadEmpresas").value(6))
+                .andExpect(jsonPath("$.ima.posicion").value("POR_ENCIMA"))
+                .andExpect(jsonPath("$.cobertura.promedioSector").value(70.0))
+                .andExpect(jsonPath("$.puntajeIntensidadSectorial.posicion").value("EN_LINEA"))
+                .andExpect(jsonPath("$.consistencia.posicion").value("POR_DEBAJO"));
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void benchmarkConSectorPequenoDevuelve200SinDimensiones() throws Exception {
+        BenchmarkSectorialResponseDTO dto = BenchmarkSectorialResponseDTO.builder()
+                .benchmarkDisponible(false)
+                .cantidadEmpresas(4)
+                .imaParcial(true)
+                .build();
+        when(imaBenchmarkService.obtenerBenchmark(anyInt(), anyInt(), any(UUID.class))).thenReturn(dto);
+
+        mockMvc.perform(get("/api/ima/benchmark").principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.benchmarkDisponible").value(false))
+                .andExpect(jsonPath("$.cantidadEmpresas").value(4))
+                .andExpect(jsonPath("$.ima").doesNotExist());
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void benchmarkConMesInvalidoDevuelve400() throws Exception {
+        mockMvc.perform(get("/api/ima/benchmark").param("anio", "2026").param("mes", "13").principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA")))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void benchmarkConPeriodoFuturoDevuelve400() throws Exception {
+        LocalDate futuro = LocalDate.now().plusMonths(1);
+        mockMvc.perform(get("/api/ima/benchmark").param("anio", String.valueOf(futuro.getYear())).param("mes", String.valueOf(futuro.getMonthValue())).principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA")))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = "db2ed1e7-6719-4595-844e-68efffe146cf", roles = "AUDITOR_CERTIFICADO")
+    void benchmarkConRolAuditorDevuelve403() throws Exception {
+        mockMvc.perform(get("/api/ima/benchmark").param("anio", "2026").param("mes", "6").principal(new TestingAuthenticationToken("41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA")))
+                .andExpect(status().isForbidden());
+    }
+
+    private BenchmarkDimensionDTO dimension(String valor, String promedio, PosicionBenchmark posicion) {
+        return BenchmarkDimensionDTO.builder()
+                .valorEmpresa(new BigDecimal(valor))
+                .promedioSector(new BigDecimal(promedio))
+                .posicion(posicion)
+                .build();
     }
 }

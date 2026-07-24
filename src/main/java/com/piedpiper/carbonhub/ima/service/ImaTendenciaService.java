@@ -32,8 +32,6 @@ public class ImaTendenciaService {
 
     public static final int MESES_VENTANA_MAXIMA = 12;
 
-    /** Mismo umbral de privacidad que aplica {@link ImaService} al agregado sectorial. */
-    private static final int UMBRAL_EMPRESAS_SECTOR = 5;
 
     private final ImaSnapshotRepository imaSnapshotRepository;
     private final AgregadoSectorialRepository agregadoSectorialRepository;
@@ -144,7 +142,7 @@ public class ImaTendenciaService {
         Set<YearMonth> periodos = new HashSet<>();
         for (AgregadoSectorial agregado : agregados) {
             if (agregado.getCantidadEmpresas() != null
-                    && agregado.getCantidadEmpresas() >= UMBRAL_EMPRESAS_SECTOR) {
+                    && agregado.getCantidadEmpresas() >= ImaCalculos.UMBRAL_EMPRESAS_SECTOR) {
                 periodos.add(YearMonth.of(agregado.getAnio(), agregado.getMes()));
             }
         }
