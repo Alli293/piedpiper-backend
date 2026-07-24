@@ -16,8 +16,6 @@ import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -190,21 +188,10 @@ public class ImaService {
         // Calcular tendencia
         String tendencia = calcularTendencia(empresaId, anio, mes, ima);
 
-        // Generar interpretación por IA después del commit
-        final ImaSnapshot snapshotFinal = snapshot;
-        final String sectorNombreFinal = sector.name();
-        final AgregadoSectorial agregadoFinal = agregado;
-        final String tendenciaFinal = tendencia;
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.registerSynchronization(
-                    new TransactionSynchronization() {
-                        @Override
-                        public void afterCommit() {
-                            interpretacionService.generarInterpretacion(
-                                    snapshotFinal, sectorNombreFinal, agregadoFinal, tendenciaFinal);
-                        }
-                    });
-        }
+        // Generar interpretación por IA — síncrono para incluir en la respuesta
+        // Si falla, el snapshot queda con "No disponible" sin afectar el IMA
+        interpretacionService.generarInterpretacion(
+                snapshot, sector.name(), agregado, tendencia);
 
         return toDto(snapshot);
     }
