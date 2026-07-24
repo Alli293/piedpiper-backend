@@ -189,6 +189,11 @@ public class ApiException extends RuntimeException {
                 "Seleccione un combustible válido para este tipo de vehículo.");
     }
 
+    public static ApiException anioConsultaInvalido() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "El año indicado no es válido.");
+    }
+
     public static ApiException metodoTransporteNoSoportado() {
         return new ApiException(HttpStatus.BAD_REQUEST,
                 "Seleccione un método de transporte válido.");
@@ -197,6 +202,11 @@ public class ApiException extends RuntimeException {
     public static ApiException categoriaEmisionInvalida() {
         return new ApiException(HttpStatus.BAD_REQUEST,
                 "Categoría de emisión inválida.");
+    }
+
+    public static ApiException ordenamientoAuditoresInvalido() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "El criterio de ordenamiento no es válido.");
     }
 
     public static ApiException mesInvalido() {
@@ -212,5 +222,9 @@ public class ApiException extends RuntimeException {
     public static ApiException preferenciasViajeConflicto() {
         return new ApiException(HttpStatus.CONFLICT,
                 "Conflicto al guardar tus preferencias. Intenta nuevamente.");
+    }
+
+    public static ApiException periodoImaInvalido(String mensaje) {
+        return new ApiException(HttpStatus.BAD_REQUEST, mensaje);
     }
 }

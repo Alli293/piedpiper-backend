@@ -1,6 +1,11 @@
 package com.piedpiper.carbonhub.emision.repository;
 
 import com.piedpiper.carbonhub.emision.models.entities.Emision;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
 import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -55,4 +60,35 @@ public interface EmisionRepository extends JpaRepository<Emision, UUID> {
                                                @Param("fin") LocalDate fin);
 
     Optional<Emision> findByIdAndEmpresaId(UUID id, UUID empresaId);
+
+    @Query("""
+            select count(distinct type(e))
+            from Emision e
+            where e.empresaId = :empresaId
+              and e.fechaActividad between :desde and :hasta
+            """)
+    long contarCategoriasConRegistro(@Param("empresaId") UUID empresaId,
+                                     @Param("desde") LocalDate desde,
+                                     @Param("hasta") LocalDate hasta);
+
+    @Query("""
+            select count(distinct (extract(year from e.fechaActividad) * 100 + extract(month from e.fechaActividad)))
+            from Emision e
+            where e.empresaId = :empresaId
+              and e.fechaActividad between :desde and :hasta
+            """)
+    long contarMesesConRegistro(@Param("empresaId") UUID empresaId,
+                                @Param("desde") LocalDate desde,
+                                @Param("hasta") LocalDate hasta);
+
+    @Query("""
+            select coalesce(sum(e.carbonKg), 0)
+            from Emision e
+            where e.empresaId = :empresaId
+              and e.fechaActividad between :desde and :hasta
+            """)
+    BigDecimal sumarCarbonKgEnVentana(@Param("empresaId") UUID empresaId,
+                                      @Param("desde") LocalDate desde,
+                                      @Param("hasta") LocalDate hasta);
+    List<Emision> findAllByEmpresaIdAndFechaActividadBetween(UUID empresaId, LocalDate desde, LocalDate hasta);
 }
