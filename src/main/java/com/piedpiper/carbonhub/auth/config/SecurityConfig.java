@@ -37,6 +37,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/auth/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/verificar-correo").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/auth/reset-contrasena").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/invitaciones/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/catalogos/**").permitAll()
                         .anyRequest().authenticated())

@@ -12,6 +12,7 @@ import com.piedpiper.carbonhub.auth.service.RegistroInvitacionCorreoService;
 import com.piedpiper.carbonhub.auth.service.RegistroInvitacionService;
 import com.piedpiper.carbonhub.auth.service.RegistroUsuarioCorreoService;
 import com.piedpiper.carbonhub.auth.service.RegistroUsuarioService;
+import com.piedpiper.carbonhub.auth.service.RestablecerContrasenaService;
 import com.piedpiper.carbonhub.auth.service.VerificarCorreoService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
@@ -67,6 +68,8 @@ class AuthControllerInvitacionTest {
     private JwtService jwtService;
     @MockitoBean
     private UsuarioRepository usuarioRepository;
+    @MockitoBean
+    private RestablecerContrasenaService restablecerContrasenaService;
 
     private static final String REQUEST_JSON =
             "{\"tokenInvitacion\":\"token-inv\",\"idToken\":\"id-token\",\"aceptaTerminos\":true}";

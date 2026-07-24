@@ -7,12 +7,14 @@ import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
+import java.util.regex.Pattern;
 
 public final class TokenVerificacionGenerator {
 
     private static final int LONGITUD_BYTES = 32;
     private static final long HORAS_EXPIRACION = 24;
     private static final SecureRandom RANDOM = new SecureRandom();
+    private static final Pattern FORMATO_TOKEN = Pattern.compile("^[A-Za-z0-9_-]{43}$");
 
     private TokenVerificacionGenerator() {
     }
@@ -34,6 +36,14 @@ public final class TokenVerificacionGenerator {
     }
 
     public static Instant calcularExpiracion() {
-        return Instant.now().plus(HORAS_EXPIRACION, ChronoUnit.HOURS);
+        return calcularExpiracion(HORAS_EXPIRACION);
+    }
+
+    public static Instant calcularExpiracion(long horas) {
+        return Instant.now().plus(horas, ChronoUnit.HOURS);
+    }
+
+    public static boolean formatoValido(String token) {
+        return token != null && FORMATO_TOKEN.matcher(token).matches();
     }
 }

@@ -20,14 +20,12 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
-import java.util.regex.Pattern;
 
 @Service
 public class VerificarCorreoService {
 
     private static final Logger log = LoggerFactory.getLogger(VerificarCorreoService.class);
 
-    private static final Pattern TOKEN_FORMATO = Pattern.compile("^[A-Za-z0-9_-]{43}$");
     private static final int MAX_REENVIOS_POR_HORA = 3;
     private static final String MENSAJE_REENVIO_UNIFORME =
             "Si tu cuenta requiere verificación, te enviamos un nuevo enlace.";
@@ -46,7 +44,7 @@ public class VerificarCorreoService {
 
     @Transactional
     public MensajeResponseDTO verificar(String token) {
-        if (token == null || !TOKEN_FORMATO.matcher(token).matches()) {
+        if (!TokenVerificacionGenerator.formatoValido(token)) {
             throw ApiException.tokenVerificacionMalFormado();
         }
 

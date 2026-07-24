@@ -9,6 +9,7 @@ import com.piedpiper.carbonhub.auth.service.RegistroInvitacionCorreoService;
 import com.piedpiper.carbonhub.auth.service.RegistroInvitacionService;
 import com.piedpiper.carbonhub.auth.service.RegistroUsuarioCorreoService;
 import com.piedpiper.carbonhub.auth.service.RegistroUsuarioService;
+import com.piedpiper.carbonhub.auth.service.RestablecerContrasenaService;
 import com.piedpiper.carbonhub.auth.service.VerificarCorreoService;
 
 import com.piedpiper.carbonhub.auth.models.dtos.AuthResponseDTO;
@@ -24,6 +25,9 @@ import com.piedpiper.carbonhub.auth.models.dtos.RegistroInvitacionRequestDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.RegistroPendienteResponseDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.RegistroUsuarioCorreoRequestDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.RegistroUsuarioRequestDTO;
+import com.piedpiper.carbonhub.auth.models.dtos.RestablecerContrasenaRequestDTO;
+import com.piedpiper.carbonhub.auth.models.dtos.SolicitarResetContrasenaRequestDTO;
+import com.piedpiper.carbonhub.auth.models.dtos.ValidarTokenResetResponseDTO;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -47,6 +51,7 @@ public class AuthController {
     private final RegistroEmpresaCorreoService registroEmpresaCorreoService;
     private final VerificarCorreoService verificarCorreoService;
     private final RegistroInvitacionService registroInvitacionService;
+    private final RestablecerContrasenaService restablecerContrasenaService;
     private final RegistroInvitacionCorreoService registroInvitacionCorreoService;
 
     public AuthController(RegistroUsuarioService registroUsuarioService,
@@ -58,6 +63,7 @@ public class AuthController {
                           RegistroEmpresaCorreoService registroEmpresaCorreoService,
                           VerificarCorreoService verificarCorreoService,
                           RegistroInvitacionService registroInvitacionService,
+                          RestablecerContrasenaService restablecerContrasenaService,
                           RegistroInvitacionCorreoService registroInvitacionCorreoService) {
         this.registroUsuarioService = registroUsuarioService;
         this.registroEmpresaService = registroEmpresaService;
@@ -68,6 +74,7 @@ public class AuthController {
         this.registroEmpresaCorreoService = registroEmpresaCorreoService;
         this.verificarCorreoService = verificarCorreoService;
         this.registroInvitacionService = registroInvitacionService;
+        this.restablecerContrasenaService = restablecerContrasenaService;
         this.registroInvitacionCorreoService = registroInvitacionCorreoService;
     }
 
@@ -141,5 +148,23 @@ public class AuthController {
     public ResponseEntity<MensajeResponseDTO> reenviarVerificacion(
             @Valid @RequestBody ReenviarVerificacionRequestDTO request) {
         return ResponseEntity.ok(verificarCorreoService.reenviar(request.getEmail()));
+    }
+
+    @PostMapping("/solicitar-reset-contrasena")
+    public ResponseEntity<MensajeResponseDTO> solicitarResetContrasena(
+            @Valid @RequestBody SolicitarResetContrasenaRequestDTO request) {
+        return ResponseEntity.ok(restablecerContrasenaService.solicitar(request.getEmail()));
+    }
+
+    @GetMapping("/reset-contrasena")
+    public ResponseEntity<ValidarTokenResetResponseDTO> validarTokenReset(@RequestParam String token) {
+        return ResponseEntity.ok(restablecerContrasenaService.validarToken(token));
+    }
+
+    @PostMapping("/restablecer-contrasena")
+    public ResponseEntity<MensajeResponseDTO> restablecerContrasena(
+            @Valid @RequestBody RestablecerContrasenaRequestDTO request) {
+        return ResponseEntity.ok(restablecerContrasenaService.restablecer(
+                request.getToken(), request.getNuevaContrasena()));
     }
 }

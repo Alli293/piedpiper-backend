@@ -60,6 +60,16 @@ public class ApiException extends RuntimeException {
                 "Has solicitado demasiados reenvíos. Intenta de nuevo en una hora.");
     }
 
+    public static ApiException tokenResetInvalido() {
+        return new ApiException(HttpStatus.GONE,
+                "Este enlace no es válido o expiró. Solicita uno nuevo.");
+    }
+
+    public static ApiException tokenResetMalFormado() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "El formato del enlace no es válido.");
+    }
+
     public static ApiException cuentaNoDisponible() {
         return new ApiException(HttpStatus.CONFLICT,
                 "Esta cuenta no está disponible para verificación. Contacta a soporte.");
@@ -239,6 +249,11 @@ public class ApiException extends RuntimeException {
     public static ApiException zonasInvalidas(List<String> invalidas) {
         return new ApiException(HttpStatus.BAD_REQUEST,
                 "Las siguientes zonas de cobertura no son válidas: " + String.join(", ", invalidas) + ".");
+    }
+
+    public static ApiException preferenciasViajeConflicto() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Conflicto al guardar tus preferencias. Intenta nuevamente.");
     }
 
     public static ApiException periodoImaInvalido(String mensaje) {
