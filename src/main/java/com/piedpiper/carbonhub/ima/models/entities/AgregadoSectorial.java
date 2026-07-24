@@ -49,6 +49,18 @@ public class AgregadoSectorial {
     @Column(name = "cantidad_empresas", nullable = false)
     private Integer cantidadEmpresas;
 
+    @Column(name = "promedio_cobertura", precision = 5, scale = 1)
+    private BigDecimal promedioCobertura;
+
+    @Column(name = "promedio_puntaje_intensidad_sectorial", precision = 5, scale = 1)
+    private BigDecimal promedioPuntajeIntensidadSectorial;
+
+    @Column(name = "promedio_consistencia", precision = 5, scale = 1)
+    private BigDecimal promedioConsistencia;
+
+    @Column(name = "promedio_ima", precision = 5, scale = 1)
+    private BigDecimal promedioIma;
+
     @Column(name = "intensidad_promedio", precision = 14, scale = 6)
     private BigDecimal intensidadPromedio;
 

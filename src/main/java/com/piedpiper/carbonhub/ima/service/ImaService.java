@@ -223,12 +223,16 @@ public class ImaService {
     }
 
     private UUID resolverEmpresaId(UUID usuarioId) {
+        return empresaDe(usuarioId).getId();
+    }
+
+    public Empresa empresaDe(UUID usuarioId) {
         Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> ApiException.errorInterno("No se pudo identificar al usuario autenticado."));
         if (usuario.getEmpresa() == null || usuario.getEmpresa().getId() == null) {
             throw ApiException.empresaNoConfigurada();
         }
-        return usuario.getEmpresa().getId();
+        return usuario.getEmpresa();
     }
 
     private ImaResponseDTO toDto(ImaSnapshot snapshot) {
