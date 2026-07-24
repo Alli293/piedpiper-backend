@@ -44,7 +44,6 @@ class ImaServicePropertyTest {
     private EmisionRepository emisionRepository;
     private EmpresaRepository empresaRepository;
     private UsuarioRepository usuarioRepository;
-    private ImaInterpretacionService interpretacionService;
     private ImaSnapshotMapper imaSnapshotMapper;
     private ImaService imaService;
 
@@ -58,7 +57,6 @@ class ImaServicePropertyTest {
         emisionRepository = Mockito.mock(EmisionRepository.class);
         empresaRepository = Mockito.mock(EmpresaRepository.class);
         usuarioRepository = Mockito.mock(UsuarioRepository.class);
-        interpretacionService = Mockito.mock(ImaInterpretacionService.class);
         imaSnapshotMapper = Mockito.mock(ImaSnapshotMapper.class);
 
         imaService = new ImaService(
@@ -67,7 +65,6 @@ class ImaServicePropertyTest {
                 emisionRepository,
                 empresaRepository,
                 usuarioRepository,
-                interpretacionService,
                 imaSnapshotMapper
         );
 
@@ -171,9 +168,7 @@ class ImaServicePropertyTest {
         // Act
         ImaResponseDTO result = imaService.obtenerIma(anio, mes, USUARIO_ID);
 
-        // Assert: interpretacionService.generarInterpretacion was NEVER called
-        verify(interpretacionService, never()).generarInterpretacion(
-                any(ImaSnapshot.class), any(String.class), any(), any(String.class));
+        // La interpretación se reutiliza directamente del snapshot (no hay llamada a Gemini en read)
 
         // Assert: the returned DTO has the same interpretation values (cached, not regenerated)
         assertThat(result.getInterpretacion()).isEqualTo(interpretacion);

@@ -57,7 +57,6 @@ class ImaControllerPropertyTest {
     private EmisionRepository emisionRepository;
     private EmpresaRepository empresaRepository;
     private UsuarioRepository usuarioRepository;
-    private ImaInterpretacionService interpretacionService;
     private ImaSnapshotMapper imaSnapshotMapper;
     private ImaService imaServiceReal;
 
@@ -79,7 +78,6 @@ class ImaControllerPropertyTest {
         emisionRepository = Mockito.mock(EmisionRepository.class);
         empresaRepository = Mockito.mock(EmpresaRepository.class);
         usuarioRepository = Mockito.mock(UsuarioRepository.class);
-        interpretacionService = Mockito.mock(ImaInterpretacionService.class);
 
         imaSnapshotMapper = Mockito.mock(ImaSnapshotMapper.class);
         when(imaSnapshotMapper.toDto(any(ImaSnapshot.class))).thenAnswer(invocation -> {
@@ -126,7 +124,6 @@ class ImaControllerPropertyTest {
                 emisionRepository,
                 empresaRepository,
                 usuarioRepository,
-                interpretacionService,
                 imaSnapshotMapper
         );
     }

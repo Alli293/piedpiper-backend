@@ -36,7 +36,6 @@ public class ImaService {
     private final EmisionRepository emisionRepository;
     private final EmpresaRepository empresaRepository;
     private final UsuarioRepository usuarioRepository;
-    private final ImaInterpretacionService interpretacionService;
     private final ImaSnapshotMapper imaSnapshotMapper;
 
     public ImaService(ImaSnapshotRepository imaSnapshotRepository,
@@ -44,14 +43,12 @@ public class ImaService {
                       EmisionRepository emisionRepository,
                       EmpresaRepository empresaRepository,
                       UsuarioRepository usuarioRepository,
-                      ImaInterpretacionService interpretacionService,
                       ImaSnapshotMapper imaSnapshotMapper) {
         this.imaSnapshotRepository = imaSnapshotRepository;
         this.agregadoSectorialRepository = agregadoSectorialRepository;
         this.emisionRepository = emisionRepository;
         this.empresaRepository = empresaRepository;
         this.usuarioRepository = usuarioRepository;
-        this.interpretacionService = interpretacionService;
         this.imaSnapshotMapper = imaSnapshotMapper;
     }
 
@@ -158,28 +155,10 @@ public class ImaService {
 
         snapshot = imaSnapshotRepository.save(snapshot);
 
-        // Calcular tendencia
-        String tendencia = calcularTendencia(empresaId, anio, mes, ima);
-
-        // Generar interpretación por IA — síncrono para incluir en la respuesta
-        // Si falla, el snapshot queda con "No disponible" sin afectar el IMA
-        interpretacionService.generarInterpretacion(
-                snapshot, sector.name(), agregado, tendencia);
+        // La interpretación IA se genera de forma diferida por ImaInterpretacionRetryService
+        // (cada 5 min). No se llama a Gemini dentro de la transacción.
 
         return toDto(snapshot);
-    }
-
-    private String calcularTendencia(UUID empresaId, int anio, int mes, BigDecimal imaActual) {
-        int prevMes = mes == 1 ? 12 : mes - 1;
-        int prevAnio = mes == 1 ? anio - 1 : anio;
-        return imaSnapshotRepository.findByEmpresaIdAndAnioAndMes(empresaId, prevAnio, prevMes)
-                .map(prev -> {
-                    int cmp = imaActual.compareTo(prev.getIma());
-                    if (cmp > 0) return "Subió";
-                    if (cmp < 0) return "Bajó";
-                    return "Estable";
-                })
-                .orElse("Sin datos previos");
     }
 
     private AgregadoSectorial calcularAgregadoSectorial(SectorIndustrial sector, int anio, int mes,
