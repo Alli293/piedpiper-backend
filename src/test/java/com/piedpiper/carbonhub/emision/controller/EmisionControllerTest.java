@@ -759,8 +759,7 @@ class EmisionControllerTest {
     @WithMockUser(username = "db2ed1e7-6719-4595-844e-68efffe146cf", roles = "AUDITOR_CERTIFICADO")
     void evolucionConRolNoAutorizadoDevuelve403() throws Exception {
         mockMvc.perform(get("/api/emisiones/evolucion").param("anio", "2026")
-                        .principal(new TestingAuthenticationToken(
-                                "db2ed1e7-6719-4595-844e-68efffe146cf", "password", "ROLE_AUDITOR_CERTIFICADO")))
+                        .principal(principal(GENERAL_USUARIO_ID, "ROLE_AUDITOR_CERTIFICADO")))
                 .andExpect(status().isForbidden());
     }
 
