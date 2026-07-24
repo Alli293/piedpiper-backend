@@ -27,15 +27,18 @@ public class EcoRutaInsigniaService {
 
     private final UsuarioRepository usuarioRepository;
     private final InsigniaUsuarioRepository insigniaUsuarioRepository;
+    private final EcoRutaInsigniaRegistroService ecoRutaInsigniaRegistroService;
     private final CatalogoInsigniasEcoRuta catalogoInsigniasEcoRuta;
     private final InsigniaUsuarioMapper insigniaUsuarioMapper;
 
     public EcoRutaInsigniaService(UsuarioRepository usuarioRepository,
                                   InsigniaUsuarioRepository insigniaUsuarioRepository,
+                                  EcoRutaInsigniaRegistroService ecoRutaInsigniaRegistroService,
                                   CatalogoInsigniasEcoRuta catalogoInsigniasEcoRuta,
                                   InsigniaUsuarioMapper insigniaUsuarioMapper) {
         this.usuarioRepository = usuarioRepository;
         this.insigniaUsuarioRepository = insigniaUsuarioRepository;
+        this.ecoRutaInsigniaRegistroService = ecoRutaInsigniaRegistroService;
         this.catalogoInsigniasEcoRuta = catalogoInsigniasEcoRuta;
         this.insigniaUsuarioMapper = insigniaUsuarioMapper;
     }
@@ -87,7 +90,7 @@ public class EcoRutaInsigniaService {
             return;
         }
 
-        insigniaUsuarioRepository.saveAndFlush(InsigniaUsuario.builder()
+        ecoRutaInsigniaRegistroService.registrar(InsigniaUsuario.builder()
                 .usuario(usuario)
                 .idInsignia(regla.idInsignia())
                 .eventoDesbloqueo(regla.eventoDesbloqueo())

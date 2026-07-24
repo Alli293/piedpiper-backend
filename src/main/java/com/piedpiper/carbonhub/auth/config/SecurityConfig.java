@@ -24,9 +24,10 @@ public class SecurityConfig {
     private final CertificacionApiKeyFilter certificacionApiKeyFilter;
     private final CorsConfigurationSource corsConfigurationSource;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
-                          CertificacionApiKeyFilter certificacionApiKeyFilter,
-                          CorsConfigurationSource corsConfigurationSource) {
+    public SecurityConfig(
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            CertificacionApiKeyFilter certificacionApiKeyFilter,
+            CorsConfigurationSource corsConfigurationSource) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.certificacionApiKeyFilter = certificacionApiKeyFilter;
         this.corsConfigurationSource = corsConfigurationSource;

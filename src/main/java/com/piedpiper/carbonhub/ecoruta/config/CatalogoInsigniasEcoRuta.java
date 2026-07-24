@@ -3,6 +3,7 @@ package com.piedpiper.carbonhub.ecoruta.config;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
@@ -23,7 +24,7 @@ public class CatalogoInsigniasEcoRuta {
     private final Map<Long, ReglaInsigniaEcoRuta> reglasPorId;
 
     public CatalogoInsigniasEcoRuta() {
-        Collection<ReglaInsigniaEcoRuta> reglas = java.util.List.of(
+        Collection<ReglaInsigniaEcoRuta> reglas = List.of(
                 new ReglaInsigniaEcoRuta(1L, EVENTO_PRIMER_ITINERARIO, "Primer itinerario",
                         "Creaste tu primer itinerario sostenible con EcoRuta."),
                 new ReglaInsigniaEcoRuta(2L, EVENTO_PRIMER_ITINERARIO_SOSTENIBLE,

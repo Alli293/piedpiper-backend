@@ -23,6 +23,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -37,12 +38,15 @@ class EcoRutaInsigniaServiceTest {
     private UsuarioRepository usuarioRepository;
     @Mock
     private InsigniaUsuarioRepository insigniaUsuarioRepository;
+    @Mock
+    private EcoRutaInsigniaRegistroService ecoRutaInsigniaRegistroService;
 
     private EcoRutaInsigniaService service;
 
     @BeforeEach
     void setUp() {
         service = new EcoRutaInsigniaService(usuarioRepository, insigniaUsuarioRepository,
+                ecoRutaInsigniaRegistroService,
                 new CatalogoInsigniasEcoRuta(), new InsigniaUsuarioMapperImpl());
     }
 
@@ -56,7 +60,7 @@ class EcoRutaInsigniaServiceTest {
                 CatalogoInsigniasEcoRuta.EVENTO_PRIMER_ITINERARIO_SOSTENIBLE));
 
         ArgumentCaptor<InsigniaUsuario> captor = ArgumentCaptor.forClass(InsigniaUsuario.class);
-        verify(insigniaUsuarioRepository).saveAndFlush(captor.capture());
+        verify(ecoRutaInsigniaRegistroService).registrar(captor.capture());
         InsigniaUsuario guardada = captor.getValue();
         assertThat(guardada.getUsuario().getId()).isEqualTo(USUARIO_ID);
         assertThat(guardada.getIdInsignia()).isEqualTo(2L);
@@ -74,7 +78,7 @@ class EcoRutaInsigniaServiceTest {
         service.evaluarYOtorgar(evento(
                 CatalogoInsigniasEcoRuta.EVENTO_PRIMER_ITINERARIO_SOSTENIBLE));
 
-        verify(insigniaUsuarioRepository, never()).saveAndFlush(any());
+        verify(ecoRutaInsigniaRegistroService, never()).registrar(any());
     }
 
     @Test
@@ -82,7 +86,7 @@ class EcoRutaInsigniaServiceTest {
         service.evaluarYOtorgar(evento("evento_desconocido"));
 
         verify(usuarioRepository, never()).findById(any());
-        verify(insigniaUsuarioRepository, never()).saveAndFlush(any());
+        verify(ecoRutaInsigniaRegistroService, never()).registrar(any());
     }
 
     @Test
@@ -94,7 +98,7 @@ class EcoRutaInsigniaServiceTest {
         service.evaluarYOtorgar(evento(
                 CatalogoInsigniasEcoRuta.EVENTO_PRIMER_ITINERARIO_SOSTENIBLE));
 
-        verify(insigniaUsuarioRepository, never()).saveAndFlush(any());
+        verify(ecoRutaInsigniaRegistroService, never()).registrar(any());
     }
 
     @Test
@@ -102,8 +106,9 @@ class EcoRutaInsigniaServiceTest {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuarioActivo()));
         when(insigniaUsuarioRepository.existsByUsuarioIdAndIdInsignia(USUARIO_ID, 2L))
                 .thenReturn(false);
-        when(insigniaUsuarioRepository.saveAndFlush(any(InsigniaUsuario.class)))
-                .thenThrow(new RuntimeException("base no disponible"));
+        doThrow(new RuntimeException("base no disponible"))
+                .when(ecoRutaInsigniaRegistroService)
+                .registrar(any(InsigniaUsuario.class));
 
         assertThatNoException().isThrownBy(() ->
                 service.evaluarYOtorgar(

@@ -21,12 +21,14 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+
 import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.mockito.Mockito.doReturn;
 
 @DataJpaTest
 @Import({
         EcoRutaInsigniaService.class,
+        EcoRutaInsigniaRegistroService.class,
         CatalogoInsigniasEcoRuta.class,
         EcoRutaInsigniaServiceIntegrationTest.MapperTestConfig.class
 })
