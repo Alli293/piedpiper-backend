@@ -219,11 +219,6 @@ public class ApiException extends RuntimeException {
                 "La zona geográfica '" + valor + "' no es válida.");
     }
 
-    public static ApiException calificacionMinimaInvalida() {
-        return new ApiException(HttpStatus.BAD_REQUEST,
-                "La calificación mínima debe estar entre 1 y 5.");
-    }
-
     public static ApiException mesInvalido() {
         return new ApiException(HttpStatus.BAD_REQUEST,
                 "El mes debe estar entre 1 y 12.");

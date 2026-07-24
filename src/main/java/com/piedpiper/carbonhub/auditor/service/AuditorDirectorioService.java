@@ -57,7 +57,7 @@ public class AuditorDirectorioService {
         Pageable pageable = PageRequest.of(numeroPagina, tamanio, ordenar(filtros.getOrdenamiento()));
 
         ProvinciaCR provincia = parsearZona(filtros.getZonaGeografica());
-        BigDecimal calificacionMinima = validarCalificacion(filtros.getCalificacionMinima());
+        BigDecimal calificacionMinima = normalizarCalificacion(filtros.getCalificacionMinima());
         Set<EspecialidadAuditor> especialidades = parsearEspecialidades(filtros.getEspecialidades());
         boolean filtrarEspecialidades = !especialidades.isEmpty();
         boolean soloDisponibles = Boolean.TRUE.equals(filtros.getSoloDisponibles());
@@ -127,13 +127,11 @@ public class AuditorDirectorioService {
                 .orElseThrow(() -> ApiException.zonaAuditorInvalida(zonaGeografica));
     }
 
-    private BigDecimal validarCalificacion(BigDecimal calificacionMinima) {
-        if (calificacionMinima == null) {
-            return null;
-        }
-        if (calificacionMinima.compareTo(CALIFICACION_MINIMA) < 0
+    private BigDecimal normalizarCalificacion(BigDecimal calificacionMinima) {
+        if (calificacionMinima == null
+                || calificacionMinima.compareTo(CALIFICACION_MINIMA) < 0
                 || calificacionMinima.compareTo(CALIFICACION_MAXIMA) > 0) {
-            throw ApiException.calificacionMinimaInvalida();
+            return null;
         }
         return calificacionMinima;
     }

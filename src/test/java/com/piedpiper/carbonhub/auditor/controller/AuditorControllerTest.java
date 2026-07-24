@@ -144,17 +144,6 @@ class AuditorControllerTest {
     }
 
     @Test
-    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
-    void calificacionMinimaFueraDeRangoDevuelve400() throws Exception {
-        when(auditorDirectorioService.listar(any()))
-                .thenThrow(ApiException.calificacionMinimaInvalida());
-
-        mockMvc.perform(get("/api/auditores").param("calificacionMinima", "6")
-                        .principal(principal("ADMINISTRADOR_EMPRESA")))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
     @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_PLATAFORMA")
     void rolNoAutorizadoDevuelve403() throws Exception {
         mockMvc.perform(get("/api/auditores").principal(principal("ADMINISTRADOR_PLATAFORMA")))

@@ -262,13 +262,27 @@ class AuditorDirectorioServiceTest {
     }
 
     @Test
-    void calificacionMinimaFueraDeRangoLanza400() {
+    void calificacionMinimaFueraDeRangoSeIgnora() {
+        prepararRepositorio();
         FiltrarAuditoresRequestDTO f = filtros();
         f.setCalificacionMinima(new BigDecimal("6.0"));
 
-        assertThatThrownBy(() -> servicio().listar(f))
-                .isInstanceOf(ApiException.class)
-                .satisfies(e -> assertThat(((ApiException) e).getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
+        servicio().listar(f);
+
+        verify(perfilAuditorRepository).buscarDirectorio(
+                any(), any(), any(), any(), isNull(), anyBoolean(), anyBoolean(), any(), any());
+    }
+
+    @Test
+    void calificacionMinimaValidaSeAplica() {
+        prepararRepositorio();
+        FiltrarAuditoresRequestDTO f = filtros();
+        f.setCalificacionMinima(new BigDecimal("4.0"));
+
+        servicio().listar(f);
+
+        verify(perfilAuditorRepository).buscarDirectorio(
+                any(), any(), any(), any(), eq(new BigDecimal("4.0")), anyBoolean(), anyBoolean(), any(), any());
     }
 
     @Test
