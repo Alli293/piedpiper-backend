@@ -116,12 +116,11 @@ class ImaTendenciaServiceTest {
     }
 
     @Test
-    void tomaLosValoresDeLosSnapshotsPersistidos() {
-        mockUsuarioConEmpresa();
+    void tomaElPromedioSectorialDelAgregadoPersistido() {
+        mockEmpresa();
         when(imaSnapshotRepository.findVentana(any(), anyInt(), anyInt(), anyInt(), anyInt()))
                 .thenReturn(List.of(snapshot(mesActual, "71.5")));
-        when(imaSnapshotRepository.promediarImaPorSector(any(), anyInt(), anyInt(), anyInt(), anyInt()))
-                .thenReturn(List.of(promedio(mesActual, "64.25", 8)));
+        mockAgregados(agregadoConPromedio(mesActual, 8, "64.25"));
 
         ImaTendenciaResponseDTO respuesta = imaTendenciaService.obtenerTendencia(3, USUARIO_ID);
 
@@ -134,11 +133,10 @@ class ImaTendenciaServiceTest {
 
     @Test
     void omitePuntosSinDatoYNoRellenaConCeros() {
-        mockUsuarioConEmpresa();
+        mockEmpresa();
         when(imaSnapshotRepository.findVentana(any(), anyInt(), anyInt(), anyInt(), anyInt()))
                 .thenReturn(List.of(snapshot(mesActual, "70.0")));
-        when(imaSnapshotRepository.promediarImaPorSector(any(), anyInt(), anyInt(), anyInt(), anyInt()))
-                .thenReturn(List.of());
+        mockAgregados();
 
         ImaTendenciaResponseDTO respuesta = imaTendenciaService.obtenerTendencia(2, USUARIO_ID);
 
@@ -147,12 +145,13 @@ class ImaTendenciaServiceTest {
     }
 
     @Test
-    void noDibujaLineaSectorialCuandoElSectorNoAlcanzaCincoEmpresas() {
-        mockUsuarioConEmpresa();
+    void noDibujaLineaSectorialCuandoElAgregadoNoTienePromedio() {
+        // El sector no alcanzó el umbral: ImaService persistió el agregado con promedioIma null.
+        // La tendencia no debe inventar una línea sectorial que /api/ima no expondría.
+        mockEmpresa();
         when(imaSnapshotRepository.findVentana(any(), anyInt(), anyInt(), anyInt(), anyInt()))
                 .thenReturn(List.of(snapshot(mesActual, "70.0")));
-        when(imaSnapshotRepository.promediarImaPorSector(any(), anyInt(), anyInt(), anyInt(), anyInt()))
-                .thenReturn(List.of(promedio(mesActual, "60.0", 4)));
+        mockAgregados(agregadoSinPromedio(mesActual, 4));
 
         ImaTendenciaResponseDTO respuesta = imaTendenciaService.obtenerTendencia(1, USUARIO_ID);
 
@@ -161,12 +160,28 @@ class ImaTendenciaServiceTest {
     }
 
     @Test
+    void mezclaMesesConYSinPromedioSectorial() {
+        // Un mes elegible y el mes anterior sin promedio: solo el elegible dibuja línea sectorial,
+        // usando el mismo valor que /benchmark ya persistió en el agregado.
+        YearMonth mesAnterior = mesActual.minusMonths(1);
+        mockEmpresa();
+        when(imaSnapshotRepository.findVentana(any(), anyInt(), anyInt(), anyInt(), anyInt()))
+                .thenReturn(List.of(snapshot(mesAnterior, "60.0"), snapshot(mesActual, "72.0")));
+        mockAgregados(agregadoSinPromedio(mesAnterior, 3), agregadoConPromedio(mesActual, 6, "65.0"));
+
+        ImaTendenciaResponseDTO respuesta = imaTendenciaService.obtenerTendencia(2, USUARIO_ID);
+
+        assertThat(respuesta.getSerie().getFirst().getImaPromedioSector()).isNull();
+        assertThat(respuesta.getSerie().getLast().getImaPromedioSector()).isEqualByComparingTo("65.0");
+        assertThat(respuesta.isSinDatosSectoriales()).isFalse();
+    }
+
+    @Test
     void sinHistorialDevuelveSerieCompletaConPuntosNulos() {
-        mockUsuarioConEmpresa();
+        mockEmpresa();
         when(imaSnapshotRepository.findVentana(any(), anyInt(), anyInt(), anyInt(), anyInt()))
                 .thenReturn(List.of());
-        when(imaSnapshotRepository.promediarImaPorSector(any(), anyInt(), anyInt(), anyInt(), anyInt()))
-                .thenReturn(List.of());
+        mockAgregados();
 
         ImaTendenciaResponseDTO respuesta = imaTendenciaService.obtenerTendencia(6, USUARIO_ID);
 
@@ -178,31 +193,20 @@ class ImaTendenciaServiceTest {
     }
 
     @Test
-    void invocaAlDetectorDeEventosYPropagaSuResultado() {
-        mockUsuarioConEmpresa();
-        when(imaSnapshotRepository.findVentana(any(), anyInt(), anyInt(), anyInt(), anyInt()))
-                .thenReturn(List.of());
-        when(imaSnapshotRepository.promediarImaPorSector(any(), anyInt(), anyInt(), anyInt(), anyInt()))
-                .thenReturn(List.of());
-
-        ImaEventoDTO evento = ImaEventoDTO.builder()
-                .mes(mesActual.toString())
-                .tipo(TipoEventoIma.CRUCE_SECTOR)
-                .texto("En " + mesActual + " tu IMA superó el promedio de tu sector.")
-                .build();
-        when(imaEventosService.detectar(any(), any(), any(), any()))
-                .thenReturn(List.of(evento));
-
-        ImaTendenciaResponseDTO respuesta = imaTendenciaService.obtenerTendencia(12, USUARIO_ID);
-
-        verify(imaEventosService).detectar(eq(EMPRESA_ID), any(), any(), any());
-        assertThat(respuesta.getEventos()).containsExactly(evento);
+    void ventanaCeroEsRechazadaPorElServicio() {
+        assertThatThrownBy(() -> imaTendenciaService.obtenerTendencia(0, USUARIO_ID))
+                .isInstanceOf(ApiException.class);
     }
 
     @Test
-    void usuarioSinEmpresaLanzaEmpresaNoConfigurada() {
-        Usuario usuario = Usuario.builder().id(USUARIO_ID).build();
-        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario));
+    void ventanaMayorALaMaximaEsRechazadaPorElServicio() {
+        assertThatThrownBy(() -> imaTendenciaService.obtenerTendencia(13, USUARIO_ID))
+                .isInstanceOf(ApiException.class);
+    }
+
+    @Test
+    void propagaEmpresaNoConfiguradaDeImaService() {
+        when(imaService.empresaDe(USUARIO_ID)).thenThrow(ApiException.empresaNoConfigurada());
 
         assertThatThrownBy(() -> imaTendenciaService.obtenerTendencia(12, USUARIO_ID))
                 .isInstanceOf(ApiException.class);

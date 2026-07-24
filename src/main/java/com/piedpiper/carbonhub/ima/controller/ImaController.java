@@ -28,12 +28,15 @@ public class ImaController {
     private final ImaService imaService;
     private final ImaTendenciaService imaTendenciaService;
     private final ImaBenchmarkService imaBenchmarkService;
+    private final ImaTendenciaService imaTendenciaService;
 
-    public ImaController(ImaService imaService, ImaTendenciaService imaTendenciaService,
-                          ImaBenchmarkService imaBenchmarkService) {
+    public ImaController(ImaService imaService,
+                         ImaBenchmarkService imaBenchmarkService,
+                         ImaTendenciaService imaTendenciaService) {
         this.imaService = imaService;
         this.imaTendenciaService = imaTendenciaService;
         this.imaBenchmarkService = imaBenchmarkService;
+        this.imaTendenciaService = imaTendenciaService;
     }
 
     @GetMapping
@@ -59,6 +62,15 @@ public class ImaController {
         BenchmarkSectorialResponseDTO response =
                 imaBenchmarkService.obtenerBenchmark(periodo.anio(), periodo.mes(), usuarioId);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/tendencia")
+    public ResponseEntity<ImaTendenciaResponseDTO> obtenerTendencia(
+            Authentication authentication,
+            @RequestParam(required = false) Integer mesesAtras) {
+
+        UUID usuarioId = Autenticaciones.usuarioId(authentication);
+        return ResponseEntity.ok(imaTendenciaService.obtenerTendencia(mesesAtras, usuarioId));
     }
 
     private Periodo resolverPeriodo(Integer anio, Integer mes) {

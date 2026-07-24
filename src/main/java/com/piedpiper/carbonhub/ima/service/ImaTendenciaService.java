@@ -18,6 +18,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,8 +44,8 @@ public class ImaTendenciaService {
 
     @Transactional(readOnly = true)
     public ImaTendenciaResponseDTO obtenerTendencia(Integer mesesAtras, UUID usuarioId) {
-        int ventana = mesesAtras == null ? MESES_VENTANA_MAXIMA : mesesAtras;
-        Empresa empresa = resolverEmpresa(usuarioId);
+        int ventana = resolverVentana(mesesAtras);
+        Empresa empresa = imaService.empresaDe(usuarioId);
 
         YearMonth hasta = YearMonth.from(LocalDate.now());
         YearMonth desde = hasta.minusMonths(ventana - 1L);
@@ -63,6 +64,18 @@ public class ImaTendenciaService {
                 .build();
     }
 
+    /** Valida la ventana solicitada; ausente equivale a la ventana máxima. */
+    private int resolverVentana(Integer mesesAtras) {
+        if (mesesAtras == null) {
+            return MESES_VENTANA_MAXIMA;
+        }
+        if (mesesAtras < 1 || mesesAtras > MESES_VENTANA_MAXIMA) {
+            throw ApiException.periodoImaInvalido(
+                    "La ventana debe estar entre 1 y " + MESES_VENTANA_MAXIMA + " meses.");
+        }
+        return mesesAtras;
+    }
+
     /**
      * Construye un punto por cada mes de la ventana. Los meses sin dato quedan en null:
      * no se rellenan con ceros para que la gráfica no invente valores.
@@ -70,7 +83,7 @@ public class ImaTendenciaService {
     private List<ImaTendenciaPuntoDTO> construirSerie(YearMonth desde, int ventana,
                                                       Map<YearMonth, BigDecimal> imaPorMes,
                                                       Map<YearMonth, BigDecimal> promedioPorMes) {
-        List<ImaTendenciaPuntoDTO> serie = new java.util.ArrayList<>(ventana);
+        List<ImaTendenciaPuntoDTO> serie = new ArrayList<>(ventana);
         for (int i = 0; i < ventana; i++) {
             YearMonth periodo = desde.plusMonths(i);
             serie.add(ImaTendenciaPuntoDTO.builder()
@@ -93,18 +106,27 @@ public class ImaTendenciaService {
         return porMes;
     }
 
-    /** Solo se incluyen los meses en que el sector alcanzó el mínimo de empresas. */
-    private Map<YearMonth, BigDecimal> indexarPromediosSectoriales(Empresa empresa, YearMonth desde, YearMonth hasta) {
-        List<PromedioSectorialMensual> promedios = imaSnapshotRepository.promediarImaPorSector(
+    /**
+     * Toma el promedio sectorial ya persistido en AgregadoSectorial, que es la misma
+     * población filtrada (empresas elegibles, sin snapshots parciales) que expone
+     * ImaService en /api/ima y /api/ima/benchmark. Se descarta cualquier mes cuyo
+     * promedioIma sea null: ese null es exactamente la señal de que el sector no
+     * alcanzó el umbral de empresas elegibles, así que /tendencia no dibuja línea
+     * sectorial donde /benchmark tampoco la mostraría.
+     */
+    private Map<YearMonth, BigDecimal> indexarPromediosSectoriales(Empresa empresa,
+                                                                   YearMonth desde, YearMonth hasta) {
+        List<AgregadoSectorial> agregados = agregadoSectorialRepository.findVentana(
                 empresa.getSectorIndustrial(), desde.getYear(), desde.getMonthValue(),
                 hasta.getYear(), hasta.getMonthValue());
 
         Map<YearMonth, BigDecimal> porMes = new HashMap<>();
-        for (PromedioSectorialMensual promedio : promedios) {
-            if (promedio.getCantidadEmpresas() >= UMBRAL_EMPRESAS_SECTOR) {
-                porMes.put(YearMonth.of(promedio.getAnio(), promedio.getMes()),
-                        promedio.getPromedioIma().setScale(1, RoundingMode.HALF_UP));
+        for (AgregadoSectorial agregado : agregados) {
+            if (agregado.getPromedioIma() == null) {
+                continue;
             }
+            porMes.put(YearMonth.of(agregado.getAnio(), agregado.getMes()),
+                    agregado.getPromedioIma().setScale(1, RoundingMode.HALF_UP));
         }
         return porMes;
     }

@@ -62,6 +62,8 @@ class ImaControllerTest {
     @MockitoBean
     private ImaBenchmarkService imaBenchmarkService;
     @MockitoBean
+    private ImaTendenciaService imaTendenciaService;
+    @MockitoBean
     private JwtService jwtService;
     @MockitoBean
     private UsuarioRepository usuarioRepository;
