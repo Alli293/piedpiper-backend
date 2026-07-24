@@ -39,13 +39,28 @@ public class ApiException extends RuntimeException {
     }
 
     public static ApiException tokenVerificacionInvalido() {
-        return new ApiException(HttpStatus.NOT_FOUND,
-                "El enlace de verificación no es válido.");
+        return new ApiException(HttpStatus.GONE,
+                "Este enlace de verificación no es válido o expiró. Solicita uno nuevo.");
     }
 
-    public static ApiException tokenVerificacionExpirado() {
-        return new ApiException(HttpStatus.GONE,
-                "El enlace de verificación expiró. Solicita uno nuevo.");
+    public static ApiException tokenVerificacionMalFormado() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "El formato del enlace de verificación no es válido.");
+    }
+
+    public static ApiException correoYaVerificado() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Tu correo ya fue verificado. Inicia sesión.");
+    }
+
+    public static ApiException reenviosVerificacionExcedidos() {
+        return new ApiException(HttpStatus.TOO_MANY_REQUESTS,
+                "Has solicitado demasiados reenvíos. Intenta de nuevo en una hora.");
+    }
+
+    public static ApiException cuentaNoDisponible() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Esta cuenta no está disponible para verificación. Contacta a soporte.");
     }
 
     public static ApiException accesoDenegado(String mensaje) {
@@ -174,6 +189,11 @@ public class ApiException extends RuntimeException {
                 "Seleccione un combustible válido para este tipo de vehículo.");
     }
 
+    public static ApiException anioConsultaInvalido() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "El año indicado no es válido.");
+    }
+
     public static ApiException metodoTransporteNoSoportado() {
         return new ApiException(HttpStatus.BAD_REQUEST,
                 "Seleccione un método de transporte válido.");
@@ -184,6 +204,11 @@ public class ApiException extends RuntimeException {
                 "Categoría de emisión inválida.");
     }
 
+    public static ApiException ordenamientoAuditoresInvalido() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "El criterio de ordenamiento no es válido.");
+    }
+
     public static ApiException mesInvalido() {
         return new ApiException(HttpStatus.BAD_REQUEST,
                 "El mes debe estar entre 1 y 12.");
@@ -192,5 +217,9 @@ public class ApiException extends RuntimeException {
     public static ApiException limiteConflicto() {
         return new ApiException(HttpStatus.CONFLICT,
                 "Conflicto al guardar el límite. Intente nuevamente.");
+    }
+
+    public static ApiException periodoImaInvalido(String mensaje) {
+        return new ApiException(HttpStatus.BAD_REQUEST, mensaje);
     }
 }

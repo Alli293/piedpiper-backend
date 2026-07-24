@@ -1,14 +1,14 @@
 package com.piedpiper.carbonhub.emision.repository;
 
 import com.piedpiper.carbonhub.emision.models.entities.Emision;
-import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -45,6 +45,17 @@ public interface EmisionRepository extends JpaRepository<Emision, UUID> {
                                                             @Param("inicio") LocalDate inicio,
                                                             @Param("fin") LocalDate fin);
 
+    @Query("""
+            select e
+            from Emision e
+            where e.empresaId = :empresaId
+              and e.fechaActividad >= :inicio
+              and e.fechaActividad < :fin
+            """)
+    List<Emision> findAllByEmpresaIdAndPeriodo(@Param("empresaId") UUID empresaId,
+                                               @Param("inicio") LocalDate inicio,
+                                               @Param("fin") LocalDate fin);
+
     Optional<Emision> findByIdAndEmpresaId(UUID id, UUID empresaId);
 
     @Query("""
@@ -56,4 +67,35 @@ public interface EmisionRepository extends JpaRepository<Emision, UUID> {
             """)
     List<Object[]> sumarCarbonKgPorMes(@Param("empresaId") UUID empresaId,
                                        @Param("anio") int anio);
+
+    @Query("""
+            select count(distinct type(e))
+            from Emision e
+            where e.empresaId = :empresaId
+              and e.fechaActividad between :desde and :hasta
+            """)
+    long contarCategoriasConRegistro(@Param("empresaId") UUID empresaId,
+                                     @Param("desde") LocalDate desde,
+                                     @Param("hasta") LocalDate hasta);
+
+    @Query("""
+            select count(distinct (extract(year from e.fechaActividad) * 100 + extract(month from e.fechaActividad)))
+            from Emision e
+            where e.empresaId = :empresaId
+              and e.fechaActividad between :desde and :hasta
+            """)
+    long contarMesesConRegistro(@Param("empresaId") UUID empresaId,
+                                @Param("desde") LocalDate desde,
+                                @Param("hasta") LocalDate hasta);
+
+    @Query("""
+            select coalesce(sum(e.carbonKg), 0)
+            from Emision e
+            where e.empresaId = :empresaId
+              and e.fechaActividad between :desde and :hasta
+            """)
+    BigDecimal sumarCarbonKgEnVentana(@Param("empresaId") UUID empresaId,
+                                      @Param("desde") LocalDate desde,
+                                      @Param("hasta") LocalDate hasta);
+    List<Emision> findAllByEmpresaIdAndFechaActividadBetween(UUID empresaId, LocalDate desde, LocalDate hasta);
 }

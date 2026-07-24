@@ -11,6 +11,7 @@ import com.piedpiper.carbonhub.emision.models.dtos.RegistrarElectricidadRequestD
 import com.piedpiper.carbonhub.emision.models.dtos.RegistrarEnvioRequestDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.RegistrarFlotaRequestDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.RegistrarVueloRequestDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.EmisionResumenResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.TipoVehiculoResponseDTO;
 import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
 import com.piedpiper.carbonhub.emision.service.EmisionComparacionService;
@@ -19,12 +20,17 @@ import com.piedpiper.carbonhub.emision.service.EmisionElectricidadService;
 import com.piedpiper.carbonhub.emision.service.EmisionEnvioService;
 import com.piedpiper.carbonhub.emision.service.EmisionEvolucionService;
 import com.piedpiper.carbonhub.emision.service.EmisionFlotaService;
+import com.piedpiper.carbonhub.emision.service.EmisionResumenService;
 import com.piedpiper.carbonhub.emision.service.EmisionVueloService;
+import com.piedpiper.carbonhub.emision.service.ReporteHuellaPdfService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -48,23 +54,29 @@ public class EmisionController {
     private final EmisionEnvioService emisionEnvioService;
     private final EmisionVueloService emisionVueloService;
     private final EmisionConsultaService emisionConsultaService;
+    private final EmisionResumenService emisionResumenService;
     private final EmisionComparacionService emisionComparacionService;
     private final EmisionEvolucionService emisionEvolucionService;
+    private final ReporteHuellaPdfService reporteHuellaPdfService;
 
     public EmisionController(EmisionElectricidadService emisionElectricidadService,
                              EmisionFlotaService emisionFlotaService,
                              EmisionEnvioService emisionEnvioService,
                              EmisionVueloService emisionVueloService,
                              EmisionConsultaService emisionConsultaService,
+                             EmisionResumenService emisionResumenService,
                              EmisionComparacionService emisionComparacionService,
-                             EmisionEvolucionService emisionEvolucionService) {
+                             EmisionEvolucionService emisionEvolucionService,
+                             ReporteHuellaPdfService reporteHuellaPdfService) {
         this.emisionElectricidadService = emisionElectricidadService;
         this.emisionFlotaService = emisionFlotaService;
         this.emisionEnvioService = emisionEnvioService;
         this.emisionVueloService = emisionVueloService;
         this.emisionConsultaService = emisionConsultaService;
+        this.emisionResumenService = emisionResumenService;
         this.emisionComparacionService = emisionComparacionService;
         this.emisionEvolucionService = emisionEvolucionService;
+        this.reporteHuellaPdfService = reporteHuellaPdfService;
     }
 
     @GetMapping("/comparacion")
@@ -74,6 +86,21 @@ public class EmisionController {
         return ResponseEntity.ok(emisionComparacionService.comparar(
                 Autenticaciones.usuarioId(authentication),
                 anio));
+    }
+
+    @GetMapping("/reporte/pdf")
+    public ResponseEntity<byte[]> exportarReportePdf(
+            Authentication authentication,
+            @RequestParam Integer anio,
+            @RequestParam(required = false) Integer mes) {
+        byte[] pdf = reporteHuellaPdfService.generar(Autenticaciones.usuarioId(authentication), anio, mes);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                        .filename(reporteHuellaPdfService.nombreArchivo(anio, mes))
+                        .build()
+                        .toString())
+                .body(pdf);
     }
 
     @GetMapping
@@ -87,6 +114,15 @@ public class EmisionController {
                 normalizarCategoria(categoria),
                 anio,
                 mes));
+    }
+
+    @GetMapping("/resumen")
+    public ResponseEntity<EmisionResumenResponseDTO> resumen(
+            @RequestParam Integer anio,
+            @RequestParam(required = false) Integer mes,
+            Authentication authentication) {
+        return ResponseEntity.ok(
+                emisionResumenService.resumen(anio, mes, Autenticaciones.usuarioId(authentication)));
     }
 
     @GetMapping("/{id}")
