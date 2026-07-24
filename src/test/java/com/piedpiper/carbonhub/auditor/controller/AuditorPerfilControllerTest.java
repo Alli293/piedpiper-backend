@@ -3,6 +3,7 @@ package com.piedpiper.carbonhub.auditor.controller;
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
 import com.piedpiper.carbonhub.auth.service.JwtService;
 import com.piedpiper.carbonhub.auditor.models.dtos.PerfilAuditorResponseDTO;
+import com.piedpiper.carbonhub.auditor.models.dtos.ResultadoPerfil;
 import com.piedpiper.carbonhub.auditor.service.AuditorPerfilService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
@@ -70,7 +71,7 @@ class AuditorPerfilControllerTest {
 
     @Test
     @WithMockUser(username = AUDITOR_ID, roles = "AUDITOR_CERTIFICADO")
-    void auditorCertificadoActualizaPerfilDevuelve200() throws Exception {
+    void auditorCertificadoActualizaPerfilExistenteDevuelve200() throws Exception {
         PerfilAuditorResponseDTO responseDTO = new PerfilAuditorResponseDTO(
                 UUID.fromString(AUDITOR_ID),
                 List.of("HUELLA_CARBONO", "ENERGIA_RENOVABLE"),
@@ -79,7 +80,8 @@ class AuditorPerfilControllerTest {
                 "Auditor con experiencia en huella de carbono.",
                 Instant.now());
 
-        when(auditorPerfilService.actualizar(any(), any(), any())).thenReturn(responseDTO);
+        when(auditorPerfilService.actualizar(any(), any(), any()))
+                .thenReturn(new ResultadoPerfil(responseDTO, false));
 
         mockMvc.perform(put(BASE_URL)
                         .principal(new TestingAuthenticationToken(AUDITOR_ID, null, "ROLE_AUDITOR_CERTIFICADO"))
@@ -95,6 +97,29 @@ class AuditorPerfilControllerTest {
     }
 
     @Test
+    @WithMockUser(username = AUDITOR_ID, roles = "AUDITOR_CERTIFICADO")
+    void auditorCertificadoCreaPerfilNuevoDevuelve201() throws Exception {
+        PerfilAuditorResponseDTO responseDTO = new PerfilAuditorResponseDTO(
+                UUID.fromString(AUDITOR_ID),
+                List.of("HUELLA_CARBONO", "ENERGIA_RENOVABLE"),
+                List.of("SAN_JOSE", "HEREDIA"),
+                true,
+                "Auditor con experiencia en huella de carbono.",
+                Instant.now());
+
+        when(auditorPerfilService.actualizar(any(), any(), any()))
+                .thenReturn(new ResultadoPerfil(responseDTO, true));
+
+        mockMvc.perform(put(BASE_URL)
+                        .principal(new TestingAuthenticationToken(AUDITOR_ID, null, "ROLE_AUDITOR_CERTIFICADO"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_REQUEST_BODY))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.auditorId").value(AUDITOR_ID))
+                .andExpect(jsonPath("$.especialidades[0]").value("HUELLA_CARBONO"));
+    }
+
+    @Test
     @WithMockUser(username = AUDITOR_ID, roles = "USUARIO_GENERAL")
     void usuarioGeneralRecibe403() throws Exception {
         mockMvc.perform(put(BASE_URL)
@@ -105,7 +130,7 @@ class AuditorPerfilControllerTest {
     }
 
     @Test
-    void sinAutenticacionRechazaAcceso() throws Exception {
+    void sinAutenticacion_sliceSinFiltros_retorna500() throws Exception {
         // Sin SecurityContext, @PreAuthorize lanza AuthenticationCredentialsNotFoundException.
         // En producción el JwtAuthenticationFilter intercepta antes y retorna 401.
         // En este slice (addFilters=false + @EnableMethodSecurity), la excepción cae al

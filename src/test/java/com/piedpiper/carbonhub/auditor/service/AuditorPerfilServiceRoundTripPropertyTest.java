@@ -65,7 +65,7 @@ class AuditorPerfilServiceRoundTripPropertyTest {
         when(perfilAuditorRepository.save(any(PerfilAuditor.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        PerfilAuditorResponseDTO response = service.actualizar(id, id, dto);
+        PerfilAuditorResponseDTO response = service.actualizar(id, id, dto).dto();
 
         assertThat(response.getEspecialidades())
                 .containsExactlyInAnyOrderElementsOf(dto.getEspecialidades());

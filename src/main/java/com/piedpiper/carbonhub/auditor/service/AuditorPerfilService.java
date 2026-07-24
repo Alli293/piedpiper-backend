@@ -3,6 +3,7 @@ package com.piedpiper.carbonhub.auditor.service;
 import com.piedpiper.carbonhub.auditor.mappers.PerfilAuditorMapper;
 import com.piedpiper.carbonhub.auditor.models.dtos.ActualizarPerfilAuditorRequestDTO;
 import com.piedpiper.carbonhub.auditor.models.dtos.PerfilAuditorResponseDTO;
+import com.piedpiper.carbonhub.auditor.models.dtos.ResultadoPerfil;
 import com.piedpiper.carbonhub.auditor.models.entities.PerfilAuditor;
 import com.piedpiper.carbonhub.auditor.models.enums.EspecialidadAuditor;
 import com.piedpiper.carbonhub.auditor.models.enums.ProvinciaCR;
@@ -40,8 +41,8 @@ public class AuditorPerfilService {
     }
 
     @Transactional
-    public PerfilAuditorResponseDTO actualizar(UUID usuarioId, UUID auditorId,
-                                                ActualizarPerfilAuditorRequestDTO request) {
+    public ResultadoPerfil actualizar(UUID usuarioId, UUID auditorId,
+                                      ActualizarPerfilAuditorRequestDTO request) {
         // 1. Verificar propiedad: usuarioId == auditorId
         if (!usuarioId.equals(auditorId)) {
             throw ApiException.perfilNoPropio();
@@ -77,11 +78,13 @@ public class AuditorPerfilService {
             throw ApiException.zonasInvalidas(zonasInvalidas);
         }
 
-        // 5. Upsert PerfilAuditor
-        PerfilAuditor perfil = perfilAuditorRepository.findByAuditorId(auditorId)
-                .orElseGet(() -> PerfilAuditor.builder()
-                        .auditor(auditor)
-                        .build());
+        // 5. Upsert PerfilAuditor — determinar si es creación o actualización
+        var existente = perfilAuditorRepository.findByAuditorId(auditorId);
+        boolean creado = existente.isEmpty();
+
+        PerfilAuditor perfil = existente.orElseGet(() -> PerfilAuditor.builder()
+                .auditor(auditor)
+                .build());
 
         Set<EspecialidadAuditor> especialidades = request.getEspecialidades().stream()
                 .map(e -> Catalogos.desde(EspecialidadAuditor.class, e).orElseThrow())
@@ -99,7 +102,7 @@ public class AuditorPerfilService {
 
         perfil = perfilAuditorRepository.save(perfil);
 
-        // 6. Retornar DTO mapeado
-        return perfilAuditorMapper.aResponseDto(perfil);
+        // 6. Retornar resultado con flag de creación
+        return new ResultadoPerfil(perfilAuditorMapper.aResponseDto(perfil), creado);
     }
 }

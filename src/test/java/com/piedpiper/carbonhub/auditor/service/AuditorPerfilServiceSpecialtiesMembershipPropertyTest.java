@@ -3,6 +3,7 @@ package com.piedpiper.carbonhub.auditor.service;
 import com.piedpiper.carbonhub.auditor.mappers.PerfilAuditorMapper;
 import com.piedpiper.carbonhub.auditor.models.dtos.ActualizarPerfilAuditorRequestDTO;
 import com.piedpiper.carbonhub.auditor.models.dtos.PerfilAuditorResponseDTO;
+import com.piedpiper.carbonhub.auditor.models.dtos.ResultadoPerfil;
 import com.piedpiper.carbonhub.auditor.models.entities.PerfilAuditor;
 import com.piedpiper.carbonhub.auditor.models.enums.EspecialidadAuditor;
 import com.piedpiper.carbonhub.auditor.models.enums.ProvinciaCR;
@@ -108,7 +109,7 @@ class AuditorPerfilServiceSpecialtiesMembershipPropertyTest {
         );
 
         // Should NOT throw any exception related to membership validation
-        PerfilAuditorResponseDTO result = service.actualizar(id, id, dto);
+        ResultadoPerfil result = service.actualizar(id, id, dto);
         assertThat(result).isNotNull();
     }
 

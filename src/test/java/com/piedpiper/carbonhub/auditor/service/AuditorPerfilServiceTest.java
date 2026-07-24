@@ -3,6 +3,7 @@ package com.piedpiper.carbonhub.auditor.service;
 import com.piedpiper.carbonhub.auditor.mappers.PerfilAuditorMapper;
 import com.piedpiper.carbonhub.auditor.models.dtos.ActualizarPerfilAuditorRequestDTO;
 import com.piedpiper.carbonhub.auditor.models.dtos.PerfilAuditorResponseDTO;
+import com.piedpiper.carbonhub.auditor.models.dtos.ResultadoPerfil;
 import com.piedpiper.carbonhub.auditor.models.entities.PerfilAuditor;
 import com.piedpiper.carbonhub.auditor.models.enums.EspecialidadAuditor;
 import com.piedpiper.carbonhub.auditor.models.enums.ProvinciaCR;
@@ -233,7 +234,7 @@ class AuditorPerfilServiceTest {
         PerfilAuditorResponseDTO expected = responseEsperado();
         when(perfilAuditorMapper.aResponseDto(any())).thenReturn(expected);
 
-        PerfilAuditorResponseDTO result = service.actualizar(AUDITOR_ID, AUDITOR_ID, requestValido());
+        ResultadoPerfil result = service.actualizar(AUDITOR_ID, AUDITOR_ID, requestValido());
 
         ArgumentCaptor<PerfilAuditor> captor = ArgumentCaptor.forClass(PerfilAuditor.class);
         verify(perfilAuditorRepository).save(captor.capture());
@@ -248,7 +249,8 @@ class AuditorPerfilServiceTest {
         assertThat(saved.getActualizadoEn()).isNotNull();
         assertThat(saved.getAuditor().getId()).isEqualTo(AUDITOR_ID);
 
-        assertThat(result).isEqualTo(expected);
+        assertThat(result.dto()).isEqualTo(expected);
+        assertThat(result.creado()).isTrue();
     }
 
     // --- 8. Happy path (existing profile): updates existing, saves, returns mapped DTO ---
@@ -276,7 +278,7 @@ class AuditorPerfilServiceTest {
         PerfilAuditorResponseDTO expected = responseEsperado();
         when(perfilAuditorMapper.aResponseDto(any())).thenReturn(expected);
 
-        PerfilAuditorResponseDTO result = service.actualizar(AUDITOR_ID, AUDITOR_ID, requestValido());
+        ResultadoPerfil result = service.actualizar(AUDITOR_ID, AUDITOR_ID, requestValido());
 
         ArgumentCaptor<PerfilAuditor> captor = ArgumentCaptor.forClass(PerfilAuditor.class);
         verify(perfilAuditorRepository).save(captor.capture());
@@ -292,6 +294,7 @@ class AuditorPerfilServiceTest {
         assertThat(saved.getDescripcionProfesional()).isEqualTo("Auditor con experiencia en energía renovable.");
         assertThat(saved.getActualizadoEn()).isNotNull();
 
-        assertThat(result).isEqualTo(expected);
+        assertThat(result.dto()).isEqualTo(expected);
+        assertThat(result.creado()).isFalse();
     }
 }
