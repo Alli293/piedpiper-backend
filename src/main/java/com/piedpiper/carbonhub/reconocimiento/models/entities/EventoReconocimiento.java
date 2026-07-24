@@ -10,6 +10,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -20,7 +21,10 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "eventos_reconocimiento")
+@Table(name = "eventos_reconocimiento",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_eventos_reconocimiento_usuario_evento",
+                columnNames = {"usuario_id", "evento_generado"}))
 @Getter
 @Setter
 @Builder
