@@ -8,9 +8,6 @@ import com.piedpiper.carbonhub.ima.models.entities.AgregadoSectorial;
 import com.piedpiper.carbonhub.ima.models.entities.ImaSnapshot;
 import com.piedpiper.carbonhub.ima.repository.AgregadoSectorialRepository;
 import com.piedpiper.carbonhub.ima.repository.ImaSnapshotRepository;
-import com.piedpiper.carbonhub.ima.repository.ImaSnapshotRepository.PromedioSectorialMensual;
-import com.piedpiper.carbonhub.user.models.entities.Usuario;
-import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,10 +18,8 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -35,20 +30,20 @@ public class ImaTendenciaService {
 
     private final ImaSnapshotRepository imaSnapshotRepository;
     private final AgregadoSectorialRepository agregadoSectorialRepository;
-    private final UsuarioRepository usuarioRepository;
+    private final ImaService imaService;
 
     public ImaTendenciaService(ImaSnapshotRepository imaSnapshotRepository,
                                AgregadoSectorialRepository agregadoSectorialRepository,
-                               UsuarioRepository usuarioRepository) {
+                               ImaService imaService) {
         this.imaSnapshotRepository = imaSnapshotRepository;
         this.agregadoSectorialRepository = agregadoSectorialRepository;
-        this.usuarioRepository = usuarioRepository;
+        this.imaService = imaService;
     }
 
     @Transactional(readOnly = true)
     public ImaTendenciaResponseDTO obtenerTendencia(Integer mesesAtras, UUID usuarioId) {
         int ventana = resolverVentana(mesesAtras);
-        Empresa empresa = resolverEmpresa(usuarioId);
+        Empresa empresa = imaService.empresaDe(usuarioId);
 
         YearMonth hasta = YearMonth.from(LocalDate.now());
         YearMonth desde = hasta.minusMonths(ventana - 1L);
@@ -65,7 +60,6 @@ public class ImaTendenciaService {
                 .build();
     }
 
-    /** Valida la ventana solicitada; ausente equivale a la ventana máxima. */
     private int resolverVentana(Integer mesesAtras) {
         if (mesesAtras == null) {
             return MESES_VENTANA_MAXIMA;
@@ -77,10 +71,6 @@ public class ImaTendenciaService {
         return mesesAtras;
     }
 
-    /**
-     * Construye un punto por cada mes de la ventana. Los meses sin dato quedan en null:
-     * no se rellenan con ceros para que la gráfica no invente valores.
-     */
     private List<ImaTendenciaPuntoDTO> construirSerie(YearMonth desde, int ventana,
                                                       Map<YearMonth, BigDecimal> imaPorMes,
                                                       Map<YearMonth, BigDecimal> promedioPorMes) {
@@ -107,54 +97,21 @@ public class ImaTendenciaService {
         return porMes;
     }
 
-    /**
-     * Solo se incluyen los meses en que el sector alcanzó el mínimo de empresas elegibles.
-     * La elegibilidad se toma de AgregadoSectorial, que es la misma población que usa
-     * ImaService: así /tendencia nunca muestra línea sectorial en un período donde
-     * /api/ima informa que el sector no tiene suficientes empresas.
-     */
     private Map<YearMonth, BigDecimal> indexarPromediosSectoriales(Empresa empresa,
                                                                    YearMonth desde, YearMonth hasta) {
-        Set<YearMonth> periodosHabilitados = periodosConSectorElegible(empresa, desde, hasta);
-        if (periodosHabilitados.isEmpty()) {
-            return Map.of();
-        }
-
-        List<PromedioSectorialMensual> promedios = imaSnapshotRepository.promediarImaPorSector(
-                empresa.getSectorIndustrial(), desde.getYear(), desde.getMonthValue(),
-                hasta.getYear(), hasta.getMonthValue());
-
-        Map<YearMonth, BigDecimal> porMes = new HashMap<>();
-        for (PromedioSectorialMensual promedio : promedios) {
-            YearMonth periodo = YearMonth.of(promedio.getAnio(), promedio.getMes());
-            if (periodosHabilitados.contains(periodo)) {
-                porMes.put(periodo, promedio.getPromedioIma().setScale(1, RoundingMode.HALF_UP));
-            }
-        }
-        return porMes;
-    }
-
-    private Set<YearMonth> periodosConSectorElegible(Empresa empresa, YearMonth desde, YearMonth hasta) {
         List<AgregadoSectorial> agregados = agregadoSectorialRepository.findVentana(
                 empresa.getSectorIndustrial(), desde.getYear(), desde.getMonthValue(),
                 hasta.getYear(), hasta.getMonthValue());
 
-        Set<YearMonth> periodos = new HashSet<>();
+        Map<YearMonth, BigDecimal> porMes = new HashMap<>();
         for (AgregadoSectorial agregado : agregados) {
-            if (agregado.getCantidadEmpresas() != null
-                    && agregado.getCantidadEmpresas() >= ImaCalculos.UMBRAL_EMPRESAS_SECTOR) {
-                periodos.add(YearMonth.of(agregado.getAnio(), agregado.getMes()));
+            if (agregado.getPromedioIma() == null) {
+                continue;
             }
+            porMes.put(YearMonth.of(agregado.getAnio(), agregado.getMes()),
+                    agregado.getPromedioIma().setScale(1, RoundingMode.HALF_UP));
         }
-        return periodos;
+        return porMes;
     }
 
-    private Empresa resolverEmpresa(UUID usuarioId) {
-        Usuario usuario = usuarioRepository.findById(usuarioId)
-                .orElseThrow(() -> ApiException.errorInterno("No se pudo identificar al usuario autenticado."));
-        if (usuario.getEmpresa() == null || usuario.getEmpresa().getId() == null) {
-            throw ApiException.empresaNoConfigurada();
-        }
-        return usuario.getEmpresa();
-    }
 }
