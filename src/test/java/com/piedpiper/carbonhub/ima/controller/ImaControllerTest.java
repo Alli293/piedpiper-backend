@@ -8,6 +8,7 @@ import com.piedpiper.carbonhub.ima.models.dtos.ImaResponseDTO;
 import com.piedpiper.carbonhub.ima.models.enums.PosicionBenchmark;
 import com.piedpiper.carbonhub.ima.service.ImaBenchmarkService;
 import com.piedpiper.carbonhub.ima.service.ImaService;
+import com.piedpiper.carbonhub.ima.service.ImaTendenciaService;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.junit.jupiter.api.Test;
@@ -58,6 +59,8 @@ class ImaControllerTest {
     private ImaService imaService;
     @MockitoBean
     private ImaBenchmarkService imaBenchmarkService;
+    @MockitoBean
+    private ImaTendenciaService imaTendenciaService;
     @MockitoBean
     private JwtService jwtService;
     @MockitoBean
