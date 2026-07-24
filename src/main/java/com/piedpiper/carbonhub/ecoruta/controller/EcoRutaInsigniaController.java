@@ -2,7 +2,7 @@ package com.piedpiper.carbonhub.ecoruta.controller;
 
 import com.piedpiper.carbonhub.common.Autenticaciones;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.InsigniaUsuarioResponseDTO;
-import com.piedpiper.carbonhub.ecoruta.service.InsigniaEcoRutaService;
+import com.piedpiper.carbonhub.ecoruta.service.EcoRutaInsigniaService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -18,16 +18,16 @@ import java.util.UUID;
 @PreAuthorize("hasRole('USUARIO_INDIVIDUAL')")
 public class EcoRutaInsigniaController {
 
-    private final InsigniaEcoRutaService insigniaEcoRutaService;
+    private final EcoRutaInsigniaService ecoRutaInsigniaService;
 
-    public EcoRutaInsigniaController(InsigniaEcoRutaService insigniaEcoRutaService) {
-        this.insigniaEcoRutaService = insigniaEcoRutaService;
+    public EcoRutaInsigniaController(EcoRutaInsigniaService ecoRutaInsigniaService) {
+        this.ecoRutaInsigniaService = ecoRutaInsigniaService;
     }
 
     @GetMapping("/me")
     public ResponseEntity<List<InsigniaUsuarioResponseDTO>> listarObtenidas(
             Authentication authentication) {
         UUID usuarioId = Autenticaciones.usuarioId(authentication);
-        return ResponseEntity.ok(insigniaEcoRutaService.listarObtenidas(usuarioId));
+        return ResponseEntity.ok(ecoRutaInsigniaService.listarObtenidas(usuarioId));
     }
 }

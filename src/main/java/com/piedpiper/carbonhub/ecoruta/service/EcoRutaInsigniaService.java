@@ -21,16 +21,16 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
-public class InsigniaEcoRutaService {
+public class EcoRutaInsigniaService {
 
-    private static final Logger log = LoggerFactory.getLogger(InsigniaEcoRutaService.class);
+    private static final Logger log = LoggerFactory.getLogger(EcoRutaInsigniaService.class);
 
     private final UsuarioRepository usuarioRepository;
     private final InsigniaUsuarioRepository insigniaUsuarioRepository;
     private final CatalogoInsigniasEcoRuta catalogoInsigniasEcoRuta;
     private final InsigniaUsuarioMapper insigniaUsuarioMapper;
 
-    public InsigniaEcoRutaService(UsuarioRepository usuarioRepository,
+    public EcoRutaInsigniaService(UsuarioRepository usuarioRepository,
                                   InsigniaUsuarioRepository insigniaUsuarioRepository,
                                   CatalogoInsigniasEcoRuta catalogoInsigniasEcoRuta,
                                   InsigniaUsuarioMapper insigniaUsuarioMapper) {

@@ -24,14 +24,22 @@ public class HttpCertificacionEventosClient implements CertificacionEventosClien
 
     private final RestClient restClient;
     private final boolean urlConfigurada;
+    private final boolean apiKeyConfigurada;
     private final String eventosPath;
+    private final String apiKeyHeader;
+    private final String apiKey;
 
     public HttpCertificacionEventosClient(
             @Value("${certificacion.url-base:}") String urlBase,
             @Value("${certificacion.eventos-path:/api/certificacion/eventos}") String eventosPath,
-            @Value("${certificacion.tiempo-espera-ms:10000}") int tiempoEsperaMs) {
+            @Value("${certificacion.tiempo-espera-ms:10000}") int tiempoEsperaMs,
+            @Value("${certificacion.api-key-header:X-Certificacion-Api-Key}") String apiKeyHeader,
+            @Value("${certificacion.api-key:}") String apiKey) {
         this.urlConfigurada = urlBase != null && !urlBase.isBlank();
+        this.apiKeyConfigurada = apiKey != null && !apiKey.isBlank();
         this.eventosPath = eventosPath;
+        this.apiKeyHeader = apiKeyHeader;
+        this.apiKey = apiKey;
 
         ClientHttpRequestFactorySettings settings = ClientHttpRequestFactorySettings.defaults()
                 .withConnectTimeout(Duration.ofMillis(tiempoEsperaMs))
@@ -53,9 +61,14 @@ public class HttpCertificacionEventosClient implements CertificacionEventosClien
             throw new CertificacionNoDisponibleException(
                     "El modulo de Certificacion no tiene una URL configurada.");
         }
+        if (!apiKeyConfigurada) {
+            throw new CertificacionNoDisponibleException(
+                    "El modulo de Certificacion no tiene una clave API configurada.");
+        }
         try {
             restClient.post()
                     .uri(eventosPath)
+                    .header(apiKeyHeader, apiKey)
                     .body(request)
                     .retrieve()
                     .toBodilessEntity();

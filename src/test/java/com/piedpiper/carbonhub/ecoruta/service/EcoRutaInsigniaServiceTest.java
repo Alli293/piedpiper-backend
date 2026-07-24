@@ -28,7 +28,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class InsigniaEcoRutaServiceTest {
+class EcoRutaInsigniaServiceTest {
 
     private static final UUID USUARIO_ID = UUID.fromString("41ce47ab-a46c-4306-8c46-2688dc97fa73");
     private static final Instant FECHA_EVENTO = Instant.parse("2026-07-15T20:32:00Z");
@@ -38,11 +38,11 @@ class InsigniaEcoRutaServiceTest {
     @Mock
     private InsigniaUsuarioRepository insigniaUsuarioRepository;
 
-    private InsigniaEcoRutaService service;
+    private EcoRutaInsigniaService service;
 
     @BeforeEach
     void setUp() {
-        service = new InsigniaEcoRutaService(usuarioRepository, insigniaUsuarioRepository,
+        service = new EcoRutaInsigniaService(usuarioRepository, insigniaUsuarioRepository,
                 new CatalogoInsigniasEcoRuta(), new InsigniaUsuarioMapperImpl());
     }
 
