@@ -22,5 +22,6 @@ public class ImaResponseDTO {
     private String motivoParcial;
     private BigDecimal intensidad;
     private Instant calculatedAt;
-    private String interpretacionIa;
+    private String interpretacion;
+    private String siguientePaso;
 }

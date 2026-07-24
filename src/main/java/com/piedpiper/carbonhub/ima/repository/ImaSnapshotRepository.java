@@ -14,6 +14,8 @@ public interface ImaSnapshotRepository extends JpaRepository<ImaSnapshot, UUID> 
 
     Optional<ImaSnapshot> findByEmpresaIdAndAnioAndMes(UUID empresaId, Integer anio, Integer mes);
 
+    List<ImaSnapshot> findByInterpretacion(String interpretacion);
+
     void deleteAllByEmpresaId(UUID empresaId);
 
     /**
