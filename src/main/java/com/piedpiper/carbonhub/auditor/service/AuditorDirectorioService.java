@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -37,7 +38,7 @@ public class AuditorDirectorioService {
     private static final BigDecimal CALIFICACION_MINIMA = BigDecimal.valueOf(1);
     private static final BigDecimal CALIFICACION_MAXIMA = BigDecimal.valueOf(5);
     private static final Set<EspecialidadAuditor> TODAS_ESPECIALIDADES =
-            EnumSet.allOf(EspecialidadAuditor.class);
+            Collections.unmodifiableSet(EnumSet.allOf(EspecialidadAuditor.class));
 
     private final PerfilAuditorRepository perfilAuditorRepository;
     private final PerfilAuditorMapper mapper;
