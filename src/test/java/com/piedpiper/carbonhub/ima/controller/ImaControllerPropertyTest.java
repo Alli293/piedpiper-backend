@@ -40,9 +40,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 /**
- * Property-based tests for ImaController.
+ * Tests basados en propiedades para ImaController.
  *
- * Validates: Requirements 3.3, 3.4, 3.5
+ * Valida: Requisitos 3.3, 3.4, 3.5
  */
 class ImaControllerPropertyTest {
 
@@ -51,7 +51,7 @@ class ImaControllerPropertyTest {
     private ImaController controller;
     private Authentication authentication;
 
-    // For Property 8 tests
+    // Configuración simple de mocks para Property 7 tests
     private ImaSnapshotRepository imaSnapshotRepository;
     private AgregadoSectorialRepository agregadoSectorialRepository;
     private EmisionRepository emisionRepository;
@@ -65,14 +65,14 @@ class ImaControllerPropertyTest {
 
     @BeforeTry
     void setUp() {
-        // Simple mock for Property 7 tests
+        // Mock simple para tests de Property 7
         imaService = Mockito.mock(ImaService.class);
         imaBenchmarkService = Mockito.mock(ImaBenchmarkService.class);
         controller = new ImaController(imaService, imaBenchmarkService, Mockito.mock(com.piedpiper.carbonhub.ima.service.ImaTendenciaService.class));
         authentication = new TestingAuthenticationToken(
                 "41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA");
 
-        // Full setup for Property 8 tests
+        // Configuración completa para tests de Property 8
         imaSnapshotRepository = Mockito.mock(ImaSnapshotRepository.class);
         agregadoSectorialRepository = Mockito.mock(AgregadoSectorialRepository.class);
         emisionRepository = Mockito.mock(EmisionRepository.class);
@@ -130,15 +130,15 @@ class ImaControllerPropertyTest {
 
     // =========================================================================
     // Property 7: Parámetros de período inválidos producen HTTP 400
-    // Validates: Requirements 3.3
+    // Valida: Requisitos 3.3
     // =========================================================================
 
     /**
-     * Property 7a: Year below 2000 produces HTTP 400.
+     * Property 7a: Año menor a 2000 produce HTTP 400.
      *
-     * For any anio < 2000, the controller SHALL throw ApiException with BAD_REQUEST.
+     * Para cualquier anio < 2000, el controller lanza ApiException con BAD_REQUEST.
      *
-     * **Validates: Requirements 3.3**
+     * **Valida: Requisitos 3.3**
      */
     @Property(tries = 100)
     @Tag("property-7")
@@ -156,11 +156,11 @@ class ImaControllerPropertyTest {
     }
 
     /**
-     * Property 7b: Year above current year produces HTTP 400.
+     * Property 7b: Año mayor al actual produce HTTP 400.
      *
-     * For any anio > current year, the controller SHALL throw ApiException with BAD_REQUEST.
+     * Para cualquier anio > año actual, el controller lanza ApiException con BAD_REQUEST.
      *
-     * **Validates: Requirements 3.3**
+     * **Valida: Requisitos 3.3**
      */
     @Property(tries = 100)
     @Tag("property-7")
@@ -178,11 +178,11 @@ class ImaControllerPropertyTest {
     }
 
     /**
-     * Property 7c: Month below 1 produces HTTP 400.
+     * Property 7c: Mes menor a 1 produce HTTP 400.
      *
-     * For any mes < 1, the controller SHALL throw ApiException with BAD_REQUEST.
+     * Para cualquier mes < 1, el controller lanza ApiException con BAD_REQUEST.
      *
-     * **Validates: Requirements 3.3**
+     * **Valida: Requisitos 3.3**
      */
     @Property(tries = 100)
     @Tag("property-7")
@@ -200,11 +200,11 @@ class ImaControllerPropertyTest {
     }
 
     /**
-     * Property 7d: Month above 12 produces HTTP 400.
+     * Property 7d: Mes mayor a 12 produce HTTP 400.
      *
-     * For any mes > 12, the controller SHALL throw ApiException with BAD_REQUEST.
+     * Para cualquier mes > 12, el controller lanza ApiException con BAD_REQUEST.
      *
-     * **Validates: Requirements 3.3**
+     * **Valida: Requisitos 3.3**
      */
     @Property(tries = 100)
     @Tag("property-7")
@@ -222,12 +222,11 @@ class ImaControllerPropertyTest {
     }
 
     /**
-     * Property 7e: Future period (same year, month > current month) produces HTTP 400.
+     * Property 7e: Período futuro (mismo año, mes > mes actual) produce HTTP 400.
      *
-     * For the current year with mes > current month, the controller SHALL throw
-     * ApiException with BAD_REQUEST.
+     * Para el año actual con mes > mes actual, el controller lanza ApiException con BAD_REQUEST.
      *
-     * **Validates: Requirements 3.3**
+     * **Valida: Requisitos 3.3**
      */
     @Property(tries = 100)
     @Tag("property-7")
@@ -246,15 +245,15 @@ class ImaControllerPropertyTest {
 
     // =========================================================================
     // Property 8: Interpretación persistida se retorna íntegramente en la respuesta
-    // Validates: Requirements 3.4, 3.5
+    // Valida: Requisitos 3.4, 3.5
     // =========================================================================
 
     /**
-     * Property 8: For any ImaSnapshot with interpretation persisted (real value
-     * or "No disponible"), the response from obtenerIma SHALL contain the fields
-     * `interpretacion` and `siguientePaso` with exactly the stored values.
+     * Property 8: Para cualquier ImaSnapshot con interpretación persistida (valor real
+     * o "No disponible"), la respuesta de obtenerIma contiene los campos
+     * `interpretacion` y `siguientePaso` con exactamente los valores almacenados.
      *
-     * **Validates: Requirements 3.4, 3.5**
+     * **Valida: Requisitos 3.4, 3.5**
      */
     @Property(tries = 100)
     @Tag("property-8")
@@ -286,18 +285,18 @@ class ImaControllerPropertyTest {
         ImaResponseDTO result = imaServiceReal.obtenerIma(anio, mes, usuarioId);
 
         assertThat(result.getInterpretacion())
-                .as("Response interpretacion must match persisted value exactly")
+                .as("La interpretacion en la respuesta debe coincidir exactamente con el valor persistido")
                 .isEqualTo(interpretacion);
         assertThat(result.getSiguientePaso())
-                .as("Response siguientePaso must match persisted value exactly")
+                .as("El siguientePaso en la respuesta debe coincidir exactamente con el valor persistido")
                 .isEqualTo(siguientePaso);
     }
 
     /**
-     * Property 8b: Specifically for "No disponible" values, the response
-     * SHALL contain "No disponible" exactly as stored.
+     * Property 8b: Específicamente para valores "No disponible", la respuesta
+     * contiene "No disponible" exactamente como está persistido.
      *
-     * **Validates: Requirements 3.4, 3.5**
+     * **Valida: Requisitos 3.4, 3.5**
      */
     @Property(tries = 100)
     @Tag("property-8")
@@ -326,15 +325,15 @@ class ImaControllerPropertyTest {
         ImaResponseDTO result = imaServiceReal.obtenerIma(anio, mes, usuarioId);
 
         assertThat(result.getInterpretacion())
-                .as("Response should return 'No disponible' exactly as persisted")
+                .as("Debe retornar 'No disponible' exactamente como está persistido")
                 .isEqualTo("No disponible");
         assertThat(result.getSiguientePaso())
-                .as("Response should return 'No disponible' exactly as persisted")
+                .as("Debe retornar 'No disponible' exactamente como está persistido")
                 .isEqualTo("No disponible");
     }
 
     // =========================================================================
-    // Custom Arbitraries
+    // Arbitraries personalizados
     // =========================================================================
 
     @Provide
@@ -347,8 +346,8 @@ class ImaControllerPropertyTest {
     Arbitrary<Integer> mesFuturoMismoAnio() {
         int currentMonth = LocalDate.now().getMonthValue();
         if (currentMonth >= 12) {
-            // If current month is December, no valid future month in same year within 1-12 range
-            // Generate month 13+ which triggers month-out-of-range validation before future check
+            // Si el mes actual es diciembre, no hay mes futuro válido en el mismo año dentro de 1-12
+            // Genera mes 13+ que dispara validación de rango antes de la validación de futuro
             return Arbitraries.integers().between(13, 13);
         }
         return Arbitraries.integers().between(currentMonth + 1, 12);

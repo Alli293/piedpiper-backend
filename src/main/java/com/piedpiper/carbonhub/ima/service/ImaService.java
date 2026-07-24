@@ -150,6 +150,8 @@ public class ImaService {
                 .parcial(parcial)
                 .motivoParcial(motivoParcial)
                 .intensidad(intensidadToneladas)
+                .interpretacion(ImaInterpretacionService.NO_DISPONIBLE)
+                .siguientePaso(ImaInterpretacionService.NO_DISPONIBLE)
                 .calculatedAt(now)
                 .build();
 
