@@ -39,7 +39,7 @@ public class CertificacionApiKeyFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         return !HttpMethod.POST.matches(request.getMethod())
-                || !EVENTOS_CERTIFICACION_PATH.equals(request.getServletPath());
+                || !esEndpointEventosCertificacion(request);
     }
 
     @Override
@@ -61,6 +61,20 @@ public class CertificacionApiKeyFilter extends OncePerRequestFilter {
 
     private boolean apiKeyConfigurada() {
         return !apiKey.isBlank();
+    }
+
+    private boolean esEndpointEventosCertificacion(HttpServletRequest request) {
+        String servletPath = request.getServletPath();
+        if (EVENTOS_CERTIFICACION_PATH.equals(servletPath)) {
+            return true;
+        }
+
+        String contextPath = request.getContextPath();
+        String requestUri = request.getRequestURI();
+        if (contextPath != null && !contextPath.isBlank() && requestUri.startsWith(contextPath)) {
+            requestUri = requestUri.substring(contextPath.length());
+        }
+        return EVENTOS_CERTIFICACION_PATH.equals(requestUri);
     }
 
     private boolean claveValida(String claveRecibida) {

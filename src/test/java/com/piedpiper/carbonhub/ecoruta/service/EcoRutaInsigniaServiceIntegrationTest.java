@@ -21,8 +21,6 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.UUID;
-
 import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.mockito.Mockito.doReturn;
 
@@ -65,7 +63,6 @@ class EcoRutaInsigniaServiceIntegrationTest {
 
     private Usuario usuarioActivo() {
         return Usuario.builder()
-                .id(UUID.randomUUID())
                 .email("usuario.ecoruta@carbonhub.test")
                 .rol(Rol.USUARIO_INDIVIDUAL)
                 .estado(EstadoUsuario.ACTIVO)

@@ -90,6 +90,24 @@ class CertificacionApiKeyFilterTest {
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
     }
 
+    @Test
+    void apiKeyValidaAutenticaAunqueServletPathVengaVacio() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest(
+                HttpMethod.POST.name(), "/api/certificacion/eventos");
+        request.setServletPath("");
+        request.addHeader(HEADER_API_KEY, API_KEY_VALIDA);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        AtomicBoolean filtroSiguienteInvocado = new AtomicBoolean(false);
+        FilterChain filterChain = (servletRequest, servletResponse) ->
+                filtroSiguienteInvocado.set(true);
+
+        filter.doFilter(request, response, filterChain);
+
+        assertThat(filtroSiguienteInvocado).isTrue();
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNotNull();
+    }
+
     private MockHttpServletRequest requestCertificacion() {
         MockHttpServletRequest request = new MockHttpServletRequest(
                 HttpMethod.POST.name(), "/api/certificacion/eventos");
