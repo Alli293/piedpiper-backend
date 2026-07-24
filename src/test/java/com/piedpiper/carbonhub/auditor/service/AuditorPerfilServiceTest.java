@@ -5,10 +5,12 @@ import com.piedpiper.carbonhub.auditor.models.dtos.ActualizarPerfilAuditorReques
 import com.piedpiper.carbonhub.auditor.models.dtos.PerfilAuditorResponseDTO;
 import com.piedpiper.carbonhub.auditor.models.entities.PerfilAuditor;
 import com.piedpiper.carbonhub.auditor.models.enums.EspecialidadAuditor;
+import com.piedpiper.carbonhub.auditor.models.enums.ProvinciaCR;
 import com.piedpiper.carbonhub.auditor.repository.PerfilAuditorRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
+import com.piedpiper.carbonhub.user.models.enums.Rol;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.junit.jupiter.api.Test;
@@ -63,6 +65,7 @@ class AuditorPerfilServiceTest {
         return Usuario.builder()
                 .id(AUDITOR_ID)
                 .estado(EstadoUsuario.ACTIVO)
+                .rol(Rol.AUDITOR_CERTIFICADO)
                 .build();
     }
 
@@ -70,6 +73,7 @@ class AuditorPerfilServiceTest {
         return Usuario.builder()
                 .id(AUDITOR_ID)
                 .estado(estado)
+                .rol(Rol.AUDITOR_CERTIFICADO)
                 .build();
     }
 
@@ -77,7 +81,7 @@ class AuditorPerfilServiceTest {
         return new PerfilAuditorResponseDTO(
                 AUDITOR_ID,
                 List.of("AGROINDUSTRIA", "ENERGIA_RENOVABLE"),
-                List.of("SAN_JOSE", "HEREDIA"),
+                List.of("HEREDIA", "SAN_JOSE"),
                 true,
                 "Auditor con experiencia en energía renovable.",
                 Instant.now()
@@ -140,7 +144,32 @@ class AuditorPerfilServiceTest {
         verify(perfilAuditorRepository, never()).save(any());
     }
 
-    // --- 4. Catalog membership: invalid especialidad → ApiException BAD_REQUEST ---
+    // --- 4. Role check: ACTIVO but not AUDITOR_CERTIFICADO → ApiException FORBIDDEN ---
+
+    @Test
+    void roleCheck_activoNoAuditor_lanzaForbidden() {
+        Usuario usuarioGeneral = Usuario.builder()
+                .id(AUDITOR_ID)
+                .estado(EstadoUsuario.ACTIVO)
+                .rol(Rol.USUARIO_GENERAL)
+                .build();
+
+        when(usuarioRepository.findById(AUDITOR_ID))
+                .thenReturn(Optional.of(usuarioGeneral));
+
+        assertThatThrownBy(() -> service.actualizar(AUDITOR_ID, AUDITOR_ID, requestValido()))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> {
+                    ApiException apiEx = (ApiException) ex;
+                    assertThat(apiEx.getStatus()).isEqualTo(HttpStatus.FORBIDDEN);
+                    assertThat(apiEx.getMessage()).isEqualTo(
+                            "Solo usuarios con rol AUDITOR_CERTIFICADO pueden gestionar su perfil.");
+                });
+
+        verify(perfilAuditorRepository, never()).save(any());
+    }
+
+    // --- 5. Catalog membership: invalid especialidad → ApiException BAD_REQUEST ---
 
     @Test
     void catalogCheck_especialidadInvalida_lanzaBadRequest() {
@@ -165,7 +194,7 @@ class AuditorPerfilServiceTest {
         verify(perfilAuditorRepository, never()).save(any());
     }
 
-    // --- 5. Catalog membership: invalid zona → ApiException BAD_REQUEST ---
+    // --- 6. Catalog membership: invalid zona → ApiException BAD_REQUEST ---
 
     @Test
     void catalogCheck_zonaInvalida_lanzaBadRequest() {
@@ -190,7 +219,7 @@ class AuditorPerfilServiceTest {
         verify(perfilAuditorRepository, never()).save(any());
     }
 
-    // --- 6. Happy path (new profile): creates new, saves, returns mapped DTO ---
+    // --- 7. Happy path (new profile): creates new, saves, returns mapped DTO ---
 
     @Test
     void happyPath_perfilNuevo_creaYRetornaDto() {
@@ -200,8 +229,6 @@ class AuditorPerfilServiceTest {
                 .thenReturn(Optional.empty());
         when(perfilAuditorRepository.save(any()))
                 .thenAnswer(invocation -> invocation.getArgument(0));
-        when(perfilAuditorMapper.listToCsv(List.of("SAN_JOSE", "HEREDIA")))
-                .thenReturn("SAN_JOSE,HEREDIA");
 
         PerfilAuditorResponseDTO expected = responseEsperado();
         when(perfilAuditorMapper.aResponseDto(any())).thenReturn(expected);
@@ -214,7 +241,8 @@ class AuditorPerfilServiceTest {
 
         assertThat(saved.getEspecialidades()).containsExactlyInAnyOrder(
                 EspecialidadAuditor.ENERGIA_RENOVABLE, EspecialidadAuditor.AGROINDUSTRIA);
-        assertThat(saved.getZonasCobertura()).isEqualTo("SAN_JOSE,HEREDIA");
+        assertThat(saved.getZonasCobertura()).containsExactlyInAnyOrder(
+                ProvinciaCR.SAN_JOSE, ProvinciaCR.HEREDIA);
         assertThat(saved.isDisponible()).isTrue();
         assertThat(saved.getDescripcionProfesional()).isEqualTo("Auditor con experiencia en energía renovable.");
         assertThat(saved.getActualizadoEn()).isNotNull();
@@ -223,7 +251,7 @@ class AuditorPerfilServiceTest {
         assertThat(result).isEqualTo(expected);
     }
 
-    // --- 7. Happy path (existing profile): updates existing, saves, returns mapped DTO ---
+    // --- 8. Happy path (existing profile): updates existing, saves, returns mapped DTO ---
 
     @Test
     void happyPath_perfilExistente_actualizaYRetornaDto() {
@@ -232,7 +260,7 @@ class AuditorPerfilServiceTest {
                 .id(UUID.randomUUID())
                 .auditor(auditor)
                 .especialidades(new HashSet<>(Set.of(EspecialidadAuditor.MANUFACTURA)))
-                .zonasCobertura("CARTAGO")
+                .zonasCobertura(new HashSet<>(Set.of(ProvinciaCR.CARTAGO)))
                 .disponible(false)
                 .descripcionProfesional("Descripción anterior")
                 .actualizadoEn(Instant.now().minusSeconds(3600))
@@ -244,8 +272,6 @@ class AuditorPerfilServiceTest {
                 .thenReturn(Optional.of(perfilExistente));
         when(perfilAuditorRepository.save(any()))
                 .thenAnswer(invocation -> invocation.getArgument(0));
-        when(perfilAuditorMapper.listToCsv(List.of("SAN_JOSE", "HEREDIA")))
-                .thenReturn("SAN_JOSE,HEREDIA");
 
         PerfilAuditorResponseDTO expected = responseEsperado();
         when(perfilAuditorMapper.aResponseDto(any())).thenReturn(expected);
@@ -260,7 +286,8 @@ class AuditorPerfilServiceTest {
         assertThat(saved.getId()).isEqualTo(perfilExistente.getId());
         assertThat(saved.getEspecialidades()).containsExactlyInAnyOrder(
                 EspecialidadAuditor.ENERGIA_RENOVABLE, EspecialidadAuditor.AGROINDUSTRIA);
-        assertThat(saved.getZonasCobertura()).isEqualTo("SAN_JOSE,HEREDIA");
+        assertThat(saved.getZonasCobertura()).containsExactlyInAnyOrder(
+                ProvinciaCR.SAN_JOSE, ProvinciaCR.HEREDIA);
         assertThat(saved.isDisponible()).isTrue();
         assertThat(saved.getDescripcionProfesional()).isEqualTo("Auditor con experiencia en energía renovable.");
         assertThat(saved.getActualizadoEn()).isNotNull();

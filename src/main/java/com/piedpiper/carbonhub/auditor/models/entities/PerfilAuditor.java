@@ -86,8 +86,12 @@ public class PerfilAuditor {
     @Builder.Default
     private Set<EspecialidadAuditor> especialidades = new HashSet<>();
 
-    @Column(name = "zonas_cobertura", length = 500)
-    private String zonasCobertura;
+    @ElementCollection(targetClass = ProvinciaCR.class)
+    @Enumerated(EnumType.STRING)
+    @CollectionTable(name = "perfil_auditor_zonas", joinColumns = @JoinColumn(name = "perfil_auditor_id"))
+    @Column(name = "zona")
+    @Builder.Default
+    private Set<ProvinciaCR> zonasCobertura = new HashSet<>();
 
     @Column(name = "descripcion_profesional", length = 500)
     private String descripcionProfesional;

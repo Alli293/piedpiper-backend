@@ -106,20 +106,14 @@ class AuditorPerfilControllerTest {
 
     @Test
     void sinAutenticacionRechazaAcceso() throws Exception {
-        // Sin SecurityContext, @PreAuthorize rechaza la petición.
-        // En producción el JwtAuthenticationFilter retorna 401 antes de llegar al controller;
-        // en este slice, la ausencia de filtros implica que el framework lanza
-        // AuthenticationCredentialsNotFoundException capturada por el handler genérico.
+        // Sin SecurityContext, @PreAuthorize lanza AuthenticationCredentialsNotFoundException.
+        // En producción el JwtAuthenticationFilter intercepta antes y retorna 401.
+        // En este slice (addFilters=false + @EnableMethodSecurity), la excepción cae al
+        // handler genérico → 500. El comportamiento real de rechazo queda validado.
         mockMvc.perform(put(BASE_URL)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(VALID_REQUEST_BODY))
-                .andExpect(result -> {
-                    int status = result.getResponse().getStatus();
-                    // Acepta 401 o 500 (según configuración de test slice)
-                    org.junit.jupiter.api.Assertions.assertTrue(
-                            status == 401 || status == 403 || status == 500,
-                            "Se esperaba rechazo (401/403/500) pero fue: " + status);
-                });
+                .andExpect(status().isInternalServerError());
     }
 
     @Test

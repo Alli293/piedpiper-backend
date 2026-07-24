@@ -1,7 +1,7 @@
 package com.piedpiper.carbonhub.common;
 
 import com.piedpiper.carbonhub.auditor.models.enums.EspecialidadAuditor;
-import com.piedpiper.carbonhub.auditor.models.enums.ZonaCobertura;
+import com.piedpiper.carbonhub.auditor.models.enums.ProvinciaCR;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,7 +24,7 @@ public class CatalogoController {
 
     @GetMapping("/zonas")
     public ResponseEntity<List<CatalogoItemDTO>> listarZonasCobertura() {
-        List<CatalogoItemDTO> items = Arrays.stream(ZonaCobertura.values())
+        List<CatalogoItemDTO> items = Arrays.stream(ProvinciaCR.values())
                 .map(e -> new CatalogoItemDTO(e.name(), CatalogoItemDTO.etiquetaDesdeEnum(e.name())))
                 .toList();
         return ResponseEntity.ok(items);

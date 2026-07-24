@@ -3,11 +3,12 @@ package com.piedpiper.carbonhub.auditor.service;
 import com.piedpiper.carbonhub.auditor.mappers.PerfilAuditorMapper;
 import com.piedpiper.carbonhub.auditor.models.dtos.ActualizarPerfilAuditorRequestDTO;
 import com.piedpiper.carbonhub.auditor.models.enums.EspecialidadAuditor;
-import com.piedpiper.carbonhub.auditor.models.enums.ZonaCobertura;
+import com.piedpiper.carbonhub.auditor.models.enums.ProvinciaCR;
 import com.piedpiper.carbonhub.auditor.repository.PerfilAuditorRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
+import com.piedpiper.carbonhub.user.models.enums.Rol;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import net.jqwik.api.Arbitraries;
@@ -47,13 +48,14 @@ class AuditorPerfilServiceNonActiveStatePropertyTest {
         Usuario usuario = Usuario.builder()
                 .id(id)
                 .estado(estado)
+                .rol(Rol.AUDITOR_CERTIFICADO)
                 .build();
 
         when(usuarioRepository.findById(id)).thenReturn(Optional.of(usuario));
 
         ActualizarPerfilAuditorRequestDTO dto = new ActualizarPerfilAuditorRequestDTO(
                 List.of(EspecialidadAuditor.ENERGIA_RENOVABLE.name()),
-                List.of(ZonaCobertura.SAN_JOSE.name()),
+                List.of(ProvinciaCR.SAN_JOSE.name()),
                 true,
                 "Descripción de prueba"
         );

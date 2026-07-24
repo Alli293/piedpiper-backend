@@ -3,11 +3,12 @@ package com.piedpiper.carbonhub.auditor.service;
 import com.piedpiper.carbonhub.auditor.mappers.PerfilAuditorMapper;
 import com.piedpiper.carbonhub.auditor.models.dtos.ActualizarPerfilAuditorRequestDTO;
 import com.piedpiper.carbonhub.auditor.models.enums.EspecialidadAuditor;
-import com.piedpiper.carbonhub.auditor.models.enums.ZonaCobertura;
+import com.piedpiper.carbonhub.auditor.models.enums.ProvinciaCR;
 import com.piedpiper.carbonhub.auditor.repository.PerfilAuditorRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
+import com.piedpiper.carbonhub.user.models.enums.Rol;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import net.jqwik.api.Arbitraries;
@@ -36,7 +37,7 @@ import static org.mockito.Mockito.when;
 // Validates: Requirements 3.3, 3.4
 class AuditorPerfilServiceZonesCatalogPropertyTest {
 
-    private static final Set<String> ZONAS_VALIDAS = Arrays.stream(ZonaCobertura.values())
+    private static final Set<String> ZONAS_VALIDAS = Arrays.stream(ProvinciaCR.values())
             .map(Enum::name)
             .collect(Collectors.toSet());
 
@@ -57,6 +58,7 @@ class AuditorPerfilServiceZonesCatalogPropertyTest {
         Usuario usuario = Usuario.builder()
                 .id(id)
                 .estado(EstadoUsuario.ACTIVO)
+                .rol(Rol.AUDITOR_CERTIFICADO)
                 .build();
 
         when(usuarioRepository.findById(id)).thenReturn(Optional.of(usuario));

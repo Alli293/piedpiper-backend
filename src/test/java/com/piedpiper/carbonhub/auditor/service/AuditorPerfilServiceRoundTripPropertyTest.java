@@ -6,10 +6,11 @@ import com.piedpiper.carbonhub.auditor.models.dtos.ActualizarPerfilAuditorReques
 import com.piedpiper.carbonhub.auditor.models.dtos.PerfilAuditorResponseDTO;
 import com.piedpiper.carbonhub.auditor.models.entities.PerfilAuditor;
 import com.piedpiper.carbonhub.auditor.models.enums.EspecialidadAuditor;
-import com.piedpiper.carbonhub.auditor.models.enums.ZonaCobertura;
+import com.piedpiper.carbonhub.auditor.models.enums.ProvinciaCR;
 import com.piedpiper.carbonhub.auditor.repository.PerfilAuditorRepository;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
+import com.piedpiper.carbonhub.user.models.enums.Rol;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import net.jqwik.api.Arbitraries;
@@ -51,6 +52,7 @@ class AuditorPerfilServiceRoundTripPropertyTest {
         Usuario usuario = Usuario.builder()
                 .id(id)
                 .estado(EstadoUsuario.ACTIVO)
+                .rol(Rol.AUDITOR_CERTIFICADO)
                 .build();
 
         when(usuarioRepository.findById(id)).thenReturn(Optional.of(usuario));
@@ -80,7 +82,7 @@ class AuditorPerfilServiceRoundTripPropertyTest {
         ).list().ofMinSize(1).ofMaxSize(5).uniqueElements();
 
         Arbitrary<List<String>> zonas = Arbitraries.of(
-                Arrays.stream(ZonaCobertura.values()).map(Enum::name).toList()
+                Arrays.stream(ProvinciaCR.values()).map(Enum::name).toList()
         ).list().ofMinSize(1).ofMaxSize(7).uniqueElements();
 
         Arbitrary<Boolean> disponible = Arbitraries.of(true, false);

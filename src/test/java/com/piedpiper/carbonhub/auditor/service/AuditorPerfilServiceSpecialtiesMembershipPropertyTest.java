@@ -5,11 +5,12 @@ import com.piedpiper.carbonhub.auditor.models.dtos.ActualizarPerfilAuditorReques
 import com.piedpiper.carbonhub.auditor.models.dtos.PerfilAuditorResponseDTO;
 import com.piedpiper.carbonhub.auditor.models.entities.PerfilAuditor;
 import com.piedpiper.carbonhub.auditor.models.enums.EspecialidadAuditor;
-import com.piedpiper.carbonhub.auditor.models.enums.ZonaCobertura;
+import com.piedpiper.carbonhub.auditor.models.enums.ProvinciaCR;
 import com.piedpiper.carbonhub.auditor.repository.PerfilAuditorRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
+import com.piedpiper.carbonhub.user.models.enums.Rol;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import net.jqwik.api.Arbitraries;
@@ -58,13 +59,14 @@ class AuditorPerfilServiceSpecialtiesMembershipPropertyTest {
         Usuario usuario = Usuario.builder()
                 .id(id)
                 .estado(EstadoUsuario.ACTIVO)
+                .rol(Rol.AUDITOR_CERTIFICADO)
                 .build();
 
         when(usuarioRepository.findById(id)).thenReturn(Optional.of(usuario));
 
         ActualizarPerfilAuditorRequestDTO dto = new ActualizarPerfilAuditorRequestDTO(
                 invalidEspecialidades,
-                List.of(ZonaCobertura.SAN_JOSE.name()),
+                List.of(ProvinciaCR.SAN_JOSE.name()),
                 true,
                 "Descripción válida"
         );
@@ -87,6 +89,7 @@ class AuditorPerfilServiceSpecialtiesMembershipPropertyTest {
         Usuario usuario = Usuario.builder()
                 .id(id)
                 .estado(EstadoUsuario.ACTIVO)
+                .rol(Rol.AUDITOR_CERTIFICADO)
                 .build();
 
         when(usuarioRepository.findById(id)).thenReturn(Optional.of(usuario));
@@ -96,15 +99,10 @@ class AuditorPerfilServiceSpecialtiesMembershipPropertyTest {
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(perfilAuditorMapper.aResponseDto(any(PerfilAuditor.class)))
                 .thenReturn(new PerfilAuditorResponseDTO());
-        when(perfilAuditorMapper.listToCsv(any()))
-                .thenAnswer(invocation -> {
-                    List<String> list = invocation.getArgument(0);
-                    return list == null || list.isEmpty() ? "" : String.join(",", list);
-                });
 
         ActualizarPerfilAuditorRequestDTO dto = new ActualizarPerfilAuditorRequestDTO(
                 validEspecialidades,
-                List.of(ZonaCobertura.SAN_JOSE.name()),
+                List.of(ProvinciaCR.SAN_JOSE.name()),
                 true,
                 "Descripción válida"
         );
