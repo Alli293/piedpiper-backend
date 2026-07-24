@@ -40,7 +40,6 @@ public class EcoRutaInsigniaService {
         this.insigniaUsuarioMapper = insigniaUsuarioMapper;
     }
 
-    @Transactional
     public void evaluarYOtorgar(EventoCertificacionRequestDTO evento) {
         try {
             evaluarYOtorgarInterno(evento);
@@ -88,7 +87,7 @@ public class EcoRutaInsigniaService {
             return;
         }
 
-        insigniaUsuarioRepository.save(InsigniaUsuario.builder()
+        insigniaUsuarioRepository.saveAndFlush(InsigniaUsuario.builder()
                 .usuario(usuario)
                 .idInsignia(regla.idInsignia())
                 .eventoDesbloqueo(regla.eventoDesbloqueo())

@@ -56,7 +56,7 @@ class EcoRutaInsigniaServiceTest {
                 CatalogoInsigniasEcoRuta.EVENTO_PRIMER_ITINERARIO_SOSTENIBLE));
 
         ArgumentCaptor<InsigniaUsuario> captor = ArgumentCaptor.forClass(InsigniaUsuario.class);
-        verify(insigniaUsuarioRepository).save(captor.capture());
+        verify(insigniaUsuarioRepository).saveAndFlush(captor.capture());
         InsigniaUsuario guardada = captor.getValue();
         assertThat(guardada.getUsuario().getId()).isEqualTo(USUARIO_ID);
         assertThat(guardada.getIdInsignia()).isEqualTo(2L);
@@ -74,7 +74,7 @@ class EcoRutaInsigniaServiceTest {
         service.evaluarYOtorgar(evento(
                 CatalogoInsigniasEcoRuta.EVENTO_PRIMER_ITINERARIO_SOSTENIBLE));
 
-        verify(insigniaUsuarioRepository, never()).save(any());
+        verify(insigniaUsuarioRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -82,7 +82,7 @@ class EcoRutaInsigniaServiceTest {
         service.evaluarYOtorgar(evento("evento_desconocido"));
 
         verify(usuarioRepository, never()).findById(any());
-        verify(insigniaUsuarioRepository, never()).save(any());
+        verify(insigniaUsuarioRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -94,7 +94,7 @@ class EcoRutaInsigniaServiceTest {
         service.evaluarYOtorgar(evento(
                 CatalogoInsigniasEcoRuta.EVENTO_PRIMER_ITINERARIO_SOSTENIBLE));
 
-        verify(insigniaUsuarioRepository, never()).save(any());
+        verify(insigniaUsuarioRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -102,7 +102,7 @@ class EcoRutaInsigniaServiceTest {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuarioActivo()));
         when(insigniaUsuarioRepository.existsByUsuarioIdAndIdInsignia(USUARIO_ID, 2L))
                 .thenReturn(false);
-        when(insigniaUsuarioRepository.save(any(InsigniaUsuario.class)))
+        when(insigniaUsuarioRepository.saveAndFlush(any(InsigniaUsuario.class)))
                 .thenThrow(new RuntimeException("base no disponible"));
 
         assertThatNoException().isThrownBy(() ->
