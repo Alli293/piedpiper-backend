@@ -3,7 +3,9 @@ package com.piedpiper.carbonhub.ima.controller;
 import com.piedpiper.carbonhub.common.Autenticaciones;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.ima.models.dtos.ImaResponseDTO;
+import com.piedpiper.carbonhub.ima.models.dtos.ImaTendenciaResponseDTO;
 import com.piedpiper.carbonhub.ima.service.ImaService;
+import com.piedpiper.carbonhub.ima.service.ImaTendenciaService;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -22,9 +24,11 @@ import java.util.UUID;
 public class ImaController {
 
     private final ImaService imaService;
+    private final ImaTendenciaService imaTendenciaService;
 
-    public ImaController(ImaService imaService) {
+    public ImaController(ImaService imaService, ImaTendenciaService imaTendenciaService) {
         this.imaService = imaService;
+        this.imaTendenciaService = imaTendenciaService;
     }
 
     @GetMapping
@@ -59,5 +63,20 @@ public class ImaController {
         UUID usuarioId = Autenticaciones.usuarioId(authentication);
         ImaResponseDTO response = imaService.obtenerIma(anio, mes, usuarioId);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/tendencia")
+    public ResponseEntity<ImaTendenciaResponseDTO> obtenerTendencia(
+            Authentication authentication,
+            @RequestParam(required = false) Integer mesesAtras) {
+
+        if (mesesAtras != null
+                && (mesesAtras < 1 || mesesAtras > ImaTendenciaService.MESES_VENTANA_MAXIMA)) {
+            throw ApiException.periodoImaInvalido(
+                    "La ventana debe estar entre 1 y " + ImaTendenciaService.MESES_VENTANA_MAXIMA + " meses.");
+        }
+
+        UUID usuarioId = Autenticaciones.usuarioId(authentication);
+        return ResponseEntity.ok(imaTendenciaService.obtenerTendencia(mesesAtras, usuarioId));
     }
 }

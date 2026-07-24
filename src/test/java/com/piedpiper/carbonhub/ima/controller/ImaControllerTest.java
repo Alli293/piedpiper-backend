@@ -4,6 +4,7 @@ import com.piedpiper.carbonhub.auth.config.SecurityConfig;
 import com.piedpiper.carbonhub.auth.service.JwtService;
 import com.piedpiper.carbonhub.ima.models.dtos.ImaResponseDTO;
 import com.piedpiper.carbonhub.ima.service.ImaService;
+import com.piedpiper.carbonhub.ima.service.ImaTendenciaService;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.junit.jupiter.api.Test;
@@ -51,6 +52,8 @@ class ImaControllerTest {
 
     @MockitoBean
     private ImaService imaService;
+    @MockitoBean
+    private ImaTendenciaService imaTendenciaService;
     @MockitoBean
     private JwtService jwtService;
     @MockitoBean
