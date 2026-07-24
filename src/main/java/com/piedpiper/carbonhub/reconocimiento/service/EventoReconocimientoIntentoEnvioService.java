@@ -63,6 +63,8 @@ public class EventoReconocimientoIntentoEnvioService {
     private void marcarFallo(EventoReconocimiento evento, String mensajeError, Instant fechaIntento) {
         if (evento.getIntentosEnvio() + 1 >= MAX_REINTENTOS) {
             evento.marcarReintentosAgotados(mensajeError, fechaIntento);
+            log.error("Evento {} del usuario {} agoto {} reintentos de envio a Certificacion para el codigo {}",
+                    evento.getId(), evento.getUsuarioId(), MAX_REINTENTOS, evento.getEventoGenerado());
         } else {
             evento.marcarPendienteReintento(mensajeError, fechaIntento);
         }

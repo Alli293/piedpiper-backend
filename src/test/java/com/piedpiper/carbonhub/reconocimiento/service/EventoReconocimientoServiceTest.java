@@ -19,6 +19,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 
 import java.time.Instant;
@@ -42,6 +43,8 @@ class EventoReconocimientoServiceTest {
     @Mock
     private EventoReconocimientoEnvioService eventoReconocimientoEnvioService;
     @Mock
+    private EventoReconocimientoPersistenciaService eventoReconocimientoPersistenciaService;
+    @Mock
     private EventoReconocimientoMapper eventoReconocimientoMapper;
 
     @InjectMocks
@@ -52,7 +55,7 @@ class EventoReconocimientoServiceTest {
     @Test
     void eventoGenerado_registraTimestampUtcYEnviaACertificacion() {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario(EstadoUsuario.ACTIVO)));
-        when(eventoReconocimientoRepository.save(any(EventoReconocimiento.class)))
+        when(eventoReconocimientoPersistenciaService.guardarNuevo(any(EventoReconocimiento.class)))
                 .thenAnswer(invocation -> {
                     EventoReconocimiento evento = invocation.getArgument(0);
                     evento.setId(UUID.randomUUID());
@@ -66,7 +69,7 @@ class EventoReconocimientoServiceTest {
                 USUARIO_ID);
 
         ArgumentCaptor<EventoReconocimiento> captor = ArgumentCaptor.forClass(EventoReconocimiento.class);
-        verify(eventoReconocimientoRepository).save(captor.capture());
+        verify(eventoReconocimientoPersistenciaService).guardarNuevo(captor.capture());
         EventoReconocimiento guardado = captor.getValue();
         assertThat(guardado.getUsuarioId()).isEqualTo(USUARIO_ID);
         assertThat(guardado.getEventoGenerado()).isEqualTo("primer_itinerario_generado");
@@ -81,7 +84,7 @@ class EventoReconocimientoServiceTest {
     @Test
     void eventoFueraDeCatalogo_registraSinNotificarACertificacion() {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario(EstadoUsuario.ACTIVO)));
-        when(eventoReconocimientoRepository.save(any(EventoReconocimiento.class)))
+        when(eventoReconocimientoPersistenciaService.guardarNuevo(any(EventoReconocimiento.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(eventoReconocimientoMapper.toDto(any(EventoReconocimiento.class)))
                 .thenAnswer(invocation -> response(invocation.getArgument(0)));
@@ -91,7 +94,7 @@ class EventoReconocimientoServiceTest {
                 USUARIO_ID);
 
         ArgumentCaptor<EventoReconocimiento> captor = ArgumentCaptor.forClass(EventoReconocimiento.class);
-        verify(eventoReconocimientoRepository).save(captor.capture());
+        verify(eventoReconocimientoPersistenciaService).guardarNuevo(captor.capture());
         assertThat(captor.getValue().getEstadoEnvio()).isEqualTo(EstadoEnvioCertificacion.FUERA_CATALOGO);
         assertThat(response.getEventoGenerado()).isEqualTo("evento_desconocido");
         verify(eventoReconocimientoEnvioService, never()).enviarAsync(any());
@@ -117,7 +120,35 @@ class EventoReconocimientoServiceTest {
                 USUARIO_ID);
 
         assertThat(response).isSameAs(dto);
-        verify(eventoReconocimientoRepository, never()).save(any());
+        verify(eventoReconocimientoPersistenciaService, never()).guardarNuevo(any());
+        verify(eventoReconocimientoEnvioService, never()).enviarAsync(any());
+    }
+
+    @Test
+    void eventoConcurrenteDevuelveExistenteSinErrorNiReenvio() {
+        EventoReconocimiento existente = EventoReconocimiento.builder()
+                .id(UUID.randomUUID())
+                .usuarioId(USUARIO_ID)
+                .eventoGenerado("primer_itinerario_generado")
+                .fechaEvento(Instant.parse("2026-07-23T18:00:00Z"))
+                .estadoEnvio(EstadoEnvioCertificacion.PENDIENTE_ENVIO)
+                .build();
+        EventoReconocimientoResponseDTO dto = response(existente);
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario(EstadoUsuario.ACTIVO)));
+        when(eventoReconocimientoRepository.findByUsuarioIdAndEventoGenerado(
+                USUARIO_ID, "primer_itinerario_generado"))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(existente));
+        when(eventoReconocimientoPersistenciaService.guardarNuevo(any(EventoReconocimiento.class)))
+                .thenThrow(new DataIntegrityViolationException("uk_eventos_reconocimiento_usuario_evento"));
+        when(eventoReconocimientoMapper.toDto(existente)).thenReturn(dto);
+
+        EventoReconocimientoResponseDTO response = service.registrar(
+                new RegistrarEventoReconocimientoRequestDTO(USUARIO_ID, "primer_itinerario_generado"),
+                USUARIO_ID);
+
+        assertThat(response).isSameAs(dto);
+        verify(eventoReconocimientoPersistenciaService).guardarNuevo(any(EventoReconocimiento.class));
         verify(eventoReconocimientoEnvioService, never()).enviarAsync(any());
     }
 
@@ -131,7 +162,7 @@ class EventoReconocimientoServiceTest {
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.FORBIDDEN));
 
-        verify(eventoReconocimientoRepository, never()).save(any());
+        verify(eventoReconocimientoPersistenciaService, never()).guardarNuevo(any());
     }
 
     @Test
@@ -144,7 +175,7 @@ class EventoReconocimientoServiceTest {
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.FORBIDDEN));
 
-        verify(eventoReconocimientoRepository, never()).save(any());
+        verify(eventoReconocimientoPersistenciaService, never()).guardarNuevo(any());
     }
 
     private static Usuario usuario(EstadoUsuario estado) {

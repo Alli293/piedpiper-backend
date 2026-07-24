@@ -11,6 +11,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -22,7 +24,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, OutputCaptureExtension.class})
 class EventoReconocimientoIntentoEnvioServiceTest {
 
     @Mock
@@ -91,7 +93,7 @@ class EventoReconocimientoIntentoEnvioServiceTest {
     }
 
     @Test
-    void tercerFalloMarcaReintentosAgotados() {
+    void tercerFalloMarcaReintentosAgotadosYRegistraError(CapturedOutput output) {
         EventoReconocimiento evento = eventoPendiente(2);
         when(eventoReconocimientoRepository.findById(EVENTO_ID)).thenReturn(Optional.of(evento));
         doThrow(new CertificacionNoDisponibleException("Certificacion no responde."))
@@ -105,6 +107,7 @@ class EventoReconocimientoIntentoEnvioServiceTest {
         assertThat(guardado.getEstadoEnvio()).isEqualTo(EstadoEnvioCertificacion.REINTENTOS_AGOTADOS);
         assertThat(guardado.getIntentosEnvio()).isEqualTo(3);
         assertThat(guardado.getUltimoError()).isEqualTo("Certificacion no responde.");
+        assertThat(output.getAll()).contains("agoto 3 reintentos de envio a Certificacion");
     }
 
     private static EventoReconocimiento eventoPendiente(int intentosEnvio) {
