@@ -58,6 +58,16 @@ public class ApiException extends RuntimeException {
                 "Has solicitado demasiados reenvíos. Intenta de nuevo en una hora.");
     }
 
+    public static ApiException tokenResetInvalido() {
+        return new ApiException(HttpStatus.GONE,
+                "Este enlace no es válido o expiró. Solicita uno nuevo.");
+    }
+
+    public static ApiException tokenResetMalFormado() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "El formato del enlace no es válido.");
+    }
+
     public static ApiException cuentaNoDisponible() {
         return new ApiException(HttpStatus.CONFLICT,
                 "Esta cuenta no está disponible para verificación. Contacta a soporte.");
