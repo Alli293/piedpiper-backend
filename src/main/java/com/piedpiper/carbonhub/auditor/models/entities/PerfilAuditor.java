@@ -26,6 +26,7 @@ import lombok.Setter;
 import org.hibernate.annotations.BatchSize;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -84,4 +85,17 @@ public class PerfilAuditor {
     @BatchSize(size = 50)
     @Builder.Default
     private Set<EspecialidadAuditor> especialidades = new HashSet<>();
+
+    @ElementCollection(targetClass = ProvinciaCR.class)
+    @Enumerated(EnumType.STRING)
+    @CollectionTable(name = "perfil_auditor_zonas", joinColumns = @JoinColumn(name = "perfil_auditor_id"))
+    @Column(name = "zona")
+    @Builder.Default
+    private Set<ProvinciaCR> zonasCobertura = new HashSet<>();
+
+    @Column(name = "descripcion_profesional", length = 500)
+    private String descripcionProfesional;
+
+    @Column(name = "actualizado_en")
+    private Instant actualizadoEn;
 }
