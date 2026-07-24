@@ -1,8 +1,10 @@
 package com.piedpiper.carbonhub.ecoruta.controller;
 
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
+import com.piedpiper.carbonhub.auth.service.JwtService;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.InsigniaUsuarioResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.service.EcoRutaInsigniaService;
+import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.security.oauth2.client.OAuth2ClientAutoConfiguration;
@@ -50,6 +52,10 @@ class EcoRutaInsigniaControllerTest {
 
     @MockitoBean
     private EcoRutaInsigniaService ecoRutaInsigniaService;
+    @MockitoBean
+    private JwtService jwtService;
+    @MockitoBean
+    private UsuarioRepository usuarioRepository;
 
     @Test
     @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73",

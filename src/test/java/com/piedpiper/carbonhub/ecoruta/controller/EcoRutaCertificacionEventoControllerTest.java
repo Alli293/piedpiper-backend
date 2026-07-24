@@ -1,9 +1,11 @@
 package com.piedpiper.carbonhub.ecoruta.controller;
 
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
+import com.piedpiper.carbonhub.auth.service.JwtService;
 import com.piedpiper.carbonhub.ecoruta.config.CertificacionApiKeyFilter;
 import com.piedpiper.carbonhub.ecoruta.service.EcoRutaInsigniaService;
 import com.piedpiper.carbonhub.reconocimiento.models.dtos.EventoCertificacionRequestDTO;
+import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,6 +61,10 @@ class EcoRutaCertificacionEventoControllerTest {
 
     @MockitoBean
     private EcoRutaInsigniaService ecoRutaInsigniaService;
+    @MockitoBean
+    private JwtService jwtService;
+    @MockitoBean
+    private UsuarioRepository usuarioRepository;
 
     @AfterEach
     void limpiarContextoSeguridad() {
