@@ -20,10 +20,14 @@ import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
 class HttpCertificacionEventosClientTest {
 
+    private static final String HEADER_API_KEY = "X-Certificacion-Api-Key";
+    private static final String API_KEY = "clave-prueba";
+
     private HttpServer servidor;
     private final AtomicReference<String> metodoRecibido = new AtomicReference<>();
     private final AtomicReference<String> rutaRecibida = new AtomicReference<>();
     private final AtomicReference<String> contentTypeRecibido = new AtomicReference<>();
+    private final AtomicReference<String> apiKeyRecibida = new AtomicReference<>();
     private final AtomicReference<String> cuerpoRecibido = new AtomicReference<>();
 
     @AfterEach
@@ -36,7 +40,7 @@ class HttpCertificacionEventosClientTest {
     @Test
     void urlNoConfiguradaLanzaCertificacionNoDisponible() {
         HttpCertificacionEventosClient client = new HttpCertificacionEventosClient(
-                "", "/api/certificacion/eventos", 2000);
+                "", "/api/certificacion/eventos", 2000, HEADER_API_KEY, API_KEY);
 
         CertificacionNoDisponibleException exception = catchThrowableOfType(
                 () -> client.enviar(requestValido()),
@@ -48,7 +52,25 @@ class HttpCertificacionEventosClientTest {
     }
 
     @Test
-    void envioCorrectoPosteaEventoAlPathConfigurado() throws IOException {
+    void sinApiKeyConfiguradaNoIntentaEnviarEvento() {
+        HttpCertificacionEventosClient client = new HttpCertificacionEventosClient(
+                "http://localhost:1",
+                "/api/certificacion/eventos",
+                1000,
+                HEADER_API_KEY,
+                "");
+
+        CertificacionNoDisponibleException exception = catchThrowableOfType(
+                () -> client.enviar(requestValido()),
+                CertificacionNoDisponibleException.class);
+
+        assertThat(exception).isNotNull();
+        assertThat(exception.getMessage()).isEqualTo(
+                "El modulo de Certificacion no tiene una clave API configurada.");
+    }
+
+    @Test
+    void envioCorrectoPosteaEventoAlPathConfiguradoConApiKey() throws IOException {
         HttpCertificacionEventosClient client = clientApuntandoA(200);
 
         client.enviar(requestValido());
@@ -56,6 +78,7 @@ class HttpCertificacionEventosClientTest {
         assertThat(metodoRecibido.get()).isEqualTo("POST");
         assertThat(rutaRecibida.get()).isEqualTo("/api/certificacion/eventos");
         assertThat(contentTypeRecibido.get()).contains("application/json");
+        assertThat(apiKeyRecibida.get()).isEqualTo(API_KEY);
         assertThat(cuerpoRecibido.get()).contains("primer_itinerario_generado");
         assertThat(cuerpoRecibido.get()).contains("41ce47ab-a46c-4306-8c46-2688dc97fa73");
     }
@@ -79,7 +102,9 @@ class HttpCertificacionEventosClientTest {
         HttpCertificacionEventosClient client = new HttpCertificacionEventosClient(
                 "http://localhost:" + puerto,
                 "/api/certificacion/eventos",
-                200);
+                200,
+                HEADER_API_KEY,
+                API_KEY);
 
         CertificacionNoDisponibleException exception = catchThrowableOfType(
                 () -> client.enviar(requestValido()),
@@ -96,6 +121,7 @@ class HttpCertificacionEventosClientTest {
             metodoRecibido.set(exchange.getRequestMethod());
             rutaRecibida.set(exchange.getRequestURI().getPath());
             contentTypeRecibido.set(exchange.getRequestHeaders().getFirst("Content-Type"));
+            apiKeyRecibida.set(exchange.getRequestHeaders().getFirst(HEADER_API_KEY));
             cuerpoRecibido.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
             byte[] bytes = "{}".getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().add("Content-Type", "application/json");
@@ -109,7 +135,9 @@ class HttpCertificacionEventosClientTest {
         return new HttpCertificacionEventosClient(
                 "http://localhost:" + puerto,
                 "/api/certificacion/eventos",
-                2000);
+                2000,
+                HEADER_API_KEY,
+                API_KEY);
     }
 
     private static int puertoLocalLibre() throws IOException {
