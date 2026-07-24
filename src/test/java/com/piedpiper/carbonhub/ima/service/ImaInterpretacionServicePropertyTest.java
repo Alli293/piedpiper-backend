@@ -86,7 +86,7 @@ class ImaInterpretacionServicePropertyTest {
      * empresaId, or cantidadEmpleados.
      */
     @Property(tries = 100)
-    @Tag("Feature: interpretacion-ima-ia, Property 1: El prompt contiene exclusivamente datos anonimizados")
+    @Tag("property-1")
     void promptContieneExclusivamenteDatosAnonimizados(
             @ForAll("safeEmpresaName") String nombreEmpresa,
             @ForAll("randomUUID") UUID empresaId,
@@ -139,7 +139,7 @@ class ImaInterpretacionServicePropertyTest {
      * both values are persisted to the snapshot as-is.
      */
     @Property(tries = 100)
-    @Tag("Feature: interpretacion-ima-ia, Property 4: Respuesta válida se persiste; respuesta inválida resulta en No disponible")
+    @Tag("property-4")
     void respuestaValidaSePersisteCorrectamente(
             @ForAll("nonEmptyAlphanumeric") String interpretacionText,
             @ForAll("nonEmptyAlphanumeric") String siguientePasoText
@@ -179,7 +179,7 @@ class ImaInterpretacionServicePropertyTest {
      * Property 4b: If ChatClient returns null, both fields become "No disponible".
      */
     @Property(tries = 10)
-    @Tag("Feature: interpretacion-ima-ia, Property 4: Respuesta válida se persiste; respuesta inválida resulta en No disponible")
+    @Tag("property-4")
     void respuestaNulaResultaEnNoDisponible() {
         when(callResponseSpec.entity(any(Class.class))).thenReturn(null);
 
@@ -212,7 +212,7 @@ class ImaInterpretacionServicePropertyTest {
      * Property 4c: If InterpretacionIma has blank interpretacion, result is "No disponible".
      */
     @Property(tries = 100)
-    @Tag("Feature: interpretacion-ima-ia, Property 4: Respuesta válida se persiste; respuesta inválida resulta en No disponible")
+    @Tag("property-4")
     void respuestaConCamposVaciosResultaEnNoDisponible(
             @ForAll("blankOrNullString") String invalidField
     ) {
@@ -260,7 +260,7 @@ class ImaInterpretacionServicePropertyTest {
      * **Validates: Requirements 2.1, 2.2, 2.3, 2.4, 2.5, 2.7**
      */
     @Property(tries = 100)
-    @Tag("Feature: interpretacion-ima-ia, Property 5: Fallo del ChatClient no bloquea la persistencia del IMA")
+    @Tag("property-5")
     void falloDelChatClientNoBloqueaLaPersistenciaDelIma(
             @ForAll("randomExceptions") RuntimeException exception) {
 
@@ -315,7 +315,7 @@ class ImaInterpretacionServicePropertyTest {
      * **Validates: Requirements 8.2, 8.3**
      */
     @Property(tries = 100)
-    @Tag("Feature: interpretacion-ima-ia, Property 2: La verificación de privacidad detecta datos sensibles")
+    @Tag("property-2")
     void verificarPrivacidad_detectsNombreEmpresaInPrompt(
             @ForAll("nonEmptyAlphanumeric") String nombreEmpresa,
             @ForAll("randomUUID") UUID empresaId,
@@ -337,7 +337,7 @@ class ImaInterpretacionServicePropertyTest {
      * **Validates: Requirements 8.2, 8.3**
      */
     @Property(tries = 100)
-    @Tag("Feature: interpretacion-ima-ia, Property 2: La verificación de privacidad detecta datos sensibles")
+    @Tag("property-2")
     void verificarPrivacidad_detectsEmpresaIdInPrompt(
             @ForAll("nonEmptyAlphanumeric") String nombreEmpresa,
             @ForAll("randomUUID") UUID empresaId,
@@ -359,7 +359,7 @@ class ImaInterpretacionServicePropertyTest {
      * **Validates: Requirements 8.2, 8.3**
      */
     @Property(tries = 100)
-    @Tag("Feature: interpretacion-ima-ia, Property 2: La verificación de privacidad detecta datos sensibles")
+    @Tag("property-2")
     void verificarPrivacidad_detectsCantidadEmpleadosInPrompt(
             @ForAll("nonEmptyAlphanumeric") String nombreEmpresa,
             @ForAll("randomUUID") UUID empresaId,
@@ -381,7 +381,7 @@ class ImaInterpretacionServicePropertyTest {
      * **Validates: Requirements 8.2, 8.3**
      */
     @Property(tries = 100)
-    @Tag("Feature: interpretacion-ima-ia, Property 2: La verificación de privacidad detecta datos sensibles")
+    @Tag("property-2")
     void verificarPrivacidad_returnsTrueForCleanPrompt(
             @ForAll("nonEmptyAlphanumeric") String nombreEmpresa,
             @ForAll("randomUUID") UUID empresaId,

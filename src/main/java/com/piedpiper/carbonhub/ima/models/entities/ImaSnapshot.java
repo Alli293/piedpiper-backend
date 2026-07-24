@@ -65,6 +65,10 @@ public class ImaSnapshot {
     @Column(name = "calculated_at", nullable = false)
     private Instant calculatedAt;
 
+    // MIGRATION NOTE: This column replaces the old 'interpretacion_ia' column.
+    // Existing values in 'interpretacion_ia' should be migrated manually:
+    // UPDATE ima_snapshots SET interpretacion = interpretacion_ia WHERE interpretacion IS NULL AND interpretacion_ia IS NOT NULL;
+    // After migration, drop the old column: ALTER TABLE ima_snapshots DROP COLUMN interpretacion_ia;
     @Column(name = "interpretacion", columnDefinition = "TEXT")
     private String interpretacion;
 

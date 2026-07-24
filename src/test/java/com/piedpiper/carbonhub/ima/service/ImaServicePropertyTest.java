@@ -141,7 +141,7 @@ class ImaServicePropertyTest {
      * **Validates: Requirements 1.2**
      */
     @Property(tries = 100)
-    @Tag("Feature: interpretacion-ima-ia, Property 3: Interpretación existente se reutiliza sin re-invocar ChatClient")
+    @Tag("property-3")
     void interpretacionExistenteSeReutilizaSinReInvocarChatClient(
             @ForAll("validInterpretacion") String interpretacion,
             @ForAll("validSiguientePaso") String siguientePaso,
@@ -187,15 +187,15 @@ class ImaServicePropertyTest {
 
     /**
      * Property 6: When obtenerIma finds a snapshot with interpretacion = "No disponible" or null,
-     * it SHOULD invoke interpretacionService.generarInterpretacion to retry.
+     * it SHOULD invoke interpretacionService.generarInterpretacion to retry synchronously.
      *
      * **Validates: Requirements 2.6**
      */
     @Property(tries = 100)
-    @Tag("Feature: interpretacion-ima-ia, Property 6: Reintento cuando interpretación previa es No disponible")
+    @Tag("property-6")
     void reintentoGeneraInterpretacionCuandoPreviaEsNoDisponible(
             @ForAll("interpretacionNoDisponible") String interpretacionPrevia
-    ) throws InterruptedException {
+    ) {
         int anio = 2024;
         int mes = 6;
 
@@ -225,9 +225,7 @@ class ImaServicePropertyTest {
         // Act
         imaService.obtenerIma(anio, mes, USUARIO_ID);
 
-        // Assert: interpretacionService.generarInterpretacion is called asynchronously
-        // Wait briefly for the async CompletableFuture to execute
-        Thread.sleep(200);
+        // Assert: interpretacionService.generarInterpretacion is called synchronously
         verify(interpretacionService, times(1)).generarInterpretacion(
                 eq(snapshotExistente),
                 any(String.class),

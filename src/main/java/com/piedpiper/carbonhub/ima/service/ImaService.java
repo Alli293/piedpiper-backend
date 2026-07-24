@@ -15,7 +15,6 @@ import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -55,41 +54,37 @@ public class ImaService {
         this.imaSnapshotMapper = imaSnapshotMapper;
     }
 
-    @Transactional
     public ImaResponseDTO obtenerIma(Integer anio, Integer mes, UUID usuarioId) {
         UUID empresaId = resolverEmpresaId(usuarioId);
 
         // Buscar snapshot en caché
         return imaSnapshotRepository.findByEmpresaIdAndAnioAndMes(empresaId, anio, mes)
                 .map(snapshot -> {
-                    // Re-intentar en background si la interpretación previa es "No disponible" o null
+                    // Re-intentar síncronamente si la interpretación previa es "No disponible" o null
                     if (snapshot.getInterpretacion() == null
-                            || "No disponible".equals(snapshot.getInterpretacion())) {
-                        reintenteInterpretacionAsync(snapshot, empresaId, anio, mes);
+                            || ImaInterpretacionService.NO_DISPONIBLE.equals(snapshot.getInterpretacion())) {
+                        reintenteInterpretacion(snapshot, empresaId, anio, mes);
                     }
                     return toDto(snapshot);
                 })
                 .orElseGet(() -> calcularYPersistir(empresaId, anio, mes));
     }
 
-    private void reintenteInterpretacionAsync(ImaSnapshot snapshot, UUID empresaId, int anio, int mes) {
-        // Ejecutar en background para no bloquear la respuesta HTTP
-        java.util.concurrent.CompletableFuture.runAsync(() -> {
-            try {
-                Empresa empresa = empresaRepository.findById(empresaId).orElse(null);
-                if (empresa == null) return;
+    private void reintenteInterpretacion(ImaSnapshot snapshot, UUID empresaId, int anio, int mes) {
+        try {
+            Empresa empresa = empresaRepository.findById(empresaId).orElse(null);
+            if (empresa == null) return;
 
-                SectorIndustrial sector = empresa.getSectorIndustrial();
-                LocalDate hasta = LocalDate.of(anio, mes, 1).plusMonths(1).minusDays(1);
-                LocalDate desde = LocalDate.of(anio, mes, 1).minusMonths(MESES_VENTANA - 1);
-                AgregadoSectorial agregado = calcularAgregadoSectorial(sector, anio, mes, desde, hasta);
-                String tendencia = calcularTendencia(empresaId, anio, mes, snapshot.getIma());
+            SectorIndustrial sector = empresa.getSectorIndustrial();
+            LocalDate hasta = LocalDate.of(anio, mes, 1).plusMonths(1).minusDays(1);
+            LocalDate desde = LocalDate.of(anio, mes, 1).minusMonths(MESES_VENTANA - 1);
+            AgregadoSectorial agregado = calcularAgregadoSectorial(sector, anio, mes, desde, hasta);
+            String tendencia = calcularTendencia(empresaId, anio, mes, snapshot.getIma());
 
-                interpretacionService.generarInterpretacion(snapshot, sector.name(), agregado, tendencia);
-            } catch (Exception e) {
-                // No bloquear — error ya loggeado por interpretacionService
-            }
-        });
+            interpretacionService.generarInterpretacion(snapshot, sector.name(), agregado, tendencia);
+        } catch (Exception e) {
+            // No bloquear respuesta — error ya loggeado por interpretacionService
+        }
     }
 
     private ImaResponseDTO calcularYPersistir(UUID empresaId, int anio, int mes) {
