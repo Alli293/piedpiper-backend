@@ -62,7 +62,7 @@ class AuditorPerfilControllerTest {
 
     private static final String VALID_REQUEST_BODY = """
             {
-                "especialidades": ["HUELLA_CARBONO", "ENERGIA_RENOVABLE"],
+                "especialidades": ["AGROINDUSTRIA", "ENERGIA_RENOVABLE"],
                 "zonasCobertura": ["SAN_JOSE", "HEREDIA"],
                 "disponible": true,
                 "descripcionProfesional": "Auditor con experiencia en huella de carbono."
@@ -74,7 +74,7 @@ class AuditorPerfilControllerTest {
     void auditorCertificadoActualizaPerfilExistenteDevuelve200() throws Exception {
         PerfilAuditorResponseDTO responseDTO = new PerfilAuditorResponseDTO(
                 UUID.fromString(AUDITOR_ID),
-                List.of("HUELLA_CARBONO", "ENERGIA_RENOVABLE"),
+                List.of("AGROINDUSTRIA", "ENERGIA_RENOVABLE"),
                 List.of("SAN_JOSE", "HEREDIA"),
                 true,
                 "Auditor con experiencia en huella de carbono.",
@@ -89,7 +89,7 @@ class AuditorPerfilControllerTest {
                         .content(VALID_REQUEST_BODY))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.auditorId").value(AUDITOR_ID))
-                .andExpect(jsonPath("$.especialidades[0]").value("HUELLA_CARBONO"))
+                .andExpect(jsonPath("$.especialidades[0]").value("AGROINDUSTRIA"))
                 .andExpect(jsonPath("$.especialidades[1]").value("ENERGIA_RENOVABLE"))
                 .andExpect(jsonPath("$.zonasCobertura[0]").value("SAN_JOSE"))
                 .andExpect(jsonPath("$.disponible").value(true))
@@ -101,7 +101,7 @@ class AuditorPerfilControllerTest {
     void auditorCertificadoCreaPerfilNuevoDevuelve201() throws Exception {
         PerfilAuditorResponseDTO responseDTO = new PerfilAuditorResponseDTO(
                 UUID.fromString(AUDITOR_ID),
-                List.of("HUELLA_CARBONO", "ENERGIA_RENOVABLE"),
+                List.of("AGROINDUSTRIA", "ENERGIA_RENOVABLE"),
                 List.of("SAN_JOSE", "HEREDIA"),
                 true,
                 "Auditor con experiencia en huella de carbono.",
@@ -116,7 +116,7 @@ class AuditorPerfilControllerTest {
                         .content(VALID_REQUEST_BODY))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.auditorId").value(AUDITOR_ID))
-                .andExpect(jsonPath("$.especialidades[0]").value("HUELLA_CARBONO"));
+                .andExpect(jsonPath("$.especialidades[0]").value("AGROINDUSTRIA"));
     }
 
     @Test
@@ -182,7 +182,7 @@ class AuditorPerfilControllerTest {
         String descripcionLarga = "A".repeat(501);
         String requestBody = """
                 {
-                    "especialidades": ["HUELLA_CARBONO"],
+                    "especialidades": ["AGROINDUSTRIA"],
                     "zonasCobertura": ["SAN_JOSE"],
                     "disponible": true,
                     "descripcionProfesional": "%s"
@@ -196,5 +196,26 @@ class AuditorPerfilControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value(
                         org.hamcrest.Matchers.containsString("La descripción no puede superar los 500 caracteres.")));
+    }
+
+    @Test
+    @WithMockUser(username = AUDITOR_ID, roles = "AUDITOR_CERTIFICADO")
+    void zonasCoberturaExcedeMaximoDevuelve400() throws Exception {
+        String requestBody = """
+                {
+                    "especialidades": ["AGROINDUSTRIA"],
+                    "zonasCobertura": ["SAN_JOSE", "ALAJUELA", "CARTAGO", "HEREDIA", "GUANACASTE", "PUNTARENAS", "LIMON", "SAN_JOSE"],
+                    "disponible": true,
+                    "descripcionProfesional": null
+                }
+                """;
+
+        mockMvc.perform(put(BASE_URL)
+                        .principal(new TestingAuthenticationToken(AUDITOR_ID, null, "ROLE_AUDITOR_CERTIFICADO"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(
+                        org.hamcrest.Matchers.containsString("Puede seleccionar un máximo de 7 zonas de cobertura.")));
     }
 }

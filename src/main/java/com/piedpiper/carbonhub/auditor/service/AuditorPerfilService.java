@@ -15,6 +15,7 @@ import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
 import com.piedpiper.carbonhub.user.models.enums.Rol;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -61,7 +62,15 @@ public class AuditorPerfilService {
             throw ApiException.accesoDenegado("Solo usuarios con rol AUDITOR_CERTIFICADO pueden gestionar su perfil.");
         }
 
-        // 4. Validar membership en catálogos usando Catalogos.desde()
+        // 4. Validar duplicados en listas
+        if (request.getEspecialidades().size() != new HashSet<>(request.getEspecialidades()).size()) {
+            throw ApiException.datosInvalidos("La lista de especialidades contiene duplicados.");
+        }
+        if (request.getZonasCobertura().size() != new HashSet<>(request.getZonasCobertura()).size()) {
+            throw ApiException.datosInvalidos("La lista de zonas de cobertura contiene duplicados.");
+        }
+
+        // 5. Validar membership en catálogos usando Catalogos.desde()
         List<String> especialidadesInvalidas = request.getEspecialidades().stream()
                 .filter(e -> Catalogos.desde(EspecialidadAuditor.class, e).isEmpty())
                 .collect(Collectors.toList());
@@ -78,7 +87,7 @@ public class AuditorPerfilService {
             throw ApiException.zonasInvalidas(zonasInvalidas);
         }
 
-        // 5. Upsert PerfilAuditor — determinar si es creación o actualización
+        // 6. Upsert PerfilAuditor — determinar si es creación o actualización
         var existente = perfilAuditorRepository.findByAuditorId(auditorId);
         boolean creado = existente.isEmpty();
 
@@ -100,9 +109,22 @@ public class AuditorPerfilService {
         perfil.setDescripcionProfesional(request.getDescripcionProfesional());
         perfil.setActualizadoEn(Instant.now());
 
-        perfil = perfilAuditorRepository.save(perfil);
+        try {
+            perfil = perfilAuditorRepository.save(perfil);
+        } catch (DataIntegrityViolationException e) {
+            // Another request created the profile concurrently — retry as update
+            PerfilAuditor existenteConcurrente = perfilAuditorRepository.findByAuditorId(auditorId)
+                    .orElseThrow(() -> ApiException.errorInterno("Error al crear el perfil."));
+            existenteConcurrente.setEspecialidades(especialidades);
+            existenteConcurrente.setZonasCobertura(zonas);
+            existenteConcurrente.setDisponible(request.getDisponible());
+            existenteConcurrente.setDescripcionProfesional(request.getDescripcionProfesional());
+            existenteConcurrente.setActualizadoEn(Instant.now());
+            perfil = perfilAuditorRepository.save(existenteConcurrente);
+            return new ResultadoPerfil(perfilAuditorMapper.aResponseDto(perfil), false);
+        }
 
-        // 6. Retornar resultado con flag de creación
+        // 7. Retornar resultado con flag de creación
         return new ResultadoPerfil(perfilAuditorMapper.aResponseDto(perfil), creado);
     }
 }

@@ -43,7 +43,7 @@ class DescriptionLengthPropertyTest {
     @Property
     void descriptionLongerThan500_shouldBeRejected(@ForAll("tooLongDescriptions") String description) {
         ActualizarPerfilAuditorRequestDTO dto = new ActualizarPerfilAuditorRequestDTO(
-                List.of("HUELLA_CARBONO"),
+                List.of("AGROINDUSTRIA"),
                 List.of("SAN_JOSE"),
                 true,
                 description
@@ -63,7 +63,7 @@ class DescriptionLengthPropertyTest {
     @Property
     void descriptionWithin500_shouldPass(@ForAll("validDescriptions") String description) {
         ActualizarPerfilAuditorRequestDTO dto = new ActualizarPerfilAuditorRequestDTO(
-                List.of("HUELLA_CARBONO"),
+                List.of("AGROINDUSTRIA"),
                 List.of("SAN_JOSE"),
                 true,
                 description
@@ -82,7 +82,7 @@ class DescriptionLengthPropertyTest {
     @Property
     void nullDescription_shouldPass() {
         ActualizarPerfilAuditorRequestDTO dto = new ActualizarPerfilAuditorRequestDTO(
-                List.of("HUELLA_CARBONO"),
+                List.of("AGROINDUSTRIA"),
                 List.of("SAN_JOSE"),
                 true,
                 null

@@ -20,6 +20,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 
 import java.time.Instant;
@@ -296,5 +297,83 @@ class AuditorPerfilServiceTest {
 
         assertThat(result.dto()).isEqualTo(expected);
         assertThat(result.creado()).isFalse();
+    }
+
+    // --- 9. Race condition: DataIntegrityViolationException on save → retry as update ---
+
+    @Test
+    void raceCondition_dataIntegrityViolation_reintentaComoUpdate() {
+        when(usuarioRepository.findById(AUDITOR_ID))
+                .thenReturn(Optional.of(auditorActivo()));
+        when(perfilAuditorRepository.findByAuditorId(AUDITOR_ID))
+                .thenReturn(Optional.empty())  // first call: not found (new profile)
+                .thenReturn(Optional.of(PerfilAuditor.builder()
+                        .id(UUID.randomUUID())
+                        .auditor(auditorActivo())
+                        .especialidades(new HashSet<>())
+                        .zonasCobertura(new HashSet<>())
+                        .disponible(false)
+                        .build()));  // second call after exception: found
+        when(perfilAuditorRepository.save(any()))
+                .thenThrow(new DataIntegrityViolationException("Unique constraint violation"))
+                .thenAnswer(invocation -> invocation.getArgument(0)); // second save succeeds
+
+        PerfilAuditorResponseDTO expected = responseEsperado();
+        when(perfilAuditorMapper.aResponseDto(any())).thenReturn(expected);
+
+        ResultadoPerfil result = service.actualizar(AUDITOR_ID, AUDITOR_ID, requestValido());
+
+        assertThat(result.dto()).isEqualTo(expected);
+        assertThat(result.creado()).isFalse(); // treated as update after race condition
+    }
+
+    // --- 10. Duplicate especialidades → ApiException BAD_REQUEST ---
+
+    @Test
+    void duplicateCheck_especialidadesDuplicadas_lanzaBadRequest() {
+        when(usuarioRepository.findById(AUDITOR_ID))
+                .thenReturn(Optional.of(auditorActivo()));
+
+        ActualizarPerfilAuditorRequestDTO request = new ActualizarPerfilAuditorRequestDTO(
+                List.of("ENERGIA_RENOVABLE", "ENERGIA_RENOVABLE"),
+                List.of("SAN_JOSE"),
+                true,
+                null
+        );
+
+        assertThatThrownBy(() -> service.actualizar(AUDITOR_ID, AUDITOR_ID, request))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> {
+                    ApiException apiEx = (ApiException) ex;
+                    assertThat(apiEx.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
+                    assertThat(apiEx.getMessage()).isEqualTo("La lista de especialidades contiene duplicados.");
+                });
+
+        verify(perfilAuditorRepository, never()).save(any());
+    }
+
+    // --- 11. Duplicate zonasCobertura → ApiException BAD_REQUEST ---
+
+    @Test
+    void duplicateCheck_zonasDuplicadas_lanzaBadRequest() {
+        when(usuarioRepository.findById(AUDITOR_ID))
+                .thenReturn(Optional.of(auditorActivo()));
+
+        ActualizarPerfilAuditorRequestDTO request = new ActualizarPerfilAuditorRequestDTO(
+                List.of("ENERGIA_RENOVABLE"),
+                List.of("SAN_JOSE", "SAN_JOSE"),
+                true,
+                null
+        );
+
+        assertThatThrownBy(() -> service.actualizar(AUDITOR_ID, AUDITOR_ID, request))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> {
+                    ApiException apiEx = (ApiException) ex;
+                    assertThat(apiEx.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
+                    assertThat(apiEx.getMessage()).isEqualTo("La lista de zonas de cobertura contiene duplicados.");
+                });
+
+        verify(perfilAuditorRepository, never()).save(any());
     }
 }

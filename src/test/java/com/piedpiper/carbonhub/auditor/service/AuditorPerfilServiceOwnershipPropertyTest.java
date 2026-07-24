@@ -50,7 +50,7 @@ class AuditorPerfilServiceOwnershipPropertyTest {
         Assume.that(!usuarioId.equals(auditorId));
 
         ActualizarPerfilAuditorRequestDTO dto = new ActualizarPerfilAuditorRequestDTO(
-                List.of("HUELLA_CARBONO"),
+                List.of("AGROINDUSTRIA"),
                 List.of("SAN_JOSE"),
                 true,
                 "Descripción de prueba"

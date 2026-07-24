@@ -19,6 +19,7 @@ public class ActualizarPerfilAuditorRequestDTO {
     private List<String> especialidades;
 
     @NotEmpty(message = "Seleccione al menos una zona de cobertura.")
+    @Size(max = 7, message = "Puede seleccionar un máximo de 7 zonas de cobertura.")
     private List<String> zonasCobertura;
 
     @NotNull(message = "El campo disponible es obligatorio.")

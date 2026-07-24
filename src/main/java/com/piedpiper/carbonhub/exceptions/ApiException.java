@@ -244,4 +244,8 @@ public class ApiException extends RuntimeException {
     public static ApiException periodoImaInvalido(String mensaje) {
         return new ApiException(HttpStatus.BAD_REQUEST, mensaje);
     }
+
+    public static ApiException datosInvalidos(String mensaje) {
+        return new ApiException(HttpStatus.BAD_REQUEST, mensaje);
+    }
 }
