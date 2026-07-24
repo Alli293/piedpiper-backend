@@ -1,12 +1,12 @@
 package com.piedpiper.carbonhub.emision.service;
 
+import com.piedpiper.carbonhub.common.HuellasCarbono;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
 final class EmisionComparacionHelper {
 
-    private static final BigDecimal KG_POR_TONELADA = new BigDecimal("1000");
     private static final BigDecimal CIEN = new BigDecimal("100");
     private static final BigDecimal UMBRAL_CERCA = new BigDecimal("80.0");
     private static final BigDecimal UMBRAL_SUPERADO = new BigDecimal("100.0");
@@ -15,7 +15,7 @@ final class EmisionComparacionHelper {
     }
 
     static BigDecimal toneladasDesdeKg(BigDecimal kg) {
-        return kg.divide(KG_POR_TONELADA, 4, RoundingMode.HALF_UP);
+        return HuellasCarbono.toneladasDesdeKg(kg);
     }
 
     static BigDecimal porcentajeConsumido(BigDecimal acumuladoT, BigDecimal limiteT) {

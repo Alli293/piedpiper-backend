@@ -43,4 +43,19 @@ class TokenVerificacionGeneratorTest {
         assertThat(diferencia).isGreaterThan(Duration.ofHours(23).plusMinutes(59));
         assertThat(diferencia).isLessThan(Duration.ofHours(24).plusMinutes(1));
     }
+
+    @Test
+    void formatoValido_aceptaUnTokenRecienGenerado() {
+        String token = TokenVerificacionGenerator.generar();
+
+        assertThat(TokenVerificacionGenerator.formatoValido(token)).isTrue();
+    }
+
+    @Test
+    void formatoValido_rechazaNuloVacioYLongitudIncorrecta() {
+        assertThat(TokenVerificacionGenerator.formatoValido(null)).isFalse();
+        assertThat(TokenVerificacionGenerator.formatoValido("")).isFalse();
+        assertThat(TokenVerificacionGenerator.formatoValido("abc")).isFalse();
+        assertThat(TokenVerificacionGenerator.formatoValido("!".repeat(43))).isFalse();
+    }
 }

@@ -10,6 +10,7 @@ import com.piedpiper.carbonhub.ima.models.dtos.ImaResponseDTO;
 import com.piedpiper.carbonhub.ima.models.entities.ImaSnapshot;
 import com.piedpiper.carbonhub.ima.repository.AgregadoSectorialRepository;
 import com.piedpiper.carbonhub.ima.repository.ImaSnapshotRepository;
+import com.piedpiper.carbonhub.ima.service.ImaBenchmarkService;
 import com.piedpiper.carbonhub.ima.service.ImaInterpretacionService;
 import com.piedpiper.carbonhub.ima.service.ImaService;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
@@ -46,6 +47,7 @@ import static org.mockito.Mockito.*;
 class ImaControllerPropertyTest {
 
     private ImaService imaService;
+    private ImaBenchmarkService imaBenchmarkService;
     private ImaController controller;
     private Authentication authentication;
 
@@ -66,7 +68,8 @@ class ImaControllerPropertyTest {
     void setUp() {
         // Simple mock for Property 7 tests
         imaService = Mockito.mock(ImaService.class);
-        controller = new ImaController(imaService);
+        imaBenchmarkService = Mockito.mock(ImaBenchmarkService.class);
+        controller = new ImaController(imaService, imaBenchmarkService);
         authentication = new TestingAuthenticationToken(
                 "41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA");
 

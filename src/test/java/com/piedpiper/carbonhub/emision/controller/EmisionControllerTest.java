@@ -7,6 +7,8 @@ import com.piedpiper.carbonhub.emision.models.dtos.EmisionElectricidadResponseDT
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionEnvioResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionFlotaResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionResponseDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.EvolucionMensualResponseDTO;
+import com.piedpiper.carbonhub.emision.models.dtos.EvolucionMensualResponseDTO.PuntoMensual;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionResumenResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionResumenResponseDTO.ResumenCategoriaDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.TipoVehiculoResponseDTO;
@@ -23,6 +25,7 @@ import com.piedpiper.carbonhub.emision.service.EmisionComparacionService;
 import com.piedpiper.carbonhub.emision.service.EmisionConsultaService;
 import com.piedpiper.carbonhub.emision.service.EmisionElectricidadService;
 import com.piedpiper.carbonhub.emision.service.EmisionEnvioService;
+import com.piedpiper.carbonhub.emision.service.EmisionEvolucionService;
 import com.piedpiper.carbonhub.emision.service.EmisionFlotaService;
 import com.piedpiper.carbonhub.emision.service.EmisionResumenService;
 import com.piedpiper.carbonhub.emision.service.EmisionVueloService;
@@ -52,6 +55,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -100,6 +104,8 @@ class EmisionControllerTest {
     private EmisionResumenService emisionResumenService;
     @MockitoBean
     private EmisionComparacionService emisionComparacionService;
+    @MockitoBean
+    private EmisionEvolucionService emisionEvolucionService;
     @MockitoBean
     private ReporteHuellaPdfService reporteHuellaPdfService;
     @MockitoBean
@@ -375,7 +381,8 @@ class EmisionControllerTest {
                 new BigDecimal("50.0000"),
                 new BigDecimal("60.0"),
                 "dentro",
-                null);
+                null,
+                List.of());
         when(emisionComparacionService.comparar(any(), eq(2026))).thenReturn(response);
 
         mockMvc.perform(get("/api/emisiones/comparacion")
@@ -385,7 +392,8 @@ class EmisionControllerTest {
                 .andExpect(jsonPath("$.huellaAcumuladaT").value(30.0000))
                 .andExpect(jsonPath("$.limiteT").value(50.0000))
                 .andExpect(jsonPath("$.porcentajeConsumido").value(60.0))
-                .andExpect(jsonPath("$.estado").value("dentro"));
+                .andExpect(jsonPath("$.estado").value("dentro"))
+                .andExpect(jsonPath("$.categorias").isArray());
 
         verify(emisionComparacionService).comparar(any(), eq(2026));
     }
@@ -665,6 +673,23 @@ class EmisionControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
+    // --- Tests para /api/emisiones/evolucion ---
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void evolucionConAnioValidoDevuelve200ConDocePuntos() throws Exception {
+        EvolucionMensualResponseDTO dto = crearEvolucionConDatos(2026);
+        when(emisionEvolucionService.obtenerEvolucion(any(), any(UUID.class))).thenReturn(dto);
+
+        mockMvc.perform(get("/api/emisiones/evolucion").param("anio", "2026")
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.anio").value(2026))
+                .andExpect(jsonPath("$.serie.length()").value(12))
+                .andExpect(jsonPath("$.serie[0].mes").value(1))
+                .andExpect(jsonPath("$.serie[11].mes").value(12));
+    }
+
     @Test
     @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
     void resumenComoAdministradorDevuelve200ConLaEstructuraEsperada() throws Exception {
@@ -695,6 +720,19 @@ class EmisionControllerTest {
 
     @Test
     @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void evolucionSinParametroAnioUsaAnioActualDevuelve200() throws Exception {
+        EvolucionMensualResponseDTO dto = crearEvolucionVacia(2026);
+        when(emisionEvolucionService.obtenerEvolucion(any(), any(UUID.class))).thenReturn(dto);
+
+        mockMvc.perform(get("/api/emisiones/evolucion")
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.anio").value(2026))
+                .andExpect(jsonPath("$.serie.length()").value(12));
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
     void resumenConMesFueraDeRangoDevuelve400() throws Exception {
         when(emisionResumenService.resumen(eq(2026), eq(13), any()))
                 .thenThrow(ApiException.mesInvalido());
@@ -703,6 +741,39 @@ class EmisionControllerTest {
                         .principal(principalDe("41ce47ab-a46c-4306-8c46-2688dc97fa73")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("El mes debe estar entre 1 y 12."));
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void evolucionConMesesSinDatosDevuelveCero() throws Exception {
+        EvolucionMensualResponseDTO dto = crearEvolucionVacia(2020);
+        when(emisionEvolucionService.obtenerEvolucion(any(), any(UUID.class))).thenReturn(dto);
+
+        mockMvc.perform(get("/api/emisiones/evolucion").param("anio", "2020")
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.serie[0].totalCarbonKg").value(0))
+                .andExpect(jsonPath("$.serie[5].totalCarbonKg").value(0))
+                .andExpect(jsonPath("$.serie[11].totalCarbonKg").value(0));
+    }
+
+    @Test
+    @WithMockUser(username = "db2ed1e7-6719-4595-844e-68efffe146cf", roles = "AUDITOR_CERTIFICADO")
+    void evolucionConRolNoAutorizadoDevuelve403() throws Exception {
+        mockMvc.perform(get("/api/emisiones/evolucion").param("anio", "2026")
+                        .principal(principal(GENERAL_USUARIO_ID, "ROLE_AUDITOR_CERTIFICADO")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "41ce47ab-a46c-4306-8c46-2688dc97fa73", roles = "ADMINISTRADOR_EMPRESA")
+    void evolucionConAnioInvalidoDevuelve400() throws Exception {
+        when(emisionEvolucionService.obtenerEvolucion(any(), any(UUID.class)))
+                .thenThrow(ApiException.anioInvalido());
+
+        mockMvc.perform(get("/api/emisiones/evolucion").param("anio", "1800")
+                        .principal(principal(ADMIN_USUARIO_ID, "ROLE_ADMINISTRADOR_EMPRESA")))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -737,6 +808,25 @@ class EmisionControllerTest {
                 .totalKg(new BigDecimal(totalKg))
                 .porcentaje(new BigDecimal(porcentaje))
                 .build();
+    }
+
+    private EvolucionMensualResponseDTO crearEvolucionConDatos(int anio) {
+        List<PuntoMensual> serie = new ArrayList<>();
+        for (int mes = 1; mes <= 12; mes++) {
+            BigDecimal valor = (mes == 1 || mes == 3 || mes == 7)
+                    ? new BigDecimal("150.500")
+                    : BigDecimal.ZERO;
+            serie.add(new PuntoMensual(mes, valor));
+        }
+        return new EvolucionMensualResponseDTO(anio, serie);
+    }
+
+    private EvolucionMensualResponseDTO crearEvolucionVacia(int anio) {
+        List<PuntoMensual> serie = new ArrayList<>();
+        for (int mes = 1; mes <= 12; mes++) {
+            serie.add(new PuntoMensual(mes, BigDecimal.ZERO));
+        }
+        return new EvolucionMensualResponseDTO(anio, serie);
     }
 
 }
