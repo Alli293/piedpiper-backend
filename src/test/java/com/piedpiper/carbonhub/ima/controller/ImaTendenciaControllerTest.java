@@ -6,6 +6,7 @@ import com.piedpiper.carbonhub.ima.models.dtos.ImaEventoDTO;
 import com.piedpiper.carbonhub.ima.models.dtos.ImaTendenciaPuntoDTO;
 import com.piedpiper.carbonhub.ima.models.dtos.ImaTendenciaResponseDTO;
 import com.piedpiper.carbonhub.ima.models.enums.TipoEventoIma;
+import com.piedpiper.carbonhub.ima.service.ImaBenchmarkService;
 import com.piedpiper.carbonhub.ima.service.ImaService;
 import com.piedpiper.carbonhub.ima.service.ImaTendenciaService;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
@@ -61,6 +62,8 @@ class ImaTendenciaControllerTest {
     private ImaService imaService;
     @MockitoBean
     private ImaTendenciaService imaTendenciaService;
+    @MockitoBean
+    private ImaBenchmarkService imaBenchmarkService;
     @MockitoBean
     private JwtService jwtService;
     @MockitoBean

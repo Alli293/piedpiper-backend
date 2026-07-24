@@ -229,6 +229,11 @@ public class ApiException extends RuntimeException {
                 "Conflicto al guardar el límite. Intente nuevamente.");
     }
 
+    public static ApiException preferenciasViajeConflicto() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Conflicto al guardar tus preferencias. Intenta nuevamente.");
+    }
+
     public static ApiException periodoImaInvalido(String mensaje) {
         return new ApiException(HttpStatus.BAD_REQUEST, mensaje);
     }
