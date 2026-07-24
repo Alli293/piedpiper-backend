@@ -3,7 +3,9 @@ package com.piedpiper.carbonhub.ima.service;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.empresa.models.enums.SectorIndustrial;
 import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.ima.models.dtos.ImaEventoDTO;
 import com.piedpiper.carbonhub.ima.models.dtos.ImaTendenciaPuntoDTO;
+import com.piedpiper.carbonhub.ima.models.enums.TipoEventoIma;
 import com.piedpiper.carbonhub.ima.models.dtos.ImaTendenciaResponseDTO;
 import com.piedpiper.carbonhub.ima.models.entities.ImaSnapshot;
 import com.piedpiper.carbonhub.ima.repository.ImaSnapshotRepository;
@@ -29,6 +31,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -171,6 +175,28 @@ class ImaTendenciaServiceTest {
             assertThat(punto.getImaEmpresa()).isNull();
             assertThat(punto.getImaPromedioSector()).isNull();
         });
+    }
+
+    @Test
+    void invocaAlDetectorDeEventosYPropagaSuResultado() {
+        mockUsuarioConEmpresa();
+        when(imaSnapshotRepository.findVentana(any(), anyInt(), anyInt(), anyInt(), anyInt()))
+                .thenReturn(List.of());
+        when(imaSnapshotRepository.promediarImaPorSector(any(), anyInt(), anyInt(), anyInt(), anyInt()))
+                .thenReturn(List.of());
+
+        ImaEventoDTO evento = ImaEventoDTO.builder()
+                .mes(mesActual.toString())
+                .tipo(TipoEventoIma.CRUCE_SECTOR)
+                .texto("En " + mesActual + " tu IMA superó el promedio de tu sector.")
+                .build();
+        when(imaEventosService.detectar(any(), any(), any(), any()))
+                .thenReturn(List.of(evento));
+
+        ImaTendenciaResponseDTO respuesta = imaTendenciaService.obtenerTendencia(12, USUARIO_ID);
+
+        verify(imaEventosService).detectar(eq(EMPRESA_ID), any(), any(), any());
+        assertThat(respuesta.getEventos()).containsExactly(evento);
     }
 
     @Test

@@ -1,6 +1,7 @@
 package com.piedpiper.carbonhub.ima.service;
 
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
+import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository.CategoriaMensual;
 import com.piedpiper.carbonhub.ima.models.dtos.ImaEventoDTO;
 import com.piedpiper.carbonhub.ima.models.dtos.ImaTendenciaPuntoDTO;
@@ -42,7 +43,7 @@ class ImaEventosServiceTest {
                 .build();
     }
 
-    private CategoriaMensual categoria(int anio, int mes, String categoria) {
+    private CategoriaMensual categoria(int anio, int mes, CategoriaEmision categoria) {
         return new CategoriaMensual() {
             @Override
             public Integer getAnio() {
@@ -55,7 +56,7 @@ class ImaEventosServiceTest {
             }
 
             @Override
-            public String getCategoria() {
+            public CategoriaEmision getCategoria() {
                 return categoria;
             }
         };
@@ -74,7 +75,7 @@ class ImaEventosServiceTest {
 
     @Test
     void detectaCruceSectorCuandoElImaSuperaElPromedio() {
-        mockCategorias(categoria(2026, 1, "ELECTRICIDAD"), categoria(2026, 2, "ELECTRICIDAD"));
+        mockCategorias(categoria(2026, 1, CategoriaEmision.ELECTRICIDAD), categoria(2026, 2, CategoriaEmision.ELECTRICIDAD));
         List<ImaTendenciaPuntoDTO> serie = List.of(
                 punto("2026-01", "55.0", "60.0"),
                 punto("2026-02", "65.0", "60.0"));
@@ -93,7 +94,7 @@ class ImaEventosServiceTest {
 
     @Test
     void detectaCruceSectorCuandoElImaQuedaPorDebajo() {
-        mockCategorias(categoria(2026, 1, "ELECTRICIDAD"), categoria(2026, 2, "ELECTRICIDAD"));
+        mockCategorias(categoria(2026, 1, CategoriaEmision.ELECTRICIDAD), categoria(2026, 2, CategoriaEmision.ELECTRICIDAD));
         List<ImaTendenciaPuntoDTO> serie = List.of(
                 punto("2026-01", "65.0", "60.0"),
                 punto("2026-02", "55.0", "60.0"));
@@ -109,7 +110,7 @@ class ImaEventosServiceTest {
 
     @Test
     void noEmiteCruceSectorSinLineaSectorial() {
-        mockCategorias(categoria(2026, 1, "ELECTRICIDAD"), categoria(2026, 2, "ELECTRICIDAD"));
+        mockCategorias(categoria(2026, 1, CategoriaEmision.ELECTRICIDAD), categoria(2026, 2, CategoriaEmision.ELECTRICIDAD));
         List<ImaTendenciaPuntoDTO> serie = List.of(
                 punto("2026-01", "55.0", null),
                 punto("2026-02", "65.0", null));
@@ -120,9 +121,42 @@ class ImaEventosServiceTest {
     }
 
     @Test
+    void noEmiteCruceSectorAtravesandoUnHueco() {
+        // enero por debajo del sector, febrero es un hueco (sin datos), marzo por encima.
+        // No debe emitirse cruce: enero y marzo no son meses consecutivos.
+        mockCategorias(categoria(2026, 1, CategoriaEmision.ELECTRICIDAD),
+                categoria(2026, 3, CategoriaEmision.ELECTRICIDAD));
+        List<ImaTendenciaPuntoDTO> serie = List.of(
+                punto("2026-01", "55.0", "60.0"),
+                punto("2026-02", null, null),
+                punto("2026-03", "65.0", "60.0"));
+
+        List<ImaEventoDTO> eventos = detectar(serie);
+
+        assertThat(eventos).noneMatch(e -> e.getTipo() == TipoEventoIma.CRUCE_SECTOR);
+    }
+
+    @Test
+    void emiteCruceSectorEntreMesesConsecutivos() {
+        // Control del test anterior: sin hueco de por medio, el cruce sí se detecta.
+        mockCategorias(categoria(2026, 1, CategoriaEmision.ELECTRICIDAD),
+                categoria(2026, 2, CategoriaEmision.ELECTRICIDAD));
+        List<ImaTendenciaPuntoDTO> serie = List.of(
+                punto("2026-01", "55.0", "60.0"),
+                punto("2026-02", "65.0", "60.0"));
+
+        List<ImaEventoDTO> eventos = detectar(serie);
+
+        assertThat(eventos)
+                .filteredOn(e -> e.getTipo() == TipoEventoIma.CRUCE_SECTOR)
+                .singleElement()
+                .satisfies(e -> assertThat(e.getMes()).isEqualTo("2026-02"));
+    }
+
+    @Test
     void emiteUnUnicoMarcadorDeMayorVariacion() {
-        mockCategorias(categoria(2026, 1, "ELECTRICIDAD"), categoria(2026, 2, "ELECTRICIDAD"),
-                categoria(2026, 3, "ELECTRICIDAD"));
+        mockCategorias(categoria(2026, 1, CategoriaEmision.ELECTRICIDAD), categoria(2026, 2, CategoriaEmision.ELECTRICIDAD),
+                categoria(2026, 3, CategoriaEmision.ELECTRICIDAD));
         List<ImaTendenciaPuntoDTO> serie = List.of(
                 punto("2026-01", "50.0", null),
                 punto("2026-02", "52.0", null),
@@ -141,7 +175,7 @@ class ImaEventosServiceTest {
 
     @Test
     void noEmiteMayorVariacionCuandoLaSerieEsPlana() {
-        mockCategorias(categoria(2026, 1, "ELECTRICIDAD"), categoria(2026, 2, "ELECTRICIDAD"));
+        mockCategorias(categoria(2026, 1, CategoriaEmision.ELECTRICIDAD), categoria(2026, 2, CategoriaEmision.ELECTRICIDAD));
         List<ImaTendenciaPuntoDTO> serie = List.of(
                 punto("2026-01", "60.0", null),
                 punto("2026-02", "60.0", null));
@@ -153,7 +187,7 @@ class ImaEventosServiceTest {
 
     @Test
     void detectaHuecoDeDatosEnElMesSinRegistros() {
-        mockCategorias(categoria(2026, 1, "ELECTRICIDAD"), categoria(2026, 3, "ELECTRICIDAD"));
+        mockCategorias(categoria(2026, 1, CategoriaEmision.ELECTRICIDAD), categoria(2026, 3, CategoriaEmision.ELECTRICIDAD));
         List<ImaTendenciaPuntoDTO> serie = List.of(
                 punto("2026-01", "60.0", null),
                 punto("2026-02", "60.0", null),
@@ -173,8 +207,8 @@ class ImaEventosServiceTest {
 
     @Test
     void detectaNuevaCategoriaEnElPrimerRegistroDeVuelo() {
-        mockCategorias(categoria(2026, 1, "ELECTRICIDAD"),
-                categoria(2026, 2, "ELECTRICIDAD"), categoria(2026, 2, "VUELO"));
+        mockCategorias(categoria(2026, 1, CategoriaEmision.ELECTRICIDAD),
+                categoria(2026, 2, CategoriaEmision.ELECTRICIDAD), categoria(2026, 2, CategoriaEmision.VUELO));
         List<ImaTendenciaPuntoDTO> serie = List.of(
                 punto("2026-01", "60.0", null),
                 punto("2026-02", "65.0", null));
@@ -192,8 +226,8 @@ class ImaEventosServiceTest {
     @Test
     void noEmiteNuevaCategoriaSiYaSeRegistrabaAntesDeLaVentana() {
         // VUELO ya existía en 2025, fuera de la ventana que arranca en 2026-01.
-        mockCategorias(categoria(2025, 11, "VUELO"),
-                categoria(2026, 1, "VUELO"), categoria(2026, 2, "VUELO"));
+        mockCategorias(categoria(2025, 11, CategoriaEmision.VUELO),
+                categoria(2026, 1, CategoriaEmision.VUELO), categoria(2026, 2, CategoriaEmision.VUELO));
         List<ImaTendenciaPuntoDTO> serie = List.of(
                 punto("2026-01", "60.0", null),
                 punto("2026-02", "65.0", null));
@@ -205,8 +239,8 @@ class ImaEventosServiceTest {
 
     @Test
     void listaTodosLosEventosCuandoCoincidenEnElMismoMes() {
-        mockCategorias(categoria(2026, 1, "ELECTRICIDAD"),
-                categoria(2026, 2, "ELECTRICIDAD"), categoria(2026, 2, "VUELO"));
+        mockCategorias(categoria(2026, 1, CategoriaEmision.ELECTRICIDAD),
+                categoria(2026, 2, CategoriaEmision.ELECTRICIDAD), categoria(2026, 2, CategoriaEmision.VUELO));
         List<ImaTendenciaPuntoDTO> serie = List.of(
                 punto("2026-01", "55.0", "60.0"),
                 punto("2026-02", "75.0", "60.0"));
@@ -224,8 +258,8 @@ class ImaEventosServiceTest {
     void sinEventosDetectablesDevuelveListaVacia() {
         // ELECTRICIDAD ya se registraba antes de la ventana, así que no es
         // categoría nueva; la serie es plana y nunca cruza al sector.
-        mockCategorias(categoria(2025, 12, "ELECTRICIDAD"),
-                categoria(2026, 1, "ELECTRICIDAD"), categoria(2026, 2, "ELECTRICIDAD"));
+        mockCategorias(categoria(2025, 12, CategoriaEmision.ELECTRICIDAD),
+                categoria(2026, 1, CategoriaEmision.ELECTRICIDAD), categoria(2026, 2, CategoriaEmision.ELECTRICIDAD));
         List<ImaTendenciaPuntoDTO> serie = List.of(
                 punto("2026-01", "60.0", "60.0"),
                 punto("2026-02", "60.0", "60.0"));
@@ -237,7 +271,7 @@ class ImaEventosServiceTest {
 
     @Test
     void devuelveLosEventosOrdenadosCronologicamente() {
-        mockCategorias(categoria(2026, 1, "ELECTRICIDAD"), categoria(2026, 3, "VUELO"));
+        mockCategorias(categoria(2026, 1, CategoriaEmision.ELECTRICIDAD), categoria(2026, 3, CategoriaEmision.VUELO));
         List<ImaTendenciaPuntoDTO> serie = List.of(
                 punto("2026-01", "60.0", null),
                 punto("2026-02", "61.0", null),

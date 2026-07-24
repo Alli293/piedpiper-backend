@@ -1,5 +1,6 @@
 package com.piedpiper.carbonhub.ima.service;
 
+import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository.CategoriaMensual;
 import com.piedpiper.carbonhub.ima.models.dtos.ImaEventoDTO;
@@ -32,11 +33,11 @@ public class ImaEventosService {
             "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
     };
 
-    private static final Map<String, String> ETIQUETA_CATEGORIA = Map.of(
-            "ELECTRICIDAD", "electricidad",
-            "FLOTA", "flota vehicular",
-            "VUELO", "vuelos",
-            "ENVIO", "envíos de carga");
+    private static final Map<CategoriaEmision, String> ETIQUETA_CATEGORIA = Map.of(
+            CategoriaEmision.ELECTRICIDAD, "electricidad",
+            CategoriaEmision.FLOTA, "flota vehicular",
+            CategoriaEmision.VUELO, "vuelos",
+            CategoriaEmision.ENVIO, "envíos de carga");
 
     private final EmisionRepository emisionRepository;
 
@@ -55,7 +56,7 @@ public class ImaEventosService {
         eventos.addAll(detectarCrucesSector(serie));
         detectarMayorVariacion(serie).ifPresent(eventos::add);
 
-        Map<YearMonth, Set<String>> categoriasPorMes = cargarCategoriasPorMes(empresaId, desde);
+        Map<YearMonth, Set<CategoriaEmision>> categoriasPorMes = cargarCategoriasPorMes(empresaId);
         eventos.addAll(detectarHuecosDatos(serie, categoriasPorMes));
         eventos.addAll(detectarNuevasCategorias(categoriasPorMes, desde, hasta));
 
@@ -75,7 +76,9 @@ public class ImaEventosService {
 
         for (ImaTendenciaPuntoDTO actual : serie) {
             if (tieneAmbos(actual)) {
-                if (anterior != null) {
+                // Solo se compara contra el mes calendario inmediatamente anterior:
+                // si hay un hueco en medio, no se atraviesa para inventar un cruce.
+                if (anterior != null && esMesSiguiente(anterior, actual)) {
                     int signoAnterior = comparar(anterior);
                     int signoActual = comparar(actual);
                     // Solo hay cruce si el lado cambia; empatar no cuenta como cruce.
@@ -92,9 +95,19 @@ public class ImaEventosService {
                     }
                 }
                 anterior = actual;
+            } else {
+                // Un mes sin ambos valores corta la comparación: el próximo punto
+                // no debe compararse contra un mes que ya no es su predecesor.
+                anterior = null;
             }
         }
         return eventos;
+    }
+
+    /** true si {@code actual} es exactamente el mes calendario siguiente a {@code anterior}. */
+    private boolean esMesSiguiente(ImaTendenciaPuntoDTO anterior, ImaTendenciaPuntoDTO actual) {
+        return YearMonth.parse(anterior.getMes()).plusMonths(1)
+                .equals(YearMonth.parse(actual.getMes()));
     }
 
     /**
@@ -133,13 +146,12 @@ public class ImaEventosService {
                 .tipo(TipoEventoIma.MAYOR_VARIACION)
                 .texto("En " + nombrarMes(mesMayor) + " registraste tu mayor cambio de IMA ("
                         + signo + deltaConSigno.abs().stripTrailingZeros().toPlainString() + ").")
-                .build())
-                ;
+                .build());
     }
 
     /** Meses de la ventana sin ningún registro de emisión. */
     private List<ImaEventoDTO> detectarHuecosDatos(List<ImaTendenciaPuntoDTO> serie,
-                                                   Map<YearMonth, Set<String>> categoriasPorMes) {
+                                                   Map<YearMonth, Set<CategoriaEmision>> categoriasPorMes) {
         List<ImaEventoDTO> eventos = new ArrayList<>();
         for (ImaTendenciaPuntoDTO punto : serie) {
             YearMonth periodo = YearMonth.parse(punto.getMes());
@@ -159,21 +171,21 @@ public class ImaEventosService {
      * Primera aparición de cada categoría. Se recorre todo el historial disponible,
      * de modo que una categoría ya registrada antes de la ventana no genera evento.
      */
-    private List<ImaEventoDTO> detectarNuevasCategorias(Map<YearMonth, Set<String>> categoriasPorMes,
+    private List<ImaEventoDTO> detectarNuevasCategorias(Map<YearMonth, Set<CategoriaEmision>> categoriasPorMes,
                                                         YearMonth desde, YearMonth hasta) {
         List<ImaEventoDTO> eventos = new ArrayList<>();
-        Set<String> yaVistas = new HashSet<>();
+        Set<CategoriaEmision> yaVistas = new HashSet<>();
 
-        for (Map.Entry<YearMonth, Set<String>> entrada : new TreeMap<>(categoriasPorMes).entrySet()) {
+        for (Map.Entry<YearMonth, Set<CategoriaEmision>> entrada : new TreeMap<>(categoriasPorMes).entrySet()) {
             YearMonth periodo = entrada.getKey();
-            for (String categoria : new TreeSet<>(entrada.getValue())) {
+            for (CategoriaEmision categoria : ordenarPorNombre(entrada.getValue())) {
                 if (yaVistas.add(categoria)
                         && !periodo.isBefore(desde) && !periodo.isAfter(hasta)) {
                     eventos.add(ImaEventoDTO.builder()
                             .mes(periodo.toString())
                             .tipo(TipoEventoIma.NUEVA_CATEGORIA)
                             .texto("En " + nombrarMes(periodo.toString()) + " empezaste a registrar "
-                                    + ETIQUETA_CATEGORIA.getOrDefault(categoria, categoria.toLowerCase())
+                                    + ETIQUETA_CATEGORIA.getOrDefault(categoria, categoria.name().toLowerCase())
                                     + ".")
                             .build());
                 }
@@ -182,18 +194,29 @@ public class ImaEventosService {
         return eventos;
     }
 
-    private Map<YearMonth, Set<String>> cargarCategoriasPorMes(UUID empresaId, YearMonth desde) {
-        // Se consulta desde el inicio del historial para distinguir una categoría
-        // realmente nueva de una que ya existía antes de la ventana.
+    /**
+     * Carga las categorías registradas por la empresa en TODO su historial, no solo en la
+     * ventana. Es intencional: NUEVA_CATEGORIA necesita saber si una categoría ya existía
+     * antes de la ventana para no marcarla como nueva. Por eso no recibe la fecha de inicio
+     * de la ventana; consulta desde el comienzo del historial.
+     */
+    private Map<YearMonth, Set<CategoriaEmision>> cargarCategoriasPorMes(UUID empresaId) {
         List<CategoriaMensual> filas = emisionRepository.listarCategoriasPorMes(
                 empresaId, java.time.LocalDate.of(1970, 1, 1));
 
-        Map<YearMonth, Set<String>> porMes = new HashMap<>();
+        Map<YearMonth, Set<CategoriaEmision>> porMes = new HashMap<>();
         for (CategoriaMensual fila : filas) {
             porMes.computeIfAbsent(YearMonth.of(fila.getAnio(), fila.getMes()), k -> new HashSet<>())
                     .add(fila.getCategoria());
         }
         return porMes;
+    }
+
+    /** Ordena las categorías de un mes por nombre, para que el resultado sea determinista. */
+    private List<CategoriaEmision> ordenarPorNombre(Set<CategoriaEmision> categorias) {
+        List<CategoriaEmision> ordenadas = new ArrayList<>(categorias);
+        ordenadas.sort(java.util.Comparator.comparing(CategoriaEmision::name));
+        return ordenadas;
     }
 
     private boolean tieneAmbos(ImaTendenciaPuntoDTO punto) {

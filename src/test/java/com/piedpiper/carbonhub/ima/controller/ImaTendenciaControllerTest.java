@@ -144,6 +144,8 @@ class ImaTendenciaControllerTest {
         mockMvc.perform(get("/api/ima/tendencia").param("mesesAtras", "13")
                         .principal(principal("ROLE_ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isBadRequest());
+
+        verify(imaTendenciaService, never()).obtenerTendencia(nullable(Integer.class), any(UUID.class));
     }
 
     @Test

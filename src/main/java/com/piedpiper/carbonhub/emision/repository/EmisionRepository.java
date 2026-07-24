@@ -150,16 +150,18 @@ public interface EmisionRepository extends JpaRepository<Emision, UUID> {
      * Categorías distintas registradas por la empresa en cada mes, desde :desde en adelante.
      * Se usa para detectar meses sin registros y la primera aparición de cada categoría.
      * La categoría se resuelve con un CASE sobre type(e) porque la jerarquía es SINGLE_TABLE
-     * y el enum no está mapeado como columna propia.
+     * y el enum no está mapeado como columna propia. Cada subtipo se compara de forma
+     * explícita (incluido EmisionEnvio): si se agrega un quinto subtipo sin actualizar esta
+     * consulta, la fila queda con categoria null y no se clasifica silenciosamente como ENVIO.
      */
     @Query("""
             select distinct year(e.fechaActividad) as anio,
                    month(e.fechaActividad) as mes,
                    case
-                       when type(e) = EmisionElectricidad then 'ELECTRICIDAD'
-                       when type(e) = EmisionFlota then 'FLOTA'
-                       when type(e) = EmisionVuelo then 'VUELO'
-                       else 'ENVIO'
+                       when type(e) = EmisionElectricidad then com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision.ELECTRICIDAD
+                       when type(e) = EmisionFlota then com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision.FLOTA
+                       when type(e) = EmisionVuelo then com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision.VUELO
+                       when type(e) = EmisionEnvio then com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision.ENVIO
                    end as categoria
             from Emision e
             where e.empresaId = :empresaId
@@ -174,6 +176,6 @@ public interface EmisionRepository extends JpaRepository<Emision, UUID> {
 
         Integer getMes();
 
-        String getCategoria();
+        CategoriaEmision getCategoria();
     }
 }
