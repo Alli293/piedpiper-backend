@@ -2,11 +2,9 @@ package com.piedpiper.carbonhub.ecoruta.controller;
 
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
 import com.piedpiper.carbonhub.auth.service.JwtService;
-import com.piedpiper.carbonhub.ecoruta.config.CertificacionApiKeyFilter;
 import com.piedpiper.carbonhub.ecoruta.service.EcoRutaInsigniaService;
 import com.piedpiper.carbonhub.reconocimiento.models.dtos.EventoCertificacionRequestDTO;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.security.oauth2.client.OAuth2ClientAutoConfiguration;
@@ -18,9 +16,9 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.test.context.TestPropertySource;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -35,10 +33,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         excludeAutoConfiguration = {SecurityAutoConfiguration.class, OAuth2ClientAutoConfiguration.class},
         excludeFilters = @ComponentScan.Filter(
                 type = FilterType.ASSIGNABLE_TYPE, classes = SecurityConfig.class))
-@AutoConfigureMockMvc(addFilters = true)
-@Import({CertificacionApiKeyFilter.class,
-        EcoRutaCertificacionEventoControllerTest.MethodSecurityTestConfig.class})
-@TestPropertySource(properties = "certificacion.api-key=clave-prueba")
+@AutoConfigureMockMvc(addFilters = false)
+@Import(EcoRutaCertificacionEventoControllerTest.MethodSecurityTestConfig.class)
 class EcoRutaCertificacionEventoControllerTest {
 
     @TestConfiguration
@@ -46,8 +42,6 @@ class EcoRutaCertificacionEventoControllerTest {
     static class MethodSecurityTestConfig {
     }
 
-    private static final String HEADER_API_KEY = "X-Certificacion-Api-Key";
-    private static final String API_KEY_VALIDA = "clave-prueba";
     private static final String REQUEST_VALIDO = """
             {
               "usuario_id": "41ce47ab-a46c-4306-8c46-2688dc97fa73",
@@ -66,15 +60,11 @@ class EcoRutaCertificacionEventoControllerTest {
     @MockitoBean
     private UsuarioRepository usuarioRepository;
 
-    @AfterEach
-    void limpiarContextoSeguridad() {
-        SecurityContextHolder.clearContext();
-    }
-
     @Test
+    @WithMockUser(username = "certificacion", roles = "CERTIFICACION")
     void eventoValidoInvocaServicioYDevuelve200() throws Exception {
         mockMvc.perform(post("/api/certificacion/eventos")
-                        .header(HEADER_API_KEY, API_KEY_VALIDA)
+                        .principal(principal("ROLE_CERTIFICACION"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(REQUEST_VALIDO))
                 .andExpect(status().isOk());
@@ -83,35 +73,31 @@ class EcoRutaCertificacionEventoControllerTest {
     }
 
     @Test
-    void sinApiKeyDevuelve401YNoInvocaServicio() throws Exception {
+    @WithMockUser(username = "usuario", roles = "USUARIO_INDIVIDUAL")
+    void rolNoAutorizadoDevuelve403YNoInvocaServicio() throws Exception {
         mockMvc.perform(post("/api/certificacion/eventos")
+                        .principal(principal("ROLE_USUARIO_INDIVIDUAL"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(REQUEST_VALIDO))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isForbidden());
 
         verifyNoInteractions(ecoRutaInsigniaService);
     }
 
     @Test
-    void apiKeyInvalidaDevuelve401YNoInvocaServicio() throws Exception {
-        mockMvc.perform(post("/api/certificacion/eventos")
-                        .header(HEADER_API_KEY, "clave-invalida")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(REQUEST_VALIDO))
-                .andExpect(status().isUnauthorized());
-
-        verifyNoInteractions(ecoRutaInsigniaService);
-    }
-
-    @Test
+    @WithMockUser(username = "certificacion", roles = "CERTIFICACION")
     void excepcionInesperadaDelServicioDevuelve500() throws Exception {
         doThrow(new RuntimeException("fallo silencioso")).when(ecoRutaInsigniaService)
                 .evaluarYOtorgar(any());
 
         mockMvc.perform(post("/api/certificacion/eventos")
-                        .header(HEADER_API_KEY, API_KEY_VALIDA)
+                        .principal(principal("ROLE_CERTIFICACION"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(REQUEST_VALIDO))
                 .andExpect(status().isInternalServerError());
+    }
+
+    private TestingAuthenticationToken principal(String authority) {
+        return new TestingAuthenticationToken("certificacion", "password", authority);
     }
 }
