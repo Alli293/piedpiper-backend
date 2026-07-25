@@ -130,7 +130,7 @@ class UsuarioControllerTest {
              "preferencias":{"idioma":"ESPANOL","moneda":"CRC","unidades":"METRICO"}}""";
 
     private PerfilInicialResponseDTO perfilResponse() {
-        return new PerfilInicialResponseDTO("Ana G.",
+        return new PerfilInicialResponseDTO("Ana G.", "Ana", "Gómez",
                 new PreferenciasUsuarioResponseDTO("ESPANOL", "CRC", "METRICO"),
                 "USUARIO_INDIVIDUAL", true, "/ecoruta", null);
     }

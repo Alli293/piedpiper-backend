@@ -10,6 +10,8 @@ import lombok.NoArgsConstructor;
 public class PerfilInicialResponseDTO {
 
     private String nombreVisible;
+    private String nombre;
+    private String apellidos;
     private PreferenciasUsuarioResponseDTO preferencias;
     private String rol;
     private boolean configuracionCompleta;

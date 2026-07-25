@@ -52,6 +52,7 @@ class PerfilInicialServiceTest {
                 .id(USUARIO_ID)
                 .email("usuario@correo.com")
                 .nombre("Ana")
+                .apellidos("Gómez")
                 .rol(rol)
                 .estado(EstadoUsuario.ACTIVO)
                 .metodoAuth(MetodoAuth.CORREO)
@@ -227,6 +228,8 @@ class PerfilInicialServiceTest {
         assertThat(response.getEmpresa()).isNotNull();
         assertThat(response.getEmpresa().getNombreEmpresa()).isEqualTo("Café del Valle S.A.");
         assertThat(response.getNombreVisible()).isEqualTo("Ana");
+        assertThat(response.getNombre()).isEqualTo("Ana");
+        assertThat(response.getApellidos()).isEqualTo("Gómez");
         assertThat(response.getPreferencias().getIdioma()).isEqualTo("ESPANOL");
     }
 
