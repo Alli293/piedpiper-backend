@@ -1,0 +1,42 @@
+package com.piedpiper.carbonhub.certificacion.controller;
+
+import com.piedpiper.carbonhub.certificacion.models.dtos.CertificacionResponseDTO;
+import com.piedpiper.carbonhub.certificacion.service.ConsultaCertificacionService;
+import com.piedpiper.carbonhub.common.Autenticaciones;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/certificaciones")
+@PreAuthorize("hasRole('ADMINISTRADOR_EMPRESA')")
+public class CertificacionController {
+
+    private final ConsultaCertificacionService consultaCertificacionService;
+
+    public CertificacionController(ConsultaCertificacionService consultaCertificacionService) {
+        this.consultaCertificacionService = consultaCertificacionService;
+    }
+
+    @GetMapping
+    public ResponseEntity<List<CertificacionResponseDTO>> listar(Authentication authentication) {
+        UUID usuarioId = Autenticaciones.usuarioId(authentication);
+        return ResponseEntity.ok(consultaCertificacionService.listar(usuarioId));
+    }
+
+    @GetMapping("/{certificacionId}")
+    public ResponseEntity<CertificacionResponseDTO> detalle(
+            Authentication authentication,
+            @PathVariable UUID certificacionId) {
+        UUID usuarioId = Autenticaciones.usuarioId(authentication);
+        return ResponseEntity.ok(consultaCertificacionService.detalle(usuarioId, certificacionId));
+    }
+}
