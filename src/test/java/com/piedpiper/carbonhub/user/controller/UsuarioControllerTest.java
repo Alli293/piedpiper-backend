@@ -132,7 +132,7 @@ class UsuarioControllerTest {
     private PerfilInicialResponseDTO perfilResponse() {
         return new PerfilInicialResponseDTO("Ana G.", "Ana", "Gómez",
                 new PreferenciasUsuarioResponseDTO("ESPANOL", "CRC", "METRICO"),
-                "USUARIO_INDIVIDUAL", true, "/ecoruta", null);
+                "USUARIO_INDIVIDUAL", true, "/ecoruta/preferencias", null);
     }
 
     @Test
@@ -145,7 +145,7 @@ class UsuarioControllerTest {
                         .content(PERFIL_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.configuracionCompleta").value(true))
-                .andExpect(jsonPath("$.redirect").value("/ecoruta"));
+                .andExpect(jsonPath("$.redirect").value("/ecoruta/preferencias"));
     }
 
     @Test

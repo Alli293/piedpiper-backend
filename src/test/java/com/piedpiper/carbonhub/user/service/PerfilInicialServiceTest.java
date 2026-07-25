@@ -95,7 +95,7 @@ class PerfilInicialServiceTest {
         assertThat(guardado.isConfiguracionCompleta()).isTrue();
 
         assertThat(response.isConfiguracionCompleta()).isTrue();
-        assertThat(response.getRedirect()).isEqualTo("/ecoruta");
+        assertThat(response.getRedirect()).isEqualTo("/ecoruta/preferencias");
         verify(empresaRepository, never()).saveAndFlush(any(Empresa.class));
     }
 
