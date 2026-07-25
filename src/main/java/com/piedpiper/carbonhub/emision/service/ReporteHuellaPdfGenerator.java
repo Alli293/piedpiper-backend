@@ -238,9 +238,9 @@ public class ReporteHuellaPdfGenerator {
                 bytes("<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
                 bytes("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
                         + "/Resources << /Font << /F1 4 0 R /F2 5 0 R /F3 6 0 R >> >> /Contents 7 0 R >>"),
-                bytes("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"),
-                bytes("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>"),
-                bytes("<< /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold >>"),
+                bytes("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>"),
+                bytes("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>"),
+                bytes("<< /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold /Encoding /WinAnsiEncoding >>"),
                 bytes("<< /Length " + stream.length + " >>\nstream\n"
                         + new String(stream, PDF_CHARSET) + "endstream")
         );
