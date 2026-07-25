@@ -140,6 +140,8 @@ public class PerfilInicialService {
 
         return new PerfilInicialResponseDTO(
                 nombreVisible,
+                usuario.getNombre(),
+                usuario.getApellidos(),
                 preferencias,
                 usuario.getRol().name(),
                 usuario.isConfiguracionCompleta(),

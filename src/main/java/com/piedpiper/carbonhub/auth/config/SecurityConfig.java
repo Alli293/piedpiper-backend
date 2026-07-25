@@ -37,6 +37,9 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .cors(c -> c.configurationSource(corsConfigurationSource))
+                // CSRF no aplica: la API es stateless (sin sesion ni cookies) y toda
+                // autenticacion viaja en headers (Authorization: Bearer, X-Certificacion-Api-Key)
+                // que un sitio malicioso no puede adjuntar automaticamente a una peticion cross-site.
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth

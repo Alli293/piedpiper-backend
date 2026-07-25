@@ -23,7 +23,7 @@ public final class RedirectResolver {
                     ? "/auditor/validacion-pendiente"
                     : "/auditor/panel";
             case ADMINISTRADOR_PLATAFORMA -> "/admin/panel";
-            case USUARIO_INDIVIDUAL -> "/ecoruta";
+            case USUARIO_INDIVIDUAL -> "/ecoruta/preferencias";
             default -> "/panel";
         };
     }

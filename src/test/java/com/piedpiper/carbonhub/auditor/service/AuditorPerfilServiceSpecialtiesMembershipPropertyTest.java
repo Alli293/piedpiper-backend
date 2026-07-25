@@ -122,7 +122,7 @@ class AuditorPerfilServiceSpecialtiesMembershipPropertyTest {
                 .ofMaxLength(30)
                 .filter(s -> !VALID_ESPECIALIDADES.contains(s));
 
-        return invalidString.list().ofMinSize(1).ofMaxSize(3);
+        return invalidString.list().ofMinSize(1).ofMaxSize(3).uniqueElements();
     }
 
     @Provide
