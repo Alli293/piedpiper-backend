@@ -45,6 +45,16 @@ class ReporteHuellaPdfGeneratorTest {
         assertThat(contenido).contains("Archivo: reporte-huella-2026-07.pdf");
     }
 
+    @Test
+    void declaraWinAnsiEncodingParaMostrarTildesEnFuentesBase() {
+        byte[] pdf = generator.generar(reporte(new BigDecimal("100.000"), false, "Café del Valle S.A.", 7));
+
+        String contenido = new String(pdf, PDF_CHARSET);
+        assertThat(contenido).contains("/BaseFont /Helvetica /Encoding /WinAnsiEncoding");
+        assertThat(contenido).contains("/BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding");
+        assertThat(contenido).contains("/BaseFont /Courier-Bold /Encoding /WinAnsiEncoding");
+    }
+
     private ReporteHuellaPdfDTO reporte(BigDecimal totalKg, boolean sinDatos) {
         return reporte(totalKg, sinDatos, "CarbonHub Demo", null);
     }
