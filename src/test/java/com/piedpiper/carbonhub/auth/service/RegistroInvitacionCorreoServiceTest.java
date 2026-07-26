@@ -125,7 +125,9 @@ class RegistroInvitacionCorreoServiceTest {
         when(invitacionService.validarParaAceptar("token-invitacion")).thenReturn(invitacion());
         when(usuarioRepository.existsByEmailIgnoreCase("colab@correo.com")).thenReturn(true);
 
-        assertThatThrownBy(() -> service().registrar(request()))
+        var servicio = service();
+        var requestDto = request();
+        assertThatThrownBy(() -> servicio.registrar(requestDto))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.CONFLICT);
@@ -142,7 +144,9 @@ class RegistroInvitacionCorreoServiceTest {
         when(usuarioRepository.saveAndFlush(any(Usuario.class)))
                 .thenThrow(new DataIntegrityViolationException("email duplicado"));
 
-        assertThatThrownBy(() -> service().registrar(request()))
+        var servicio = service();
+        var requestDto = request();
+        assertThatThrownBy(() -> servicio.registrar(requestDto))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.CONFLICT);
@@ -158,7 +162,9 @@ class RegistroInvitacionCorreoServiceTest {
         when(usuarioRepository.saveAndFlush(any(Usuario.class)))
                 .thenThrow(new RuntimeException("fallo inesperado de base de datos"));
 
-        assertThatThrownBy(() -> service().registrar(request()))
+        var servicio = service();
+        var requestDto = request();
+        assertThatThrownBy(() -> servicio.registrar(requestDto))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
@@ -175,7 +181,9 @@ class RegistroInvitacionCorreoServiceTest {
         doThrow(new RuntimeException("fallo inesperado al marcar la invitacion"))
                 .when(invitacionService).marcarAceptada(any(Invitacion.class));
 
-        assertThatThrownBy(() -> service().registrar(request()))
+        var servicio = service();
+        var requestDto = request();
+        assertThatThrownBy(() -> servicio.registrar(requestDto))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
@@ -191,7 +199,9 @@ class RegistroInvitacionCorreoServiceTest {
         when(jwtService.generar(any(Usuario.class)))
                 .thenThrow(new RuntimeException("fallo inesperado al generar el token"));
 
-        assertThatThrownBy(() -> service().registrar(request()))
+        var servicio = service();
+        var requestDto = request();
+        assertThatThrownBy(() -> servicio.registrar(requestDto))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
@@ -204,7 +214,9 @@ class RegistroInvitacionCorreoServiceTest {
         when(invitacionService.validarParaAceptar("token-invitacion"))
                 .thenThrow(ApiException.invitacionInvalida());
 
-        assertThatThrownBy(() -> service().registrar(request()))
+        var servicio = service();
+        var requestDto = request();
+        assertThatThrownBy(() -> servicio.registrar(requestDto))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.NOT_FOUND);
@@ -218,7 +230,9 @@ class RegistroInvitacionCorreoServiceTest {
         when(invitacionService.validarParaAceptar("token-invitacion"))
                 .thenThrow(ApiException.invitacionNoDisponible());
 
-        assertThatThrownBy(() -> service().registrar(request()))
+        var servicio = service();
+        var requestDto = request();
+        assertThatThrownBy(() -> servicio.registrar(requestDto))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.CONFLICT);
@@ -232,7 +246,9 @@ class RegistroInvitacionCorreoServiceTest {
         when(invitacionService.validarParaAceptar("token-invitacion"))
                 .thenThrow(ApiException.invitacionExpirada());
 
-        assertThatThrownBy(() -> service().registrar(request()))
+        var servicio = service();
+        var requestDto = request();
+        assertThatThrownBy(() -> servicio.registrar(requestDto))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.GONE);

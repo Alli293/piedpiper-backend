@@ -20,8 +20,6 @@ import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 import net.jqwik.api.*;
 import net.jqwik.api.lifecycle.BeforeTry;
 
-import org.mockito.Mockito;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Optional;
@@ -29,7 +27,6 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
@@ -52,12 +49,12 @@ class ImaServicePropertyTest {
 
     @BeforeTry
     void setUp() {
-        imaSnapshotRepository = Mockito.mock(ImaSnapshotRepository.class);
-        agregadoSectorialRepository = Mockito.mock(AgregadoSectorialRepository.class);
-        emisionRepository = Mockito.mock(EmisionRepository.class);
-        empresaRepository = Mockito.mock(EmpresaRepository.class);
-        usuarioRepository = Mockito.mock(UsuarioRepository.class);
-        imaSnapshotMapper = Mockito.mock(ImaSnapshotMapper.class);
+        imaSnapshotRepository = mock(ImaSnapshotRepository.class);
+        agregadoSectorialRepository = mock(AgregadoSectorialRepository.class);
+        emisionRepository = mock(EmisionRepository.class);
+        empresaRepository = mock(EmpresaRepository.class);
+        usuarioRepository = mock(UsuarioRepository.class);
+        imaSnapshotMapper = mock(ImaSnapshotMapper.class);
 
         imaService = new ImaService(
                 imaSnapshotRepository,

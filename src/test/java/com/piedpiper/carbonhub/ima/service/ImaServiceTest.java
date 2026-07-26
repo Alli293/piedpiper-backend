@@ -217,7 +217,8 @@ class ImaServiceTest {
         Usuario sinEmpresa = Usuario.builder().id(USUARIO_ID).build();
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(sinEmpresa));
 
-        assertThatThrownBy(() -> service().obtenerIma(2026, 6, USUARIO_ID))
+        var servicio = service();
+        assertThatThrownBy(() -> servicio.obtenerIma(2026, 6, USUARIO_ID))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
