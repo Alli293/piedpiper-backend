@@ -1,6 +1,6 @@
 package com.piedpiper.carbonhub.empresa.service;
 
-import com.piedpiper.carbonhub.empresa.mappers.EmpresaMapper;
+import com.piedpiper.carbonhub.empresa.mappers.EmpresaMapperImpl;
 import com.piedpiper.carbonhub.empresa.models.dtos.ConfiguracionInicialEmpresaRequestDTO;
 import com.piedpiper.carbonhub.empresa.models.dtos.ConfiguracionInicialEmpresaResponseDTO;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
@@ -13,7 +13,6 @@ import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -36,11 +35,10 @@ class ConfiguracionInicialEmpresaServiceTest {
     private EmpresaRepository empresaRepository;
     @Mock
     private UsuarioRepository usuarioRepository;
-    @Mock
-    private EmpresaMapper empresaMapper;
 
-    @InjectMocks
-    private ConfiguracionInicialEmpresaService service;
+    private ConfiguracionInicialEmpresaService service() {
+        return new ConfiguracionInicialEmpresaService(empresaRepository, usuarioRepository, new EmpresaMapperImpl());
+    }
 
     private static final UUID USUARIO_ID = UUID.randomUUID();
 
@@ -57,17 +55,6 @@ class ConfiguracionInicialEmpresaServiceTest {
                 "Acme S.A.", "3-101-123456", SectorIndustrial.MANUFACTURA, "CR", 50, "Empresa de prueba.");
     }
 
-    private void mockearMapperComoIdentidad() {
-        when(empresaMapper.toDto(any(Empresa.class))).thenAnswer(invocation -> {
-            Empresa empresa = invocation.getArgument(0);
-            ConfiguracionInicialEmpresaResponseDTO dto = new ConfiguracionInicialEmpresaResponseDTO();
-            dto.setEmpresaId(empresa.getId());
-            dto.setNombreEmpresa(empresa.getNombreEmpresa());
-            dto.setSlug(empresa.getSlug());
-            return dto;
-        });
-    }
-
     @Test
     void completarConfiguracionExitoso_creaEmpresaConCorreoDelUsuarioYVinculaAlAdmin() {
         Usuario admin = admin();
@@ -76,10 +63,9 @@ class ConfiguracionInicialEmpresaServiceTest {
         when(empresaRepository.existsBySlug("acme-s-a")).thenReturn(false);
         when(empresaRepository.saveAndFlush(any(Empresa.class))).thenAnswer(i -> i.getArgument(0));
         when(usuarioRepository.saveAndFlush(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
-        mockearMapperComoIdentidad();
 
         ConfiguracionInicialEmpresaResponseDTO response =
-                service.completarConfiguracionEmpresa(USUARIO_ID, request());
+                service().completarConfiguracionEmpresa(USUARIO_ID, request());
 
         ArgumentCaptor<Empresa> empresaCaptor = ArgumentCaptor.forClass(Empresa.class);
         verify(empresaRepository).saveAndFlush(empresaCaptor.capture());
@@ -104,7 +90,7 @@ class ConfiguracionInicialEmpresaServiceTest {
         usuario.setRol(Rol.USUARIO_INDIVIDUAL);
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario));
 
-        assertThatThrownBy(() -> service.completarConfiguracionEmpresa(USUARIO_ID, request()))
+        assertThatThrownBy(() -> service().completarConfiguracionEmpresa(USUARIO_ID, request()))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.FORBIDDEN);
@@ -122,10 +108,9 @@ class ConfiguracionInicialEmpresaServiceTest {
         Usuario usuario = admin();
         usuario.setEmpresa(empresaExistente);
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario));
-        mockearMapperComoIdentidad();
 
         ConfiguracionInicialEmpresaResponseDTO response =
-                service.completarConfiguracionEmpresa(USUARIO_ID, request());
+                service().completarConfiguracionEmpresa(USUARIO_ID, request());
 
         assertThat(response.getEmpresaId()).isEqualTo(empresaExistente.getId());
         assertThat(response.getNombreEmpresa()).isEqualTo("Acme Existente S.A.");
@@ -142,7 +127,7 @@ class ConfiguracionInicialEmpresaServiceTest {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(admin()));
         when(empresaRepository.existsByCedulaJuridica("3-101-123456")).thenReturn(true);
 
-        assertThatThrownBy(() -> service.completarConfiguracionEmpresa(USUARIO_ID, request()))
+        assertThatThrownBy(() -> service().completarConfiguracionEmpresa(USUARIO_ID, request()))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.CONFLICT);
@@ -158,7 +143,7 @@ class ConfiguracionInicialEmpresaServiceTest {
         when(empresaRepository.saveAndFlush(any(Empresa.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate key"));
 
-        assertThatThrownBy(() -> service.completarConfiguracionEmpresa(USUARIO_ID, request()))
+        assertThatThrownBy(() -> service().completarConfiguracionEmpresa(USUARIO_ID, request()))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.CONFLICT);

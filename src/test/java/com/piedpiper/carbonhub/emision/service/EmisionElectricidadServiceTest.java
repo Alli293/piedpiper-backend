@@ -1,6 +1,7 @@
 package com.piedpiper.carbonhub.emision.service;
 
 import com.piedpiper.carbonhub.emision.mappers.EmisionElectricidadMapper;
+import com.piedpiper.carbonhub.emision.mappers.EmisionElectricidadMapperImpl;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionElectricidadResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.RegistrarElectricidadRequestDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.climatiq.ClimatiqEmissionFactorSelector;
@@ -19,6 +20,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 
@@ -43,8 +45,8 @@ class EmisionElectricidadServiceTest {
     private EmisionRepository emisionRepository;
     @Mock
     private UsuarioRepository usuarioRepository;
-    @Mock
-    private EmisionElectricidadMapper emisionElectricidadMapper;
+    @Spy
+    private EmisionElectricidadMapper emisionElectricidadMapper = new EmisionElectricidadMapperImpl();
 
     @Mock
     private ImaCacheInvalidator imaCacheInvalidator;
@@ -82,9 +84,6 @@ class EmisionElectricidadServiceTest {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
         when(climatiqClient.estimar(any(), any())).thenReturn(estimacion(new BigDecimal("27.85")));
         when(emisionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        EmisionElectricidadResponseDTO responseEsperado = new EmisionElectricidadResponseDTO();
-        responseEsperado.setCarbonKg(new BigDecimal("27.85"));
-        when(emisionElectricidadMapper.toDto(any())).thenReturn(responseEsperado);
 
         EmisionElectricidadResponseDTO response = service.registrar(requestValido(), USUARIO_ID);
 
@@ -106,7 +105,6 @@ class EmisionElectricidadServiceTest {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
         when(climatiqClient.estimar(any(), any())).thenReturn(estimacion(new BigDecimal("27.85")));
         when(emisionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        when(emisionElectricidadMapper.toDto(any())).thenReturn(new EmisionElectricidadResponseDTO());
 
         service.registrar(requestValido(), USUARIO_ID);
 

@@ -1,7 +1,7 @@
 package com.piedpiper.carbonhub.reconocimiento.service;
 
 import com.piedpiper.carbonhub.exceptions.ApiException;
-import com.piedpiper.carbonhub.reconocimiento.mappers.EventoReconocimientoMapper;
+import com.piedpiper.carbonhub.reconocimiento.mappers.EventoReconocimientoMapperImpl;
 import com.piedpiper.carbonhub.reconocimiento.models.dtos.EventoReconocimientoResponseDTO;
 import com.piedpiper.carbonhub.reconocimiento.models.dtos.RegistrarEventoReconocimientoRequestDTO;
 import com.piedpiper.carbonhub.reconocimiento.models.entities.EventoReconocimiento;
@@ -15,7 +15,6 @@ import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -43,11 +42,12 @@ class EventoReconocimientoServiceTest {
     private EventoReconocimientoEnvioService eventoReconocimientoEnvioService;
     @Mock
     private EventoReconocimientoPersistenciaService eventoReconocimientoPersistenciaService;
-    @Mock
-    private EventoReconocimientoMapper eventoReconocimientoMapper;
 
-    @InjectMocks
-    private EventoReconocimientoService service;
+    private EventoReconocimientoService service() {
+        return new EventoReconocimientoService(eventoReconocimientoRepository, usuarioRepository,
+                eventoReconocimientoEnvioService, eventoReconocimientoPersistenciaService,
+                new EventoReconocimientoMapperImpl());
+    }
 
     private static final UUID USUARIO_ID = UUID.randomUUID();
 
@@ -60,10 +60,8 @@ class EventoReconocimientoServiceTest {
                     evento.setId(UUID.randomUUID());
                     return evento;
                 });
-        when(eventoReconocimientoMapper.toDto(any(EventoReconocimiento.class)))
-                .thenAnswer(invocation -> response(invocation.getArgument(0)));
 
-        EventoReconocimientoResponseDTO response = service.registrar(
+        EventoReconocimientoResponseDTO response = service().registrar(
                 new RegistrarEventoReconocimientoRequestDTO(USUARIO_ID, "primer_itinerario_generado"),
                 USUARIO_ID);
 
@@ -85,10 +83,8 @@ class EventoReconocimientoServiceTest {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario(EstadoUsuario.ACTIVO)));
         when(eventoReconocimientoPersistenciaService.guardarNuevo(any(EventoReconocimiento.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
-        when(eventoReconocimientoMapper.toDto(any(EventoReconocimiento.class)))
-                .thenAnswer(invocation -> response(invocation.getArgument(0)));
 
-        EventoReconocimientoResponseDTO response = service.registrar(
+        EventoReconocimientoResponseDTO response = service().registrar(
                 new RegistrarEventoReconocimientoRequestDTO(USUARIO_ID, "evento_desconocido"),
                 USUARIO_ID);
 
@@ -112,13 +108,12 @@ class EventoReconocimientoServiceTest {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario(EstadoUsuario.ACTIVO)));
         when(eventoReconocimientoRepository.findByUsuarioIdAndEventoGenerado(
                 USUARIO_ID, "primer_itinerario_generado")).thenReturn(Optional.of(existente));
-        when(eventoReconocimientoMapper.toDto(existente)).thenReturn(dto);
 
-        EventoReconocimientoResponseDTO response = service.registrar(
+        EventoReconocimientoResponseDTO response = service().registrar(
                 new RegistrarEventoReconocimientoRequestDTO(USUARIO_ID, "primer_itinerario_generado"),
                 USUARIO_ID);
 
-        assertThat(response).isSameAs(dto);
+        assertThat(response).isEqualTo(dto);
         verify(eventoReconocimientoPersistenciaService, never()).guardarNuevo(any());
         verify(eventoReconocimientoEnvioService, never()).enviarAsync(any());
     }
@@ -140,13 +135,12 @@ class EventoReconocimientoServiceTest {
                 .thenReturn(Optional.of(existente));
         when(eventoReconocimientoPersistenciaService.guardarNuevo(any(EventoReconocimiento.class)))
                 .thenThrow(new DataIntegrityViolationException("uk_eventos_reconocimiento_usuario_evento"));
-        when(eventoReconocimientoMapper.toDto(existente)).thenReturn(dto);
 
-        EventoReconocimientoResponseDTO response = service.registrar(
+        EventoReconocimientoResponseDTO response = service().registrar(
                 new RegistrarEventoReconocimientoRequestDTO(USUARIO_ID, "primer_itinerario_generado"),
                 USUARIO_ID);
 
-        assertThat(response).isSameAs(dto);
+        assertThat(response).isEqualTo(dto);
         verify(eventoReconocimientoPersistenciaService).guardarNuevo(any(EventoReconocimiento.class));
         verify(eventoReconocimientoEnvioService, never()).enviarAsync(any());
     }
@@ -155,7 +149,7 @@ class EventoReconocimientoServiceTest {
     void usuarioDistintoAlAutenticado_rechazaCon403() {
         UUID otroUsuarioId = UUID.randomUUID();
 
-        assertThatThrownBy(() -> service.registrar(
+        assertThatThrownBy(() -> service().registrar(
                 new RegistrarEventoReconocimientoRequestDTO(otroUsuarioId, "primer_itinerario_generado"),
                 USUARIO_ID))
                 .isInstanceOf(ApiException.class)
@@ -168,7 +162,7 @@ class EventoReconocimientoServiceTest {
     void usuarioInactivo_rechazaCon403YNoRegistraEvento() {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario(EstadoUsuario.DESHABILITADO)));
 
-        assertThatThrownBy(() -> service.registrar(
+        assertThatThrownBy(() -> service().registrar(
                 new RegistrarEventoReconocimientoRequestDTO(USUARIO_ID, "primer_itinerario_generado"),
                 USUARIO_ID))
                 .isInstanceOf(ApiException.class)

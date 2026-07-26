@@ -1,6 +1,7 @@
 package com.piedpiper.carbonhub.emision.service;
 
 import com.piedpiper.carbonhub.emision.mappers.EmisionFlotaMapper;
+import com.piedpiper.carbonhub.emision.mappers.EmisionFlotaMapperImpl;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionFlotaResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.RegistrarFlotaRequestDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.TipoVehiculoResponseDTO;
@@ -22,6 +23,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 
@@ -48,8 +50,8 @@ class EmisionFlotaServiceTest {
     private EmisionRepository emisionRepository;
     @Mock
     private UsuarioRepository usuarioRepository;
-    @Mock
-    private EmisionFlotaMapper emisionFlotaMapper;
+    @Spy
+    private EmisionFlotaMapper emisionFlotaMapper = new EmisionFlotaMapperImpl();
 
     @Mock
     private ImaCacheInvalidator imaCacheInvalidator;
@@ -90,9 +92,6 @@ class EmisionFlotaServiceTest {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
         when(climatiqClient.estimar(any(), any())).thenReturn(estimacion(new BigDecimal("22.85")));
         when(emisionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        EmisionFlotaResponseDTO responseEsperado = new EmisionFlotaResponseDTO();
-        responseEsperado.setCarbonKg(new BigDecimal("22.85"));
-        when(emisionFlotaMapper.toDto(any())).thenReturn(responseEsperado);
 
         EmisionFlotaResponseDTO response = service.registrar(requestValido(), USUARIO_ID);
 
@@ -118,7 +117,6 @@ class EmisionFlotaServiceTest {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
         when(climatiqClient.estimar(any(), any())).thenReturn(estimacion(new BigDecimal("22.85")));
         when(emisionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        when(emisionFlotaMapper.toDto(any())).thenReturn(new EmisionFlotaResponseDTO());
 
         service.registrar(requestValido(), USUARIO_ID);
 
@@ -144,7 +142,6 @@ class EmisionFlotaServiceTest {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
         when(climatiqClient.estimar(any(), any())).thenReturn(estimacion(new BigDecimal("22.85")));
         when(emisionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        when(emisionFlotaMapper.toDto(any())).thenReturn(new EmisionFlotaResponseDTO());
 
         RegistrarFlotaRequestDTO request = new RegistrarFlotaRequestDTO(
                 "Recorrido Toyota Corolla", TipoVehiculo.AUTOMOVIL, Combustible.GASOLINA,

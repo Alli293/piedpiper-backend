@@ -28,7 +28,7 @@ Everything hangs off `com.piedpiper.carbonhub`, organized **by domain**, not by 
     enums/             Domain enums
 ```
 
-Current domains: `auditor`, `auth`, `emision`, `empresa`, `ima`, `invitacion`, `limite`, `notification`, `user`.
+Current domains: `auditor`, `auth`, `dashboard`, `ecoruta`, `emision`, `empresa`, `ima`, `invitacion`, `limite`, `notification`, `reconocimiento`, `user`, `validacion`.
 
 Cross-cutting packages:
 - `common/` — shared utilities (`Autenticaciones`, `Catalogos`, `ApiErrorDTO`)

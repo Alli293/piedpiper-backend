@@ -1,6 +1,6 @@
 package com.piedpiper.carbonhub.auth.service;
 
-import com.piedpiper.carbonhub.auth.mappers.UsuarioAuthMapper;
+import com.piedpiper.carbonhub.auth.mappers.UsuarioAuthMapperImpl;
 import com.piedpiper.carbonhub.auth.models.dtos.AuthResponseDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.RegistroInvitacionCorreoRequestDTO;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
@@ -16,7 +16,6 @@ import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -30,7 +29,6 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -47,11 +45,11 @@ class RegistroInvitacionCorreoServiceTest {
     private PasswordEncoder passwordEncoder;
     @Mock
     private JwtService jwtService;
-    @Mock
-    private UsuarioAuthMapper usuarioAuthMapper;
 
-    @InjectMocks
-    private RegistroInvitacionCorreoService service;
+    private RegistroInvitacionCorreoService service() {
+        return new RegistroInvitacionCorreoService(
+                invitacionService, usuarioRepository, passwordEncoder, jwtService, new UsuarioAuthMapperImpl());
+    }
 
     private static final UUID EMPRESA_ID = UUID.randomUUID();
 
@@ -80,13 +78,8 @@ class RegistroInvitacionCorreoServiceTest {
         when(passwordEncoder.encode("clave1234")).thenReturn("hash-seguro");
         when(usuarioRepository.saveAndFlush(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
         when(jwtService.generar(any(Usuario.class))).thenReturn("jwt-app");
-        // RedirectResolver.paraUsuario resuelve a este mismo valor para un USUARIO_GENERAL con
-        // configuracionCompleta=false (el default al construir el usuario), asi que el stub sigue aplicando.
-        when(usuarioAuthMapper.toAuthResponse(any(Usuario.class), eq("jwt-app"), eq("/perfil/configuracion-inicial")))
-                .thenReturn(new AuthResponseDTO(
-                        "jwt-app", "USUARIO_GENERAL", "ACTIVO", "/perfil/configuracion-inicial"));
 
-        AuthResponseDTO response = service.registrar(request());
+        AuthResponseDTO response = service().registrar(request());
 
         ArgumentCaptor<Usuario> captor = ArgumentCaptor.forClass(Usuario.class);
         verify(usuarioRepository).saveAndFlush(captor.capture());
@@ -103,11 +96,6 @@ class RegistroInvitacionCorreoServiceTest {
 
         verify(invitacionService).marcarAceptada(invitacion);
 
-        ArgumentCaptor<Usuario> mapperCaptor = ArgumentCaptor.forClass(Usuario.class);
-        verify(usuarioAuthMapper).toAuthResponse(mapperCaptor.capture(), eq("jwt-app"),
-                eq("/perfil/configuracion-inicial"));
-        assertThat(mapperCaptor.getValue().getEmail()).isEqualTo("colab@correo.com");
-
         assertThat(response.getToken()).isEqualTo("jwt-app");
         assertThat(response.getRol()).isEqualTo("USUARIO_GENERAL");
         assertThat(response.getEstado()).isEqualTo("ACTIVO");
@@ -123,11 +111,8 @@ class RegistroInvitacionCorreoServiceTest {
         when(passwordEncoder.encode("clave1234")).thenReturn("hash-seguro");
         when(usuarioRepository.saveAndFlush(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
         when(jwtService.generar(any(Usuario.class))).thenReturn("jwt-app");
-        when(usuarioAuthMapper.toAuthResponse(any(Usuario.class), eq("jwt-app"), eq("/perfil/configuracion-inicial")))
-                .thenReturn(new AuthResponseDTO(
-                        "jwt-app", "USUARIO_GENERAL", "ACTIVO", "/perfil/configuracion-inicial"));
 
-        service.registrar(requestConEspacios);
+        service().registrar(requestConEspacios);
 
         ArgumentCaptor<Usuario> captor = ArgumentCaptor.forClass(Usuario.class);
         verify(usuarioRepository).saveAndFlush(captor.capture());
@@ -140,14 +125,13 @@ class RegistroInvitacionCorreoServiceTest {
         when(invitacionService.validarParaAceptar("token-invitacion")).thenReturn(invitacion());
         when(usuarioRepository.existsByEmailIgnoreCase("colab@correo.com")).thenReturn(true);
 
-        assertThatThrownBy(() -> service.registrar(request()))
+        assertThatThrownBy(() -> service().registrar(request()))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.CONFLICT);
 
         verify(usuarioRepository, never()).saveAndFlush(any());
         verify(invitacionService, never()).marcarAceptada(any());
-        verify(usuarioAuthMapper, never()).toAuthResponse(any(), any(), any());
     }
 
     @Test
@@ -158,13 +142,12 @@ class RegistroInvitacionCorreoServiceTest {
         when(usuarioRepository.saveAndFlush(any(Usuario.class)))
                 .thenThrow(new DataIntegrityViolationException("email duplicado"));
 
-        assertThatThrownBy(() -> service.registrar(request()))
+        assertThatThrownBy(() -> service().registrar(request()))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.CONFLICT);
 
         verify(invitacionService, never()).marcarAceptada(any());
-        verify(usuarioAuthMapper, never()).toAuthResponse(any(), any(), any());
     }
 
     @Test
@@ -175,13 +158,12 @@ class RegistroInvitacionCorreoServiceTest {
         when(usuarioRepository.saveAndFlush(any(Usuario.class)))
                 .thenThrow(new RuntimeException("fallo inesperado de base de datos"));
 
-        assertThatThrownBy(() -> service.registrar(request()))
+        assertThatThrownBy(() -> service().registrar(request()))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
 
         verify(invitacionService, never()).marcarAceptada(any());
-        verify(usuarioAuthMapper, never()).toAuthResponse(any(), any(), any());
     }
 
     @Test
@@ -193,12 +175,11 @@ class RegistroInvitacionCorreoServiceTest {
         doThrow(new RuntimeException("fallo inesperado al marcar la invitacion"))
                 .when(invitacionService).marcarAceptada(any(Invitacion.class));
 
-        assertThatThrownBy(() -> service.registrar(request()))
+        assertThatThrownBy(() -> service().registrar(request()))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
 
-        verify(usuarioAuthMapper, never()).toAuthResponse(any(), any(), any());
     }
 
     @Test
@@ -210,13 +191,12 @@ class RegistroInvitacionCorreoServiceTest {
         when(jwtService.generar(any(Usuario.class)))
                 .thenThrow(new RuntimeException("fallo inesperado al generar el token"));
 
-        assertThatThrownBy(() -> service.registrar(request()))
+        assertThatThrownBy(() -> service().registrar(request()))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
 
         verify(invitacionService).marcarAceptada(any(Invitacion.class));
-        verify(usuarioAuthMapper, never()).toAuthResponse(any(), any(), any());
     }
 
     @Test
@@ -224,14 +204,13 @@ class RegistroInvitacionCorreoServiceTest {
         when(invitacionService.validarParaAceptar("token-invitacion"))
                 .thenThrow(ApiException.invitacionInvalida());
 
-        assertThatThrownBy(() -> service.registrar(request()))
+        assertThatThrownBy(() -> service().registrar(request()))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.NOT_FOUND);
 
         verify(usuarioRepository, never()).existsByEmailIgnoreCase(any());
         verify(usuarioRepository, never()).saveAndFlush(any());
-        verify(usuarioAuthMapper, never()).toAuthResponse(any(), any(), any());
     }
 
     @Test
@@ -239,14 +218,13 @@ class RegistroInvitacionCorreoServiceTest {
         when(invitacionService.validarParaAceptar("token-invitacion"))
                 .thenThrow(ApiException.invitacionNoDisponible());
 
-        assertThatThrownBy(() -> service.registrar(request()))
+        assertThatThrownBy(() -> service().registrar(request()))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.CONFLICT);
 
         verify(usuarioRepository, never()).existsByEmailIgnoreCase(any());
         verify(usuarioRepository, never()).saveAndFlush(any());
-        verify(usuarioAuthMapper, never()).toAuthResponse(any(), any(), any());
     }
 
     @Test
@@ -254,13 +232,12 @@ class RegistroInvitacionCorreoServiceTest {
         when(invitacionService.validarParaAceptar("token-invitacion"))
                 .thenThrow(ApiException.invitacionExpirada());
 
-        assertThatThrownBy(() -> service.registrar(request()))
+        assertThatThrownBy(() -> service().registrar(request()))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.GONE);
 
         verify(usuarioRepository, never()).existsByEmailIgnoreCase(any());
         verify(usuarioRepository, never()).saveAndFlush(any());
-        verify(usuarioAuthMapper, never()).toAuthResponse(any(), any(), any());
     }
 }

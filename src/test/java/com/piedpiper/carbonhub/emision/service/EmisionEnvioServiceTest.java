@@ -1,6 +1,7 @@
 package com.piedpiper.carbonhub.emision.service;
 
 import com.piedpiper.carbonhub.emision.mappers.EmisionEnvioMapper;
+import com.piedpiper.carbonhub.emision.mappers.EmisionEnvioMapperImpl;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionEnvioResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.RegistrarEnvioRequestDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.climatiq.ClimatiqEmissionFactorSelector;
@@ -20,6 +21,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 
@@ -46,8 +48,8 @@ class EmisionEnvioServiceTest {
     private EmisionRepository emisionRepository;
     @Mock
     private UsuarioRepository usuarioRepository;
-    @Mock
-    private EmisionEnvioMapper emisionEnvioMapper;
+    @Spy
+    private EmisionEnvioMapper emisionEnvioMapper = new EmisionEnvioMapperImpl();
 
     @Mock
     private ImaCacheInvalidator imaCacheInvalidator;
@@ -84,9 +86,6 @@ class EmisionEnvioServiceTest {
         when(climatiqClient.estimar(any(ClimatiqEmissionFactorSelector.class), any(Map.class)))
                 .thenReturn(estimacion(new BigDecimal("35.500")));
         when(emisionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        EmisionEnvioResponseDTO responseEsperado = new EmisionEnvioResponseDTO();
-        responseEsperado.setCarbonKg(new BigDecimal("35.500"));
-        when(emisionEnvioMapper.toDto(any())).thenReturn(responseEsperado);
 
         EmisionEnvioResponseDTO response = service.registrar(requestValido(), USUARIO_ID);
 
@@ -157,7 +156,6 @@ class EmisionEnvioServiceTest {
         when(climatiqClient.estimar(any(ClimatiqEmissionFactorSelector.class), any(Map.class)))
                 .thenReturn(estimacion(new BigDecimal("1234.567")));
         when(emisionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        when(emisionEnvioMapper.toDto(any())).thenReturn(new EmisionEnvioResponseDTO());
 
         service.registrar(requestValido(), USUARIO_ID);
 
@@ -175,7 +173,6 @@ class EmisionEnvioServiceTest {
         when(climatiqClient.estimar(any(ClimatiqEmissionFactorSelector.class), any(Map.class)))
                 .thenReturn(estimacion(new BigDecimal("10")));
         when(emisionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        when(emisionEnvioMapper.toDto(any())).thenReturn(new EmisionEnvioResponseDTO());
 
         ArgumentCaptor<ClimatiqEmissionFactorSelector> selectorCaptor =
                 ArgumentCaptor.forClass(ClimatiqEmissionFactorSelector.class);

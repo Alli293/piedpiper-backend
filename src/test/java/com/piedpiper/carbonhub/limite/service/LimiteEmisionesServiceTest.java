@@ -6,7 +6,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.piedpiper.carbonhub.exceptions.ApiException;
-import com.piedpiper.carbonhub.limite.mappers.LimiteEmisionesMapper;
+import com.piedpiper.carbonhub.limite.mappers.LimiteEmisionesMapperImpl;
 import com.piedpiper.carbonhub.limite.models.dtos.LimiteEmisionesRequestDTO;
 import com.piedpiper.carbonhub.limite.models.dtos.LimiteEmisionesResponseDTO;
 import com.piedpiper.carbonhub.limite.models.entities.LimiteEmisiones;
@@ -18,7 +18,6 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -30,25 +29,9 @@ class LimiteEmisionesServiceTest {
 
     @Mock
     private LimiteEmisionesRepository repository;
-    @Mock
-    private LimiteEmisionesMapper limiteEmisionesMapper;
 
-    @InjectMocks
-    private LimiteEmisionesService service;
-
-    private void mockearMapperComoIdentidad() {
-        when(limiteEmisionesMapper.toDto(org.mockito.ArgumentMatchers.any(LimiteEmisiones.class)))
-                .thenAnswer(invocation -> {
-                    LimiteEmisiones limite = invocation.getArgument(0);
-                    LimiteEmisionesResponseDTO dto = new LimiteEmisionesResponseDTO();
-                    dto.setId(limite.getId());
-                    dto.setEmpresaId(limite.getEmpresaId());
-                    dto.setAnio(limite.getAnio());
-                    dto.setLimiteMt(limite.getLimiteMt());
-                    dto.setJustificacion(limite.getJustificacion());
-                    dto.setActualizadoEn(limite.getActualizadoEn());
-                    return dto;
-                });
+    private LimiteEmisionesService service() {
+        return new LimiteEmisionesService(repository, new LimiteEmisionesMapperImpl());
     }
 
     @Test
@@ -61,9 +44,8 @@ class LimiteEmisionesServiceTest {
         when(repository.findByEmpresaIdAndAnio(EMPRESA_ID, 2026)).thenReturn(Optional.empty());
         when(repository.save(org.mockito.ArgumentMatchers.any(LimiteEmisiones.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
-        mockearMapperComoIdentidad();
 
-        LimiteEmisionesResponseDTO response = service.guardarLimite(EMPRESA_ID, request);
+        LimiteEmisionesResponseDTO response = service().guardarLimite(EMPRESA_ID, request);
 
         ArgumentCaptor<LimiteEmisiones> captor = ArgumentCaptor.forClass(LimiteEmisiones.class);
         verify(repository).findByEmpresaIdAndAnio(EMPRESA_ID, 2026);
@@ -85,9 +67,8 @@ class LimiteEmisionesServiceTest {
         );
         when(repository.findByEmpresaIdAndAnio(EMPRESA_ID, 2026)).thenReturn(Optional.of(existing));
         when(repository.save(existing)).thenReturn(existing);
-        mockearMapperComoIdentidad();
 
-        LimiteEmisionesResponseDTO response = service.guardarLimite(EMPRESA_ID, request);
+        LimiteEmisionesResponseDTO response = service().guardarLimite(EMPRESA_ID, request);
 
         verify(repository).findByEmpresaIdAndAnio(EMPRESA_ID, 2026);
         verify(repository).save(existing);
@@ -107,9 +88,8 @@ class LimiteEmisionesServiceTest {
         when(repository.findByEmpresaIdAndAnio(EMPRESA_ID, 2026)).thenReturn(Optional.empty());
         when(repository.save(org.mockito.ArgumentMatchers.any(LimiteEmisiones.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
-        mockearMapperComoIdentidad();
 
-        LimiteEmisionesResponseDTO response = service.guardarLimite(EMPRESA_ID, request);
+        LimiteEmisionesResponseDTO response = service().guardarLimite(EMPRESA_ID, request);
 
         ArgumentCaptor<LimiteEmisiones> captor = ArgumentCaptor.forClass(LimiteEmisiones.class);
         verify(repository).save(captor.capture());
@@ -128,7 +108,7 @@ class LimiteEmisionesServiceTest {
         when(repository.save(org.mockito.ArgumentMatchers.any(LimiteEmisiones.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate key"));
 
-        assertThatThrownBy(() -> service.guardarLimite(EMPRESA_ID, request))
+        assertThatThrownBy(() -> service().guardarLimite(EMPRESA_ID, request))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.CONFLICT);
@@ -143,9 +123,8 @@ class LimiteEmisionesServiceTest {
                 "Meta anual"
         );
         when(repository.findAllByEmpresaIdOrderByAnioDesc(EMPRESA_ID)).thenReturn(List.of(limite));
-        mockearMapperComoIdentidad();
 
-        List<LimiteEmisionesResponseDTO> response = service.listarLimites(EMPRESA_ID);
+        List<LimiteEmisionesResponseDTO> response = service().listarLimites(EMPRESA_ID);
 
         assertThat(response).hasSize(1);
         assertThat(response.getFirst().getJustificacion()).isEqualTo("Meta anual");
@@ -161,7 +140,7 @@ class LimiteEmisionesServiceTest {
         );
         when(repository.findByEmpresaIdAndAnio(EMPRESA_ID, 2026)).thenReturn(Optional.of(limite));
 
-        service.eliminarLimite(EMPRESA_ID, 2026);
+        service().eliminarLimite(EMPRESA_ID, 2026);
 
         verify(repository).delete(limite);
     }
