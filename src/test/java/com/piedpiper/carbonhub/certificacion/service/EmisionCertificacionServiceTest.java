@@ -96,7 +96,7 @@ class EmisionCertificacionServiceTest {
         mockearEntidadesResueltas();
         mockearIndiceEstado();
         when(generadorCredencialOpenBadges.generar(any(), any())).thenReturn("jwt.firmado.aqui");
-        when(certificacionRepository.save(any(Certificacion.class)))
+        when(certificacionRepository.saveAndFlush(any(Certificacion.class)))
                 .thenAnswer(i -> i.getArgument(0));
         mockearMapperComoIdentidad();
     }
@@ -123,7 +123,7 @@ class EmisionCertificacionServiceTest {
 
     private Certificacion capturarGuardada() {
         ArgumentCaptor<Certificacion> captor = ArgumentCaptor.forClass(Certificacion.class);
-        verify(certificacionRepository).save(captor.capture());
+        verify(certificacionRepository).saveAndFlush(captor.capture());
         return captor.getValue();
     }
 
@@ -202,7 +202,7 @@ class EmisionCertificacionServiceTest {
 
         assertThat(response.isRecienEmitida()).isFalse();
         assertThat(response.getIdAuditoria()).isEqualTo(ID_AUDITORIA);
-        verify(certificacionRepository, never()).save(any());
+        verify(certificacionRepository, never()).saveAndFlush(any());
         verify(notificacionPanelRepository, never()).save(any());
         verify(generadorCredencialOpenBadges, never()).generar(any(), any());
     }
@@ -221,7 +221,7 @@ class EmisionCertificacionServiceTest {
                 .thenReturn(Optional.of(Usuario.builder().id(ID_AUDITOR).build()));
         mockearIndiceEstado();
         when(generadorCredencialOpenBadges.generar(any(), any())).thenReturn("jwt.firmado.aqui");
-        when(certificacionRepository.save(any(Certificacion.class)))
+        when(certificacionRepository.saveAndFlush(any(Certificacion.class)))
                 .thenThrow(new DataIntegrityViolationException("id_auditoria duplicado"));
         when(certificacionRepository.findByIdAuditoria(ID_AUDITORIA))
                 .thenReturn(Optional.empty(), Optional.of(ganadora));
@@ -245,7 +245,7 @@ class EmisionCertificacionServiceTest {
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
 
         verify(certificacionRepository, never()).findByIdAuditoria(any());
-        verify(certificacionRepository, never()).save(any());
+        verify(certificacionRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -259,7 +259,7 @@ class EmisionCertificacionServiceTest {
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
 
-        verify(certificacionRepository, never()).save(any());
+        verify(certificacionRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -273,7 +273,7 @@ class EmisionCertificacionServiceTest {
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
 
-        verify(certificacionRepository, never()).save(any());
+        verify(certificacionRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -288,7 +288,7 @@ class EmisionCertificacionServiceTest {
                 .isEqualTo(HttpStatus.NOT_FOUND);
 
         verify(generadorCredencialOpenBadges, never()).generar(any(), any());
-        verify(certificacionRepository, never()).save(any());
+        verify(certificacionRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -305,7 +305,7 @@ class EmisionCertificacionServiceTest {
                 .isEqualTo(HttpStatus.NOT_FOUND);
 
         verify(generadorCredencialOpenBadges, never()).generar(any(), any());
-        verify(certificacionRepository, never()).save(any());
+        verify(certificacionRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -313,7 +313,7 @@ class EmisionCertificacionServiceTest {
         mockearEntidadesResueltas();
         mockearIndiceEstado();
         when(generadorCredencialOpenBadges.generar(any(), any())).thenReturn("jwt.firmado.aqui");
-        when(certificacionRepository.save(any(Certificacion.class)))
+        when(certificacionRepository.saveAndFlush(any(Certificacion.class)))
                 .thenThrow(new IllegalStateException("fallo de base de datos"));
 
         assertThatThrownBy(() -> service()

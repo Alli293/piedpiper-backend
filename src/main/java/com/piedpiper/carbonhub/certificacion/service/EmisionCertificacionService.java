@@ -135,7 +135,7 @@ public class EmisionCertificacionService implements EmisionCertificacionPort {
                 generadorCredencialOpenBadges.generar(certificacion, definicion));
 
         try {
-            certificacion = certificacionRepository.save(certificacion);
+            certificacion = certificacionRepository.saveAndFlush(certificacion);
         } catch (DataIntegrityViolationException e) {
             // Dos aprobaciones simultaneas de la misma auditoria: la restriccion de
             // unicidad sobre id_auditoria es la que garantiza que no haya duplicados.

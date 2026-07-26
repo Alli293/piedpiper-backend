@@ -62,7 +62,7 @@ public class CertificacionEmisorController {
      * compacto. Hoy siempre reporta todo vigente: no existe todavia una accion
      * para revocar una certificacion.
      */
-    @GetMapping("/estado/lista")
+    @GetMapping(value = "/estado/lista", produces = "application/vc+ld+json+jwt")
     public ResponseEntity<String> listaEstado() {
         return ResponseEntity.ok(listaEstadoCredencialesService.generar());
     }
