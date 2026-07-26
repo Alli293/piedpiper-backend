@@ -162,7 +162,8 @@ class EmisionVueloServiceTest {
     void usuarioSinEmpresaNoPuedeRegistrar() {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuarioSinEmpresa()));
 
-        assertThatThrownBy(() -> service.registrar(requestValido(), USUARIO_ID))
+        RegistrarVueloRequestDTO request = requestValido();
+        assertThatThrownBy(() -> service.registrar(request, USUARIO_ID))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
@@ -177,7 +178,8 @@ class EmisionVueloServiceTest {
         when(emisionRepository.findByIdAndEmpresaId(emisionId, EMPRESA_ID))
                 .thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.actualizar(emisionId, requestValido(), USUARIO_ID))
+        RegistrarVueloRequestDTO request = requestValido();
+        assertThatThrownBy(() -> service.actualizar(emisionId, request, USUARIO_ID))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.NOT_FOUND);

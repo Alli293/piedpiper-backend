@@ -17,12 +17,15 @@ import com.piedpiper.carbonhub.limite.models.entities.LimiteEmisiones;
 import com.piedpiper.carbonhub.limite.repository.LimiteEmisionesRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.Month;
 import java.time.Year;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -87,43 +90,23 @@ class EmisionComparacionServiceTest {
         assertThat(response.getEstado()).isEqualTo("dentro");
     }
 
-    @Test
-    void porcentajeMayorACienQuedaSuperado() {
+    @ParameterizedTest(name = "huellaAnual={0} produce porcentaje={1} y estado={2}")
+    @CsvSource({
+            "60000.000, 120.0, superado",
+            "40000.000, 80.0, cerca",
+            "50000.000, 100.0, alcanzado"
+    })
+    void calculaPorcentajeYEstadoSegunHuellaAcumulada(String huellaKg, String porcentajeEsperado,
+                                                       String estadoEsperado) {
         givenEmpresa();
-        givenHuellaAnual("60000.000", 2026);
+        givenHuellaAnual(huellaKg, 2026);
         when(limiteEmisionesRepository.findByEmpresaIdAndAnio(EMPRESA_ID, 2026))
                 .thenReturn(Optional.of(new LimiteEmisiones(EMPRESA_ID, 2026, new BigDecimal("50.0000"))));
 
         ComparacionEmisionesResponseDTO response = service.comparar(USUARIO_ID, 2026);
 
-        assertThat(response.getPorcentajeConsumido()).isEqualByComparingTo("120.0");
-        assertThat(response.getEstado()).isEqualTo("superado");
-    }
-
-    @Test
-    void porcentajeOchentaQuedaCerca() {
-        givenEmpresa();
-        givenHuellaAnual("40000.000", 2026);
-        when(limiteEmisionesRepository.findByEmpresaIdAndAnio(EMPRESA_ID, 2026))
-                .thenReturn(Optional.of(new LimiteEmisiones(EMPRESA_ID, 2026, new BigDecimal("50.0000"))));
-
-        ComparacionEmisionesResponseDTO response = service.comparar(USUARIO_ID, 2026);
-
-        assertThat(response.getPorcentajeConsumido()).isEqualByComparingTo("80.0");
-        assertThat(response.getEstado()).isEqualTo("cerca");
-    }
-
-    @Test
-    void porcentajeCienExactoQuedaAlcanzado() {
-        givenEmpresa();
-        givenHuellaAnual("50000.000", 2026);
-        when(limiteEmisionesRepository.findByEmpresaIdAndAnio(EMPRESA_ID, 2026))
-                .thenReturn(Optional.of(new LimiteEmisiones(EMPRESA_ID, 2026, new BigDecimal("50.0000"))));
-
-        ComparacionEmisionesResponseDTO response = service.comparar(USUARIO_ID, 2026);
-
-        assertThat(response.getPorcentajeConsumido()).isEqualByComparingTo("100.0");
-        assertThat(response.getEstado()).isEqualTo("alcanzado");
+        assertThat(response.getPorcentajeConsumido()).isEqualByComparingTo(porcentajeEsperado);
+        assertThat(response.getEstado()).isEqualTo(estadoEsperado);
     }
 
     @Test
@@ -131,7 +114,7 @@ class EmisionComparacionServiceTest {
         givenEmpresa();
         givenHuellaAnual("5236.000", 2026);
         when(emisionRepository.findAllByEmpresaIdAndPeriodo(
-                EMPRESA_ID, LocalDate.of(2026, 1, 1), LocalDate.of(2027, 1, 1)))
+                EMPRESA_ID, LocalDate.of(2026, Month.JANUARY, 1), LocalDate.of(2027, Month.JANUARY, 1)))
                 .thenReturn(List.of(
                         emision(new EmisionElectricidad(), "2357.000"),
                         emision(new EmisionFlota(), "1466.000"),

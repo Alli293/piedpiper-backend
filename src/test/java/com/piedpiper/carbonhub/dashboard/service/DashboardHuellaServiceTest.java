@@ -11,6 +11,7 @@ import com.piedpiper.carbonhub.emision.service.EmisionEmpresaService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.Month;
 import java.time.Year;
 import java.time.YearMonth;
 import java.util.UUID;
@@ -86,7 +87,7 @@ class DashboardHuellaServiceTest {
 
     @Test
     void resumenAnioSumaPeriodoSeleccionadoYCalculaVariacion() {
-        LocalDate inicioAnio = LocalDate.of(2021, 1, 1);
+        LocalDate inicioAnio = LocalDate.of(2021, Month.JANUARY, 1);
         LocalDate finAnio = inicioAnio.plusYears(1);
         LocalDate inicioAnioAnterior = inicioAnio.minusYears(1);
 

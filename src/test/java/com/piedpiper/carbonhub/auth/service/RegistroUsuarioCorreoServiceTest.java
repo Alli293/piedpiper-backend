@@ -89,7 +89,8 @@ class RegistroUsuarioCorreoServiceTest {
     void emailDuplicadoPreexistente_lanza409YNoPersiste() {
         when(usuarioRepository.existsByEmailIgnoreCase("ana.perez@example.com")).thenReturn(true);
 
-        assertThatThrownBy(() -> service.registrar(request()))
+        RegistroUsuarioCorreoRequestDTO solicitud = request();
+        assertThatThrownBy(() -> service.registrar(solicitud))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.CONFLICT);

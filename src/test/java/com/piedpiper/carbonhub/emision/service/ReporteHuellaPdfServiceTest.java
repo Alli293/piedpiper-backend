@@ -135,7 +135,8 @@ class ReporteHuellaPdfServiceTest {
                 .build();
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario));
 
-        assertThatThrownBy(() -> service().generar(USUARIO_ID, 2026, null))
+        ReporteHuellaPdfService servicio = service();
+        assertThatThrownBy(() -> servicio.generar(USUARIO_ID, 2026, null))
                 .isInstanceOf(ApiException.class)
                 .extracting("status")
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
@@ -143,7 +144,8 @@ class ReporteHuellaPdfServiceTest {
 
     @Test
     void fallaSiAnioEsInvalido() {
-        assertThatThrownBy(() -> service().generar(USUARIO_ID, 1899, null))
+        ReporteHuellaPdfService servicio = service();
+        assertThatThrownBy(() -> servicio.generar(USUARIO_ID, 1899, null))
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> {
                     ApiException apiException = (ApiException) ex;
@@ -154,7 +156,8 @@ class ReporteHuellaPdfServiceTest {
 
     @Test
     void fallaSiMesEsInvalido() {
-        assertThatThrownBy(() -> service().generar(USUARIO_ID, 2026, 13))
+        ReporteHuellaPdfService servicio = service();
+        assertThatThrownBy(() -> servicio.generar(USUARIO_ID, 2026, 13))
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> {
                     ApiException apiException = (ApiException) ex;
