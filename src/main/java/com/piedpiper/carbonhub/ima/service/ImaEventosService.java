@@ -180,7 +180,7 @@ public class ImaEventosService {
     }
 
     /**
-     * Primera aparición de cada categoría. Se recorre todo el historial disponible,
+     * Primera aparición de cada categoría. Se recorre el historial completo disponible,
      * de modo que una categoría ya registrada antes de la ventana no genera evento.
      */
     private List<ImaEventoDTO> detectarNuevasCategorias(Map<YearMonth, Set<CategoriaEmision>> categoriasPorMes,
@@ -207,7 +207,7 @@ public class ImaEventosService {
     }
 
     /**
-     * Carga las categorías registradas por la empresa en TODO su historial, no solo en la
+     * Carga las categorías registradas por la empresa en la totalidad de su historial, no solo en la
      * ventana. Es intencional: NUEVA_CATEGORIA necesita saber si una categoría ya existía
      * antes de la ventana para no marcarla como nueva. Por eso no recibe la fecha de inicio
      * de la ventana; consulta desde el comienzo del historial.
@@ -242,6 +242,6 @@ public class ImaEventosService {
     /** Convierte un período ISO {@code YYYY-MM} en el nombre del mes en español. */
     private String nombrarMes(String periodo) {
         YearMonth ym = YearMonth.parse(periodo);
-        return MESES_ES[ym.getMonthValue() - 1] + " " + ym.getYear();
+        return MESES_ES[ym.getMonth().ordinal()] + " " + ym.getYear();
     }
 }

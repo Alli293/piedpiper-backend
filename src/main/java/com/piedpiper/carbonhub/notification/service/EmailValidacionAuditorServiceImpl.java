@@ -124,14 +124,14 @@ public class EmailValidacionAuditorServiceImpl implements EmailValidacionAuditor
         String nombreEscapado = HtmlUtils.htmlEscape(nombre);
         if (aprobado) {
             String html = PLANTILLA_APROBADO.formatted(nombreEscapado, loginUrl);
-            String textoPlano = "Hola %s,\n\n".formatted(nombre)
+            String textoPlano = "Hola %s,%n%n".formatted(nombre)
                     + "Tu solicitud para convertirte en auditor en CarbonHub fue aprobada. "
                     + "Ya puedes iniciar sesión aquí:\n" + loginUrl;
             enviar(email, "Solicitud de auditor aprobada - CarbonHub", textoPlano, html);
         } else {
             String motivoEscapado = HtmlUtils.htmlEscape(motivoRechazo);
             String html = PLANTILLA_RECHAZADO.formatted(nombreEscapado, motivoEscapado);
-            String textoPlano = "Hola %s,\n\n".formatted(nombre)
+            String textoPlano = "Hola %s,%n%n".formatted(nombre)
                     + "Tu solicitud para convertirte en auditor en CarbonHub fue rechazada.\n\n"
                     + "Motivo: " + motivoRechazo;
             enviar(email, "Solicitud de auditor rechazada - CarbonHub", textoPlano, html);

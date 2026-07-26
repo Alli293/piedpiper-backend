@@ -14,12 +14,16 @@ class EnvioCorreoVerificacionServiceTest {
     @Test
     void envioExitosoNoReintenta() throws Exception {
         AtomicInteger intentos = new AtomicInteger();
-        EmailVerificacionService email = (nombre, destinatario, token) -> intentos.incrementAndGet();
+        CountDownLatch latch = new CountDownLatch(1);
+        EmailVerificacionService email = (nombre, destinatario, token) -> {
+            intentos.incrementAndGet();
+            latch.countDown();
+        };
         EnvioCorreoVerificacionService envio = new EnvioCorreoVerificacionService(email, 5);
 
         envio.enviar("Ana", "ana@correo.com", "token");
-        Thread.sleep(50);
 
+        assertThat(latch.await(2, TimeUnit.SECONDS)).isTrue();
         assertThat(intentos.get()).isEqualTo(1);
     }
 
@@ -42,8 +46,9 @@ class EnvioCorreoVerificacionServiceTest {
         AtomicInteger intentos = new AtomicInteger();
         CountDownLatch latch = new CountDownLatch(2);
         EmailVerificacionService email = (nombre, destinatario, token) -> {
+            boolean primerIntento = intentos.incrementAndGet() == 1;
             latch.countDown();
-            if (intentos.incrementAndGet() == 1) {
+            if (primerIntento) {
                 throw new IllegalStateException("smtp caido");
             }
         };
@@ -52,7 +57,6 @@ class EnvioCorreoVerificacionServiceTest {
         envio.enviar("Ana", "ana@correo.com", "token");
 
         assertThat(latch.await(2, TimeUnit.SECONDS)).isTrue();
-        Thread.sleep(50);
         assertThat(intentos.get()).isEqualTo(2);
     }
 }
