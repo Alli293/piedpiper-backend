@@ -77,33 +77,39 @@ public class ImaEventosService {
         ImaTendenciaPuntoDTO anterior = null;
 
         for (ImaTendenciaPuntoDTO actual : serie) {
-            if (tieneAmbos(actual)) {
-                // Solo se compara contra el mes calendario inmediatamente anterior:
-                // si hay un hueco en medio, no se atraviesa para inventar un cruce.
-                if (anterior != null && esMesSiguiente(anterior, actual)) {
-                    int signoAnterior = comparar(anterior);
-                    int signoActual = comparar(actual);
-                    // Solo hay cruce si el lado cambia; empatar no cuenta como cruce.
-                    if (signoAnterior != 0 && signoActual != 0 && signoAnterior != signoActual) {
-                        eventos.add(ImaEventoDTO.builder()
-                                .mes(actual.getMes())
-                                .tipo(TipoEventoIma.CRUCE_SECTOR)
-                                .texto(signoActual > 0
-                                        ? "En " + nombrarMes(actual.getMes())
-                                          + " tu IMA superó el promedio de tu sector."
-                                        : "En " + nombrarMes(actual.getMes())
-                                          + " tu IMA quedó por debajo del promedio de tu sector.")
-                                .build());
-                    }
-                }
-                anterior = actual;
-            } else {
+            if (!tieneAmbos(actual)) {
                 // Un mes sin ambos valores corta la comparación: el próximo punto
                 // no debe compararse contra un mes que ya no es su predecesor.
                 anterior = null;
+                continue;
             }
+            // Solo se compara contra el mes calendario inmediatamente anterior:
+            // si hay un hueco en medio, no se atraviesa para inventar un cruce.
+            if (anterior != null && esMesSiguiente(anterior, actual)) {
+                detectarCruce(anterior, actual).ifPresent(eventos::add);
+            }
+            anterior = actual;
         }
         return eventos;
+    }
+
+    /** Cruce entre {@code anterior} y {@code actual} si el lado respecto al sector cambió. */
+    private Optional<ImaEventoDTO> detectarCruce(ImaTendenciaPuntoDTO anterior, ImaTendenciaPuntoDTO actual) {
+        int signoAnterior = comparar(anterior);
+        int signoActual = comparar(actual);
+        // Solo hay cruce si el lado cambia; empatar no cuenta como cruce.
+        if (signoAnterior == 0 || signoActual == 0 || signoAnterior == signoActual) {
+            return Optional.empty();
+        }
+        return Optional.of(ImaEventoDTO.builder()
+                .mes(actual.getMes())
+                .tipo(TipoEventoIma.CRUCE_SECTOR)
+                .texto(signoActual > 0
+                        ? "En " + nombrarMes(actual.getMes())
+                          + " tu IMA superó el promedio de tu sector."
+                        : "En " + nombrarMes(actual.getMes())
+                          + " tu IMA quedó por debajo del promedio de tu sector.")
+                .build());
     }
 
     /** true si {@code actual} es exactamente el mes calendario siguiente a {@code anterior}. */

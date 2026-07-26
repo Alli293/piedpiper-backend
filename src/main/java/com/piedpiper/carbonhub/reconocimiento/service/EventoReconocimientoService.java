@@ -54,11 +54,15 @@ public class EventoReconocimientoService {
             throw ApiException.accesoDenegado(
                     "El evento debe corresponder al usuario autenticado.");
         }
-        return generar(usuarioAutenticadoId, request.getEventoGenerado());
+        return generarInterno(usuarioAutenticadoId, request.getEventoGenerado());
     }
 
     @Transactional
     public EventoReconocimientoResponseDTO generar(UUID usuarioId, String eventoGenerado) {
+        return generarInterno(usuarioId, eventoGenerado);
+    }
+
+    private EventoReconocimientoResponseDTO generarInterno(UUID usuarioId, String eventoGenerado) {
         validarUsuarioActivo(usuarioId);
 
         String codigoRecibido = eventoGenerado == null ? "" : eventoGenerado.trim();
