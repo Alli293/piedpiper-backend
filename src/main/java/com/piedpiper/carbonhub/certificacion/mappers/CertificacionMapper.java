@@ -1,5 +1,6 @@
 package com.piedpiper.carbonhub.certificacion.mappers;
 
+import com.piedpiper.carbonhub.certificacion.models.dtos.CertificacionPublicaResponseDTO;
 import com.piedpiper.carbonhub.certificacion.models.dtos.CertificacionResponseDTO;
 import com.piedpiper.carbonhub.certificacion.models.entities.Certificacion;
 
@@ -14,4 +15,7 @@ public interface CertificacionMapper {
     @Mapping(target = "nombreCertificacion", ignore = true)
     @Mapping(target = "recienEmitida", ignore = true)
     CertificacionResponseDTO toDto(Certificacion certificacion);
+
+    @Mapping(target = "nombreCertificacion", ignore = true)
+    CertificacionPublicaResponseDTO toPublicaDto(Certificacion certificacion);
 }

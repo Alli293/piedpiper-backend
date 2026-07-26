@@ -1,6 +1,7 @@
 package com.piedpiper.carbonhub.certificacion.repository;
 
 import com.piedpiper.carbonhub.certificacion.models.entities.Certificacion;
+import com.piedpiper.carbonhub.certificacion.models.enums.EstadoCertificacion;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -15,4 +16,7 @@ public interface CertificacionRepository extends JpaRepository<Certificacion, UU
     List<Certificacion> findByEmpresaIdOrderByFechaEmisionDesc(UUID empresaId);
 
     Optional<Certificacion> findByIdAndEmpresaId(UUID id, UUID empresaId);
+
+    List<Certificacion> findByEmpresaIdAndEstadoOrderByFechaEmisionDesc(
+            UUID empresaId, EstadoCertificacion estado);
 }

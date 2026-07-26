@@ -57,6 +57,9 @@ public class SecurityConfig {
                                 "/api/certificaciones/estado/lista").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/certificaciones/logros/**")
                         .permitAll()
+                        // Perfil publico de una empresa: pagina publica sin sesion, expone
+                        // solo certificaciones activas por slug.
+                        .requestMatchers(HttpMethod.GET, "/api/perfil-publico/**").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(e -> e.authenticationEntryPoint(
                         new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
