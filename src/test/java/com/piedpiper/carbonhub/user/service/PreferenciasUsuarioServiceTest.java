@@ -10,6 +10,8 @@ import com.piedpiper.carbonhub.user.models.enums.Rol;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -81,40 +83,17 @@ class PreferenciasUsuarioServiceTest {
         assertThat(response.getUnidades()).isEqualTo("METRICO");
     }
 
-    @Test
-    void idiomaFueraDeCatalogo_rechazaCon422YNoPersiste() {
+    @ParameterizedTest
+    @CsvSource({
+            "FRANCES, CRC, METRICO",
+            "ESPANOL, EUR, METRICO",
+            "ESPANOL, CRC, IMPERIAL"
+    })
+    void valorFueraDeCatalogo_rechazaCon422YNoPersiste(String idioma, String moneda, String unidades) {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
 
         PreferenciasUsuarioRequestDTO request =
-                new PreferenciasUsuarioRequestDTO("FRANCES", "CRC", "METRICO");
-        assertThatThrownBy(() -> service.actualizarPreferencias(USUARIO_ID, request))
-                .isInstanceOf(ApiException.class)
-                .satisfies(ex -> assertThat(((ApiException) ex).getStatus())
-                        .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY));
-
-        verify(usuarioRepository, never()).saveAndFlush(any(Usuario.class));
-    }
-
-    @Test
-    void monedaFueraDeCatalogo_rechazaCon422YNoPersiste() {
-        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
-
-        PreferenciasUsuarioRequestDTO request =
-                new PreferenciasUsuarioRequestDTO("ESPANOL", "EUR", "METRICO");
-        assertThatThrownBy(() -> service.actualizarPreferencias(USUARIO_ID, request))
-                .isInstanceOf(ApiException.class)
-                .satisfies(ex -> assertThat(((ApiException) ex).getStatus())
-                        .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY));
-
-        verify(usuarioRepository, never()).saveAndFlush(any(Usuario.class));
-    }
-
-    @Test
-    void unidadesFueraDeCatalogo_rechazaCon422YNoPersiste() {
-        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
-
-        PreferenciasUsuarioRequestDTO request =
-                new PreferenciasUsuarioRequestDTO("ESPANOL", "CRC", "IMPERIAL");
+                new PreferenciasUsuarioRequestDTO(idioma, moneda, unidades);
         assertThatThrownBy(() -> service.actualizarPreferencias(USUARIO_ID, request))
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> assertThat(((ApiException) ex).getStatus())

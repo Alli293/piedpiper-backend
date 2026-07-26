@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.Month;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -214,7 +215,7 @@ public class ImaEventosService {
      */
     private Map<YearMonth, Set<CategoriaEmision>> cargarCategoriasPorMes(UUID empresaId) {
         List<CategoriaMensual> filas = emisionRepository.listarCategoriasPorMes(
-                empresaId, LocalDate.of(1970, 1, 1));
+                empresaId, LocalDate.of(1970, Month.JANUARY, 1));
 
         Map<YearMonth, Set<CategoriaEmision>> porMes = new HashMap<>();
         for (CategoriaMensual fila : filas) {
