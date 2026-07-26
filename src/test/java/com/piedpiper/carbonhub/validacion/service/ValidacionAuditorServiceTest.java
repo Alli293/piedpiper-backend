@@ -114,7 +114,7 @@ class ValidacionAuditorServiceTest {
         assertThat(captor.getValue().getTipoEvento()).isEqualTo("validacion_auditor");
         assertThat(captor.getValue().getDecision()).isEqualTo("aprobado");
         assertThat(captor.getValue().getAdministradorId()).isEqualTo(ADMIN_ID);
-        verify(envioCorreoValidacionService).enviar(eq("Ana"), eq("ana@correo.com"), eq(true), eq(null));
+        verify(envioCorreoValidacionService).enviar("Ana", "ana@correo.com", true, null);
         verify(perfilAuditorService).asegurarPerfil(pendiente.getAuditor());
     }
 
@@ -132,16 +132,17 @@ class ValidacionAuditorServiceTest {
         assertThat(response.getEstadoAuditor()).isEqualTo("RECHAZADO");
         assertThat(response.getMotivoRechazo()).isEqualTo("La certificación adjunta está vencida.");
         verify(envioCorreoValidacionService).enviar(
-                eq("Ana"), eq("ana@correo.com"), eq(false), eq("La certificación adjunta está vencida."));
+                "Ana", "ana@correo.com", false, "La certificación adjunta está vencida.");
         verify(perfilAuditorService, never()).asegurarPerfil(any());
     }
 
     @Test
     void decisionInvalidaLanza422SinTocarNada() {
         when(usuarioRepository.findById(ADMIN_ID)).thenReturn(Optional.of(administrador()));
+        UUID solicitudId = UUID.randomUUID();
+        DecisionSolicitudRequestDTO decisionInvalida = new DecisionSolicitudRequestDTO("pendiente", null);
 
-        assertThatThrownBy(() -> service.resolver(ADMIN_ID, UUID.randomUUID(),
-                new DecisionSolicitudRequestDTO("pendiente", null)))
+        assertThatThrownBy(() -> service.resolver(ADMIN_ID, solicitudId, decisionInvalida))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
@@ -151,8 +152,10 @@ class ValidacionAuditorServiceTest {
     @Test
     void rechazoConMotivoCortoLanza422() {
         when(usuarioRepository.findById(ADMIN_ID)).thenReturn(Optional.of(administrador()));
+        UUID solicitudId = UUID.randomUUID();
+        DecisionSolicitudRequestDTO motivoCorto = rechazar("corto");
 
-        assertThatThrownBy(() -> service.resolver(ADMIN_ID, UUID.randomUUID(), rechazar("corto")))
+        assertThatThrownBy(() -> service.resolver(ADMIN_ID, solicitudId, motivoCorto))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
@@ -161,8 +164,10 @@ class ValidacionAuditorServiceTest {
     @Test
     void rechazoSinMotivoLanza422() {
         when(usuarioRepository.findById(ADMIN_ID)).thenReturn(Optional.of(administrador()));
+        UUID solicitudId = UUID.randomUUID();
+        DecisionSolicitudRequestDTO sinMotivo = rechazar(null);
 
-        assertThatThrownBy(() -> service.resolver(ADMIN_ID, UUID.randomUUID(), rechazar(null)))
+        assertThatThrownBy(() -> service.resolver(ADMIN_ID, solicitudId, sinMotivo))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
@@ -172,8 +177,10 @@ class ValidacionAuditorServiceTest {
     void usuarioSinRolAdministradorPlataformaLanza403() {
         Usuario otro = Usuario.builder().id(ADMIN_ID).rol(Rol.ADMINISTRADOR_EMPRESA).build();
         when(usuarioRepository.findById(ADMIN_ID)).thenReturn(Optional.of(otro));
+        UUID solicitudId = UUID.randomUUID();
+        DecisionSolicitudRequestDTO decisionAprobar = aprobar();
 
-        assertThatThrownBy(() -> service.resolver(ADMIN_ID, UUID.randomUUID(), aprobar()))
+        assertThatThrownBy(() -> service.resolver(ADMIN_ID, solicitudId, decisionAprobar))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.FORBIDDEN);
@@ -183,8 +190,10 @@ class ValidacionAuditorServiceTest {
     void solicitudInexistenteLanza404() {
         when(usuarioRepository.findById(ADMIN_ID)).thenReturn(Optional.of(administrador()));
         when(solicitudValidacionRepository.findById(any())).thenReturn(Optional.empty());
+        UUID solicitudId = UUID.randomUUID();
+        DecisionSolicitudRequestDTO decisionAprobar = aprobar();
 
-        assertThatThrownBy(() -> service.resolver(ADMIN_ID, UUID.randomUUID(), aprobar()))
+        assertThatThrownBy(() -> service.resolver(ADMIN_ID, solicitudId, decisionAprobar))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.NOT_FOUND);
@@ -195,8 +204,10 @@ class ValidacionAuditorServiceTest {
         SolicitudValidacion aprobada = solicitud(EstadoSolicitud.APROBADO);
         when(usuarioRepository.findById(ADMIN_ID)).thenReturn(Optional.of(administrador()));
         when(solicitudValidacionRepository.findById(aprobada.getId())).thenReturn(Optional.of(aprobada));
+        UUID solicitudId = aprobada.getId();
+        DecisionSolicitudRequestDTO decisionRechazar = rechazar("Motivo suficiente aqui.");
 
-        assertThatThrownBy(() -> service.resolver(ADMIN_ID, aprobada.getId(), rechazar("Motivo suficiente aqui.")))
+        assertThatThrownBy(() -> service.resolver(ADMIN_ID, solicitudId, decisionRechazar))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.CONFLICT);
@@ -212,8 +223,10 @@ class ValidacionAuditorServiceTest {
         when(solicitudValidacionRepository.findById(pendiente.getId())).thenReturn(Optional.of(pendiente));
         when(solicitudValidacionRepository.saveAndFlush(any()))
                 .thenThrow(new ObjectOptimisticLockingFailureException(SolicitudValidacion.class, pendiente.getId()));
+        UUID solicitudId = pendiente.getId();
+        DecisionSolicitudRequestDTO decisionAprobar = aprobar();
 
-        assertThatThrownBy(() -> service.resolver(ADMIN_ID, pendiente.getId(), aprobar()))
+        assertThatThrownBy(() -> service.resolver(ADMIN_ID, solicitudId, decisionAprobar))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.CONFLICT);

@@ -81,8 +81,10 @@ class AuditorPerfilServiceTest {
     @Test
     void ownershipCheck_idsMismatch_lanzaForbidden() {
         UUID otroUsuarioId = UUID.randomUUID();
+        AuditorPerfilService servicio = service();
+        ActualizarPerfilAuditorRequestDTO request = requestValido();
 
-        assertThatThrownBy(() -> service().actualizar(otroUsuarioId, AUDITOR_ID, requestValido()))
+        assertThatThrownBy(() -> servicio.actualizar(otroUsuarioId, AUDITOR_ID, request))
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> {
                     ApiException apiEx = (ApiException) ex;
@@ -100,8 +102,10 @@ class AuditorPerfilServiceTest {
     void stateCheck_pendienteValidacion_lanzaForbidden() {
         when(usuarioRepository.findById(AUDITOR_ID))
                 .thenReturn(Optional.of(auditorConEstado(EstadoUsuario.PENDIENTE_VALIDACION)));
+        AuditorPerfilService servicio = service();
+        ActualizarPerfilAuditorRequestDTO request = requestValido();
 
-        assertThatThrownBy(() -> service().actualizar(AUDITOR_ID, AUDITOR_ID, requestValido()))
+        assertThatThrownBy(() -> servicio.actualizar(AUDITOR_ID, AUDITOR_ID, request))
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> {
                     ApiException apiEx = (ApiException) ex;
@@ -119,8 +123,10 @@ class AuditorPerfilServiceTest {
     void stateCheck_rechazado_lanzaForbidden() {
         when(usuarioRepository.findById(AUDITOR_ID))
                 .thenReturn(Optional.of(auditorConEstado(EstadoUsuario.RECHAZADO)));
+        AuditorPerfilService servicio = service();
+        ActualizarPerfilAuditorRequestDTO request = requestValido();
 
-        assertThatThrownBy(() -> service().actualizar(AUDITOR_ID, AUDITOR_ID, requestValido()))
+        assertThatThrownBy(() -> servicio.actualizar(AUDITOR_ID, AUDITOR_ID, request))
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> {
                     ApiException apiEx = (ApiException) ex;
@@ -144,8 +150,10 @@ class AuditorPerfilServiceTest {
 
         when(usuarioRepository.findById(AUDITOR_ID))
                 .thenReturn(Optional.of(usuarioGeneral));
+        AuditorPerfilService servicio = service();
+        ActualizarPerfilAuditorRequestDTO request = requestValido();
 
-        assertThatThrownBy(() -> service().actualizar(AUDITOR_ID, AUDITOR_ID, requestValido()))
+        assertThatThrownBy(() -> servicio.actualizar(AUDITOR_ID, AUDITOR_ID, request))
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> {
                     ApiException apiEx = (ApiException) ex;
@@ -170,8 +178,9 @@ class AuditorPerfilServiceTest {
                 true,
                 null
         );
+        AuditorPerfilService servicio = service();
 
-        assertThatThrownBy(() -> service().actualizar(AUDITOR_ID, AUDITOR_ID, request))
+        assertThatThrownBy(() -> servicio.actualizar(AUDITOR_ID, AUDITOR_ID, request))
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> {
                     ApiException apiEx = (ApiException) ex;
@@ -195,8 +204,9 @@ class AuditorPerfilServiceTest {
                 true,
                 null
         );
+        AuditorPerfilService servicio = service();
 
-        assertThatThrownBy(() -> service().actualizar(AUDITOR_ID, AUDITOR_ID, request))
+        assertThatThrownBy(() -> servicio.actualizar(AUDITOR_ID, AUDITOR_ID, request))
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> {
                     ApiException apiEx = (ApiException) ex;
@@ -326,8 +336,9 @@ class AuditorPerfilServiceTest {
                 true,
                 null
         );
+        AuditorPerfilService servicio = service();
 
-        assertThatThrownBy(() -> service().actualizar(AUDITOR_ID, AUDITOR_ID, request))
+        assertThatThrownBy(() -> servicio.actualizar(AUDITOR_ID, AUDITOR_ID, request))
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> {
                     ApiException apiEx = (ApiException) ex;
@@ -351,8 +362,9 @@ class AuditorPerfilServiceTest {
                 true,
                 null
         );
+        AuditorPerfilService servicio = service();
 
-        assertThatThrownBy(() -> service().actualizar(AUDITOR_ID, AUDITOR_ID, request))
+        assertThatThrownBy(() -> servicio.actualizar(AUDITOR_ID, AUDITOR_ID, request))
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> {
                     ApiException apiEx = (ApiException) ex;

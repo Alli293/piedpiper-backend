@@ -89,8 +89,10 @@ class ConfiguracionInicialEmpresaServiceTest {
         Usuario usuario = admin();
         usuario.setRol(Rol.USUARIO_INDIVIDUAL);
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario));
+        ConfiguracionInicialEmpresaService servicio = service();
+        ConfiguracionInicialEmpresaRequestDTO request = request();
 
-        assertThatThrownBy(() -> service().completarConfiguracionEmpresa(USUARIO_ID, request()))
+        assertThatThrownBy(() -> servicio.completarConfiguracionEmpresa(USUARIO_ID, request))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.FORBIDDEN);
@@ -126,8 +128,10 @@ class ConfiguracionInicialEmpresaServiceTest {
     void cedulaJuridicaDuplicada_lanza409YNoPersiste() {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(admin()));
         when(empresaRepository.existsByCedulaJuridica("3-101-123456")).thenReturn(true);
+        ConfiguracionInicialEmpresaService servicio = service();
+        ConfiguracionInicialEmpresaRequestDTO request = request();
 
-        assertThatThrownBy(() -> service().completarConfiguracionEmpresa(USUARIO_ID, request()))
+        assertThatThrownBy(() -> servicio.completarConfiguracionEmpresa(USUARIO_ID, request))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.CONFLICT);
@@ -142,8 +146,10 @@ class ConfiguracionInicialEmpresaServiceTest {
         when(empresaRepository.existsBySlug("acme-s-a")).thenReturn(false);
         when(empresaRepository.saveAndFlush(any(Empresa.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate key"));
+        ConfiguracionInicialEmpresaService servicio = service();
+        ConfiguracionInicialEmpresaRequestDTO request = request();
 
-        assertThatThrownBy(() -> service().completarConfiguracionEmpresa(USUARIO_ID, request()))
+        assertThatThrownBy(() -> servicio.completarConfiguracionEmpresa(USUARIO_ID, request))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.CONFLICT);

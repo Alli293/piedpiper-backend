@@ -21,8 +21,6 @@ import net.jqwik.api.GenerationMode;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
 
-import org.mockito.Mockito;
-
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -30,14 +28,15 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 // Feature: PP-54-gestion-especialidades-auditor, Property 1: Profile update round trip
 // Validates: Requirements 1.1
 class AuditorPerfilServiceRoundTripPropertyTest {
 
-    private final PerfilAuditorRepository perfilAuditorRepository = Mockito.mock(PerfilAuditorRepository.class);
-    private final UsuarioRepository usuarioRepository = Mockito.mock(UsuarioRepository.class);
+    private final PerfilAuditorRepository perfilAuditorRepository = mock(PerfilAuditorRepository.class);
+    private final UsuarioRepository usuarioRepository = mock(UsuarioRepository.class);
     private final PerfilAuditorMapper perfilAuditorMapper = new PerfilAuditorMapperImpl();
 
     private final AuditorPerfilService service = new AuditorPerfilService(
