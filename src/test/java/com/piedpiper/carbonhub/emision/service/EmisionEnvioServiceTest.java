@@ -36,6 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -112,7 +113,8 @@ class EmisionEnvioServiceTest {
     void usuarioNoExistenteLanzaExcepcion() {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.registrar(requestValido(), USUARIO_ID))
+        RegistrarEnvioRequestDTO request = requestValido();
+        assertThatThrownBy(() -> service.registrar(request, USUARIO_ID))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
@@ -126,7 +128,8 @@ class EmisionEnvioServiceTest {
         Usuario sinEmpresa = Usuario.builder().id(USUARIO_ID).build();
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(sinEmpresa));
 
-        assertThatThrownBy(() -> service.registrar(requestValido(), USUARIO_ID))
+        RegistrarEnvioRequestDTO request = requestValido();
+        assertThatThrownBy(() -> service.registrar(request, USUARIO_ID))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
@@ -141,7 +144,8 @@ class EmisionEnvioServiceTest {
         when(climatiqClient.estimar(any(ClimatiqEmissionFactorSelector.class), any(Map.class)))
                 .thenThrow(ApiException.calculoNoDisponible());
 
-        assertThatThrownBy(() -> service.registrar(requestValido(), USUARIO_ID))
+        RegistrarEnvioRequestDTO request = requestValido();
+        assertThatThrownBy(() -> service.registrar(request, USUARIO_ID))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
@@ -185,7 +189,7 @@ class EmisionEnvioServiceTest {
             service.registrar(request, USUARIO_ID);
         }
 
-        verify(climatiqClient, org.mockito.Mockito.times(4))
+        verify(climatiqClient, times(4))
                 .estimar(selectorCaptor.capture(), any(Map.class));
 
         List<String> activityIds = selectorCaptor.getAllValues().stream()
@@ -193,8 +197,7 @@ class EmisionEnvioServiceTest {
                 .toList();
 
         // All 4 methods should produce distinct activity IDs
-        assertThat(activityIds).hasSize(4);
-        assertThat(activityIds).doesNotHaveDuplicates();
+        assertThat(activityIds).hasSize(4).doesNotHaveDuplicates();
         assertThat(activityIds).anyMatch(id -> id.contains("commercial_truck"));  // TRUCK
         assertThat(activityIds).anyMatch(id -> id.contains("sea_freight"));       // SHIP
         assertThat(activityIds).anyMatch(id -> id.contains("freight_train"));     // TRAIN

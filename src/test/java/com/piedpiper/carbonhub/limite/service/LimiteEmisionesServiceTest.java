@@ -108,7 +108,8 @@ class LimiteEmisionesServiceTest {
         when(repository.save(org.mockito.ArgumentMatchers.any(LimiteEmisiones.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate key"));
 
-        assertThatThrownBy(() -> service().guardarLimite(EMPRESA_ID, request))
+        LimiteEmisionesService servicio = service();
+        assertThatThrownBy(() -> servicio.guardarLimite(EMPRESA_ID, request))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.CONFLICT);

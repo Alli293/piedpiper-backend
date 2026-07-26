@@ -195,7 +195,8 @@ class EmisionFlotaServiceTest {
     void usuarioSinEmpresaNoPuedeRegistrar() {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuarioSinEmpresa()));
 
-        assertThatThrownBy(() -> service.registrar(requestValido(), USUARIO_ID))
+        RegistrarFlotaRequestDTO request = requestValido();
+        assertThatThrownBy(() -> service.registrar(request, USUARIO_ID))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
@@ -215,7 +216,8 @@ class EmisionFlotaServiceTest {
         when(climatiqClient.estimar(any(), any()))
                 .thenReturn(new ClimatiqEstimateResponse(new BigDecimal("22.85"), "t", factor));
 
-        assertThatThrownBy(() -> service.registrar(requestValido(), USUARIO_ID))
+        RegistrarFlotaRequestDTO request = requestValido();
+        assertThatThrownBy(() -> service.registrar(request, USUARIO_ID))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.BAD_GATEWAY);
@@ -228,7 +230,8 @@ class EmisionFlotaServiceTest {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
         when(climatiqClient.estimar(any(), any())).thenThrow(ApiException.calculoNoDisponible());
 
-        assertThatThrownBy(() -> service.registrar(requestValido(), USUARIO_ID))
+        RegistrarFlotaRequestDTO request = requestValido();
+        assertThatThrownBy(() -> service.registrar(request, USUARIO_ID))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
@@ -242,7 +245,8 @@ class EmisionFlotaServiceTest {
         when(climatiqClient.estimar(any(), any()))
                 .thenThrow(ApiException.calculoInvalido("vehículo fuera de catálogo"));
 
-        assertThatThrownBy(() -> service.registrar(requestValido(), USUARIO_ID))
+        RegistrarFlotaRequestDTO request = requestValido();
+        assertThatThrownBy(() -> service.registrar(request, USUARIO_ID))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);

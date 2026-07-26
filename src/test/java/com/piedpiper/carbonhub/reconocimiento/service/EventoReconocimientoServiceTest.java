@@ -149,9 +149,10 @@ class EventoReconocimientoServiceTest {
     void usuarioDistintoAlAutenticado_rechazaCon403() {
         UUID otroUsuarioId = UUID.randomUUID();
 
-        assertThatThrownBy(() -> service().registrar(
-                new RegistrarEventoReconocimientoRequestDTO(otroUsuarioId, "primer_itinerario_generado"),
-                USUARIO_ID))
+        EventoReconocimientoService servicio = service();
+        RegistrarEventoReconocimientoRequestDTO request =
+                new RegistrarEventoReconocimientoRequestDTO(otroUsuarioId, "primer_itinerario_generado");
+        assertThatThrownBy(() -> servicio.registrar(request, USUARIO_ID))
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.FORBIDDEN));
 
@@ -162,9 +163,10 @@ class EventoReconocimientoServiceTest {
     void usuarioInactivo_rechazaCon403YNoRegistraEvento() {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario(EstadoUsuario.DESHABILITADO)));
 
-        assertThatThrownBy(() -> service().registrar(
-                new RegistrarEventoReconocimientoRequestDTO(USUARIO_ID, "primer_itinerario_generado"),
-                USUARIO_ID))
+        EventoReconocimientoService servicio = service();
+        RegistrarEventoReconocimientoRequestDTO request =
+                new RegistrarEventoReconocimientoRequestDTO(USUARIO_ID, "primer_itinerario_generado");
+        assertThatThrownBy(() -> servicio.registrar(request, USUARIO_ID))
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.FORBIDDEN));
 

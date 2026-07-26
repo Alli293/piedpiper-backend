@@ -122,7 +122,8 @@ class EmisionElectricidadServiceTest {
     void usuarioSinEmpresaNoPuedeRegistrar() {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuarioSinEmpresa()));
 
-        assertThatThrownBy(() -> service.registrar(requestValido(), USUARIO_ID))
+        RegistrarElectricidadRequestDTO request = requestValido();
+        assertThatThrownBy(() -> service.registrar(request, USUARIO_ID))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
@@ -139,7 +140,8 @@ class EmisionElectricidadServiceTest {
         when(climatiqClient.estimar(any(), any()))
                 .thenReturn(new ClimatiqEstimateResponse(new BigDecimal("27.85"), "t", factor));
 
-        assertThatThrownBy(() -> service.registrar(requestValido(), USUARIO_ID))
+        RegistrarElectricidadRequestDTO request = requestValido();
+        assertThatThrownBy(() -> service.registrar(request, USUARIO_ID))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.BAD_GATEWAY);
@@ -152,7 +154,8 @@ class EmisionElectricidadServiceTest {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
         when(climatiqClient.estimar(any(), any())).thenThrow(ApiException.calculoNoDisponible());
 
-        assertThatThrownBy(() -> service.registrar(requestValido(), USUARIO_ID))
+        RegistrarElectricidadRequestDTO request = requestValido();
+        assertThatThrownBy(() -> service.registrar(request, USUARIO_ID))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
@@ -166,7 +169,8 @@ class EmisionElectricidadServiceTest {
         when(climatiqClient.estimar(any(), any()))
                 .thenThrow(ApiException.calculoInvalido("valor fuera de rango"));
 
-        assertThatThrownBy(() -> service.registrar(requestValido(), USUARIO_ID))
+        RegistrarElectricidadRequestDTO request = requestValido();
+        assertThatThrownBy(() -> service.registrar(request, USUARIO_ID))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
