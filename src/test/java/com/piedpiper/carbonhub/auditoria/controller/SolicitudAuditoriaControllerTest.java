@@ -1,8 +1,10 @@
 package com.piedpiper.carbonhub.auditoria.controller;
 
+import com.piedpiper.carbonhub.auditoria.models.dtos.AuditorAsignadoResponseDTO;
 import com.piedpiper.carbonhub.auditoria.models.dtos.DocumentoRespaldoResponseDTO;
 import com.piedpiper.carbonhub.auditoria.models.dtos.SolicitudAuditoriaResponseDTO;
 import com.piedpiper.carbonhub.auditoria.models.enums.EstadoSolicitudAuditoria;
+import com.piedpiper.carbonhub.auditoria.models.enums.OrigenAsignacion;
 import com.piedpiper.carbonhub.auditoria.models.enums.TipoCertificacionSolicitud;
 import com.piedpiper.carbonhub.auditoria.service.SolicitudAuditoriaService;
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
@@ -36,9 +38,12 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -56,6 +61,8 @@ class SolicitudAuditoriaControllerTest {
     }
 
     private static final String USUARIO_ID = "41ce47ab-a46c-4306-8c46-2688dc97fa73";
+    private static final String SOLICITUD_ID = "9a1c0a6e-58b2-4d18-9d3e-3a4b5c6d7e8f";
+    private static final String AUDITOR_ID = "c0ffee00-1111-2222-3333-444455556666";
 
     @Autowired
     private MockMvc mockMvc;
@@ -121,6 +128,89 @@ class SolicitudAuditoriaControllerTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
+    void postDeAsignacionValidoDevuelve200ConLaSolicitudActualizada() throws Exception {
+        when(solicitudAuditoriaService.asignarAuditor(any(), any(), any())).thenReturn(respuestaAsignada());
+
+        mockMvc.perform(post("/api/auditorias/{idSolicitud}/auditor", SOLICITUD_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cuerpoAsignacion("manual"))
+                        .principal(principal()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.idAuditor").value(AUDITOR_ID))
+                .andExpect(jsonPath("$.origenAsignacion").value("MANUAL"))
+                .andExpect(jsonPath("$.fechaAsignacion").exists())
+                .andExpect(jsonPath("$.estado").value("SOLICITUD_ENVIADA"));
+
+        verify(solicitudAuditoriaService).asignarAuditor(any(), any(), any());
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
+    void postDeAsignacionSobreSolicitudInexistenteDevuelve404() throws Exception {
+        when(solicitudAuditoriaService.asignarAuditor(any(), any(), any()))
+                .thenThrow(ApiException.solicitudAuditoriaNoEncontrada());
+
+        mockMvc.perform(post("/api/auditorias/{idSolicitud}/auditor", SOLICITUD_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cuerpoAsignacion("manual"))
+                        .principal(principal()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Esta solicitud de auditoría no fue encontrada."));
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
+    void postDeAsignacionConRolNoAutorizadoDevuelve403() throws Exception {
+        mockMvc.perform(post("/api/auditorias/{idSolicitud}/auditor", SOLICITUD_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cuerpoAsignacion("manual"))
+                        .principal(principal()))
+                .andExpect(status().isForbidden());
+
+        verify(solicitudAuditoriaService, never()).asignarAuditor(any(), any(), any());
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
+    void getDevuelve200ConLaSolicitudYSuAsignacion() throws Exception {
+        when(solicitudAuditoriaService.obtener(any(), any())).thenReturn(respuestaAsignada());
+
+        mockMvc.perform(get("/api/auditorias/{idSolicitud}", SOLICITUD_ID)
+                        .principal(principal()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.idAuditor").value(AUDITOR_ID))
+                .andExpect(jsonPath("$.origenAsignacion").value("MANUAL"));
+
+        verify(solicitudAuditoriaService).obtener(any(), any());
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
+    void getConRolNoAutorizadoDevuelve403() throws Exception {
+        mockMvc.perform(get("/api/auditorias/{idSolicitud}", SOLICITUD_ID)
+                        .principal(principal()))
+                .andExpect(status().isForbidden());
+
+        verify(solicitudAuditoriaService, never()).obtener(any(), any());
+    }
+
+    private static String cuerpoAsignacion(String origenAsignacion) {
+        return """
+                {"idAuditor":"%s","origenAsignacion":"%s"}"""
+                .formatted(AUDITOR_ID, origenAsignacion);
+    }
+
+    private static SolicitudAuditoriaResponseDTO respuestaAsignada() {
+        SolicitudAuditoriaResponseDTO respuesta = respuesta();
+        respuesta.setIdAuditor(UUID.fromString(AUDITOR_ID));
+        respuesta.setAuditor(new AuditorAsignadoResponseDTO(UUID.fromString(AUDITOR_ID), "Ana Auditora"));
+        respuesta.setOrigenAsignacion(OrigenAsignacion.MANUAL);
+        respuesta.setFechaAsignacion(Instant.parse("2026-07-27T19:00:00Z"));
+        return respuesta;
+    }
+
     private static MockMultipartFile datos() {
         String json = """
                 {"periodoInicio":"2025-01-01",
@@ -148,6 +238,10 @@ class SolicitudAuditoriaControllerTest {
                 "Auditoría anual",
                 EstadoSolicitudAuditoria.SOLICITUD_ENVIADA,
                 Instant.parse("2026-07-27T18:00:00Z"),
-                List.of(new DocumentoRespaldoResponseDTO(UUID.randomUUID(), "respaldo.pdf", 27L)));
+                List.of(new DocumentoRespaldoResponseDTO(UUID.randomUUID(), "respaldo.pdf", 27L)),
+                null,
+                null,
+                null,
+                null);
     }
 }

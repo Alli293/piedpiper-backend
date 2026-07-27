@@ -55,6 +55,8 @@ class SolicitudAuditoriaServiceTest {
     private UsuarioRepository usuarioRepository;
     @Mock
     private CertificacionActivaConsulta certificacionActivaConsulta;
+    @Mock
+    private EnvioCorreoAsignacionAuditorService envioCorreoAsignacionAuditorService;
 
     private SolicitudAuditoriaService service;
 
@@ -65,7 +67,8 @@ class SolicitudAuditoriaServiceTest {
                 usuarioRepository,
                 certificacionActivaConsulta,
                 new ValidadorDocumentosPdf(),
-                new SolicitudAuditoriaMapperImpl());
+                new SolicitudAuditoriaMapperImpl(),
+                envioCorreoAsignacionAuditorService);
 
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuarioConEmpresa()));
         when(certificacionActivaConsulta.fechaVencimientoCertificacionActiva(EMPRESA_ID))

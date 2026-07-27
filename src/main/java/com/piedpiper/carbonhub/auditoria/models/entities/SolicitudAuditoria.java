@@ -1,8 +1,10 @@
 package com.piedpiper.carbonhub.auditoria.models.entities;
 
 import com.piedpiper.carbonhub.auditoria.models.enums.EstadoSolicitudAuditoria;
+import com.piedpiper.carbonhub.auditoria.models.enums.OrigenAsignacion;
 import com.piedpiper.carbonhub.auditoria.models.enums.TipoCertificacionSolicitud;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
+import com.piedpiper.carbonhub.user.models.entities.Usuario;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -67,6 +69,17 @@ public class SolicitudAuditoria {
 
     @Column(name = "fecha_creacion", nullable = false)
     private Instant fechaCreacion;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "auditor_id")
+    private Usuario auditor;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "origen_asignacion", length = 20)
+    private OrigenAsignacion origenAsignacion;
+
+    @Column(name = "fecha_asignacion")
+    private Instant fechaAsignacion;
 
     @OneToMany(mappedBy = "solicitud", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

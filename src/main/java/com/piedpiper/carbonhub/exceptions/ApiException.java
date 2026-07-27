@@ -314,4 +314,29 @@ public class ApiException extends RuntimeException {
                 "Ya existe una solicitud de auditoría en curso para un período que se traslapa "
                         + "con el seleccionado.");
     }
+
+    public static ApiException solicitudAuditoriaNoEncontrada() {
+        return new ApiException(HttpStatus.NOT_FOUND,
+                "Esta solicitud de auditoría no fue encontrada.");
+    }
+
+    public static ApiException solicitudAuditoriaAjena() {
+        return new ApiException(HttpStatus.FORBIDDEN,
+                "No tienes permiso para gestionar esta solicitud de auditoría.");
+    }
+
+    public static ApiException asignacionAuditorPendiente() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Ya existe una solicitud de revisión pendiente con otro auditor.");
+    }
+
+    public static ApiException auditorNoDisponible() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "Este auditor no está disponible actualmente.");
+    }
+
+    public static ApiException origenAsignacionInvalido() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "El origen de la asignación debe ser 'manual' o 'recomendacion_ia'.");
+    }
 }

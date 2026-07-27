@@ -7,8 +7,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 
 public interface SolicitudAuditoriaRepository extends JpaRepository<SolicitudAuditoria, UUID> {
@@ -24,4 +26,13 @@ public interface SolicitudAuditoriaRepository extends JpaRepository<SolicitudAud
                                              @Param("estadosCerrados") Collection<EstadoSolicitudAuditoria> estadosCerrados,
                                              @Param("periodoInicio") LocalDate periodoInicio,
                                              @Param("periodoFin") LocalDate periodoFin);
+
+    @Query("""
+            select s.id from SolicitudAuditoria s
+            where s.auditor is not null
+              and s.estado = :estadoSinRespuesta
+              and s.fechaAsignacion < :limite
+            """)
+    List<UUID> idsConAsignacionVencida(@Param("estadoSinRespuesta") EstadoSolicitudAuditoria estadoSinRespuesta,
+                                       @Param("limite") Instant limite);
 }
