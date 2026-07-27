@@ -8,9 +8,11 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -46,8 +48,10 @@ public class DocumentoRespaldo {
     @Column(name = "tamanio_bytes", nullable = false)
     private long tamanioBytes;
 
-    @Lob
+    // Sin @Lob a propósito: sobre Postgres, @Lob en un byte[] lo trata como Large Object y guarda
+    // un OID en vez de los bytes, lo que rompe el insert contra una columna bytea.
     @Basic(fetch = FetchType.LAZY)
+    @JdbcTypeCode(SqlTypes.VARBINARY)
     @Column(name = "contenido", nullable = false, columnDefinition = "bytea")
     private byte[] contenido;
 
