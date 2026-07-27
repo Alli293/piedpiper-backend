@@ -273,4 +273,45 @@ public class ApiException extends RuntimeException {
     public static ApiException datosInvalidos(String mensaje) {
         return new ApiException(HttpStatus.BAD_REQUEST, mensaje);
     }
+
+    public static ApiException periodoAuditoriaFuturo() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "El período a auditar no puede iniciar en una fecha futura.");
+    }
+
+    public static ApiException periodoAuditoriaFinInvalido() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "La fecha de fin del período debe ser posterior a la fecha de inicio.");
+    }
+
+    public static ApiException periodoAuditoriaExcedeDoceMeses() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "El período a auditar no puede exceder 12 meses.");
+    }
+
+    public static ApiException documentosRespaldoRequeridos() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Debes adjuntar al menos un documento de respaldo.");
+    }
+
+    public static ApiException documentosRespaldoExcedenMaximo() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Puedes adjuntar un máximo de 10 documentos.");
+    }
+
+    public static ApiException documentoRespaldoExcedeTamanio() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "El archivo no puede superar 15 MB.");
+    }
+
+    public static ApiException documentoRespaldoNoEsPdf() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Solo se aceptan archivos en formato PDF.");
+    }
+
+    public static ApiException solicitudAuditoriaTraslapada() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Ya existe una solicitud de auditoría en curso para un período que se traslapa "
+                        + "con el seleccionado.");
+    }
 }
