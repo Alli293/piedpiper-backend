@@ -48,6 +48,22 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/auth/reset-contrasena").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/invitaciones/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/catalogos/**").permitAll()
+                        // Un verificador externo de credenciales OpenBadges no tiene sesion:
+                        // debe poder resolver el perfil del emisor, su clave publica y la
+                        // definicion del logro para validar una certificacion.
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/certificaciones/emisor",
+                                "/api/certificaciones/emisor/jwks.json",
+                                "/api/certificaciones/estado/lista").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/certificaciones/logros/**")
+                        .permitAll()
+                        // Perfil publico de una empresa: pagina publica sin sesion, expone
+                        // solo certificaciones activas por slug. Ruta explicita, no comodin
+                        // "/**", para que un endpoint nuevo bajo este prefijo no nazca publico
+                        // sin que alguien lo revise (mismo criterio que las rutas de
+                        // certificaciones listadas arriba).
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/perfil-publico/*/certificaciones").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(e -> e.authenticationEntryPoint(
                         new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
