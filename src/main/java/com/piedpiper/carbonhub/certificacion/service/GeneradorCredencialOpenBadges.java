@@ -149,7 +149,13 @@ public class GeneradorCredencialOpenBadges {
         return logro;
     }
 
-    private String urlEmisor() {
+    /**
+     * Publico porque {@link ListaEstadoCredencialesService} firma su VC-JWT con
+     * esta misma URL como {@code iss}: el emisor debe ser identico en toda
+     * credencial que este backend firme, sea una certificacion individual o la
+     * lista de estado que las respalda.
+     */
+    public String urlEmisor() {
         return urlBase + "/api/certificaciones/emisor";
     }
 

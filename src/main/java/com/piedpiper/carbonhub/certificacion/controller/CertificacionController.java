@@ -1,6 +1,7 @@
 package com.piedpiper.carbonhub.certificacion.controller;
 
 import com.piedpiper.carbonhub.certificacion.models.dtos.CertificacionResponseDTO;
+import com.piedpiper.carbonhub.certificacion.models.dtos.CertificacionResumenResponseDTO;
 import com.piedpiper.carbonhub.certificacion.service.ConsultaCertificacionService;
 import com.piedpiper.carbonhub.common.Autenticaciones;
 
@@ -27,7 +28,7 @@ public class CertificacionController {
     }
 
     @GetMapping
-    public ResponseEntity<List<CertificacionResponseDTO>> listar(Authentication authentication) {
+    public ResponseEntity<List<CertificacionResumenResponseDTO>> listar(Authentication authentication) {
         UUID usuarioId = Autenticaciones.usuarioId(authentication);
         return ResponseEntity.ok(consultaCertificacionService.listar(usuarioId));
     }

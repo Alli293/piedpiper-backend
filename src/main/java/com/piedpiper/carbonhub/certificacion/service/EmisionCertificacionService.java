@@ -16,6 +16,8 @@ import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
+import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
+import com.piedpiper.carbonhub.user.models.enums.Rol;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.slf4j.Logger;
@@ -32,10 +34,13 @@ import java.util.Optional;
  * Emision automatica de certificaciones digitales al aprobarse una auditoria
  * (PP-58).
  *
- * <p>Toda la operacion ocurre dentro de una sola transaccion: la credencial
- * firmada se guarda en la propia fila, de modo que no hay archivo que limpiar
- * si algo falla y el rollback de la base de datos es el unico mecanismo de
- * compensacion necesario.
+ * <p>La credencial firmada se guarda en la propia fila, de modo que no hay
+ * archivo que limpiar si algo falla y el rollback de la base de datos es el
+ * unico mecanismo de compensacion necesario. El guardado de la certificacion
+ * ocurre en la transaccion aparte de {@link CertificacionPersistenciaService}
+ * -- no en esta -- para que una emision concurrente perdida no deje esta
+ * transaccion marcada rollback-only y pueda seguir usandose para recuperar la
+ * certificacion ganadora.
  */
 @Service
 public class EmisionCertificacionService implements EmisionCertificacionPort {
@@ -51,6 +56,7 @@ public class EmisionCertificacionService implements EmisionCertificacionPort {
     private final CatalogoTiposCertificacion catalogoTiposCertificacion;
     private final GeneradorCredencialOpenBadges generadorCredencialOpenBadges;
     private final CertificacionMapper certificacionMapper;
+    private final CertificacionPersistenciaService certificacionPersistenciaService;
 
     public EmisionCertificacionService(CertificacionRepository certificacionRepository,
                                        NotificacionPanelRepository notificacionPanelRepository,
@@ -60,7 +66,8 @@ public class EmisionCertificacionService implements EmisionCertificacionPort {
                                        UsuarioRepository usuarioRepository,
                                        CatalogoTiposCertificacion catalogoTiposCertificacion,
                                        GeneradorCredencialOpenBadges generadorCredencialOpenBadges,
-                                       CertificacionMapper certificacionMapper) {
+                                       CertificacionMapper certificacionMapper,
+                                       CertificacionPersistenciaService certificacionPersistenciaService) {
         this.certificacionRepository = certificacionRepository;
         this.notificacionPanelRepository = notificacionPanelRepository;
         this.indiceEstadoCertificacionRepository = indiceEstadoCertificacionRepository;
@@ -69,6 +76,7 @@ public class EmisionCertificacionService implements EmisionCertificacionPort {
         this.catalogoTiposCertificacion = catalogoTiposCertificacion;
         this.generadorCredencialOpenBadges = generadorCredencialOpenBadges;
         this.certificacionMapper = certificacionMapper;
+        this.certificacionPersistenciaService = certificacionPersistenciaService;
     }
 
     @Override
@@ -110,12 +118,26 @@ public class EmisionCertificacionService implements EmisionCertificacionPort {
                     return ApiException.recursoNoEncontrado("El auditor indicado no existe.");
                 });
 
+        if (auditor.getRol() != Rol.AUDITOR_CERTIFICADO || auditor.getEstado() != EstadoUsuario.ACTIVO) {
+            log.error("No se emitio la certificacion de la auditoria {}: el usuario {} no es un "
+                    + "auditor certificado activo.", comando.getIdAuditoria(), comando.getIdAuditor());
+            throw ApiException.auditorNoValido();
+        }
+
         LocalDate fechaVencimiento = resolverVencimiento(comando, definicion);
 
         // Reserva la posicion de esta certificacion en la lista de estado de
         // revocacion (W3C Bitstring Status List) antes de firmar: el indice debe
         // quedar embebido en la credencial desde su creacion para que sea
         // revocable en el futuro sin tener que reemitirla.
+        //
+        // Si mas abajo se detecta una emision concurrente ganada por otra
+        // transaccion, este indice ya quedo reservado (y su insert se
+        // confirma con el resto de esta transaccion) pero no lo usa ninguna
+        // certificacion: queda un hueco permanente en la lista de estado.
+        // Es inofensivo -- la lista tiene 131 072 posiciones y un hueco no
+        // afecta la verificacion de ninguna credencial -- asi que se acepta
+        // en vez de complicar la reserva con otra transaccion aparte.
         Long indiceEstado = indiceEstadoCertificacionRepository
                 .save(new IndiceEstadoCertificacion())
                 .getIndice();
@@ -135,7 +157,7 @@ public class EmisionCertificacionService implements EmisionCertificacionPort {
                 generadorCredencialOpenBadges.generar(certificacion, definicion));
 
         try {
-            certificacion = certificacionRepository.saveAndFlush(certificacion);
+            certificacion = certificacionPersistenciaService.guardar(certificacion);
         } catch (DataIntegrityViolationException e) {
             // Dos aprobaciones simultaneas de la misma auditoria: la restriccion de
             // unicidad sobre id_auditoria es la que garantiza que no haya duplicados.

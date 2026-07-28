@@ -3,6 +3,7 @@ package com.piedpiper.carbonhub.certificacion.controller;
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
 import com.piedpiper.carbonhub.auth.service.JwtService;
 import com.piedpiper.carbonhub.certificacion.models.dtos.CertificacionResponseDTO;
+import com.piedpiper.carbonhub.certificacion.models.dtos.CertificacionResumenResponseDTO;
 import com.piedpiper.carbonhub.certificacion.service.ConsultaCertificacionService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
@@ -74,15 +75,22 @@ class CertificacionControllerTest {
                 Instant.now(), LocalDate.of(2027, 1, 10), "ACTIVA", "jwt.firmado.aqui", false);
     }
 
+    private CertificacionResumenResponseDTO resumen(String nombre) {
+        return new CertificacionResumenResponseDTO(UUID.randomUUID(), UUID.randomUUID(),
+                UUID.randomUUID(), UUID.randomUUID(), "CARBONO_NEUTRAL", nombre,
+                Instant.now(), LocalDate.of(2027, 1, 10), "ACTIVA");
+    }
+
     @Test
     @WithMockUser(username = USUARIO_ID, authorities = "ROLE_ADMINISTRADOR_EMPRESA")
     void listarDevuelve200ConLasCertificacionesDeLaEmpresa() throws Exception {
         when(consultaCertificacionService.listar(any()))
-                .thenReturn(List.of(respuesta("Carbono Neutral"), respuesta("Inventario de GEI")));
+                .thenReturn(List.of(resumen("Carbono Neutral"), resumen("Inventario de GEI")));
 
         mockMvc.perform(get("/api/certificaciones").principal(ADMIN_EMPRESA))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].nombreCertificacion").value("Carbono Neutral"))
+                .andExpect(jsonPath("$[0].credencialJwt").doesNotExist())
                 .andExpect(jsonPath("$[1].nombreCertificacion").value("Inventario de GEI"));
     }
 

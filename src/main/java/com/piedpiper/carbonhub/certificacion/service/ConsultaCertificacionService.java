@@ -3,6 +3,7 @@ package com.piedpiper.carbonhub.certificacion.service;
 import com.piedpiper.carbonhub.certificacion.config.CatalogoTiposCertificacion;
 import com.piedpiper.carbonhub.certificacion.mappers.CertificacionMapper;
 import com.piedpiper.carbonhub.certificacion.models.dtos.CertificacionResponseDTO;
+import com.piedpiper.carbonhub.certificacion.models.dtos.CertificacionResumenResponseDTO;
 import com.piedpiper.carbonhub.certificacion.models.entities.Certificacion;
 import com.piedpiper.carbonhub.certificacion.repository.CertificacionRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
@@ -34,10 +35,10 @@ public class ConsultaCertificacionService {
     }
 
     @Transactional(readOnly = true)
-    public List<CertificacionResponseDTO> listar(UUID usuarioId) {
+    public List<CertificacionResumenResponseDTO> listar(UUID usuarioId) {
         UUID empresaId = empresaDelUsuario(usuarioId);
         return certificacionRepository.findByEmpresaIdOrderByFechaEmisionDesc(empresaId).stream()
-                .map(this::aDto)
+                .map(this::aResumenDto)
                 .toList();
     }
 
@@ -65,6 +66,13 @@ public class ConsultaCertificacionService {
     private CertificacionResponseDTO aDto(Certificacion certificacion) {
         CertificacionResponseDTO dto = certificacionMapper.toDto(certificacion);
         dto.setRecienEmitida(false);
+        catalogoTiposCertificacion.buscar(certificacion.getTipo())
+                .ifPresent(definicion -> dto.setNombreCertificacion(definicion.nombre()));
+        return dto;
+    }
+
+    private CertificacionResumenResponseDTO aResumenDto(Certificacion certificacion) {
+        CertificacionResumenResponseDTO dto = certificacionMapper.toResumenDto(certificacion);
         catalogoTiposCertificacion.buscar(certificacion.getTipo())
                 .ifPresent(definicion -> dto.setNombreCertificacion(definicion.nombre()));
         return dto;

@@ -16,6 +16,8 @@ import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
+import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
+import com.piedpiper.carbonhub.user.models.enums.Rol;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.junit.jupiter.api.Test;
@@ -60,6 +62,8 @@ class EmisionCertificacionServiceTest {
     private GeneradorCredencialOpenBadges generadorCredencialOpenBadges;
     @Mock
     private CertificacionMapper certificacionMapper;
+    @Mock
+    private CertificacionPersistenciaService certificacionPersistenciaService;
 
     private final CatalogoTiposCertificacion catalogo = new CatalogoTiposCertificacion();
 
@@ -71,7 +75,8 @@ class EmisionCertificacionServiceTest {
         service = new EmisionCertificacionService(certificacionRepository,
                 notificacionPanelRepository, indiceEstadoCertificacionRepository,
                 empresaRepository, usuarioRepository,
-                catalogo, generadorCredencialOpenBadges, certificacionMapper);
+                catalogo, generadorCredencialOpenBadges, certificacionMapper,
+                certificacionPersistenciaService);
     }
 
     private EmisionCertificacionService service() {
@@ -83,20 +88,27 @@ class EmisionCertificacionServiceTest {
                 "aprobada", FECHA_AUDITORIA, tipo, null);
     }
 
+    private Usuario auditorValido() {
+        return Usuario.builder().id(ID_AUDITOR)
+                .rol(Rol.AUDITOR_CERTIFICADO)
+                .estado(EstadoUsuario.ACTIVO)
+                .build();
+    }
+
     /** Auditoria sin certificar y empresa/auditor existentes. */
     private void mockearEntidadesResueltas() {
         when(certificacionRepository.findByIdAuditoria(ID_AUDITORIA)).thenReturn(Optional.empty());
         when(empresaRepository.findById(ID_EMPRESA))
                 .thenReturn(Optional.of(Empresa.builder().id(ID_EMPRESA).build()));
         when(usuarioRepository.findById(ID_AUDITOR))
-                .thenReturn(Optional.of(Usuario.builder().id(ID_AUDITOR).build()));
+                .thenReturn(Optional.of(auditorValido()));
     }
 
     private void mockearEmisionExitosa() {
         mockearEntidadesResueltas();
         mockearIndiceEstado();
         when(generadorCredencialOpenBadges.generar(any(), any())).thenReturn("jwt.firmado.aqui");
-        when(certificacionRepository.saveAndFlush(any(Certificacion.class)))
+        when(certificacionPersistenciaService.guardar(any(Certificacion.class)))
                 .thenAnswer(i -> i.getArgument(0));
         mockearMapperComoIdentidad();
     }
@@ -123,7 +135,7 @@ class EmisionCertificacionServiceTest {
 
     private Certificacion capturarGuardada() {
         ArgumentCaptor<Certificacion> captor = ArgumentCaptor.forClass(Certificacion.class);
-        verify(certificacionRepository).saveAndFlush(captor.capture());
+        verify(certificacionPersistenciaService).guardar(captor.capture());
         return captor.getValue();
     }
 
@@ -202,7 +214,7 @@ class EmisionCertificacionServiceTest {
 
         assertThat(response.isRecienEmitida()).isFalse();
         assertThat(response.getIdAuditoria()).isEqualTo(ID_AUDITORIA);
-        verify(certificacionRepository, never()).saveAndFlush(any());
+        verify(certificacionPersistenciaService, never()).guardar(any());
         verify(notificacionPanelRepository, never()).save(any());
         verify(generadorCredencialOpenBadges, never()).generar(any(), any());
     }
@@ -218,10 +230,10 @@ class EmisionCertificacionServiceTest {
         when(empresaRepository.findById(ID_EMPRESA))
                 .thenReturn(Optional.of(Empresa.builder().id(ID_EMPRESA).build()));
         when(usuarioRepository.findById(ID_AUDITOR))
-                .thenReturn(Optional.of(Usuario.builder().id(ID_AUDITOR).build()));
+                .thenReturn(Optional.of(auditorValido()));
         mockearIndiceEstado();
         when(generadorCredencialOpenBadges.generar(any(), any())).thenReturn("jwt.firmado.aqui");
-        when(certificacionRepository.saveAndFlush(any(Certificacion.class)))
+        when(certificacionPersistenciaService.guardar(any(Certificacion.class)))
                 .thenThrow(new DataIntegrityViolationException("id_auditoria duplicado"));
         when(certificacionRepository.findByIdAuditoria(ID_AUDITORIA))
                 .thenReturn(Optional.empty(), Optional.of(ganadora));
@@ -245,7 +257,7 @@ class EmisionCertificacionServiceTest {
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
 
         verify(certificacionRepository, never()).findByIdAuditoria(any());
-        verify(certificacionRepository, never()).saveAndFlush(any());
+        verify(certificacionPersistenciaService, never()).guardar(any());
     }
 
     @Test
@@ -259,7 +271,7 @@ class EmisionCertificacionServiceTest {
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
 
-        verify(certificacionRepository, never()).saveAndFlush(any());
+        verify(certificacionPersistenciaService, never()).guardar(any());
     }
 
     @Test
@@ -273,7 +285,7 @@ class EmisionCertificacionServiceTest {
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
 
-        verify(certificacionRepository, never()).saveAndFlush(any());
+        verify(certificacionPersistenciaService, never()).guardar(any());
     }
 
     @Test
@@ -288,7 +300,7 @@ class EmisionCertificacionServiceTest {
                 .isEqualTo(HttpStatus.NOT_FOUND);
 
         verify(generadorCredencialOpenBadges, never()).generar(any(), any());
-        verify(certificacionRepository, never()).saveAndFlush(any());
+        verify(certificacionPersistenciaService, never()).guardar(any());
     }
 
     @Test
@@ -305,7 +317,49 @@ class EmisionCertificacionServiceTest {
                 .isEqualTo(HttpStatus.NOT_FOUND);
 
         verify(generadorCredencialOpenBadges, never()).generar(any(), any());
-        verify(certificacionRepository, never()).saveAndFlush(any());
+        verify(certificacionPersistenciaService, never()).guardar(any());
+    }
+
+    @Test
+    void noEmiteSiElUsuarioNoTieneRolDeAuditor() {
+        when(certificacionRepository.findByIdAuditoria(ID_AUDITORIA)).thenReturn(Optional.empty());
+        when(empresaRepository.findById(ID_EMPRESA))
+                .thenReturn(Optional.of(Empresa.builder().id(ID_EMPRESA).build()));
+        when(usuarioRepository.findById(ID_AUDITOR)).thenReturn(Optional.of(
+                Usuario.builder().id(ID_AUDITOR)
+                        .rol(Rol.USUARIO_GENERAL)
+                        .estado(EstadoUsuario.ACTIVO)
+                        .build()));
+
+        assertThatThrownBy(() -> service()
+                .emitirPorAuditoriaAprobada(comando(TipoCertificacion.CARBONO_NEUTRAL)))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+
+        verify(generadorCredencialOpenBadges, never()).generar(any(), any());
+        verify(certificacionPersistenciaService, never()).guardar(any());
+    }
+
+    @Test
+    void noEmiteSiElAuditorNoEstaActivo() {
+        when(certificacionRepository.findByIdAuditoria(ID_AUDITORIA)).thenReturn(Optional.empty());
+        when(empresaRepository.findById(ID_EMPRESA))
+                .thenReturn(Optional.of(Empresa.builder().id(ID_EMPRESA).build()));
+        when(usuarioRepository.findById(ID_AUDITOR)).thenReturn(Optional.of(
+                Usuario.builder().id(ID_AUDITOR)
+                        .rol(Rol.AUDITOR_CERTIFICADO)
+                        .estado(EstadoUsuario.PENDIENTE_VALIDACION)
+                        .build()));
+
+        assertThatThrownBy(() -> service()
+                .emitirPorAuditoriaAprobada(comando(TipoCertificacion.CARBONO_NEUTRAL)))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+
+        verify(generadorCredencialOpenBadges, never()).generar(any(), any());
+        verify(certificacionPersistenciaService, never()).guardar(any());
     }
 
     @Test
@@ -313,7 +367,7 @@ class EmisionCertificacionServiceTest {
         mockearEntidadesResueltas();
         mockearIndiceEstado();
         when(generadorCredencialOpenBadges.generar(any(), any())).thenReturn("jwt.firmado.aqui");
-        when(certificacionRepository.saveAndFlush(any(Certificacion.class)))
+        when(certificacionPersistenciaService.guardar(any(Certificacion.class)))
                 .thenThrow(new IllegalStateException("fallo de base de datos"));
 
         assertThatThrownBy(() -> service()

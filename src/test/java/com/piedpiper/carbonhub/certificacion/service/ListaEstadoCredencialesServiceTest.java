@@ -106,6 +106,14 @@ class ListaEstadoCredencialesServiceTest {
         assertThat(vc.get("issuer")).isEqualTo(generador.construirEmisor());
     }
 
+    @Test
+    void elIssDelJwtApuntaAlEmisorYNoAlRecursoDeLaLista() throws Exception {
+        SignedJWT firmado = SignedJWT.parse(servicio.generar());
+
+        assertThat(firmado.getJWTClaimsSet().getIssuer())
+                .isEqualTo(URL_BASE + "/api/certificaciones/emisor");
+    }
+
     private static String pemDeClavePrueba() throws Exception {
         return "-----BEGIN PRIVATE KEY-----\n"
                 + Base64.getMimeEncoder(64, "\n".getBytes())

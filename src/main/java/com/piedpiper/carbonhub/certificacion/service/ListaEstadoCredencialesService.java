@@ -70,7 +70,7 @@ public class ListaEstadoCredencialesService {
         credencial.put("credentialSubject", sujeto);
 
         JWTClaimsSet claims = new JWTClaimsSet.Builder()
-                .issuer(generadorCredencialOpenBadges.urlListaEstado())
+                .issuer(generadorCredencialOpenBadges.urlEmisor())
                 .issueTime(new Date())
                 .claim("vc", credencial)
                 .build();
