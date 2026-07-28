@@ -72,13 +72,13 @@ class CertificacionControllerTest {
     private CertificacionResponseDTO respuesta(String nombre) {
         return new CertificacionResponseDTO(UUID.randomUUID(), UUID.randomUUID(),
                 UUID.randomUUID(), UUID.randomUUID(), "CARBONO_NEUTRAL", nombre,
-                Instant.now(), LocalDate.of(2027, 1, 10), "ACTIVA", "jwt.firmado.aqui", false);
+                Instant.now(), LocalDate.of(2027, 1, 10), "ACTIVA", true, "jwt.firmado.aqui", false);
     }
 
     private CertificacionResumenResponseDTO resumen(String nombre) {
         return new CertificacionResumenResponseDTO(UUID.randomUUID(), UUID.randomUUID(),
                 UUID.randomUUID(), UUID.randomUUID(), "CARBONO_NEUTRAL", nombre,
-                Instant.now(), LocalDate.of(2027, 1, 10), "ACTIVA");
+                Instant.now(), LocalDate.of(2027, 1, 10), "ACTIVA", true);
     }
 
     @Test

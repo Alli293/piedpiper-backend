@@ -15,6 +15,7 @@ public interface CertificacionMapper {
     @Mapping(source = "auditor.id", target = "idAuditor")
     @Mapping(target = "nombreCertificacion", ignore = true)
     @Mapping(target = "recienEmitida", ignore = true)
+    @Mapping(target = "vigente", ignore = true)
     CertificacionResponseDTO toDto(Certificacion certificacion);
 
     @Mapping(target = "nombreCertificacion", ignore = true)
@@ -23,5 +24,6 @@ public interface CertificacionMapper {
     @Mapping(source = "empresa.id", target = "idEmpresa")
     @Mapping(source = "auditor.id", target = "idAuditor")
     @Mapping(target = "nombreCertificacion", ignore = true)
+    @Mapping(target = "vigente", ignore = true)
     CertificacionResumenResponseDTO toResumenDto(Certificacion certificacion);
 }

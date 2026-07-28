@@ -15,6 +15,7 @@ import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -56,17 +57,22 @@ public class ConsultaCertificacionService {
     }
 
     /**
-     * Certificaciones activas de una empresa, para el perfil publico. Sin
-     * resolucion de usuario ni auth a proposito: lo llama {@code
-     * perfilpublico}, que ya resolvio el {@code empresaId} a partir de un
-     * slug sin sesion. Vive aqui y no en {@code perfilpublico} para que ese
+     * Certificaciones activas y vigentes (no vencidas) de una empresa, para el
+     * perfil publico. Sin resolucion de usuario ni auth a proposito: lo llama
+     * {@code perfilpublico}, que ya resolvio el {@code empresaId} a partir de
+     * un slug sin sesion. Vive aqui y no en {@code perfilpublico} para que ese
      * dominio no dependa directamente de {@link CertificacionRepository} ni
      * de {@link CertificacionMapper}.
+     *
+     * <p>No hay un {@code estado} de "vencida": vencer no se persiste, se
+     * calcula comparando {@code fechaVencimiento} contra hoy en cada consulta,
+     * asi que no hace falta un job que mantenga ese estado sincronizado.
      */
     @Transactional(readOnly = true)
     public List<CertificacionPublicaResponseDTO> listarActivasPublicasPorEmpresa(UUID empresaId) {
         return certificacionRepository
-                .findByEmpresaIdAndEstadoOrderByFechaEmisionDesc(empresaId, EstadoCertificacion.ACTIVA)
+                .findByEmpresaIdAndEstadoAndFechaVencimientoGreaterThanOrderByFechaEmisionDesc(
+                        empresaId, EstadoCertificacion.ACTIVA, LocalDate.now())
                 .stream()
                 .map(this::aPublicaDto)
                 .toList();
@@ -85,6 +91,7 @@ public class ConsultaCertificacionService {
     private CertificacionResponseDTO aDto(Certificacion certificacion) {
         CertificacionResponseDTO dto = certificacionMapper.toDto(certificacion);
         dto.setRecienEmitida(false);
+        dto.setVigente(esVigente(certificacion));
         catalogoTiposCertificacion.buscar(certificacion.getTipo())
                 .ifPresent(definicion -> dto.setNombreCertificacion(definicion.nombre()));
         return dto;
@@ -92,9 +99,18 @@ public class ConsultaCertificacionService {
 
     private CertificacionResumenResponseDTO aResumenDto(Certificacion certificacion) {
         CertificacionResumenResponseDTO dto = certificacionMapper.toResumenDto(certificacion);
+        dto.setVigente(esVigente(certificacion));
         catalogoTiposCertificacion.buscar(certificacion.getTipo())
                 .ifPresent(definicion -> dto.setNombreCertificacion(definicion.nombre()));
         return dto;
+    }
+
+    /**
+     * {@code fechaVencimiento} estrictamente posterior a hoy: misma semantica
+     * que {@code exp} en el VC-JWT (vence a medianoche UTC de ese dia).
+     */
+    private static boolean esVigente(Certificacion certificacion) {
+        return certificacion.getFechaVencimiento().isAfter(LocalDate.now());
     }
 
     private CertificacionPublicaResponseDTO aPublicaDto(Certificacion certificacion) {

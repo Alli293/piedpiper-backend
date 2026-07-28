@@ -27,4 +27,12 @@ public class CertificacionResumenResponseDTO {
     private Instant fechaEmision;
     private LocalDate fechaVencimiento;
     private String estado;
+
+    /**
+     * Computado a partir de {@code fechaVencimiento} vs. hoy, no persistido:
+     * {@code estado} representa si fue revocada (hoy siempre ACTIVA, no existe
+     * revocar todavia), no si vencio. Una certificacion puede seguir ACTIVA y
+     * ya no estar vigente.
+     */
+    private boolean vigente;
 }

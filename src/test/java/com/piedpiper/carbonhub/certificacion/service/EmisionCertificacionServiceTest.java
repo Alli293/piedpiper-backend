@@ -166,6 +166,27 @@ class EmisionCertificacionServiceTest {
     }
 
     @Test
+    void marcaVigenteVerdaderoCuandoLaFechaDeVencimientoNoHaPasado() {
+        mockearEmisionExitosa();
+
+        CertificacionResponseDTO response =
+                service().emitirPorAuditoriaAprobada(comando(TipoCertificacion.CARBONO_NEUTRAL));
+
+        assertThat(response.isVigente()).isTrue();
+    }
+
+    @Test
+    void marcaVigenteFalsoCuandoLaFechaDeVencimientoYaPaso() {
+        mockearEmisionExitosa();
+        EmitirCertificacionRequestDTO comando = comando(TipoCertificacion.CARBONO_NEUTRAL);
+        comando.setFechaVencimientoCert(FECHA_AUDITORIA.plusDays(30));
+
+        CertificacionResponseDTO response = service().emitirPorAuditoriaAprobada(comando);
+
+        assertThat(response.isVigente()).isFalse();
+    }
+
+    @Test
     void usaLaVigenciaDeTreintaYSeisMesesParaHuellaDeProducto() {
         mockearEmisionExitosa();
 
@@ -204,6 +225,7 @@ class EmisionCertificacionServiceTest {
                 .idAuditoria(ID_AUDITORIA)
                 .tipo(TipoCertificacion.CARBONO_NEUTRAL)
                 .estado(EstadoCertificacion.ACTIVA)
+                .fechaVencimiento(FECHA_AUDITORIA.plusMonths(12))
                 .build();
         when(certificacionRepository.findByIdAuditoria(ID_AUDITORIA))
                 .thenReturn(Optional.of(existente));
@@ -226,6 +248,7 @@ class EmisionCertificacionServiceTest {
                 .idAuditoria(ID_AUDITORIA)
                 .tipo(TipoCertificacion.CARBONO_NEUTRAL)
                 .estado(EstadoCertificacion.ACTIVA)
+                .fechaVencimiento(FECHA_AUDITORIA.plusMonths(12))
                 .build();
         when(empresaRepository.findById(ID_EMPRESA))
                 .thenReturn(Optional.of(Empresa.builder().id(ID_EMPRESA).build()));

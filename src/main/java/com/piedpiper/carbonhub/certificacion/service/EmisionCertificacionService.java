@@ -203,6 +203,9 @@ public class EmisionCertificacionService implements EmisionCertificacionPort {
     private CertificacionResponseDTO aDto(Certificacion certificacion, boolean recienEmitida) {
         CertificacionResponseDTO dto = certificacionMapper.toDto(certificacion);
         dto.setRecienEmitida(recienEmitida);
+        // Misma semantica que exp en el VC-JWT: vence a medianoche UTC del dia
+        // de fechaVencimiento.
+        dto.setVigente(certificacion.getFechaVencimiento().isAfter(LocalDate.now()));
         catalogoTiposCertificacion.buscar(certificacion.getTipo())
                 .ifPresent(definicion -> dto.setNombreCertificacion(definicion.nombre()));
         return dto;
