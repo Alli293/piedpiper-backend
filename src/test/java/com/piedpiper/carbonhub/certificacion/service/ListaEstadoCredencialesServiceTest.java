@@ -114,6 +114,14 @@ class ListaEstadoCredencialesServiceTest {
                 .isEqualTo(URL_BASE + "/api/certificaciones/emisor");
     }
 
+    @Test
+    void generarReutilizaElJwtCacheadoEnLlamadosSucesivos() {
+        String primero = servicio.generar();
+        String segundo = servicio.generar();
+
+        assertThat(segundo).isEqualTo(primero);
+    }
+
     private static String pemDeClavePrueba() throws Exception {
         return "-----BEGIN PRIVATE KEY-----\n"
                 + Base64.getMimeEncoder(64, "\n".getBytes())

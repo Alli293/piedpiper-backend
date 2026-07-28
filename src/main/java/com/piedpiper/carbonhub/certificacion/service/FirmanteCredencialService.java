@@ -6,6 +6,7 @@ import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jose.jwk.JWKSet;
+import com.nimbusds.jose.jwk.KeyUse;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
@@ -98,9 +99,14 @@ public class FirmanteCredencialService {
             RSAPublicKey publica = (RSAPublicKey) factory.generatePublic(
                     new RSAPublicKeySpec(crt.getModulus(), crt.getPublicExponent()));
 
+            // alg y use quedan en la clave (privada y publica comparten estos
+            // metadatos): jwksPublico() los expone via toPublicJWK() sin duplicar
+            // la configuracion, y un verificador estricto los exige.
             return new RSAKey.Builder(publica)
                     .privateKey(privada)
                     .keyID(claveId)
+                    .algorithm(JWSAlgorithm.RS256)
+                    .keyUse(KeyUse.SIGNATURE)
                     .build();
         } catch (IllegalArgumentException | GeneralSecurityException e) {
             log.error("La clave privada configurada para firmar certificaciones no es valida", e);

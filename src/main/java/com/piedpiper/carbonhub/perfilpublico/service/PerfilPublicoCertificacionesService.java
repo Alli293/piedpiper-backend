@@ -1,11 +1,7 @@
 package com.piedpiper.carbonhub.perfilpublico.service;
 
-import com.piedpiper.carbonhub.certificacion.config.CatalogoTiposCertificacion;
-import com.piedpiper.carbonhub.certificacion.mappers.CertificacionMapper;
 import com.piedpiper.carbonhub.certificacion.models.dtos.CertificacionPublicaResponseDTO;
-import com.piedpiper.carbonhub.certificacion.models.entities.Certificacion;
-import com.piedpiper.carbonhub.certificacion.models.enums.EstadoCertificacion;
-import com.piedpiper.carbonhub.certificacion.repository.CertificacionRepository;
+import com.piedpiper.carbonhub.certificacion.service.ConsultaCertificacionService;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.empresa.models.enums.EstadoEmpresa;
 import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
@@ -22,23 +18,22 @@ import java.util.UUID;
  * puede ver. Hoy unicamente la lista de certificaciones activas; otros datos
  * del perfil (nombre, logo, etc.) se agregaran a este mismo dominio mas
  * adelante.
+ *
+ * <p>Habla con {@link ConsultaCertificacionService}, no con el repositorio ni
+ * el mapper de certificaciones directamente: ese dominio es dueno de como se
+ * consulta y enriquece una {@code Certificacion}, y este servicio solo
+ * necesita resolver el slug a una empresa y pedirle la lista.
  */
 @Service
 public class PerfilPublicoCertificacionesService {
 
     private final EmpresaRepository empresaRepository;
-    private final CertificacionRepository certificacionRepository;
-    private final CatalogoTiposCertificacion catalogoTiposCertificacion;
-    private final CertificacionMapper certificacionMapper;
+    private final ConsultaCertificacionService consultaCertificacionService;
 
     public PerfilPublicoCertificacionesService(EmpresaRepository empresaRepository,
-                                               CertificacionRepository certificacionRepository,
-                                               CatalogoTiposCertificacion catalogoTiposCertificacion,
-                                               CertificacionMapper certificacionMapper) {
+                                               ConsultaCertificacionService consultaCertificacionService) {
         this.empresaRepository = empresaRepository;
-        this.certificacionRepository = certificacionRepository;
-        this.catalogoTiposCertificacion = catalogoTiposCertificacion;
-        this.certificacionMapper = certificacionMapper;
+        this.consultaCertificacionService = consultaCertificacionService;
     }
 
     @Transactional(readOnly = true)
@@ -46,17 +41,6 @@ public class PerfilPublicoCertificacionesService {
         UUID empresaId = empresaRepository.findBySlugAndEstado(slug, EstadoEmpresa.ACTIVO)
                 .map(Empresa::getId)
                 .orElseThrow(() -> ApiException.recursoNoEncontrado("La empresa no existe."));
-        return certificacionRepository
-                .findByEmpresaIdAndEstadoOrderByFechaEmisionDesc(empresaId, EstadoCertificacion.ACTIVA)
-                .stream()
-                .map(this::aDto)
-                .toList();
-    }
-
-    private CertificacionPublicaResponseDTO aDto(Certificacion certificacion) {
-        CertificacionPublicaResponseDTO dto = certificacionMapper.toPublicaDto(certificacion);
-        catalogoTiposCertificacion.buscar(certificacion.getTipo())
-                .ifPresent(definicion -> dto.setNombreCertificacion(definicion.nombre()));
-        return dto;
+        return consultaCertificacionService.listarActivasPublicasPorEmpresa(empresaId);
     }
 }

@@ -2,9 +2,11 @@ package com.piedpiper.carbonhub.certificacion.service;
 
 import com.piedpiper.carbonhub.certificacion.config.CatalogoTiposCertificacion;
 import com.piedpiper.carbonhub.certificacion.mappers.CertificacionMapper;
+import com.piedpiper.carbonhub.certificacion.models.dtos.CertificacionPublicaResponseDTO;
 import com.piedpiper.carbonhub.certificacion.models.dtos.CertificacionResponseDTO;
 import com.piedpiper.carbonhub.certificacion.models.dtos.CertificacionResumenResponseDTO;
 import com.piedpiper.carbonhub.certificacion.models.entities.Certificacion;
+import com.piedpiper.carbonhub.certificacion.models.enums.EstadoCertificacion;
 import com.piedpiper.carbonhub.certificacion.repository.CertificacionRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
@@ -53,6 +55,23 @@ public class ConsultaCertificacionService {
                         "La certificacion no existe."));
     }
 
+    /**
+     * Certificaciones activas de una empresa, para el perfil publico. Sin
+     * resolucion de usuario ni auth a proposito: lo llama {@code
+     * perfilpublico}, que ya resolvio el {@code empresaId} a partir de un
+     * slug sin sesion. Vive aqui y no en {@code perfilpublico} para que ese
+     * dominio no dependa directamente de {@link CertificacionRepository} ni
+     * de {@link CertificacionMapper}.
+     */
+    @Transactional(readOnly = true)
+    public List<CertificacionPublicaResponseDTO> listarActivasPublicasPorEmpresa(UUID empresaId) {
+        return certificacionRepository
+                .findByEmpresaIdAndEstadoOrderByFechaEmisionDesc(empresaId, EstadoCertificacion.ACTIVA)
+                .stream()
+                .map(this::aPublicaDto)
+                .toList();
+    }
+
     private UUID empresaDelUsuario(UUID usuarioId) {
         Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> ApiException.accesoDenegado(
@@ -73,6 +92,13 @@ public class ConsultaCertificacionService {
 
     private CertificacionResumenResponseDTO aResumenDto(Certificacion certificacion) {
         CertificacionResumenResponseDTO dto = certificacionMapper.toResumenDto(certificacion);
+        catalogoTiposCertificacion.buscar(certificacion.getTipo())
+                .ifPresent(definicion -> dto.setNombreCertificacion(definicion.nombre()));
+        return dto;
+    }
+
+    private CertificacionPublicaResponseDTO aPublicaDto(Certificacion certificacion) {
+        CertificacionPublicaResponseDTO dto = certificacionMapper.toPublicaDto(certificacion);
         catalogoTiposCertificacion.buscar(certificacion.getTipo())
                 .ifPresent(definicion -> dto.setNombreCertificacion(definicion.nombre()));
         return dto;

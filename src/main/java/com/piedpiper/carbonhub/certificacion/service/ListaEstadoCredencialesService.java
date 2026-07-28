@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Date;
@@ -33,6 +34,12 @@ import java.util.zip.GZIPOutputStream;
  * estado en varias listas ("shards"); no se construye eso ahora porque no hay
  * volumen que lo justifique.
  *
+ * <p>El JWT se cachea por {@link #DURACION_CACHE}: es un endpoint publico sin
+ * autenticacion, firmar es una operacion RSA en cada llamada, y sin revocar
+ * todavia el documento es identico entre refrescos. Sin cache, cada request
+ * regenera un JWT distinto (solo cambian {@code validFrom}/{@code iat}) y le
+ * impide a cualquier capa rio abajo cachear la respuesta.
+ *
  * @see <a href="https://www.w3.org/TR/vc-bitstring-status-list/">Bitstring Status List v1.0</a>
  */
 @Service
@@ -43,8 +50,18 @@ public class ListaEstadoCredencialesService {
     /** Minimo recomendado por el estandar para el tamano del conjunto de anonimato. */
     static final int TAMANO_BITS = 131_072;
 
+    /**
+     * Cuanto tiempo se reutiliza el JWT firmado antes de regenerarlo. Acota
+     * cuanto tarda un futuro revocar en propagarse a un verificador que
+     * respete el cache; hoy, sin esa accion, solo evita firmar de mas.
+     */
+    private static final Duration DURACION_CACHE = Duration.ofMinutes(15);
+
     private final FirmanteCredencialService firmanteCredencialService;
     private final GeneradorCredencialOpenBadges generadorCredencialOpenBadges;
+
+    private String jwtCacheado;
+    private Instant expiracionCache = Instant.MIN;
 
     public ListaEstadoCredencialesService(FirmanteCredencialService firmanteCredencialService,
                                           GeneradorCredencialOpenBadges generadorCredencialOpenBadges) {
@@ -52,7 +69,16 @@ public class ListaEstadoCredencialesService {
         this.generadorCredencialOpenBadges = generadorCredencialOpenBadges;
     }
 
-    public String generar() {
+    public synchronized String generar() {
+        Instant ahora = Instant.now();
+        if (jwtCacheado == null || ahora.isAfter(expiracionCache)) {
+            jwtCacheado = construir(ahora);
+            expiracionCache = ahora.plus(DURACION_CACHE);
+        }
+        return jwtCacheado;
+    }
+
+    private String construir(Instant ahora) {
         String encodedList = codificar(new byte[TAMANO_BITS / 8]);
 
         Map<String, Object> sujeto = new LinkedHashMap<>();
@@ -66,12 +92,12 @@ public class ListaEstadoCredencialesService {
         credencial.put("id", generadorCredencialOpenBadges.urlListaEstado());
         credencial.put("type", List.of("VerifiableCredential", "BitstringStatusListCredential"));
         credencial.put("issuer", generadorCredencialOpenBadges.construirEmisor());
-        credencial.put("validFrom", Instant.now().toString());
+        credencial.put("validFrom", ahora.toString());
         credencial.put("credentialSubject", sujeto);
 
         JWTClaimsSet claims = new JWTClaimsSet.Builder()
                 .issuer(generadorCredencialOpenBadges.urlEmisor())
-                .issueTime(new Date())
+                .issueTime(Date.from(ahora))
                 .claim("vc", credencial)
                 .build();
 
