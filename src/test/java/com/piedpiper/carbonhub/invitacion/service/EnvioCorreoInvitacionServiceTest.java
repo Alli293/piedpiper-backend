@@ -45,10 +45,14 @@ class EnvioCorreoInvitacionServiceTest {
     void reintentoExitosoDetieneLosSiguientes() throws Exception {
         AtomicInteger intentos = new AtomicInteger();
         CountDownLatch latch = new CountDownLatch(2);
+        CountDownLatch latchTercerIntento = new CountDownLatch(1);
         EmailInvitacionService email = (destinatario, empresa, token) -> {
-            boolean primerIntento = intentos.incrementAndGet() == 1;
+            int intento = intentos.incrementAndGet();
             latch.countDown();
-            if (primerIntento) {
+            if (intento >= 3) {
+                latchTercerIntento.countDown();
+            }
+            if (intento == 1) {
                 throw new IllegalStateException("smtp caido");
             }
         };
@@ -58,5 +62,6 @@ class EnvioCorreoInvitacionServiceTest {
 
         assertThat(latch.await(2, TimeUnit.SECONDS)).isTrue();
         assertThat(intentos.get()).isEqualTo(2);
+        assertThat(latchTercerIntento.await(200, TimeUnit.MILLISECONDS)).isFalse();
     }
 }

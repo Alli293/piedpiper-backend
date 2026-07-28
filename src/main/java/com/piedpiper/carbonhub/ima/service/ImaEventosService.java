@@ -243,6 +243,6 @@ public class ImaEventosService {
     /** Convierte un período ISO {@code YYYY-MM} en el nombre del mes en español. */
     private String nombrarMes(String periodo) {
         YearMonth ym = YearMonth.parse(periodo);
-        return MESES_ES[ym.getMonth().ordinal()] + " " + ym.getYear();
+        return MESES_ES[ym.getMonthValue() - 1] + " " + ym.getYear();
     }
 }

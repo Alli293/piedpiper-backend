@@ -16,10 +16,9 @@ class CertificacionApiKeyFilterTest {
 
     private static final String HEADER_API_KEY = "X-Certificacion-Api-Key";
     private static final String API_KEY_VALIDA = "clave-prueba";
-    private static final String EVENTOS_CERTIFICACION_PATH = "/api/certificacion/eventos";
 
     private final CertificacionApiKeyFilter filter =
-            new CertificacionApiKeyFilter(HEADER_API_KEY, API_KEY_VALIDA, EVENTOS_CERTIFICACION_PATH);
+            new CertificacionApiKeyFilter(HEADER_API_KEY, API_KEY_VALIDA);
 
     @AfterEach
     void limpiarContextoSeguridad() {

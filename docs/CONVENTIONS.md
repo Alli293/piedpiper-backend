@@ -43,7 +43,7 @@ Cross-cutting packages:
 ### Classes
 | Type | Pattern | Example |
 |---|---|---|
-| Controller | `<Domain>Controller` | `EmisionController` |
+| Controller | `<Domain>Controller` | `EmisionConsultaController` |
 | Service | `<Domain><Action>Service` | `EmisionEnvioService` |
 | Repository | `<Entity>Repository` | `LimiteEmisionesRepository` |
 | Mapper | `<Entity>Mapper` | `EmisionVueloMapper` |
@@ -73,11 +73,11 @@ Never rely on Hibernate's inferred name: `Empresa` had no `@Table` and resolved 
 @RestController
 @RequestMapping("/api/emisiones")
 @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
-public class EmisionController {
+public class EmisionConsultaController {
 
     private final EmisionConsultaService emisionConsultaService;
 
-    public EmisionController(EmisionConsultaService emisionConsultaService) {
+    public EmisionConsultaController(EmisionConsultaService emisionConsultaService) {
         this.emisionConsultaService = emisionConsultaService;
     }
 
@@ -228,8 +228,8 @@ public class Invitacion {
 2. **Controller tests:** `@WebMvcTest` + `@AutoConfigureMockMvc(addFilters = false)`.
 3. **For `@PreAuthorize` to actually be evaluated in a slice test**, import a config with `@EnableMethodSecurity`:
    ```java
-   @Import(EmisionControllerTest.MethodSecurityTestConfig.class)
-   class EmisionControllerTest {
+   @Import(EmisionConsultaControllerTest.MethodSecurityTestConfig.class)
+   class EmisionConsultaControllerTest {
        @TestConfiguration
        @EnableMethodSecurity
        static class MethodSecurityTestConfig { }

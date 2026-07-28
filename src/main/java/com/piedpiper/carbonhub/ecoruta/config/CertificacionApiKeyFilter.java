@@ -25,17 +25,22 @@ public class CertificacionApiKeyFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(CertificacionApiKeyFilter.class);
 
+    /**
+     * Local route protected by this filter. Intentionally NOT sourced from
+     * {@code certificacion.eventos-path}: that property configures the remote
+     * path used by {@code HttpCertificacionEventosClient} to call the certification
+     * provider's API, a different, independently-configurable concern.
+     */
+    private static final String EVENTOS_CERTIFICACION_PATH = "/api/certificacion/eventos";
+
     private final String apiKeyHeader;
     private final String apiKey;
-    private final String eventosCertificacionPath;
 
     public CertificacionApiKeyFilter(
             @Value("${certificacion.api-key-header:X-Certificacion-Api-Key}") String apiKeyHeader,
-            @Value("${certificacion.api-key:}") String apiKey,
-            @Value("${certificacion.eventos-path:/api/certificacion/eventos}") String eventosCertificacionPath) {
+            @Value("${certificacion.api-key:}") String apiKey) {
         this.apiKeyHeader = apiKeyHeader;
         this.apiKey = apiKey == null ? "" : apiKey;
-        this.eventosCertificacionPath = eventosCertificacionPath;
     }
 
     @Override
@@ -67,7 +72,7 @@ public class CertificacionApiKeyFilter extends OncePerRequestFilter {
 
     private boolean esEndpointEventosCertificacion(HttpServletRequest request) {
         String servletPath = request.getServletPath();
-        if (eventosCertificacionPath.equals(servletPath)) {
+        if (EVENTOS_CERTIFICACION_PATH.equals(servletPath)) {
             return true;
         }
 
@@ -76,7 +81,7 @@ public class CertificacionApiKeyFilter extends OncePerRequestFilter {
         if (contextPath != null && !contextPath.isBlank() && requestUri.startsWith(contextPath)) {
             requestUri = requestUri.substring(contextPath.length());
         }
-        return eventosCertificacionPath.equals(requestUri);
+        return EVENTOS_CERTIFICACION_PATH.equals(requestUri);
     }
 
     private boolean claveValida(String claveRecibida) {
