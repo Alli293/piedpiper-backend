@@ -5,6 +5,7 @@ import com.piedpiper.carbonhub.auth.service.JwtService;
 import com.piedpiper.carbonhub.certificacion.models.dtos.CertificacionPublicaResponseDTO;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoCertificacionesService;
+import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoConsultaService;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.junit.jupiter.api.Test;
@@ -47,6 +48,8 @@ class PerfilPublicoControllerTest {
 
     @MockitoBean
     private PerfilPublicoCertificacionesService perfilPublicoCertificacionesService;
+    @MockitoBean
+    private PerfilPublicoConsultaService perfilPublicoConsultaService;
     @MockitoBean
     private JwtService jwtService;
     @MockitoBean
