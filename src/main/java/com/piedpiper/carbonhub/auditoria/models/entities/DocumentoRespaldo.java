@@ -1,6 +1,5 @@
 package com.piedpiper.carbonhub.auditoria.models.entities;
 
-import jakarta.persistence.Basic;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -50,7 +49,8 @@ public class DocumentoRespaldo {
 
     // Sin @Lob a propósito: sobre Postgres, @Lob en un byte[] lo trata como Large Object y guarda
     // un OID en vez de los bytes, lo que rompe el insert contra una columna bytea.
-    @Basic(fetch = FetchType.LAZY)
+    // Tampoco lleva @Basic(fetch = LAZY): sin bytecode enhancement de Hibernate (no configurado
+    // en el pom) esa anotación no hace nada, y declararla sugiere una carga diferida que no ocurre.
     @JdbcTypeCode(SqlTypes.VARBINARY)
     @Column(name = "contenido", nullable = false, columnDefinition = "bytea")
     private byte[] contenido;

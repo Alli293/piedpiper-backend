@@ -7,6 +7,7 @@ import com.piedpiper.carbonhub.auditoria.models.enums.EstadoSolicitudAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.OrigenAsignacion;
 import com.piedpiper.carbonhub.auditoria.models.enums.TipoCertificacionSolicitud;
 import com.piedpiper.carbonhub.auditoria.service.SolicitudAuditoriaService;
+import com.piedpiper.carbonhub.auditoria.service.ValidadorDocumentosPdf;
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
 import com.piedpiper.carbonhub.auth.service.JwtService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
@@ -30,6 +31,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -116,6 +118,20 @@ class SolicitudAuditoriaControllerTest {
                         .file(documentoPdf())
                         .principal(principal()))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
+    void unAdjuntoQueExcedeElLimiteDeMultipartDevuelve400YNo500() throws Exception {
+        when(solicitudAuditoriaService.crear(any(), any(), any()))
+                .thenThrow(new MaxUploadSizeExceededException(ValidadorDocumentosPdf.TAMANIO_MAXIMO_BYTES));
+
+        mockMvc.perform(multipart("/api/auditorias")
+                        .file(datos())
+                        .file(documentoPdf())
+                        .principal(principal()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("El archivo no puede superar 15 MB."));
     }
 
     @Test
