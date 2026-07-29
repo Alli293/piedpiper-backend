@@ -2,6 +2,7 @@ package com.piedpiper.carbonhub.auditoria.service;
 
 import com.piedpiper.carbonhub.auditoria.mappers.SolicitudAuditoriaMapperImpl;
 import com.piedpiper.carbonhub.auditoria.models.dtos.CrearSolicitudAuditoriaRequestDTO;
+import com.piedpiper.carbonhub.auditoria.models.dtos.DocumentoRespaldoResponseDTO;
 import com.piedpiper.carbonhub.auditoria.models.dtos.SolicitudAuditoriaResponseDTO;
 import com.piedpiper.carbonhub.auditoria.models.entities.DocumentoRespaldo;
 import com.piedpiper.carbonhub.auditoria.models.entities.SolicitudAuditoria;
@@ -117,7 +118,7 @@ class SolicitudAuditoriaServiceTest {
             assertThat(documento.getNombreArchivo()).isEqualTo("uno.pdf");
             assertThat(documento.getTamanioBytes()).isPositive();
         });
-        assertThat(SolicitudAuditoriaResponseDTO.class.getDeclaredFields())
+        assertThat(DocumentoRespaldoResponseDTO.class.getDeclaredFields())
                 .noneMatch(campo -> campo.getType() == byte[].class);
     }
 

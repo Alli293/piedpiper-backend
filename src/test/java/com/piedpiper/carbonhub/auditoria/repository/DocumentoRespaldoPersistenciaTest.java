@@ -9,11 +9,16 @@ import com.piedpiper.carbonhub.empresa.models.enums.EstadoEmpresa;
 import com.piedpiper.carbonhub.empresa.models.enums.SectorIndustrial;
 import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 
+import jakarta.persistence.Lob;
+
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 
+import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -22,9 +27,15 @@ import java.util.ArrayList;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Persiste una solicitud con su documento contra una base real. Los tests de servicio mockean el
- * repositorio, así que no ejercitan el mapeo de la columna binaria: el contenido llegó a guardarse
- * como referencia a Large Object en vez de como bytes, y el insert fallaba solo en Postgres.
+ * Ejercita el guardado y la recuperación del documento, que los tests de servicio no cubren porque
+ * mockean el repositorio.
+ *
+ * <p>Ojo con el alcance: esto corre sobre H2, no sobre Postgres, y el bug original (un {@code @Lob}
+ * sobre {@code byte[]} que hacía guardar un OID en vez de los bytes) solo se manifestaba en
+ * Postgres. O sea que los dos tests de ida y vuelta pasarían igual con el mapeo roto. Lo que sí
+ * protege contra esa regresión, sin depender del motor, es
+ * {@link #elContenidoSeMapeaComoBinarioYNoComoLargeObject()}, que verifica las anotaciones de la
+ * entidad. Reproducirlo de verdad exigiría Testcontainers, que hoy el proyecto no usa.</p>
  */
 @DataJpaTest
 class DocumentoRespaldoPersistenciaTest {
@@ -38,6 +49,20 @@ class DocumentoRespaldoPersistenciaTest {
     private EmpresaRepository empresaRepository;
     @Autowired
     private TestEntityManager entityManager;
+
+    @Test
+    void elContenidoSeMapeaComoBinarioYNoComoLargeObject() throws NoSuchFieldException {
+        Field contenido = DocumentoRespaldo.class.getDeclaredField("contenido");
+
+        assertThat(contenido.getAnnotation(Lob.class))
+                .as("@Lob sobre un byte[] hace que Postgres guarde un OID en vez de los bytes")
+                .isNull();
+        assertThat(contenido.getAnnotation(JdbcTypeCode.class))
+                .as("sin @JdbcTypeCode(VARBINARY) Hibernate vuelve a elegir el tipo por su cuenta")
+                .isNotNull()
+                .extracting(JdbcTypeCode::value)
+                .isEqualTo(SqlTypes.VARBINARY);
+    }
 
     @Test
     void elContenidoDelDocumentoSeGuardaYSeRecuperaByteAByte() {
