@@ -39,7 +39,7 @@ public class AlertaVencimientoSchedulerService {
 
         for (Certificacion certificacion : activas) {
             try {
-                alertaVencimientoEvaluacionService.evaluar(certificacion);
+                alertaVencimientoEvaluacionService.evaluar(certificacion.getId());
             } catch (Exception e) {
                 log.error("Error al evaluar el vencimiento de la certificacion {}", certificacion.getId(), e);
             }

@@ -37,8 +37,8 @@ class AlertaVencimientoSchedulerServiceTest {
 
         service.evaluarVencimientos();
 
-        verify(alertaVencimientoEvaluacionService).evaluar(certificacionA);
-        verify(alertaVencimientoEvaluacionService).evaluar(certificacionB);
+        verify(alertaVencimientoEvaluacionService).evaluar(certificacionA.getId());
+        verify(alertaVencimientoEvaluacionService).evaluar(certificacionB.getId());
     }
 
     @Test
@@ -48,12 +48,12 @@ class AlertaVencimientoSchedulerServiceTest {
         when(certificacionRepository.findByEstado(EstadoCertificacion.ACTIVA))
                 .thenReturn(List.of(certificacionConError, certificacionOk));
         doThrow(new RuntimeException("fallo inesperado"))
-                .when(alertaVencimientoEvaluacionService).evaluar(certificacionConError);
+                .when(alertaVencimientoEvaluacionService).evaluar(certificacionConError.getId());
 
         service.evaluarVencimientos();
 
-        verify(alertaVencimientoEvaluacionService).evaluar(certificacionConError);
-        verify(alertaVencimientoEvaluacionService).evaluar(certificacionOk);
+        verify(alertaVencimientoEvaluacionService).evaluar(certificacionConError.getId());
+        verify(alertaVencimientoEvaluacionService).evaluar(certificacionOk.getId());
     }
 
     @Test

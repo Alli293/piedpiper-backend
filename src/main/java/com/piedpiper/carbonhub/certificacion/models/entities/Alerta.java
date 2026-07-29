@@ -61,7 +61,7 @@ public class Alerta {
     private TipoAlerta tipoAlerta;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
+    @Column(nullable = false, length = 20)
     @Builder.Default
     private EstadoAlerta estado = EstadoAlerta.PENDIENTE;
 
