@@ -19,4 +19,6 @@ public interface EmpresaRepository extends JpaRepository<Empresa, UUID> {
     List<Empresa> findBySectorIndustrial(SectorIndustrial sectorIndustrial);
 
     Optional<Empresa> findBySlugAndEstado(String slug, EstadoEmpresa estado);
+
+    Optional<Empresa> findBySlug(String slug);
 }
