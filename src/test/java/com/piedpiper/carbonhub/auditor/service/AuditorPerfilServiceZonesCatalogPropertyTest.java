@@ -19,7 +19,6 @@ import net.jqwik.api.GenerationMode;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
 
-import org.mockito.Mockito;
 import org.springframework.http.HttpStatus;
 
 import java.util.Arrays;
@@ -31,6 +30,7 @@ import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 // Feature: PP-54-gestion-especialidades-auditor, Property 6: Zones catalog membership validation
@@ -41,9 +41,9 @@ class AuditorPerfilServiceZonesCatalogPropertyTest {
             .map(Enum::name)
             .collect(Collectors.toSet());
 
-    private final UsuarioRepository usuarioRepository = Mockito.mock(UsuarioRepository.class);
-    private final PerfilAuditorRepository perfilAuditorRepository = Mockito.mock(PerfilAuditorRepository.class);
-    private final PerfilAuditorMapper perfilAuditorMapper = Mockito.mock(PerfilAuditorMapper.class);
+    private final UsuarioRepository usuarioRepository = mock(UsuarioRepository.class);
+    private final PerfilAuditorRepository perfilAuditorRepository = mock(PerfilAuditorRepository.class);
+    private final PerfilAuditorMapper perfilAuditorMapper = mock(PerfilAuditorMapper.class);
 
     private final AuditorPerfilService service = new AuditorPerfilService(
             perfilAuditorRepository, usuarioRepository, perfilAuditorMapper);

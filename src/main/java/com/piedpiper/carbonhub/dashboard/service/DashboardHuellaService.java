@@ -11,6 +11,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.Year;
 import java.time.YearMonth;
+import java.time.ZoneId;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -34,10 +35,10 @@ public class DashboardHuellaService {
     public ResumenHuellaDashboardResponseDTO obtenerResumen(UUID usuarioId, String periodo, Integer anio) {
         PeriodoDashboard periodoNormalizado = PeriodoDashboard.desde(periodo)
                 .orElse(PeriodoDashboard.POR_DEFECTO);
-        int anioConsultar = anio == null ? Year.now().getValue() : anio;
+        int anioConsultar = anio == null ? Year.now(ZoneId.systemDefault()).getValue() : anio;
         validarAnio(anioConsultar);
         UUID empresaId = emisionEmpresaService.empresaId(usuarioId);
-        RangoPeriodo rango = rangoActual(periodoNormalizado, anioConsultar, LocalDate.now());
+        RangoPeriodo rango = rangoActual(periodoNormalizado, anioConsultar, LocalDate.now(ZoneId.systemDefault()));
 
         TotalPeriodo actual = totalPeriodo(empresaId, rango);
         BigDecimal huellaTotalT = HuellasCarbono.toneladasDesdeKg(actual.carbonKg());
@@ -54,7 +55,7 @@ public class DashboardHuellaService {
     }
 
     private void validarAnio(Integer anio) {
-        int anioActual = Year.now().getValue();
+        int anioActual = Year.now(ZoneId.systemDefault()).getValue();
         if (anio < 1900 || anio > anioActual + 1) {
             throw ApiException.anioInvalido();
         }

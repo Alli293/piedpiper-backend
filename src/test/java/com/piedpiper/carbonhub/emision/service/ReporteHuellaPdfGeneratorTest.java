@@ -40,9 +40,10 @@ class ReporteHuellaPdfGeneratorTest {
         byte[] pdf = generator.generar(reporte(new BigDecimal("100.000"), false, "Café del Valle S.A.", 7));
 
         String contenido = new String(pdf, PDF_CHARSET);
-        assertThat(contenido).contains("Café del Valle S.A.");
-        assertThat(contenido).contains("Desglose por categoría");
-        assertThat(contenido).contains("Archivo: reporte-huella-2026-07.pdf");
+        assertThat(contenido)
+                .contains("Café del Valle S.A.")
+                .contains("Desglose por categoría")
+                .contains("Archivo: reporte-huella-2026-07.pdf");
     }
 
     @Test
@@ -50,9 +51,10 @@ class ReporteHuellaPdfGeneratorTest {
         byte[] pdf = generator.generar(reporte(new BigDecimal("100.000"), false, "Café del Valle S.A.", 7));
 
         String contenido = new String(pdf, PDF_CHARSET);
-        assertThat(contenido).contains("/BaseFont /Helvetica /Encoding /WinAnsiEncoding");
-        assertThat(contenido).contains("/BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding");
-        assertThat(contenido).contains("/BaseFont /Courier-Bold /Encoding /WinAnsiEncoding");
+        assertThat(contenido)
+                .contains("/BaseFont /Helvetica /Encoding /WinAnsiEncoding")
+                .contains("/BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding")
+                .contains("/BaseFont /Courier-Bold /Encoding /WinAnsiEncoding");
     }
 
     private ReporteHuellaPdfDTO reporte(BigDecimal totalKg, boolean sinDatos) {

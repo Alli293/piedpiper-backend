@@ -5,14 +5,6 @@ import com.piedpiper.carbonhub.auth.models.dtos.MensajeResponseDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.ValidarTokenResetResponseDTO;
 import com.piedpiper.carbonhub.auth.service.JwtService;
 import com.piedpiper.carbonhub.auth.service.LoginService;
-import com.piedpiper.carbonhub.auth.service.RegistroAuditorCorreoService;
-import com.piedpiper.carbonhub.auth.service.RegistroAuditorService;
-import com.piedpiper.carbonhub.auth.service.RegistroEmpresaCorreoService;
-import com.piedpiper.carbonhub.auth.service.RegistroEmpresaService;
-import com.piedpiper.carbonhub.auth.service.RegistroInvitacionCorreoService;
-import com.piedpiper.carbonhub.auth.service.RegistroInvitacionService;
-import com.piedpiper.carbonhub.auth.service.RegistroUsuarioCorreoService;
-import com.piedpiper.carbonhub.auth.service.RegistroUsuarioService;
 import com.piedpiper.carbonhub.auth.service.RestablecerContrasenaService;
 import com.piedpiper.carbonhub.auth.service.VerificarCorreoService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
@@ -35,42 +27,26 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(controllers = AuthController.class,
+@WebMvcTest(controllers = SesionController.class,
         excludeAutoConfiguration = {SecurityAutoConfiguration.class, OAuth2ClientAutoConfiguration.class},
         excludeFilters = @ComponentScan.Filter(
                 type = FilterType.ASSIGNABLE_TYPE, classes = SecurityConfig.class))
 @AutoConfigureMockMvc(addFilters = false)
-class AuthControllerResetContrasenaTest {
+class SesionControllerResetContrasenaTest {
 
     @Autowired
     private MockMvc mockMvc;
 
     @MockitoBean
-    private RegistroUsuarioService registroUsuarioService;
-    @MockitoBean
-    private RegistroEmpresaService registroEmpresaService;
-    @MockitoBean
-    private RegistroAuditorService registroAuditorService;
-    @MockitoBean
-    private RegistroAuditorCorreoService registroAuditorCorreoService;
-    @MockitoBean
     private LoginService loginService;
-    @MockitoBean
-    private JwtService jwtService;
-    @MockitoBean
-    private UsuarioRepository usuarioRepository;
-    @MockitoBean
-    private RegistroUsuarioCorreoService registroUsuarioCorreoService;
-    @MockitoBean
-    private RegistroEmpresaCorreoService registroEmpresaCorreoService;
     @MockitoBean
     private VerificarCorreoService verificarCorreoService;
     @MockitoBean
     private RestablecerContrasenaService restablecerContrasenaService;
     @MockitoBean
-    private RegistroInvitacionService registroInvitacionService;
+    private JwtService jwtService;
     @MockitoBean
-    private RegistroInvitacionCorreoService registroInvitacionCorreoService;
+    private UsuarioRepository usuarioRepository;
 
     private static final String MENSAJE_UNIFORME =
             "Si existe una cuenta con ese correo, te enviamos un enlace para restablecer tu contraseña.";

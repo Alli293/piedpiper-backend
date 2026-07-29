@@ -3,17 +3,10 @@ package com.piedpiper.carbonhub.auth.controller;
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
 import com.piedpiper.carbonhub.auth.models.dtos.AuthResponseDTO;
 import com.piedpiper.carbonhub.auth.service.JwtService;
-import com.piedpiper.carbonhub.auth.service.LoginService;
 import com.piedpiper.carbonhub.auth.service.RegistroAuditorCorreoService;
-import com.piedpiper.carbonhub.auth.service.RegistroAuditorService;
 import com.piedpiper.carbonhub.auth.service.RegistroEmpresaCorreoService;
-import com.piedpiper.carbonhub.auth.service.RegistroEmpresaService;
 import com.piedpiper.carbonhub.auth.service.RegistroInvitacionCorreoService;
-import com.piedpiper.carbonhub.auth.service.RegistroInvitacionService;
 import com.piedpiper.carbonhub.auth.service.RegistroUsuarioCorreoService;
-import com.piedpiper.carbonhub.auth.service.RegistroUsuarioService;
-import com.piedpiper.carbonhub.auth.service.RestablecerContrasenaService;
-import com.piedpiper.carbonhub.auth.service.VerificarCorreoService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 import org.junit.jupiter.api.Test;
@@ -34,12 +27,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(controllers = AuthController.class,
+@WebMvcTest(controllers = RegistroCorreoController.class,
         excludeAutoConfiguration = {SecurityAutoConfiguration.class, OAuth2ClientAutoConfiguration.class},
         excludeFilters = @ComponentScan.Filter(
                 type = FilterType.ASSIGNABLE_TYPE, classes = SecurityConfig.class))
 @AutoConfigureMockMvc(addFilters = false)
-class AuthControllerInvitacionCorreoTest {
+class RegistroCorreoControllerInvitacionTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -47,25 +40,11 @@ class AuthControllerInvitacionCorreoTest {
     @MockitoBean
     private RegistroInvitacionCorreoService registroInvitacionCorreoService;
     @MockitoBean
-    private RegistroInvitacionService registroInvitacionService;
-    @MockitoBean
-    private RegistroUsuarioService registroUsuarioService;
-    @MockitoBean
-    private RegistroEmpresaService registroEmpresaService;
-    @MockitoBean
-    private RegistroAuditorService registroAuditorService;
-    @MockitoBean
-    private RegistroAuditorCorreoService registroAuditorCorreoService;
-    @MockitoBean
-    private LoginService loginService;
-    @MockitoBean
     private RegistroUsuarioCorreoService registroUsuarioCorreoService;
     @MockitoBean
     private RegistroEmpresaCorreoService registroEmpresaCorreoService;
     @MockitoBean
-    private VerificarCorreoService verificarCorreoService;
-    @MockitoBean
-    private RestablecerContrasenaService restablecerContrasenaService;
+    private RegistroAuditorCorreoService registroAuditorCorreoService;
     @MockitoBean
     private JwtService jwtService;
     @MockitoBean
