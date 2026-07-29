@@ -15,7 +15,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
 import java.time.Instant;
-import java.util.EnumSet;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -28,7 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DataJpaTest
 class PerfilAuditorRepositoryIntegrationTest {
 
-    private static final Set<EspecialidadAuditor> TODAS = EnumSet.allOf(EspecialidadAuditor.class);
+    private static final Set<EspecialidadAuditor> SIN_FILTRO = Set.of();
 
     @Autowired
     private PerfilAuditorRepository perfilAuditorRepository;
@@ -41,7 +40,7 @@ class PerfilAuditorRepositoryIntegrationTest {
 
         Page<PerfilAuditor> resultado = perfilAuditorRepository.buscarDirectorio(
                 Rol.AUDITOR_CERTIFICADO, EstadoUsuario.ACTIVO, null,
-                null, null, false, false, TODAS, PageRequest.of(0, 12));
+                null, null, false, false, SIN_FILTRO, PageRequest.of(0, 12));
 
         assertThat(resultado.getContent()).hasSize(1);
         assertThat(resultado.getContent().get(0).getAuditor().getNombre()).isEqualTo("Ana");
@@ -54,7 +53,7 @@ class PerfilAuditorRepositoryIntegrationTest {
 
         Page<PerfilAuditor> resultado = perfilAuditorRepository.buscarDirectorio(
                 Rol.AUDITOR_CERTIFICADO, EstadoUsuario.ACTIVO, "roja",
-                null, null, false, false, TODAS, PageRequest.of(0, 12));
+                null, null, false, false, SIN_FILTRO, PageRequest.of(0, 12));
 
         assertThat(resultado.getContent()).hasSize(1);
         assertThat(resultado.getContent().get(0).getAuditor().getNombre()).isEqualTo("Luis");
