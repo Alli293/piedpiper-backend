@@ -19,6 +19,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -84,6 +85,9 @@ public class SolicitudAuditoria {
     @OneToMany(mappedBy = "solicitud", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<DocumentoRespaldo> documentos = new ArrayList<>();
+
+    @Version
+    private long version;
 
     public void agregarDocumento(DocumentoRespaldo documento) {
         documento.setSolicitud(this);

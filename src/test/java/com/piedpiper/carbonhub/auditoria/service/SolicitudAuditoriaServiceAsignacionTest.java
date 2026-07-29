@@ -25,9 +25,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.http.HttpStatus;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -80,7 +82,7 @@ class SolicitudAuditoriaServiceAsignacionTest {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(administrador(EMPRESA_ID)));
         when(usuarioRepository.findById(AUDITOR_ID)).thenReturn(Optional.of(auditorCertificadoActivo()));
         when(solicitudAuditoriaRepository.findById(SOLICITUD_ID)).thenReturn(Optional.of(solicitud(EMPRESA_ID)));
-        when(solicitudAuditoriaRepository.save(any(SolicitudAuditoria.class)))
+        when(solicitudAuditoriaRepository.saveAndFlush(any(SolicitudAuditoria.class)))
                 .thenAnswer(invocacion -> invocacion.getArgument(0));
     }
 
@@ -127,7 +129,7 @@ class SolicitudAuditoriaServiceAsignacionTest {
                 .extracting(error -> ((ApiException) error).getStatus())
                 .isEqualTo(HttpStatus.NOT_FOUND);
 
-        verify(solicitudAuditoriaRepository, never()).save(any());
+        verify(solicitudAuditoriaRepository, never()).saveAndFlush(any());
         verifyNoInteractions(envioCorreoAsignacionAuditorService);
     }
 
@@ -142,7 +144,7 @@ class SolicitudAuditoriaServiceAsignacionTest {
                 .extracting(error -> ((ApiException) error).getStatus())
                 .isEqualTo(HttpStatus.FORBIDDEN);
 
-        verify(solicitudAuditoriaRepository, never()).save(any());
+        verify(solicitudAuditoriaRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -158,7 +160,7 @@ class SolicitudAuditoriaServiceAsignacionTest {
                 .extracting(error -> ((ApiException) error).getStatus())
                 .isEqualTo(HttpStatus.CONFLICT);
 
-        verify(solicitudAuditoriaRepository, never()).save(any());
+        verify(solicitudAuditoriaRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -171,7 +173,7 @@ class SolicitudAuditoriaServiceAsignacionTest {
                 .extracting(error -> ((ApiException) error).getStatus())
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
 
-        verify(solicitudAuditoriaRepository, never()).save(any());
+        verify(solicitudAuditoriaRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -188,7 +190,7 @@ class SolicitudAuditoriaServiceAsignacionTest {
                 .extracting(error -> ((ApiException) error).getStatus())
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
 
-        verify(solicitudAuditoriaRepository, never()).save(any());
+        verify(solicitudAuditoriaRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -205,7 +207,7 @@ class SolicitudAuditoriaServiceAsignacionTest {
                 .extracting(error -> ((ApiException) error).getStatus())
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
 
-        verify(solicitudAuditoriaRepository, never()).save(any());
+        verify(solicitudAuditoriaRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -216,7 +218,7 @@ class SolicitudAuditoriaServiceAsignacionTest {
                 .extracting(error -> ((ApiException) error).getStatus())
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
 
-        verify(solicitudAuditoriaRepository, never()).save(any());
+        verify(solicitudAuditoriaRepository, never()).saveAndFlush(any());
         verifyNoInteractions(envioCorreoAsignacionAuditorService);
     }
 
@@ -259,6 +261,54 @@ class SolicitudAuditoriaServiceAsignacionTest {
     }
 
     @Test
+    void reasignarAlMismoAuditorNoReiniciaLaFechaNiVuelveANotificar() {
+        Instant fechaOriginal = Instant.now().minus(Duration.ofHours(30));
+        SolicitudAuditoria yaAsignada = solicitud(EMPRESA_ID);
+        yaAsignada.setAuditor(auditorCertificadoActivo());
+        yaAsignada.setOrigenAsignacion(OrigenAsignacion.MANUAL);
+        yaAsignada.setFechaAsignacion(fechaOriginal);
+        when(solicitudAuditoriaRepository.findById(SOLICITUD_ID)).thenReturn(Optional.of(yaAsignada));
+        TransactionSynchronizationManager.initSynchronization();
+
+        SolicitudAuditoriaResponseDTO respuesta =
+                service.asignarAuditor(SOLICITUD_ID, datos(AUDITOR_ID, "manual"), USUARIO_ID);
+
+        assertThat(capturarGuardada().getFechaAsignacion()).isEqualTo(fechaOriginal);
+        assertThat(respuesta.getFechaAsignacion()).isEqualTo(fechaOriginal);
+        assertThat(TransactionSynchronizationManager.getSynchronizations()).isEmpty();
+        verifyNoInteractions(envioCorreoAsignacionAuditorService);
+    }
+
+    @Test
+    void reasignarAlMismoAuditorSiActualizaElOrigenDeLaAsignacion() {
+        SolicitudAuditoria yaAsignada = solicitud(EMPRESA_ID);
+        yaAsignada.setAuditor(auditorCertificadoActivo());
+        yaAsignada.setOrigenAsignacion(OrigenAsignacion.MANUAL);
+        yaAsignada.setFechaAsignacion(Instant.now().minus(Duration.ofHours(2)));
+        when(solicitudAuditoriaRepository.findById(SOLICITUD_ID)).thenReturn(Optional.of(yaAsignada));
+
+        service.asignarAuditor(SOLICITUD_ID, datos(AUDITOR_ID, "recomendacion_ia"), USUARIO_ID);
+
+        assertThat(capturarGuardada().getOrigenAsignacion()).isEqualTo(OrigenAsignacion.RECOMENDACION_IA);
+    }
+
+    @Test
+    void dosAsignacionesSimultaneasHacenQueLaPerdedoraDevuelva409() {
+        when(solicitudAuditoriaRepository.saveAndFlush(any(SolicitudAuditoria.class)))
+                .thenThrow(new ObjectOptimisticLockingFailureException(SolicitudAuditoria.class, SOLICITUD_ID));
+        TransactionSynchronizationManager.initSynchronization();
+
+        assertThatThrownBy(() -> service.asignarAuditor(SOLICITUD_ID, datos(AUDITOR_ID, "manual"), USUARIO_ID))
+                .isInstanceOf(ApiException.class)
+                .hasMessage("Ya existe una solicitud de revisión pendiente con otro auditor.")
+                .extracting(error -> ((ApiException) error).getStatus())
+                .isEqualTo(HttpStatus.CONFLICT);
+
+        assertThat(TransactionSynchronizationManager.getSynchronizations()).isEmpty();
+        verifyNoInteractions(envioCorreoAsignacionAuditorService);
+    }
+
+    @Test
     void obtenerDevuelveLaSolicitudConLaAsignacionVigente() {
         SolicitudAuditoria yaAsignada = solicitud(EMPRESA_ID);
         yaAsignada.setAuditor(auditorCertificadoActivo());
@@ -274,7 +324,7 @@ class SolicitudAuditoriaServiceAsignacionTest {
         assertThat(respuesta.getAuditor()).isNotNull();
         assertThat(respuesta.getAuditor().getId()).isEqualTo(AUDITOR_ID);
         assertThat(respuesta.getAuditor().getNombre()).isEqualTo("Ana Auditora");
-        verify(solicitudAuditoriaRepository, never()).save(any());
+        verify(solicitudAuditoriaRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -300,7 +350,7 @@ class SolicitudAuditoriaServiceAsignacionTest {
 
     private SolicitudAuditoria capturarGuardada() {
         ArgumentCaptor<SolicitudAuditoria> captor = ArgumentCaptor.forClass(SolicitudAuditoria.class);
-        verify(solicitudAuditoriaRepository).save(captor.capture());
+        verify(solicitudAuditoriaRepository).saveAndFlush(captor.capture());
         return captor.getValue();
     }
 

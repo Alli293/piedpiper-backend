@@ -40,7 +40,7 @@ public class AsignacionAuditorLiberacionService {
 
         Usuario auditor = solicitud.getAuditor();
         Empresa empresa = solicitud.getEmpresa();
-        String nombreAuditor = auditor.getNombreVisible() != null ? auditor.getNombreVisible() : auditor.getNombre();
+        String nombreAuditor = auditor.nombreCompleto();
         String nombreEmpresa = empresa.getNombreEmpresa();
         String correoEmpresa = empresa.getCorreoCorporativo();
 

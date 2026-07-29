@@ -30,6 +30,8 @@ import lombok.Setter;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Entity
 @Table(name = "usuarios")
@@ -131,6 +133,19 @@ public class Usuario {
     @Column(length = 20)
     @Builder.Default
     private String unidades = UnidadesMedida.POR_DEFECTO.name();
+
+    /**
+     * Nombre para mostrar: nombre y apellidos, con {@code nombreVisible} como respaldo cuando el
+     * usuario no tiene esos campos (por ejemplo si entró por Google). Vive acá para que los correos
+     * y las respuestas de la API no armen el nombre cada uno a su manera y muestren al mismo
+     * auditor con dos formatos distintos.
+     */
+    public String nombreCompleto() {
+        String armado = Stream.of(nombre, apellidos)
+                .filter(parte -> parte != null && !parte.isBlank())
+                .collect(Collectors.joining(" "));
+        return armado.isBlank() ? nombreVisible : armado;
+    }
 
     public static String recortarNombre(String nombre) {
         if (nombre == null) {

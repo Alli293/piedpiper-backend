@@ -177,6 +177,50 @@ class SolicitudAuditoriaControllerTest {
     }
 
     @Test
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
+    void postDeAsignacionSobreSolicitudYaAsignadaAOtroAuditorDevuelve409() throws Exception {
+        when(solicitudAuditoriaService.asignarAuditor(any(), any(), any()))
+                .thenThrow(ApiException.asignacionAuditorPendiente());
+
+        mockMvc.perform(post("/api/auditorias/{idSolicitud}/auditor", SOLICITUD_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cuerpoAsignacion("manual"))
+                        .principal(principal()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message")
+                        .value("Ya existe una solicitud de revisión pendiente con otro auditor."));
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
+    void postDeAsignacionConAuditorNoDisponibleDevuelve422() throws Exception {
+        when(solicitudAuditoriaService.asignarAuditor(any(), any(), any()))
+                .thenThrow(ApiException.auditorNoDisponible());
+
+        mockMvc.perform(post("/api/auditorias/{idSolicitud}/auditor", SOLICITUD_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cuerpoAsignacion("manual"))
+                        .principal(principal()))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.message").value("Este auditor no está disponible actualmente."));
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
+    void postDeAsignacionConOrigenFueraDelCatalogoDevuelve422() throws Exception {
+        when(solicitudAuditoriaService.asignarAuditor(any(), any(), any()))
+                .thenThrow(ApiException.origenAsignacionInvalido());
+
+        mockMvc.perform(post("/api/auditorias/{idSolicitud}/auditor", SOLICITUD_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cuerpoAsignacion("sorteo"))
+                        .principal(principal()))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.message")
+                        .value("El origen de la asignación debe ser 'manual' o 'recomendacion_ia'."));
+    }
+
+    @Test
     @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
     void postDeAsignacionConRolNoAutorizadoDevuelve403() throws Exception {
         mockMvc.perform(post("/api/auditorias/{idSolicitud}/auditor", SOLICITUD_ID)

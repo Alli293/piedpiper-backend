@@ -19,6 +19,7 @@ import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -130,16 +131,37 @@ public class SolicitudAuditoriaService {
         OrigenAsignacion origenAsignacion = OrigenAsignacion.desde(datos.getOrigenAsignacion())
                 .orElseThrow(ApiException::origenAsignacionInvalido);
 
+        boolean reasignacionAlMismoAuditor = solicitud.getAuditor() != null
+                && solicitud.getAuditor().getId().equals(auditor.getId());
+
         solicitud.setAuditor(auditor);
         solicitud.setOrigenAsignacion(origenAsignacion);
-        solicitud.setFechaAsignacion(Instant.now());
+        if (!reasignacionAlMismoAuditor) {
+            solicitud.setFechaAsignacion(Instant.now());
+        }
 
-        SolicitudAuditoria guardada = solicitudAuditoriaRepository.save(solicitud);
+        SolicitudAuditoria guardada = guardarAsignacion(solicitud);
 
-        notificarAsignacionTrasCommit(nombreVisibleDe(auditor), auditor.getEmail(),
-                guardada.getEmpresa().getNombreEmpresa());
+        if (!reasignacionAlMismoAuditor) {
+            notificarAsignacionTrasCommit(auditor.nombreCompleto(), auditor.getEmail(),
+                    guardada.getEmpresa().getNombreEmpresa());
+        }
 
         return solicitudAuditoriaMapper.toDto(guardada);
+    }
+
+    /**
+     * La validación de que no haya otro auditor asignado se hace sobre lo leído al inicio de la
+     * transacción, así que dos asignaciones simultáneas pasan las dos y la segunda sobrescribiría a
+     * la primera sin devolver el 409. El {@code @Version} de la entidad hace que la perdedora falle
+     * al escribir, y acá se traduce al mismo conflicto que devuelve la validación.
+     */
+    private SolicitudAuditoria guardarAsignacion(SolicitudAuditoria solicitud) {
+        try {
+            return solicitudAuditoriaRepository.saveAndFlush(solicitud);
+        } catch (ObjectOptimisticLockingFailureException e) {
+            throw ApiException.asignacionAuditorPendiente();
+        }
     }
 
     private void validarPertenencia(SolicitudAuditoria solicitud, UUID usuarioId) {
@@ -171,10 +193,6 @@ public class SolicitudAuditoriaService {
         } else {
             envioCorreoAsignacionAuditorService.enviarAsignacion(nombreAuditor, emailAuditor, nombreEmpresa);
         }
-    }
-
-    private static String nombreVisibleDe(Usuario usuario) {
-        return usuario.getNombreVisible() != null ? usuario.getNombreVisible() : usuario.getNombre();
     }
 
     private Empresa empresaDe(UUID usuarioId) {
