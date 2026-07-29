@@ -86,7 +86,11 @@ public class SolicitudAuditoria {
     @Builder.Default
     private List<DocumentoRespaldo> documentos = new ArrayList<>();
 
+    // El default es necesario para ddl-auto=update: sin el, Hibernate emite
+    // "add column version bigint not null" y Postgres lo rechaza si la tabla ya tiene filas,
+    // dejando la columna sin crear y toda consulta a la entidad fallando en tiempo de ejecucion.
     @Version
+    @Column(nullable = false, columnDefinition = "bigint default 0")
     private long version;
 
     public void agregarDocumento(DocumentoRespaldo documento) {
