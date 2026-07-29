@@ -1,7 +1,9 @@
 package com.piedpiper.carbonhub.perfilpublico.controller;
 
 import com.piedpiper.carbonhub.certificacion.models.dtos.CertificacionPublicaResponseDTO;
+import com.piedpiper.carbonhub.perfilpublico.models.dtos.PerfilPublicoResponseDTO;
 import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoCertificacionesService;
+import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoConsultaService;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,17 +20,25 @@ import java.util.List;
  * {@code SecurityConfig}.
  */
 @RestController
-@RequestMapping("/api/perfil-publico/{slug}")
+@RequestMapping("/api/perfil-publico")
 public class PerfilPublicoController {
 
+    private final PerfilPublicoConsultaService service;
     private final PerfilPublicoCertificacionesService perfilPublicoCertificacionesService;
 
     public PerfilPublicoController(
+            PerfilPublicoConsultaService service,
             PerfilPublicoCertificacionesService perfilPublicoCertificacionesService) {
+        this.service = service;
         this.perfilPublicoCertificacionesService = perfilPublicoCertificacionesService;
     }
 
-    @GetMapping("/certificaciones")
+    @GetMapping("/{slug}")
+    public ResponseEntity<PerfilPublicoResponseDTO> obtener(@PathVariable String slug) {
+        return ResponseEntity.ok(service.obtenerPorSlug(slug));
+    }
+
+    @GetMapping("/{slug}/certificaciones")
     public ResponseEntity<List<CertificacionPublicaResponseDTO>> certificaciones(
             @PathVariable String slug) {
         return ResponseEntity.ok(perfilPublicoCertificacionesService.listarPorSlug(slug));
