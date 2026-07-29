@@ -8,6 +8,7 @@ import com.piedpiper.carbonhub.auth.config.JwtAuthenticationFilter;
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
 import com.piedpiper.carbonhub.auth.service.JwtService;
 import com.piedpiper.carbonhub.dashboard.service.DashboardHuellaService;
+import com.piedpiper.carbonhub.insignia.service.InsigniaEmpresaConsultaService;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +26,8 @@ class DashboardControllerSecurityTest {
 
     @MockitoBean
     private DashboardHuellaService dashboardHuellaService;
+    @MockitoBean
+    private InsigniaEmpresaConsultaService insigniaEmpresaConsultaService;
     @MockitoBean
     private JwtService jwtService;
     @MockitoBean
