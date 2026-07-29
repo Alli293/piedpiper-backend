@@ -57,13 +57,11 @@ public class SecurityConfig {
                                 "/api/certificaciones/estado/lista").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/certificaciones/logros/**")
                         .permitAll()
-                        // Perfil publico de una empresa: pagina publica sin sesion, expone
-                        // solo certificaciones activas por slug. Ruta explicita, no comodin
-                        // "/**", para que un endpoint nuevo bajo este prefijo no nazca publico
-                        // sin que alguien lo revise (mismo criterio que las rutas de
-                        // certificaciones listadas arriba).
+                        // Perfil publico de reputacion: pagina publica sin sesion.
+                        // Cubre GET /api/perfil-publico/{slug} y sub-recursos como
+                        // /api/perfil-publico/{slug}/certificaciones.
                         .requestMatchers(HttpMethod.GET,
-                                "/api/perfil-publico/*/certificaciones").permitAll()
+                                "/api/perfil-publico/**").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(e -> e.authenticationEntryPoint(
                         new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
