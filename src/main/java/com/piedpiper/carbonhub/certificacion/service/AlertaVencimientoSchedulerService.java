@@ -32,7 +32,7 @@ public class AlertaVencimientoSchedulerService {
         this.alertaVencimientoEvaluacionService = alertaVencimientoEvaluacionService;
     }
 
-    @Scheduled(cron = "${certificacion.alertas.cron-vencimiento:0 0 2 * * *}")
+    @Scheduled(cron = "${certificaciones.alertas.cron-vencimiento:0 0 2 * * *}")
     public void evaluarVencimientos() {
         List<Certificacion> activas = certificacionRepository.findByEstado(EstadoCertificacion.ACTIVA);
         log.info("Evaluando vencimiento de {} certificaciones activas", activas.size());
