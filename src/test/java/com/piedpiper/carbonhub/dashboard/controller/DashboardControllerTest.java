@@ -12,11 +12,7 @@ import com.piedpiper.carbonhub.auth.config.JwtAuthenticationFilter;
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
 import com.piedpiper.carbonhub.dashboard.models.dtos.ResumenHuellaDashboardResponseDTO;
 import com.piedpiper.carbonhub.dashboard.service.DashboardHuellaService;
-import com.piedpiper.carbonhub.insignia.models.dtos.InsigniaEmpresaResponseDTO;
-import com.piedpiper.carbonhub.insignia.service.InsigniaEmpresaConsultaService;
 import java.math.BigDecimal;
-import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,8 +53,6 @@ class DashboardControllerTest {
 
     @MockitoBean
     private DashboardHuellaService dashboardHuellaService;
-    @MockitoBean
-    private InsigniaEmpresaConsultaService insigniaEmpresaConsultaService;
 
     private TestingAuthenticationToken principal(String authority) {
         return new TestingAuthenticationToken(USUARIO_ID, "password", authority);
@@ -134,25 +128,5 @@ class DashboardControllerTest {
                         .param("periodo", "mes_actual"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value("No tiene permisos para realizar esta acción."));
-    }
-    @Test
-    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
-    void listarInsigniasRetornaLasInsigniasDeLaEmpresaAutenticada() throws Exception {
-        when(insigniaEmpresaConsultaService.listarParaDashboard(UUID.fromString(USUARIO_ID)))
-                .thenReturn(List.of(new InsigniaEmpresaResponseDTO(
-                        1L,
-                        "bronce",
-                        "Carbono Neutral",
-                        "Primera insignia empresarial.",
-                        Instant.parse("2026-01-15T00:00:00Z")
-                )));
-
-        mockMvc.perform(get("/api/dashboard/insignias")
-                        .principal(principal("ROLE_ADMINISTRADOR_EMPRESA")))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].idInsignia").value(1))
-                .andExpect(jsonPath("$[0].nivelInsignia").value("bronce"))
-                .andExpect(jsonPath("$[0].nombre").value("Carbono Neutral"))
-                .andExpect(jsonPath("$[0].fechaObtencion").value("2026-01-15T00:00:00Z"));
     }
 }

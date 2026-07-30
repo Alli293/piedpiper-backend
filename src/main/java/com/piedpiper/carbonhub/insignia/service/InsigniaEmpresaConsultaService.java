@@ -39,7 +39,7 @@ public class InsigniaEmpresaConsultaService {
     }
 
     @Transactional(readOnly = true)
-    public List<InsigniaEmpresaResponseDTO> listarParaDashboard(UUID usuarioId) {
+    public List<InsigniaEmpresaResponseDTO> listarParaEmpresaAutenticada(UUID usuarioId) {
         UUID empresaId = emisionEmpresaService.empresaId(usuarioId);
         return listarPorEmpresa(empresaId);
     }
