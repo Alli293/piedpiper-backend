@@ -39,7 +39,7 @@ public class AlertaPendienteReintentoService {
     @Scheduled(fixedDelayString = "${certificaciones.alertas.reintento-intervalo-ms}")
     public void reintentarPendientes() {
         List<Alerta> pendientes = alertaRepository
-                .findByEstadoAndIntentosEnvioLessThanOrderByFechaGeneracionAsc(
+                .findTop50ByEstadoAndIntentosEnvioLessThanOrderByFechaGeneracionAsc(
                         EstadoAlerta.PENDIENTE, AlertaEstadoEnvioService.INTENTOS_MAXIMOS);
         if (pendientes.isEmpty()) {
             return;

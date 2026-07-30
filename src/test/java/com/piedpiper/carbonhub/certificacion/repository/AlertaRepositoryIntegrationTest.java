@@ -72,7 +72,7 @@ class AlertaRepositoryIntegrationTest {
         entityManager.clear();
 
         List<Alerta> resultado = alertaRepository
-                .findByEstadoAndIntentosEnvioLessThanOrderByFechaGeneracionAsc(EstadoAlerta.PENDIENTE, 3);
+                .findTop50ByEstadoAndIntentosEnvioLessThanOrderByFechaGeneracionAsc(EstadoAlerta.PENDIENTE, 3);
 
         assertThat(resultado).extracting(Alerta::getId).containsExactly(pendiente.getId());
     }

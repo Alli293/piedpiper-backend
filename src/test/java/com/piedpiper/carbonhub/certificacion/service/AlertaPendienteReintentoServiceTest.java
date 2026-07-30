@@ -52,7 +52,7 @@ class AlertaPendienteReintentoServiceTest {
 
         service.reintentarPendientes();
 
-        verify(alertaRepository).findByEstadoAndIntentosEnvioLessThanOrderByFechaGeneracionAsc(
+        verify(alertaRepository).findTop50ByEstadoAndIntentosEnvioLessThanOrderByFechaGeneracionAsc(
                 EstadoAlerta.PENDIENTE, AlertaEstadoEnvioService.INTENTOS_MAXIMOS);
         verifyNoInteractions(alertaVencimientoNotificacionService);
     }
@@ -69,7 +69,7 @@ class AlertaPendienteReintentoServiceTest {
     }
 
     private void pendientes(List<Alerta> alertas) {
-        when(alertaRepository.findByEstadoAndIntentosEnvioLessThanOrderByFechaGeneracionAsc(
+        when(alertaRepository.findTop50ByEstadoAndIntentosEnvioLessThanOrderByFechaGeneracionAsc(
                 any(EstadoAlerta.class), org.mockito.ArgumentMatchers.anyInt()))
                 .thenReturn(alertas);
     }

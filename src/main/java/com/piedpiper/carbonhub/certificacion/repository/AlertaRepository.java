@@ -31,7 +31,12 @@ public interface AlertaRepository extends JpaRepository<Alerta, UUID> {
     /**
      * Alertas cuyo correo todavia no salio y que no agotaron los reintentos, para el barrido de
      * recuperacion. Las mas viejas primero.
+     *
+     * <p>Va acotado a 50 por corrida a proposito: el pool del scheduler de Spring es de un solo hilo
+     * y cada reintento es un envio SMTP sincronico, asi que un lote grande (por ejemplo el SMTP caido
+     * durante una noche con muchas certificaciones) bloquearia a los otros procesos programados. Lo
+     * que no entra en una corrida se toma en la siguiente, cinco minutos despues.</p>
      */
-    List<Alerta> findByEstadoAndIntentosEnvioLessThanOrderByFechaGeneracionAsc(EstadoAlerta estado,
-                                                                              int intentosMaximos);
+    List<Alerta> findTop50ByEstadoAndIntentosEnvioLessThanOrderByFechaGeneracionAsc(EstadoAlerta estado,
+                                                                                   int intentosMaximos);
 }
