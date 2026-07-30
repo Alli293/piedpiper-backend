@@ -23,12 +23,14 @@ public interface PerfilAuditorRepository extends JpaRepository<PerfilAuditor, UU
 
     boolean existsByAuditorId(UUID auditorId);
 
+    // El cast de :termino es necesario, no es un no-op: al venir null sin tipo dentro de un
+    // concat(), Postgres lo infiere como bytea y falla porque lower(bytea) no existe.
     String FILTROS = """
             where u.rol = :rol
               and u.estado = :estado
-              and (:termino is null
+              and (cast(:termino as string) is null
                    or lower(concat(coalesce(u.nombre, ''), ' ', coalesce(u.apellidos, '')))
-                      like lower(concat('%', :termino, '%')))
+                      like lower(concat('%', cast(:termino as string), '%')))
               and (:provincia is null or p.provincia = :provincia)
               and (:calificacionMinima is null or p.calificacionPromedio >= :calificacionMinima)
               and (:soloDisponibles = false or p.disponible = true)
