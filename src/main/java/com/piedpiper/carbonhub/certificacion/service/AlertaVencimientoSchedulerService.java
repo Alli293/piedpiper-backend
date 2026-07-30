@@ -1,5 +1,6 @@
 package com.piedpiper.carbonhub.certificacion.service;
 
+import com.piedpiper.carbonhub.certificacion.models.entities.Alerta;
 import com.piedpiper.carbonhub.certificacion.models.entities.Certificacion;
 import com.piedpiper.carbonhub.certificacion.models.enums.EstadoCertificacion;
 import com.piedpiper.carbonhub.certificacion.repository.CertificacionRepository;
@@ -24,12 +25,15 @@ public class AlertaVencimientoSchedulerService {
 
     private final CertificacionRepository certificacionRepository;
     private final AlertaVencimientoEvaluacionService alertaVencimientoEvaluacionService;
+    private final AlertaVencimientoNotificacionService alertaVencimientoNotificacionService;
 
     public AlertaVencimientoSchedulerService(
             CertificacionRepository certificacionRepository,
-            AlertaVencimientoEvaluacionService alertaVencimientoEvaluacionService) {
+            AlertaVencimientoEvaluacionService alertaVencimientoEvaluacionService,
+            AlertaVencimientoNotificacionService alertaVencimientoNotificacionService) {
         this.certificacionRepository = certificacionRepository;
         this.alertaVencimientoEvaluacionService = alertaVencimientoEvaluacionService;
+        this.alertaVencimientoNotificacionService = alertaVencimientoNotificacionService;
     }
 
     @Scheduled(cron = "${certificacion.alertas.cron-vencimiento:0 0 2 * * *}")
@@ -39,9 +43,26 @@ public class AlertaVencimientoSchedulerService {
 
         for (Certificacion certificacion : activas) {
             try {
-                alertaVencimientoEvaluacionService.evaluar(certificacion.getId());
+                notificar(alertaVencimientoEvaluacionService.evaluar(certificacion.getId()));
             } catch (Exception e) {
                 log.error("Error al evaluar el vencimiento de la certificacion {}", certificacion.getId(), e);
+            }
+        }
+    }
+
+    /**
+     * Dispara el correo de cada alerta recien generada (PP-71). Va despues de que la transaccion de
+     * {@code evaluar} commiteo, asi que la alerta ya esta persistida cuando se intenta notificarla.
+     * Un fallo notificando una alerta no impide notificar a las siguientes ni evaluar las demas
+     * certificaciones: el estado del envio queda en la propia alerta y el barrido de reintentos la
+     * retoma.
+     */
+    private void notificar(List<Alerta> generadas) {
+        for (Alerta alerta : generadas) {
+            try {
+                alertaVencimientoNotificacionService.notificar(alerta.getId());
+            } catch (Exception e) {
+                log.error("Error al notificar la alerta {}", alerta.getId(), e);
             }
         }
     }
