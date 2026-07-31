@@ -7,6 +7,7 @@ import com.piedpiper.carbonhub.auth.config.CorsConfig;
 import com.piedpiper.carbonhub.auth.config.JwtAuthenticationFilter;
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
 import com.piedpiper.carbonhub.auth.service.JwtService;
+import com.piedpiper.carbonhub.dashboard.service.DashboardCertificacionesService;
 import com.piedpiper.carbonhub.dashboard.service.DashboardHuellaService;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 import org.junit.jupiter.api.Test;
@@ -26,6 +27,8 @@ class DashboardControllerSecurityTest {
     @MockitoBean
     private DashboardHuellaService dashboardHuellaService;
     @MockitoBean
+    private DashboardCertificacionesService dashboardCertificacionesService;
+    @MockitoBean
     private JwtService jwtService;
     @MockitoBean
     private UsuarioRepository usuarioRepository;
@@ -34,6 +37,12 @@ class DashboardControllerSecurityTest {
     void sinTokenDevuelve401() throws Exception {
         mockMvc.perform(get("/api/dashboard/huella")
                         .param("periodo", "mes_actual"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void certificacionesSinTokenDevuelve401() throws Exception {
+        mockMvc.perform(get("/api/dashboard/certificaciones"))
                 .andExpect(status().isUnauthorized());
     }
 }
