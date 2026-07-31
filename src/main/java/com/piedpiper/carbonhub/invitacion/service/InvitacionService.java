@@ -129,13 +129,17 @@ public class InvitacionService {
 
     @Transactional(readOnly = true)
     public InvitacionPublicaResponseDTO resolver(String token) {
-        Invitacion invitacion = validarParaAceptar(token);
+        Invitacion invitacion = validarParaAceptarInterno(token);
         return new InvitacionPublicaResponseDTO(
                 invitacion.getEmail(), invitacion.getEmpresa().getNombreEmpresa());
     }
 
     @Transactional(readOnly = true)
     public Invitacion validarParaAceptar(String token) {
+        return validarParaAceptarInterno(token);
+    }
+
+    private Invitacion validarParaAceptarInterno(String token) {
         Invitacion invitacion = invitacionRepository
                 .findByTokenHash(TokenVerificacionGenerator.hash(token))
                 .orElseThrow(ApiException::invitacionInvalida);

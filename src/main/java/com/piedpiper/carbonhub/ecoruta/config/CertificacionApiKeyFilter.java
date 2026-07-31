@@ -24,6 +24,13 @@ import java.util.List;
 public class CertificacionApiKeyFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(CertificacionApiKeyFilter.class);
+
+    /**
+     * Local route protected by this filter. Intentionally NOT sourced from
+     * {@code certificacion.eventos-path}: that property configures the remote
+     * path used by {@code HttpCertificacionEventosClient} to call the certification
+     * provider's API, a different, independently-configurable concern.
+     */
     private static final String EVENTOS_CERTIFICACION_PATH = "/api/certificacion/eventos";
 
     private final String apiKeyHeader;

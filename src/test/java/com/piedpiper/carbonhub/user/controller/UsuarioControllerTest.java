@@ -14,12 +14,16 @@ import org.springframework.boot.autoconfigure.security.oauth2.client.OAuth2Clien
 import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -38,7 +42,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         excludeFilters = @ComponentScan.Filter(
                 type = FilterType.ASSIGNABLE_TYPE, classes = SecurityConfig.class))
 @AutoConfigureMockMvc(addFilters = false)
+@Import(UsuarioControllerTest.MethodSecurityTestConfig.class)
 class UsuarioControllerTest {
+
+    @TestConfiguration
+    @EnableMethodSecurity
+    static class MethodSecurityTestConfig {
+    }
 
     @Autowired
     private MockMvc mockMvc;
@@ -60,6 +70,7 @@ class UsuarioControllerTest {
             USUARIO_ID, null, List.of(new SimpleGrantedAuthority("ROLE_USUARIO_INDIVIDUAL")));
 
     @Test
+    @WithMockUser(username = USUARIO_ID, roles = "USUARIO_INDIVIDUAL")
     void guardadoValidoDevuelve200ConLasPreferencias() throws Exception {
         when(preferenciasUsuarioService.actualizarPreferencias(any(UUID.class), any()))
                 .thenReturn(new PreferenciasUsuarioResponseDTO("INGLES", "USD", "METRICO"));
@@ -75,6 +86,7 @@ class UsuarioControllerTest {
     }
 
     @Test
+    @WithMockUser(username = USUARIO_ID, roles = "USUARIO_INDIVIDUAL")
     void valorFueraDeCatalogoDevuelve422() throws Exception {
         when(preferenciasUsuarioService.actualizarPreferencias(any(UUID.class), any()))
                 .thenThrow(ApiException.valorNoSoportado("El idioma seleccionado no está soportado."));
@@ -88,6 +100,7 @@ class UsuarioControllerTest {
     }
 
     @Test
+    @WithMockUser(username = USUARIO_ID, roles = "USUARIO_INDIVIDUAL")
     void campoVacioDevuelve400PorValidacionDelDTO() throws Exception {
         mockMvc.perform(put("/api/usuarios/me/preferencias")
                         .principal(AUTHENTICATION)
@@ -98,6 +111,7 @@ class UsuarioControllerTest {
     }
 
     @Test
+    @WithMockUser(username = USUARIO_ID, roles = "USUARIO_INDIVIDUAL")
     void fallaDePersistenciaDevuelve500() throws Exception {
         when(preferenciasUsuarioService.actualizarPreferencias(any(UUID.class), any()))
                 .thenThrow(ApiException.errorInterno(
@@ -113,6 +127,7 @@ class UsuarioControllerTest {
     }
 
     @Test
+    @WithMockUser(username = USUARIO_ID, roles = "USUARIO_INDIVIDUAL")
     void obtenerPreferenciasDevuelve200ConLosValoresDelPerfil() throws Exception {
         when(preferenciasUsuarioService.obtenerPreferencias(any(UUID.class)))
                 .thenReturn(new PreferenciasUsuarioResponseDTO("ESPANOL", "CRC", "METRICO"));
@@ -136,6 +151,7 @@ class UsuarioControllerTest {
     }
 
     @Test
+    @WithMockUser(username = USUARIO_ID, roles = "USUARIO_INDIVIDUAL")
     void perfilInicialGuardadoValidoDevuelve200ConRedireccion() throws Exception {
         when(perfilInicialService.completar(any(UUID.class), any())).thenReturn(perfilResponse());
 
@@ -149,6 +165,7 @@ class UsuarioControllerTest {
     }
 
     @Test
+    @WithMockUser(username = USUARIO_ID, roles = "USUARIO_INDIVIDUAL")
     void perfilInicialEdicionFueraDeRolDevuelve403() throws Exception {
         when(perfilInicialService.completar(any(UUID.class), any()))
                 .thenThrow(ApiException.accesoDenegado(
@@ -162,6 +179,7 @@ class UsuarioControllerTest {
     }
 
     @Test
+    @WithMockUser(username = USUARIO_ID, roles = "USUARIO_INDIVIDUAL")
     void perfilInicialPreferenciaFueraDeCatalogoDevuelve422() throws Exception {
         when(perfilInicialService.completar(any(UUID.class), any()))
                 .thenThrow(ApiException.valorNoSoportado("El idioma seleccionado no está soportado."));
@@ -174,6 +192,7 @@ class UsuarioControllerTest {
     }
 
     @Test
+    @WithMockUser(username = USUARIO_ID, roles = "USUARIO_INDIVIDUAL")
     void perfilInicialNombreCortoDevuelve400PorValidacionDelDTO() throws Exception {
         mockMvc.perform(put("/api/usuarios/me/perfil-inicial")
                         .principal(AUTHENTICATION)
@@ -185,6 +204,7 @@ class UsuarioControllerTest {
     }
 
     @Test
+    @WithMockUser(username = USUARIO_ID, roles = "USUARIO_INDIVIDUAL")
     void perfilInicialObtenerDevuelve200ConElEstadoDelPerfil() throws Exception {
         when(perfilInicialService.obtener(any(UUID.class))).thenReturn(perfilResponse());
 
@@ -192,5 +212,18 @@ class UsuarioControllerTest {
                         .principal(AUTHENTICATION))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.rol").value("USUARIO_INDIVIDUAL"));
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
+    void cualquierRolAutenticadoPuedeConsultarSusPropiasPreferencias() throws Exception {
+        Authentication auditorAuthentication = new UsernamePasswordAuthenticationToken(
+                USUARIO_ID, null, List.of(new SimpleGrantedAuthority("ROLE_AUDITOR_CERTIFICADO")));
+        when(preferenciasUsuarioService.obtenerPreferencias(any(UUID.class)))
+                .thenReturn(new PreferenciasUsuarioResponseDTO("ESPANOL", "CRC", "METRICO"));
+
+        mockMvc.perform(get("/api/usuarios/me/preferencias")
+                        .principal(auditorAuthentication))
+                .andExpect(status().isOk());
     }
 }

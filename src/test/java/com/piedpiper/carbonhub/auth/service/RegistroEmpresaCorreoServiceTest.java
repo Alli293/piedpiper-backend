@@ -90,7 +90,8 @@ class RegistroEmpresaCorreoServiceTest {
     void emailAdminDuplicado_lanza409YNoPersiste() {
         when(usuarioRepository.existsByEmailIgnoreCase("admin@acme.com")).thenReturn(true);
 
-        assertThatThrownBy(() -> service.registrar(request()))
+        RegistroEmpresaCorreoRequestDTO solicitud = request();
+        assertThatThrownBy(() -> service.registrar(solicitud))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.CONFLICT);
