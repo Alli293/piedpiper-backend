@@ -10,6 +10,7 @@ import com.piedpiper.carbonhub.auditoria.models.enums.EstadoSolicitudAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.TipoCertificacionSolicitud;
 import com.piedpiper.carbonhub.auditoria.repository.SolicitudAuditoriaRepository;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
+import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -38,6 +40,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -55,6 +58,8 @@ class SolicitudAuditoriaServiceTest {
     @Mock
     private UsuarioRepository usuarioRepository;
     @Mock
+    private EmpresaRepository empresaRepository;
+    @Mock
     private CertificacionActivaConsulta certificacionActivaConsulta;
 
     private SolicitudAuditoriaService service;
@@ -64,11 +69,13 @@ class SolicitudAuditoriaServiceTest {
         service = new SolicitudAuditoriaService(
                 solicitudAuditoriaRepository,
                 usuarioRepository,
+                empresaRepository,
                 certificacionActivaConsulta,
                 new ValidadorDocumentosPdf(),
                 new SolicitudAuditoriaMapperImpl());
 
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuarioConEmpresa()));
+        when(empresaRepository.bloquearPorId(EMPRESA_ID)).thenReturn(Optional.of(empresa()));
         when(certificacionActivaConsulta.fechaVencimientoCertificacionActiva(EMPRESA_ID))
                 .thenReturn(Optional.empty());
         when(solicitudAuditoriaRepository.existeSolicitudEnCursoTraslapada(any(), anyCollection(), any(), any()))
@@ -164,6 +171,38 @@ class SolicitudAuditoriaServiceTest {
                 .hasMessage("El período a auditar no puede exceder 12 meses.")
                 .extracting(error -> ((ApiException) error).getStatus())
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
+    @Test
+    void bloqueaLaEmpresaAntesDeValidarElTraslape() {
+        service.crear(datosValidos(), List.of(pdf("uno.pdf")), USUARIO_ID);
+
+        InOrder orden = inOrder(empresaRepository, solicitudAuditoriaRepository);
+        orden.verify(empresaRepository).bloquearPorId(EMPRESA_ID);
+        orden.verify(solicitudAuditoriaRepository)
+                .existeSolicitudEnCursoTraslapada(any(), anyCollection(), any(), any());
+        orden.verify(solicitudAuditoriaRepository).save(any());
+    }
+
+    @Test
+    void noTomaElLockSiElPeriodoYaEsInvalido() {
+        assertThatThrownBy(() -> service.crear(
+                datos(LocalDate.now().plusDays(1), LocalDate.now().plusMonths(2), null),
+                List.of(pdf("uno.pdf")),
+                USUARIO_ID))
+                .isInstanceOf(ApiException.class);
+
+        verify(empresaRepository, never()).bloquearPorId(any());
+    }
+
+    @Test
+    void periodoDeExactamenteDoceMesesSeAcepta() {
+        LocalDate inicio = LocalDate.now().minusYears(2);
+        when(solicitudAuditoriaRepository.save(any())).thenAnswer(invocacion -> invocacion.getArgument(0));
+
+        service.crear(datos(inicio, inicio.plusMonths(12), null), List.of(pdf("uno.pdf")), USUARIO_ID);
+
+        verify(solicitudAuditoriaRepository).save(any());
     }
 
     @Test
@@ -266,8 +305,12 @@ class SolicitudAuditoriaServiceTest {
     private static Usuario usuarioConEmpresa() {
         return Usuario.builder()
                 .id(USUARIO_ID)
-                .empresa(Empresa.builder().id(EMPRESA_ID).build())
+                .empresa(empresa())
                 .build();
+    }
+
+    private static Empresa empresa() {
+        return Empresa.builder().id(EMPRESA_ID).build();
     }
 
     private static CrearSolicitudAuditoriaRequestDTO datosValidos() {

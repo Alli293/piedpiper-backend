@@ -9,6 +9,7 @@ import com.piedpiper.carbonhub.auditoria.models.enums.EstadoSolicitudAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.TipoCertificacionSolicitud;
 import com.piedpiper.carbonhub.auditoria.repository.SolicitudAuditoriaRepository;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
+import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
@@ -42,17 +43,20 @@ public class SolicitudAuditoriaService {
 
     private final SolicitudAuditoriaRepository solicitudAuditoriaRepository;
     private final UsuarioRepository usuarioRepository;
+    private final EmpresaRepository empresaRepository;
     private final CertificacionActivaConsulta certificacionActivaConsulta;
     private final ValidadorDocumentosPdf validadorDocumentosPdf;
     private final SolicitudAuditoriaMapper solicitudAuditoriaMapper;
 
     public SolicitudAuditoriaService(SolicitudAuditoriaRepository solicitudAuditoriaRepository,
                                      UsuarioRepository usuarioRepository,
+                                     EmpresaRepository empresaRepository,
                                      CertificacionActivaConsulta certificacionActivaConsulta,
                                      ValidadorDocumentosPdf validadorDocumentosPdf,
                                      SolicitudAuditoriaMapper solicitudAuditoriaMapper) {
         this.solicitudAuditoriaRepository = solicitudAuditoriaRepository;
         this.usuarioRepository = usuarioRepository;
+        this.empresaRepository = empresaRepository;
         this.certificacionActivaConsulta = certificacionActivaConsulta;
         this.validadorDocumentosPdf = validadorDocumentosPdf;
         this.solicitudAuditoriaMapper = solicitudAuditoriaMapper;
@@ -75,6 +79,7 @@ public class SolicitudAuditoriaService {
 
         validarPeriodo(tipoCertificacion, periodoInicio, datos.getPeriodoFin());
         validadorDocumentosPdf.validar(documentos);
+        bloquearEmpresa(empresa.getId());
         validarTraslape(empresa.getId(), periodoInicio, datos.getPeriodoFin());
 
         Instant ahora = Instant.now();
@@ -116,6 +121,20 @@ public class SolicitudAuditoriaService {
         if (periodoFin.isAfter(periodoInicio.plusMonths(MESES_MAXIMOS_PERIODO))) {
             throw ApiException.periodoAuditoriaExcedeDoceMeses();
         }
+    }
+
+    /**
+     * Serializa la creacion de solicitudes de una misma empresa. La validacion de traslape consulta
+     * y despues inserta en funcion de lo consultado, asi que sin este lock dos peticiones simultaneas
+     * pasan las dos la validacion antes de que cualquiera commitee y quedan dos periodos traslapados.
+     *
+     * <p>Va despues de validar el periodo y los documentos a proposito: esas validaciones no leen
+     * nada de la base, asi que se resuelven antes de tomar el lock y una peticion invalida no llega
+     * ni a pedirlo.</p>
+     */
+    private void bloquearEmpresa(UUID empresaId) {
+        empresaRepository.bloquearPorId(empresaId)
+                .orElseThrow(() -> ApiException.errorInterno("No se pudo procesar la solicitud. Intenta nuevamente."));
     }
 
     private void validarTraslape(UUID empresaId, LocalDate periodoInicio, LocalDate periodoFin) {
