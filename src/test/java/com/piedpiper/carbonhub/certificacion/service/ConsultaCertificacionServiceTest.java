@@ -212,4 +212,26 @@ class ConsultaCertificacionServiceTest {
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(org.springframework.http.HttpStatus.NOT_FOUND);
     }
+
+    @Test
+    void verificacionJwtDevuelveElJwtFirmadoSinDecodificar() {
+        Certificacion certificacion = certificacion(LocalDate.of(2027, 1, 15));
+        certificacion.setCredencialJwt("cabecera.payload.firma");
+        when(certificacionRepository.findById(ID_CERTIFICACION)).thenReturn(Optional.of(certificacion));
+
+        String resultado = service.verificacionJwt(ID_CERTIFICACION);
+
+        assertThat(resultado).isEqualTo("cabecera.payload.firma");
+        org.mockito.Mockito.verifyNoInteractions(generadorCredencialOpenBadges);
+    }
+
+    @Test
+    void verificacionJwtDeUnIdInexistenteLanzaRecursoNoEncontrado() {
+        when(certificacionRepository.findById(ID_CERTIFICACION)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.verificacionJwt(ID_CERTIFICACION))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(org.springframework.http.HttpStatus.NOT_FOUND);
+    }
 }

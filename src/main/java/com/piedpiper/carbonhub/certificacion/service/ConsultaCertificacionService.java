@@ -84,6 +84,19 @@ public class ConsultaCertificacionService {
     }
 
     /**
+     * VC-JWT crudo (sin decodificar) de una certificacion, mismo criterio de
+     * acceso que {@link #verificarPublica}. Es el artefacto que esperan los
+     * validadores de OpenBadges 3.0: el documento de {@code verificarPublica}
+     * ya no trae la firma, asi que no sirve para validar por si solo.
+     */
+    @Transactional(readOnly = true)
+    public String verificacionJwt(UUID certificacionId) {
+        Certificacion certificacion = certificacionRepository.findById(certificacionId)
+                .orElseThrow(() -> ApiException.recursoNoEncontrado("La certificacion no existe."));
+        return certificacion.getCredencialJwt();
+    }
+
+    /**
      * Certificaciones activas y vigentes (no vencidas) de una empresa, para el
      * perfil publico. Sin resolucion de usuario ni auth a proposito: lo llama
      * {@code perfilpublico}, que ya resolvio el {@code empresaId} a partir de

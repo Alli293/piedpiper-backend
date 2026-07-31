@@ -127,7 +127,7 @@ class GeneradorCredencialOpenBadgesTest {
         Map<String, Object> credencial = credencialDe(TipoCertificacion.CARBONO_NEUTRAL);
 
         Map<String, Object> emisor = (Map<String, Object>) credencial.get("issuer");
-        assertThat(emisor.get("type")).isEqualTo("Profile");
+        assertThat(emisor.get("type")).isEqualTo(List.of("Profile"));
         assertThat(emisor.get("name")).isEqualTo("CarbonHub");
         assertThat(emisor.get("id")).isEqualTo(URL_BASE + "/api/certificaciones/emisor");
     }
@@ -137,11 +137,11 @@ class GeneradorCredencialOpenBadgesTest {
         Map<String, Object> credencial = credencialDe(TipoCertificacion.CARBONO_NEUTRAL);
 
         Map<String, Object> sujeto = (Map<String, Object>) credencial.get("credentialSubject");
-        assertThat(sujeto.get("type")).isEqualTo("AchievementSubject");
+        assertThat(sujeto.get("type")).isEqualTo(List.of("AchievementSubject"));
         assertThat(sujeto.get("id")).isEqualTo(URL_BASE + "/api/empresas/" + EMPRESA_ID);
 
         Map<String, Object> logro = (Map<String, Object>) sujeto.get("achievement");
-        assertThat(logro.get("type")).isEqualTo("Achievement");
+        assertThat(logro.get("type")).isEqualTo(List.of("Achievement"));
         assertThat(logro.get("name")).isEqualTo("Carbono Neutral");
         assertThat(logro.get("id"))
                 .isEqualTo(URL_BASE + "/api/certificaciones/logros/carbono_neutral");

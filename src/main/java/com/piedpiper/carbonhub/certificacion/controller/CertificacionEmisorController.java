@@ -90,4 +90,15 @@ public class CertificacionEmisorController {
     public ResponseEntity<Map<String, Object>> verificar(@PathVariable UUID certificacionId) {
         return ResponseEntity.ok(consultaCertificacionService.verificarPublica(certificacionId));
     }
+
+    /**
+     * VC-JWT crudo de la certificacion, para validadores externos de OpenBadges
+     * 3.0 y para "Compartir en LinkedIn". {@code /verificar} devuelve el mismo
+     * documento ya decodificado (sin firma), asi que no sirve como entrada de
+     * un validador -- este endpoint es el que sí lo es.
+     */
+    @GetMapping(value = "/{certificacionId}/verificacion.jwt", produces = "application/vc+ld+json+jwt")
+    public ResponseEntity<String> verificacionJwt(@PathVariable UUID certificacionId) {
+        return ResponseEntity.ok(consultaCertificacionService.verificacionJwt(certificacionId));
+    }
 }

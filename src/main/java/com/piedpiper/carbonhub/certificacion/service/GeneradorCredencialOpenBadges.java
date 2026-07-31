@@ -166,7 +166,7 @@ public class GeneradorCredencialOpenBadges {
     public Map<String, Object> construirEmisor() {
         Map<String, Object> emisor = new LinkedHashMap<>();
         emisor.put("id", urlEmisor());
-        emisor.put("type", "Profile");
+        emisor.put("type", List.of("Profile"));
         emisor.put("name", emisorNombre);
         emisor.put("url", urlBase);
         return emisor;
@@ -176,7 +176,7 @@ public class GeneradorCredencialOpenBadges {
                                                 DefinicionCertificacion definicion) {
         Map<String, Object> sujeto = new LinkedHashMap<>();
         sujeto.put("id", urlEmpresa(certificacion));
-        sujeto.put("type", "AchievementSubject");
+        sujeto.put("type", List.of("AchievementSubject"));
         sujeto.put("achievement", construirLogro(definicion));
         return sujeto;
     }
@@ -191,7 +191,7 @@ public class GeneradorCredencialOpenBadges {
 
         Map<String, Object> logro = new LinkedHashMap<>();
         logro.put("id", urlLogro(definicion));
-        logro.put("type", "Achievement");
+        logro.put("type", List.of("Achievement"));
         logro.put("name", definicion.nombre());
         logro.put("description", definicion.descripcion());
         logro.put("achievementType", definicion.tipoLogro().getToken());
