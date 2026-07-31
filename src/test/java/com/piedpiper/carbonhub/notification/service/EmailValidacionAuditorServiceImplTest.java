@@ -61,8 +61,8 @@ class EmailValidacionAuditorServiceImplTest {
         mensaje.saveChanges();
 
         assertThat(mensaje.getSubject()).isEqualTo("Solicitud de auditor aprobada - CarbonHub");
-        assertThat(mensaje.getAllRecipients()[0].toString()).isEqualTo("ana.perez@example.com");
-        assertThat(mensaje.getFrom()[0].toString()).isEqualTo("no-reply@carbonhub.com");
+        assertThat(mensaje.getAllRecipients()[0]).hasToString("ana.perez@example.com");
+        assertThat(mensaje.getFrom()[0]).hasToString("no-reply@carbonhub.com");
 
         String html = extraerParte(mensaje.getContent(), "text/html");
         assertThat(html)

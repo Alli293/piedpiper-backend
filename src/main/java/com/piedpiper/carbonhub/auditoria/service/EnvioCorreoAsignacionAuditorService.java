@@ -67,8 +67,8 @@ public class EnvioCorreoAsignacionAuditorService {
                         envio.destinatario(), envio.nombreEmpresa(), envio.nombreAuditor());
             }
         } catch (Exception e) {
-            log.error("Fallo el envio del correo de asignacion de auditor a {} (reintentos restantes: {})",
-                    envio.destinatario(), envio.reintentosRestantes(), e);
+            log.error("Fallo el envio del correo de {} de auditor a {} (reintentos restantes: {})",
+                    envio.tipo(), envio.destinatario(), envio.reintentosRestantes(), e);
             if (envio.reintentosRestantes() > 0) {
                 pendientes.add(envio.siguienteIntento());
             }

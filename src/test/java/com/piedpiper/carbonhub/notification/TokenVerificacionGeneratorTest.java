@@ -13,8 +13,7 @@ class TokenVerificacionGeneratorTest {
     void generar_nuncaDevuelveNuloNiVacio() {
         String token = TokenVerificacionGenerator.generar();
 
-        assertThat(token).isNotNull();
-        assertThat(token).isNotEmpty();
+        assertThat(token).isNotNull().isNotEmpty();
     }
 
     @Test
@@ -29,8 +28,7 @@ class TokenVerificacionGeneratorTest {
     void generar_esBase64UrlSafeSinCaracteresInvalidosParaUrl() {
         String token = TokenVerificacionGenerator.generar();
 
-        assertThat(token).matches("^[A-Za-z0-9_-]+$");
-        assertThat(token).doesNotContain("+", "/", "=");
+        assertThat(token).matches("^[A-Za-z0-9_-]+$").doesNotContain("+", "/", "=");
     }
 
     @Test
@@ -40,8 +38,9 @@ class TokenVerificacionGeneratorTest {
         Instant expiracion = TokenVerificacionGenerator.calcularExpiracion();
 
         Duration diferencia = Duration.between(antes, expiracion);
-        assertThat(diferencia).isGreaterThan(Duration.ofHours(23).plusMinutes(59));
-        assertThat(diferencia).isLessThan(Duration.ofHours(24).plusMinutes(1));
+        assertThat(diferencia)
+                .isGreaterThan(Duration.ofHours(23).plusMinutes(59))
+                .isLessThan(Duration.ofHours(24).plusMinutes(1));
     }
 
     @Test

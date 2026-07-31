@@ -41,8 +41,16 @@ public class ValidadorDocumentosPdf {
         if (documento.getSize() > TAMANIO_MAXIMO_BYTES) {
             throw ApiException.documentoRespaldoExcedeTamanio();
         }
-        if (!TIPO_CONTENIDO_PDF.equalsIgnoreCase(documento.getContentType()) || !tieneFirmaPdf(documento)) {
+        // La regla es la firma binaria y no el content type: ese ultimo lo manda el cliente y se
+        // falsea trivialmente, asi que como defensa no aporta nada. Y exigirlo ademas de la firma
+        // rechazaba archivos legitimos: un PDF de verdad enviado como application/octet-stream, que
+        // es lo que mandan varios clientes cuando no reconocen la extension, no pasaba.
+        if (!tieneFirmaPdf(documento)) {
             throw ApiException.documentoRespaldoNoEsPdf();
+        }
+        if (!TIPO_CONTENIDO_PDF.equalsIgnoreCase(documento.getContentType())) {
+            log.warn("El documento {} tiene firma PDF valida pero llego con content type {}",
+                    documento.getOriginalFilename(), documento.getContentType());
         }
     }
 

@@ -15,8 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDate;
 import java.time.YearMonth;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -49,7 +49,7 @@ public class ImaTendenciaService {
         int ventana = resolverVentana(mesesAtras);
         Empresa empresa = imaService.empresaDe(usuarioId);
 
-        YearMonth hasta = YearMonth.from(LocalDate.now());
+        YearMonth hasta = YearMonth.now(ZoneId.systemDefault());
         YearMonth desde = hasta.minusMonths(ventana - 1L);
 
         Map<YearMonth, BigDecimal> imaPorMes = indexarSnapshots(empresa.getId(), desde, hasta);

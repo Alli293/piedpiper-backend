@@ -18,6 +18,7 @@ import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.List;
 import java.util.UUID;
 
@@ -93,7 +94,7 @@ class EmisionResumenServiceTest {
     void losPorcentajesSuman100PorCientoConAjusteDeMayorResto() {
         when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
         when(emisionRepository.findAllByEmpresaIdAndFechaActividadBetween(
-                EMPRESA_ID, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31)))
+                EMPRESA_ID, LocalDate.of(2026, Month.JANUARY, 1), LocalDate.of(2026, Month.DECEMBER, 31)))
                 .thenReturn(List.of(electricidad("1.000"), flota("1.000"), envio("1.000")));
 
         EmisionResumenResponseDTO resumen = service.resumen(2026, null, USUARIO_ID);

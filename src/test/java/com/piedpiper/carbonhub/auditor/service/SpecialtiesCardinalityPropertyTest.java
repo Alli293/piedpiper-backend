@@ -34,7 +34,7 @@ class SpecialtiesCardinalityPropertyTest {
 
     private static final List<String> VALID_ESPECIALIDADES = Arrays.stream(EspecialidadAuditor.values())
             .map(Enum::name)
-            .collect(Collectors.toList());
+            .toList();
 
     @Provide
     Arbitrary<List<String>> emptyEspecialidades() {

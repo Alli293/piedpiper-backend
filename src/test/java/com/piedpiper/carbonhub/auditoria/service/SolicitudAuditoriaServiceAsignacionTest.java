@@ -9,6 +9,7 @@ import com.piedpiper.carbonhub.auditoria.models.enums.OrigenAsignacion;
 import com.piedpiper.carbonhub.auditoria.models.enums.TipoCertificacionSolicitud;
 import com.piedpiper.carbonhub.auditoria.repository.SolicitudAuditoriaRepository;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
+import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
@@ -63,6 +64,8 @@ class SolicitudAuditoriaServiceAsignacionTest {
     @Mock
     private UsuarioRepository usuarioRepository;
     @Mock
+    private EmpresaRepository empresaRepository;
+    @Mock
     private CertificacionActivaConsulta certificacionActivaConsulta;
     @Mock
     private EnvioCorreoAsignacionAuditorService envioCorreoAsignacionAuditorService;
@@ -74,6 +77,7 @@ class SolicitudAuditoriaServiceAsignacionTest {
         service = new SolicitudAuditoriaService(
                 solicitudAuditoriaRepository,
                 usuarioRepository,
+                empresaRepository,
                 certificacionActivaConsulta,
                 new ValidadorDocumentosPdf(),
                 new SolicitudAuditoriaMapperImpl(),
@@ -300,7 +304,9 @@ class SolicitudAuditoriaServiceAsignacionTest {
 
         assertThatThrownBy(() -> service.asignarAuditor(SOLICITUD_ID, datos(AUDITOR_ID, "manual"), USUARIO_ID))
                 .isInstanceOf(ApiException.class)
-                .hasMessage("Ya existe una solicitud de revisión pendiente con otro auditor.")
+                .as("el conflicto por carrera no puede afirmar que hay otro auditor: la perdedora "
+                        + "pudo haber pedido el mismo, asi que el mensaje invita a recargar")
+                .hasMessage("Esta solicitud ya fue procesada. Recarga la página para ver el estado actualizado.")
                 .extracting(error -> ((ApiException) error).getStatus())
                 .isEqualTo(HttpStatus.CONFLICT);
 

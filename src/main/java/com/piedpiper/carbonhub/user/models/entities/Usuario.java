@@ -140,11 +140,23 @@ public class Usuario {
      * y las respuestas de la API no armen el nombre cada uno a su manera y muestren al mismo
      * auditor con dos formatos distintos.
      */
+    /**
+     * Nombre para mostrar, nunca nulo: cae a {@code nombreVisible} y, si ese tampoco esta, a la
+     * parte local del correo. Los consumidores lo meten en DTOs y en el cuerpo de correos, donde un
+     * nulo se vuelve un "null" impreso o una linea vacia, asi que la garantia vive aca y no en cada
+     * llamador.
+     */
     public String nombreCompleto() {
         String armado = Stream.of(nombre, apellidos)
                 .filter(parte -> parte != null && !parte.isBlank())
                 .collect(Collectors.joining(" "));
-        return armado.isBlank() ? nombreVisible : armado;
+        if (!armado.isBlank()) {
+            return armado;
+        }
+        if (nombreVisible != null && !nombreVisible.isBlank()) {
+            return nombreVisible;
+        }
+        return email == null ? "" : email.split("@")[0];
     }
 
     public static String recortarNombre(String nombre) {

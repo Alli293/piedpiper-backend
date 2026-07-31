@@ -37,13 +37,28 @@ class ValidadorDocumentosPdfTest {
     }
 
     @Test
-    void rechazaArchivoConFirmaPdfPeroTipoDeContenidoDistinto() {
-        MultipartFile falso = new MockMultipartFile("documentos", "respaldo.pdf",
+    void aceptaArchivoConFirmaPdfAunqueElTipoDeContenidoNoLoSea() {
+        MultipartFile pdfComoOctetStream = new MockMultipartFile("documentos", "respaldo.pdf",
                 MediaType.APPLICATION_OCTET_STREAM_VALUE, contenidoPdf());
+
+        assertThatNoException().isThrownBy(() -> validador.validar(List.of(pdfComoOctetStream)));
+    }
+
+    @Test
+    void rechazaArchivoSinFirmaPdfAunqueSeAnuncieComoPdf() {
+        MultipartFile falso = new MockMultipartFile("documentos", "respaldo.pdf",
+                MediaType.APPLICATION_PDF_VALUE, "GIF89a esto es una imagen".getBytes(StandardCharsets.UTF_8));
 
         assertThatThrownBy(() -> validador.validar(List.of(falso)))
                 .isInstanceOf(ApiException.class)
                 .hasMessage("Solo se aceptan archivos en formato PDF.");
+    }
+
+    @Test
+    void aceptaArchivoConFirmaPdfSinTipoDeContenido() {
+        MultipartFile sinTipo = new MockMultipartFile("documentos", "respaldo.pdf", null, contenidoPdf());
+
+        assertThatNoException().isThrownBy(() -> validador.validar(List.of(sinTipo)));
     }
 
     @Test

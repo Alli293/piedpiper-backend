@@ -11,6 +11,7 @@ import com.piedpiper.carbonhub.auditoria.models.enums.OrigenAsignacion;
 import com.piedpiper.carbonhub.auditoria.models.enums.TipoCertificacionSolicitud;
 import com.piedpiper.carbonhub.auditoria.repository.SolicitudAuditoriaRepository;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
+import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
@@ -49,6 +50,7 @@ public class SolicitudAuditoriaService {
 
     private final SolicitudAuditoriaRepository solicitudAuditoriaRepository;
     private final UsuarioRepository usuarioRepository;
+    private final EmpresaRepository empresaRepository;
     private final CertificacionActivaConsulta certificacionActivaConsulta;
     private final ValidadorDocumentosPdf validadorDocumentosPdf;
     private final SolicitudAuditoriaMapper solicitudAuditoriaMapper;
@@ -56,12 +58,14 @@ public class SolicitudAuditoriaService {
 
     public SolicitudAuditoriaService(SolicitudAuditoriaRepository solicitudAuditoriaRepository,
                                      UsuarioRepository usuarioRepository,
+                                     EmpresaRepository empresaRepository,
                                      CertificacionActivaConsulta certificacionActivaConsulta,
                                      ValidadorDocumentosPdf validadorDocumentosPdf,
                                      SolicitudAuditoriaMapper solicitudAuditoriaMapper,
                                      EnvioCorreoAsignacionAuditorService envioCorreoAsignacionAuditorService) {
         this.solicitudAuditoriaRepository = solicitudAuditoriaRepository;
         this.usuarioRepository = usuarioRepository;
+        this.empresaRepository = empresaRepository;
         this.certificacionActivaConsulta = certificacionActivaConsulta;
         this.validadorDocumentosPdf = validadorDocumentosPdf;
         this.solicitudAuditoriaMapper = solicitudAuditoriaMapper;
@@ -85,6 +89,7 @@ public class SolicitudAuditoriaService {
 
         validarPeriodo(tipoCertificacion, periodoInicio, datos.getPeriodoFin());
         validadorDocumentosPdf.validar(documentos);
+        bloquearEmpresa(empresa.getId());
         validarTraslape(empresa.getId(), periodoInicio, datos.getPeriodoFin());
 
         Instant ahora = Instant.now();
@@ -155,12 +160,22 @@ public class SolicitudAuditoriaService {
      * transacción, así que dos asignaciones simultáneas pasan las dos y la segunda sobrescribiría a
      * la primera sin devolver el 409. El {@code @Version} de la entidad hace que la perdedora falle
      * al escribir, y acá se traduce al mismo conflicto que devuelve la validación.
+     *
+     * <p>El conflicto por carrera se responde distinto del conflicto por validación: la validación
+     * sabe que hay otro auditor asignado, mientras que acá lo único que se sabe es que alguien más
+     * escribió primero, y puede haber pedido el mismo auditor. Por eso el mensaje invita a recargar
+     * en vez de afirmar que hay otro auditor.</p>
+     *
+     * <p>A propósito no se relee para distinguir los dos casos: tras un fallo de bloqueo optimista
+     * la transacción queda condenada y el contexto de persistencia en un estado indefinido, así que
+     * consultar de nuevo acá devolvería la entidad en memoria y no lo que realmente quedó en la
+     * base. Distinguirlos de verdad exigiría reintentar en una transacción nueva.</p>
      */
     private SolicitudAuditoria guardarAsignacion(SolicitudAuditoria solicitud) {
         try {
             return solicitudAuditoriaRepository.saveAndFlush(solicitud);
         } catch (ObjectOptimisticLockingFailureException e) {
-            throw ApiException.asignacionAuditorPendiente();
+            throw ApiException.solicitudConflictoConcurrente();
         }
     }
 
@@ -217,6 +232,20 @@ public class SolicitudAuditoriaService {
         if (periodoFin.isAfter(periodoInicio.plusMonths(MESES_MAXIMOS_PERIODO))) {
             throw ApiException.periodoAuditoriaExcedeDoceMeses();
         }
+    }
+
+    /**
+     * Serializa la creacion de solicitudes de una misma empresa. La validacion de traslape consulta
+     * y despues inserta en funcion de lo consultado, asi que sin este lock dos peticiones simultaneas
+     * pasan las dos la validacion antes de que cualquiera commitee y quedan dos periodos traslapados.
+     *
+     * <p>Va despues de validar el periodo y los documentos a proposito: esas validaciones no leen
+     * nada de la base, asi que se resuelven antes de tomar el lock y una peticion invalida no llega
+     * ni a pedirlo.</p>
+     */
+    private void bloquearEmpresa(UUID empresaId) {
+        empresaRepository.bloquearPorId(empresaId)
+                .orElseThrow(() -> ApiException.errorInterno("No se pudo procesar la solicitud. Intenta nuevamente."));
     }
 
     private void validarTraslape(UUID empresaId, LocalDate periodoInicio, LocalDate periodoFin) {
