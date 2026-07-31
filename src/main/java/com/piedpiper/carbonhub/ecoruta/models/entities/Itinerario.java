@@ -1,13 +1,11 @@
 package com.piedpiper.carbonhub.ecoruta.models.entities;
 
-import com.piedpiper.carbonhub.ecoruta.models.enums.InteresTuristico;
-import com.piedpiper.carbonhub.ecoruta.models.enums.Provincia;
+import com.piedpiper.carbonhub.ecoruta.models.enums.EstadoItinerario;
 import com.piedpiper.carbonhub.ecoruta.models.enums.TipoViaje;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 
-import jakarta.persistence.CollectionTable;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
-import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -17,16 +15,18 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -34,19 +34,13 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(
-        name = "preferencias_viaje",
-        uniqueConstraints = @UniqueConstraint(
-                name = "uk_preferencias_viaje_usuario",
-                columnNames = {"usuario_id"}
-        )
-)
+@Table(name = "itinerarios")
 @Getter
 @Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class PreferenciasViaje {
+public class Itinerario {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -66,50 +60,37 @@ public class PreferenciasViaje {
     @Column(name = "tipo_viaje", nullable = false, length = 20)
     private TipoViaje tipoViaje;
 
-    @Column(length = 100)
-    private String presupuesto;
-
-    @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(
-            name = "preferencias_viaje_intereses",
-            joinColumns = @JoinColumn(name = "preferencias_viaje_id")
-    )
     @Enumerated(EnumType.STRING)
-    @Column(name = "interes", nullable = false, length = 30)
+    @Column(name = "estado", nullable = false, length = 20)
+    private EstadoItinerario estado;
+
+    /** Se incrementa en cada regeneración/ajuste (PP-88 la usa para sustituir la versión anterior). */
+    @Column(nullable = false)
     @Builder.Default
-    private List<InteresTuristico> intereses = new ArrayList<>();
+    private Integer version = 1;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "provincia_preferida", length = 20)
-    private Provincia provinciaPreferida;
+    @Column(name = "puntuacion_ambiental_preliminar", precision = 5, scale = 2)
+    private BigDecimal puntuacionAmbientalPreliminar;
 
-    @Column(name = "ubicacion_actual", length = 200)
-    private String ubicacionActual;
+    @Column(name = "generado_parcial", nullable = false)
+    private boolean generadoParcial;
 
-    @Column(name = "buscar_cerca_de_mi", nullable = false)
-    private boolean buscarCercaDeMi;
+    @Column(name = "mensaje_parcial", length = 500)
+    private String mensajeParcial;
 
-    @Column(name = "limitaciones_movilidad", length = 500)
-    private String limitacionesMovilidad;
-
-    @Column(name = "requiere_hospedaje", nullable = false)
-    private boolean requiereHospedaje;
-
-    // Rate limiting de generación de itinerarios vive aquí (no en Usuario.java, como en PP-29)
-    // porque es un límite específico del dominio EcoRuta, no una propiedad general de la cuenta.
-    /** Contador del rate limit de generación de itinerarios (PP-85). Ventana fija de 1 hora. */
-    @Column(name = "itinerario_generacion_contador", nullable = false, columnDefinition = "integer default 0")
-    @Builder.Default
-    private int itinerarioGeneracionContador = 0;
-
-    @Column(name = "itinerario_generacion_ventana_inicio")
-    private Instant itinerarioGeneracionVentanaInicio;
+    @Column(name = "fecha_generacion", nullable = false)
+    private Instant fechaGeneracion;
 
     @Column(name = "creado_en", nullable = false, updatable = false)
     private Instant creadoEn;
 
     @Column(name = "actualizado_en", nullable = false)
     private Instant actualizadoEn;
+
+    @OneToMany(mappedBy = "itinerario", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("orden ASC")
+    @Builder.Default
+    private List<ItinerarioDia> dias = new ArrayList<>();
 
     @PrePersist
     void onCreate() {
