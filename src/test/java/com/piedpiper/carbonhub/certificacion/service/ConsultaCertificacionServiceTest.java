@@ -10,6 +10,7 @@ import com.piedpiper.carbonhub.certificacion.models.enums.EstadoCertificacion;
 import com.piedpiper.carbonhub.certificacion.models.enums.TipoCertificacion;
 import com.piedpiper.carbonhub.certificacion.repository.CertificacionRepository;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
+import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
@@ -22,10 +23,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
@@ -49,6 +52,8 @@ class ConsultaCertificacionServiceTest {
     private UsuarioRepository usuarioRepository;
     @Mock
     private CertificacionMapper certificacionMapper;
+    @Mock
+    private GeneradorCredencialOpenBadges generadorCredencialOpenBadges;
 
     // El catalogo es la instancia real: es datos de referencia, no colaborador.
     private final CatalogoTiposCertificacion catalogo = new CatalogoTiposCertificacion();
@@ -57,8 +62,8 @@ class ConsultaCertificacionServiceTest {
 
     @BeforeEach
     void prepararServicio() {
-        service = new ConsultaCertificacionService(
-                certificacionRepository, usuarioRepository, catalogo, certificacionMapper);
+        service = new ConsultaCertificacionService(certificacionRepository, usuarioRepository, catalogo,
+                certificacionMapper, generadorCredencialOpenBadges);
     }
 
     private Certificacion certificacion(LocalDate fechaVencimiento) {
@@ -156,5 +161,55 @@ class ConsultaCertificacionServiceTest {
         // El VC-JWT vence a medianoche UTC del dia de fechaVencimiento: ese
         // mismo dia ya no es vigente.
         assertThat(resultado.isVigente()).isFalse();
+    }
+
+    @Test
+    void descargarJsonLdDevuelveElDocumentoDecodificadoDeLaEmpresaDelUsuario() {
+        mockearUsuarioDeLaEmpresa();
+        Certificacion certificacion = certificacion(LocalDate.of(2027, 1, 15));
+        certificacion.setCredencialJwt("jwt.firmado.aqui");
+        when(certificacionRepository.findByIdAndEmpresaId(ID_CERTIFICACION, ID_EMPRESA))
+                .thenReturn(Optional.of(certificacion));
+        Map<String, Object> documento = Map.of("id", "urn:uuid:algo");
+        when(generadorCredencialOpenBadges.decodificar("jwt.firmado.aqui")).thenReturn(documento);
+
+        Map<String, Object> resultado = service.descargarJsonLd(ID_USUARIO, ID_CERTIFICACION);
+
+        assertThat(resultado).isEqualTo(documento);
+    }
+
+    @Test
+    void descargarJsonLdDeOtraEmpresaLanzaRecursoNoEncontrado() {
+        mockearUsuarioDeLaEmpresa();
+        when(certificacionRepository.findByIdAndEmpresaId(ID_CERTIFICACION, ID_EMPRESA))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.descargarJsonLd(ID_USUARIO, ID_CERTIFICACION))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(org.springframework.http.HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void verificarPublicaDevuelveElDocumentoSinImportarLaEmpresa() {
+        Certificacion certificacion = certificacion(LocalDate.of(2027, 1, 15));
+        certificacion.setCredencialJwt("jwt.firmado.aqui");
+        when(certificacionRepository.findById(ID_CERTIFICACION)).thenReturn(Optional.of(certificacion));
+        Map<String, Object> documento = Map.of("id", "urn:uuid:algo");
+        when(generadorCredencialOpenBadges.decodificar("jwt.firmado.aqui")).thenReturn(documento);
+
+        Map<String, Object> resultado = service.verificarPublica(ID_CERTIFICACION);
+
+        assertThat(resultado).isEqualTo(documento);
+    }
+
+    @Test
+    void verificarPublicaDeUnIdInexistenteLanzaRecursoNoEncontrado() {
+        when(certificacionRepository.findById(ID_CERTIFICACION)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.verificarPublica(ID_CERTIFICACION))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(org.springframework.http.HttpStatus.NOT_FOUND);
     }
 }

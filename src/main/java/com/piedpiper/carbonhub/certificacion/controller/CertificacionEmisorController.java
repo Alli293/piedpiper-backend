@@ -2,6 +2,7 @@ package com.piedpiper.carbonhub.certificacion.controller;
 
 import com.piedpiper.carbonhub.certificacion.config.CatalogoTiposCertificacion;
 import com.piedpiper.carbonhub.certificacion.models.enums.TipoCertificacion;
+import com.piedpiper.carbonhub.certificacion.service.ConsultaCertificacionService;
 import com.piedpiper.carbonhub.certificacion.service.FirmanteCredencialService;
 import com.piedpiper.carbonhub.certificacion.service.GeneradorCredencialOpenBadges;
 import com.piedpiper.carbonhub.certificacion.service.ListaEstadoCredencialesService;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Endpoints publicos que resuelven los identificadores de la credencial.
@@ -32,16 +34,19 @@ public class CertificacionEmisorController {
     private final FirmanteCredencialService firmanteCredencialService;
     private final CatalogoTiposCertificacion catalogoTiposCertificacion;
     private final ListaEstadoCredencialesService listaEstadoCredencialesService;
+    private final ConsultaCertificacionService consultaCertificacionService;
 
     public CertificacionEmisorController(
             GeneradorCredencialOpenBadges generadorCredencialOpenBadges,
             FirmanteCredencialService firmanteCredencialService,
             CatalogoTiposCertificacion catalogoTiposCertificacion,
-            ListaEstadoCredencialesService listaEstadoCredencialesService) {
+            ListaEstadoCredencialesService listaEstadoCredencialesService,
+            ConsultaCertificacionService consultaCertificacionService) {
         this.generadorCredencialOpenBadges = generadorCredencialOpenBadges;
         this.firmanteCredencialService = firmanteCredencialService;
         this.catalogoTiposCertificacion = catalogoTiposCertificacion;
         this.listaEstadoCredencialesService = listaEstadoCredencialesService;
+        this.consultaCertificacionService = consultaCertificacionService;
     }
 
     @GetMapping("/emisor")
@@ -79,5 +84,10 @@ public class CertificacionEmisorController {
                 })
                 .orElseThrow(() -> ApiException.recursoNoEncontrado(
                         "El tipo de certificacion no existe."));
+    }
+
+    @GetMapping("/{certificacionId}/verificar")
+    public ResponseEntity<Map<String, Object>> verificar(@PathVariable UUID certificacionId) {
+        return ResponseEntity.ok(consultaCertificacionService.verificarPublica(certificacionId));
     }
 }

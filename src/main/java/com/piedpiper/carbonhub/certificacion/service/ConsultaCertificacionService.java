@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -26,15 +27,18 @@ public class ConsultaCertificacionService {
     private final UsuarioRepository usuarioRepository;
     private final CatalogoTiposCertificacion catalogoTiposCertificacion;
     private final CertificacionMapper certificacionMapper;
+    private final GeneradorCredencialOpenBadges generadorCredencialOpenBadges;
 
     public ConsultaCertificacionService(CertificacionRepository certificacionRepository,
                                         UsuarioRepository usuarioRepository,
                                         CatalogoTiposCertificacion catalogoTiposCertificacion,
-                                        CertificacionMapper certificacionMapper) {
+                                        CertificacionMapper certificacionMapper,
+                                        GeneradorCredencialOpenBadges generadorCredencialOpenBadges) {
         this.certificacionRepository = certificacionRepository;
         this.usuarioRepository = usuarioRepository;
         this.catalogoTiposCertificacion = catalogoTiposCertificacion;
         this.certificacionMapper = certificacionMapper;
+        this.generadorCredencialOpenBadges = generadorCredencialOpenBadges;
     }
 
     @Transactional(readOnly = true)
@@ -54,6 +58,29 @@ public class ConsultaCertificacionService {
                 .map(this::aDto)
                 .orElseThrow(() -> ApiException.recursoNoEncontrado(
                         "La certificacion no existe."));
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> descargarJsonLd(UUID usuarioId, UUID certificacionId) {
+        UUID empresaId = empresaDelUsuario(usuarioId);
+        // Igual que detalle(): se filtra por empresa en la consulta y se
+        // devuelve 404 (no 403) para una certificacion de otra empresa, para no
+        // revelar con un 403 que ese id existe pero es ajeno.
+        Certificacion certificacion = certificacionRepository.findByIdAndEmpresaId(certificacionId, empresaId)
+                .orElseThrow(() -> ApiException.recursoNoEncontrado("La certificacion no existe."));
+        return generadorCredencialOpenBadges.decodificar(certificacion.getCredencialJwt());
+    }
+
+    /**
+     * Publico, sin resolucion de usuario ni filtro de empresa a proposito: el
+     * punto de esta URL es que cualquiera con el enlace pueda verificarla (ver
+     * {@code CertificacionEmisorController}).
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> verificarPublica(UUID certificacionId) {
+        Certificacion certificacion = certificacionRepository.findById(certificacionId)
+                .orElseThrow(() -> ApiException.recursoNoEncontrado("La certificacion no existe."));
+        return generadorCredencialOpenBadges.decodificar(certificacion.getCredencialJwt());
     }
 
     /**
@@ -92,6 +119,7 @@ public class ConsultaCertificacionService {
         CertificacionResponseDTO dto = certificacionMapper.toDto(certificacion);
         dto.setRecienEmitida(false);
         dto.setVigente(esVigente(certificacion));
+        dto.setUrlVerificacion(generadorCredencialOpenBadges.urlVerificacion(certificacion.getId()));
         catalogoTiposCertificacion.buscar(certificacion.getTipo())
                 .ifPresent(definicion -> dto.setNombreCertificacion(definicion.nombre()));
         return dto;
@@ -100,6 +128,7 @@ public class ConsultaCertificacionService {
     private CertificacionResumenResponseDTO aResumenDto(Certificacion certificacion) {
         CertificacionResumenResponseDTO dto = certificacionMapper.toResumenDto(certificacion);
         dto.setVigente(esVigente(certificacion));
+        dto.setUrlVerificacion(generadorCredencialOpenBadges.urlVerificacion(certificacion.getId()));
         catalogoTiposCertificacion.buscar(certificacion.getTipo())
                 .ifPresent(definicion -> dto.setNombreCertificacion(definicion.nombre()));
         return dto;

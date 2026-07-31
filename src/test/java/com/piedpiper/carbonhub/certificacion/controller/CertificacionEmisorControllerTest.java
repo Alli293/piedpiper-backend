@@ -7,6 +7,7 @@ import com.piedpiper.carbonhub.certificacion.service.ConsultaCertificacionServic
 import com.piedpiper.carbonhub.certificacion.service.FirmanteCredencialService;
 import com.piedpiper.carbonhub.certificacion.service.GeneradorCredencialOpenBadges;
 import com.piedpiper.carbonhub.certificacion.service.ListaEstadoCredencialesService;
+import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.junit.jupiter.api.Test;
@@ -24,6 +25,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Map;
+import java.util.UUID;
 
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -121,6 +123,27 @@ class CertificacionEmisorControllerTest {
         mockMvc.perform(get("/api/certificaciones/estado/lista"))
                 .andExpect(status().isOk())
                 .andExpect(content().string("jwt.de.la.lista"));
+    }
+
+    @Test
+    void laVerificacionEsAccesibleSinAutenticacion() throws Exception {
+        UUID certificacionId = UUID.randomUUID();
+        when(consultaCertificacionService.verificarPublica(certificacionId))
+                .thenReturn(Map.of("id", "urn:uuid:algo", "name", "Carbono Neutral"));
+
+        mockMvc.perform(get("/api/certificaciones/" + certificacionId + "/verificar"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Carbono Neutral"));
+    }
+
+    @Test
+    void laVerificacionDeUnIdInexistenteDevuelve404() throws Exception {
+        UUID certificacionId = UUID.randomUUID();
+        when(consultaCertificacionService.verificarPublica(certificacionId))
+                .thenThrow(ApiException.recursoNoEncontrado("La certificacion no existe."));
+
+        mockMvc.perform(get("/api/certificaciones/" + certificacionId + "/verificar"))
+                .andExpect(status().isNotFound());
     }
 
     /**
