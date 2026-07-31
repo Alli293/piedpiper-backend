@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface ItinerarioRepository extends JpaRepository<Itinerario, UUID> {
@@ -15,6 +16,8 @@ public interface ItinerarioRepository extends JpaRepository<Itinerario, UUID> {
     long countByUsuario_Id(UUID usuarioId);
 
     List<Itinerario> findAllByUsuario_IdOrderByFechaGeneracionDesc(UUID usuarioId);
+
+    Optional<Itinerario> findByIdAndUsuario_Id(UUID id, UUID usuarioId);
 
     @Query("""
             select distinct a.provincia

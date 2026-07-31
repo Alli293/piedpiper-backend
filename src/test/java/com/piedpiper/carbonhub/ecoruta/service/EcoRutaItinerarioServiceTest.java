@@ -258,4 +258,50 @@ class EcoRutaItinerarioServiceTest {
 
         assertThat(preferencias.getItinerarioGeneracionContador()).isEqualTo(1);
     }
+
+    // --- obtener ---
+
+    @Test
+    void obtenerConItinerarioPropioDevuelveElDto() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = Itinerario.builder()
+                .id(itinerarioId)
+                .usuario(usuario())
+                .cantidadDias(2)
+                .fechaInicio(LocalDate.now().plusDays(10))
+                .tipoViaje(TipoViaje.INDIVIDUAL)
+                .estado(com.piedpiper.carbonhub.ecoruta.models.enums.EstadoItinerario.GENERADO)
+                .version(1)
+                .fechaGeneracion(Instant.now())
+                .dias(List.of())
+                .build();
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+
+        ItinerarioResponseDTO response = service.obtener(itinerarioId, USUARIO_ID);
+
+        assertThat(response.getId()).isEqualTo(itinerarioId);
+    }
+
+    @Test
+    void obtenerConItinerarioInexistenteLanza404() {
+        UUID itinerarioId = UUID.randomUUID();
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.obtener(itinerarioId, USUARIO_ID))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.NOT_FOUND));
+    }
+
+    @Test
+    void obtenerConItinerarioDeOtroUsuarioLanzaElMismo404() {
+        // findByIdAndUsuario_Id ya filtra por dueño: un itinerario ajeno se comporta
+        // exactamente igual que uno inexistente (mismo 404), para no filtrar por enumeración de IDs.
+        UUID itinerarioId = UUID.randomUUID();
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.obtener(itinerarioId, USUARIO_ID))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.NOT_FOUND));
+    }
 }

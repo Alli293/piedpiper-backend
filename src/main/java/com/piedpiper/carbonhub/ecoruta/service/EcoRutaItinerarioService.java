@@ -99,6 +99,17 @@ public class EcoRutaItinerarioService {
     }
 
     /**
+     * Ambos casos (no existe / pertenece a otro usuario) devuelven el mismo 404 — nunca un 403
+     * distinto, para no revelar por enumeración de IDs que un itinerario ajeno existe.
+     */
+    @Transactional(readOnly = true)
+    public ItinerarioResponseDTO obtener(UUID itinerarioId, UUID usuarioId) {
+        Itinerario itinerario = itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, usuarioId)
+                .orElseThrow(() -> ApiException.recursoNoEncontrado("Itinerario no encontrado."));
+        return mapper.toDto(itinerario);
+    }
+
+    /**
      * Ventana fija de 1 hora, máximo {@value #MAX_GENERACIONES_POR_HORA} solicitudes — a
      * diferencia del límite silencioso de restablecimiento de contraseña (PP-29), este SÍ es
      * visible: protege la cuota de Gemini, no revela ninguna información sensible del usuario.

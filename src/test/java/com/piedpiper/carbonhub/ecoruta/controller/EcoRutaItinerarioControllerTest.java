@@ -25,7 +25,9 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -119,6 +121,40 @@ class EcoRutaItinerarioControllerTest {
                 .andExpect(status().isTooManyRequests())
                 .andExpect(jsonPath("$.message")
                         .value("Has alcanzado el límite de itinerarios generados. Intenta de nuevo en una hora."));
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_USUARIO_INDIVIDUAL")
+    void getConItinerarioPropioDevuelve200() throws Exception {
+        UUID itinerarioId = UUID.randomUUID();
+        ItinerarioResponseDTO response = respuesta();
+        response.setId(itinerarioId);
+        when(service.obtener(eq(itinerarioId), any(UUID.class))).thenReturn(response);
+
+        mockMvc.perform(get("/api/ecoruta/itinerarios/" + itinerarioId)
+                        .principal(authentication("ROLE_USUARIO_INDIVIDUAL")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(itinerarioId.toString()));
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_USUARIO_INDIVIDUAL")
+    void getConItinerarioInexistenteOAjenoDevuelve404() throws Exception {
+        UUID itinerarioId = UUID.randomUUID();
+        when(service.obtener(eq(itinerarioId), any(UUID.class)))
+                .thenThrow(ApiException.recursoNoEncontrado("Itinerario no encontrado."));
+
+        mockMvc.perform(get("/api/ecoruta/itinerarios/" + itinerarioId)
+                        .principal(authentication("ROLE_USUARIO_INDIVIDUAL")))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_ADMINISTRADOR_EMPRESA")
+    void getConRolNoAutorizadoDevuelve403() throws Exception {
+        mockMvc.perform(get("/api/ecoruta/itinerarios/" + UUID.randomUUID())
+                        .principal(authentication("ROLE_ADMINISTRADOR_EMPRESA")))
+                .andExpect(status().isForbidden());
     }
 
     private TestingAuthenticationToken authentication(String authority) {
