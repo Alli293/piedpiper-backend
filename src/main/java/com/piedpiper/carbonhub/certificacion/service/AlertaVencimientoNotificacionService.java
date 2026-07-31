@@ -59,6 +59,14 @@ public class AlertaVencimientoNotificacionService {
             return;
         }
 
+        // Reclamar es lo que autoriza a enviar: sube el contador solo si la alerta sigue pendiente y
+        // le quedan intentos, en una sola sentencia. Si otro proceso la tomo primero, esto devuelve
+        // false y aca se corta, que es lo que evita el correo duplicado.
+        if (!alertaEstadoEnvioService.reclamar(alertaId)) {
+            log.debug("La alerta {} ya no estaba disponible para enviar, se omite", alertaId);
+            return;
+        }
+
         try {
             emailAlertaVencimientoService.enviarAlertaVencimiento(
                     alerta.getCorreoDestinatario(),

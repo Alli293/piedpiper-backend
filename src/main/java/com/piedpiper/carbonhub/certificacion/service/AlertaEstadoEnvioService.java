@@ -12,9 +12,16 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Registra el resultado del envio del correo de una alerta (PP-71). Vive en su propio bean porque lo
- * llama un servicio no transaccional despues de enviar: si fueran metodos de la misma clase, la
- * llamada interna no pasaria por el proxy de Spring y el {@code @Transactional} no aplicaria.
+ * Maneja el estado de envio de una alerta (PP-71).
+ *
+ * <p>Todas las transiciones son sentencias condicionales de una sola pasada, no leer-modificar-
+ * escribir: la condicion viaja en el {@code where} y la base es la que decide si aplica. Asi dos
+ * procesos que miren la misma alerta no pueden mandar el correo dos veces ni pisarse el contador de
+ * intentos, sin depender de que el scheduler corra en un solo hilo ni en una sola instancia.</p>
+ *
+ * <p>Vive en su propio bean porque lo llama un servicio no transaccional: si fueran metodos de la
+ * misma clase, la llamada interna no pasaria por el proxy de Spring y el {@code @Transactional} no
+ * aplicaria.</p>
  */
 @Service
 public class AlertaEstadoEnvioService {
@@ -30,32 +37,34 @@ public class AlertaEstadoEnvioService {
         this.alertaRepository = alertaRepository;
     }
 
+    /**
+     * Intenta tomar la alerta para enviarla. Solo uno gana: quien recibe {@code true} es el unico
+     * autorizado a mandar el correo.
+     *
+     * @return {@code true} si la reclamo, {@code false} si ya no estaba pendiente o agoto intentos
+     */
+    @Transactional
+    public boolean reclamar(UUID alertaId) {
+        return alertaRepository.reclamarParaEnvio(alertaId, EstadoAlerta.PENDIENTE, INTENTOS_MAXIMOS) == 1;
+    }
+
     @Transactional
     public void marcarEnviada(UUID alertaId) {
-        alertaRepository.findById(alertaId).ifPresent(alerta -> {
-            alerta.setEstado(EstadoAlerta.ENVIADA);
-            alerta.setFechaEnvio(Instant.now());
-            alerta.setIntentosEnvio(alerta.getIntentosEnvio() + 1);
-            alertaRepository.save(alerta);
-        });
+        alertaRepository.marcarEnviada(alertaId, EstadoAlerta.ENVIADA, EstadoAlerta.PENDIENTE, Instant.now());
     }
 
     /**
-     * Suma un intento y, si con este se agotaron, deja la alerta en {@code FALLIDA}. Mientras queden
-     * intentos se mantiene {@code PENDIENTE} para que el barrido la vuelva a tomar.
+     * Cierra la alerta como fallida solo si el intento que acaba de fallar era el ultimo. Si le
+     * quedan intentos se queda pendiente y el barrido la retoma.
      */
     @Transactional
     public void registrarFallo(UUID alertaId) {
-        alertaRepository.findById(alertaId).ifPresent(alerta -> {
-            int intentos = alerta.getIntentosEnvio() + 1;
-            alerta.setIntentosEnvio(intentos);
-            if (intentos >= INTENTOS_MAXIMOS) {
-                alerta.setEstado(EstadoAlerta.FALLIDA);
-                log.error("Alerta {} marcada como fallida despues de {} intentos de envio",
-                        alertaId, intentos);
-            }
-            alertaRepository.save(alerta);
-        });
+        int cerradas = alertaRepository.marcarFallidaSiAgotoIntentos(
+                alertaId, EstadoAlerta.FALLIDA, EstadoAlerta.PENDIENTE, INTENTOS_MAXIMOS);
+        if (cerradas == 1) {
+            log.error("Alerta {} marcada como fallida despues de {} intentos de envio",
+                    alertaId, INTENTOS_MAXIMOS);
+        }
     }
 
     /**
@@ -64,10 +73,7 @@ public class AlertaEstadoEnvioService {
      */
     @Transactional
     public void marcarFallidaSinReintento(UUID alertaId) {
-        alertaRepository.findById(alertaId).ifPresent(alerta -> {
-            alerta.setEstado(EstadoAlerta.FALLIDA);
-            alerta.setIntentosEnvio(INTENTOS_MAXIMOS);
-            alertaRepository.save(alerta);
-        });
+        alertaRepository.marcarFallidaDefinitiva(
+                alertaId, EstadoAlerta.FALLIDA, EstadoAlerta.PENDIENTE, INTENTOS_MAXIMOS);
     }
 }

@@ -92,6 +92,55 @@ class AlertaRepositoryIntegrationTest {
         assertThat(alertaRepository.findById(guardada.getId()).orElseThrow().getIntentosEnvio()).isEqualTo(2);
     }
 
+    @Test
+    void reclamarSubeElIntentoUnaSolaVezAunqueSeIntenteDosVeces() {
+        Alerta alerta = alertaGuardada(EstadoAlerta.PENDIENTE, 2);
+        entityManager.clear();
+
+        assertThat(alertaRepository.reclamarParaEnvio(alerta.getId(), EstadoAlerta.PENDIENTE, 3)).isEqualTo(1);
+        assertThat(alertaRepository.reclamarParaEnvio(alerta.getId(), EstadoAlerta.PENDIENTE, 3))
+                .as("con el contador ya en el tope, el segundo intento no debe tomar la fila")
+                .isZero();
+
+        assertThat(alertaRepository.findById(alerta.getId()).orElseThrow().getIntentosEnvio()).isEqualTo(3);
+    }
+
+    @Test
+    void reclamarNoTomaUnaAlertaQueYaSeEnvio() {
+        Alerta alerta = alertaGuardada(EstadoAlerta.ENVIADA, 1);
+        entityManager.clear();
+
+        assertThat(alertaRepository.reclamarParaEnvio(alerta.getId(), EstadoAlerta.PENDIENTE, 3)).isZero();
+    }
+
+    @Test
+    void marcarEnviadaNoPisaUnaAlertaQueYaNoEstaPendiente() {
+        Alerta alerta = alertaGuardada(EstadoAlerta.FALLIDA, 3);
+        entityManager.clear();
+
+        assertThat(alertaRepository.marcarEnviada(
+                alerta.getId(), EstadoAlerta.ENVIADA, EstadoAlerta.PENDIENTE, Instant.now())).isZero();
+        assertThat(alertaRepository.findById(alerta.getId()).orElseThrow().getEstado())
+                .isEqualTo(EstadoAlerta.FALLIDA);
+    }
+
+    @Test
+    void marcarFallidaSoloCierraCuandoElContadorLlegoAlTope() {
+        Alerta conIntentosDeSobra = alertaGuardada(EstadoAlerta.PENDIENTE, 1);
+        Alerta agotada = alertaGuardada(EstadoAlerta.PENDIENTE, 3);
+        entityManager.clear();
+
+        assertThat(alertaRepository.marcarFallidaSiAgotoIntentos(
+                conIntentosDeSobra.getId(), EstadoAlerta.FALLIDA, EstadoAlerta.PENDIENTE, 3)).isZero();
+        assertThat(alertaRepository.marcarFallidaSiAgotoIntentos(
+                agotada.getId(), EstadoAlerta.FALLIDA, EstadoAlerta.PENDIENTE, 3)).isEqualTo(1);
+
+        assertThat(alertaRepository.findById(conIntentosDeSobra.getId()).orElseThrow().getEstado())
+                .isEqualTo(EstadoAlerta.PENDIENTE);
+        assertThat(alertaRepository.findById(agotada.getId()).orElseThrow().getEstado())
+                .isEqualTo(EstadoAlerta.FALLIDA);
+    }
+
     private Alerta alertaGuardada(EstadoAlerta estado, int intentos) {
         Empresa empresa = empresaGuardada();
         return alertaRepository.saveAndFlush(Alerta.builder()

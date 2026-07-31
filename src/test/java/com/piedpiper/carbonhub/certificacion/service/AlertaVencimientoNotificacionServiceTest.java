@@ -3,11 +3,13 @@ package com.piedpiper.carbonhub.certificacion.service;
 import com.piedpiper.carbonhub.certificacion.models.dtos.AlertaVencimientoNotificacionDTO;
 import com.piedpiper.carbonhub.notification.service.EmailAlertaVencimientoService;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -20,6 +22,8 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -40,6 +44,11 @@ class AlertaVencimientoNotificacionServiceTest {
 
     @InjectMocks
     private AlertaVencimientoNotificacionService service;
+
+    @BeforeEach
+    void concederElReclamoPorDefecto() {
+        lenient().when(alertaEstadoEnvioService.reclamar(ALERTA_ID)).thenReturn(true);
+    }
 
     @Test
     void enviaElCorreoConLosDatosDeLaAlertaYLaMarcaEnviada() {
@@ -114,6 +123,41 @@ class AlertaVencimientoNotificacionServiceTest {
         verify(emailAlertaVencimientoService).enviarAlertaVencimiento(
                 eq("contacto@mail.acme.co.cr"), anyString(), anyString(), any(), anyLong(), anyString());
         verify(alertaEstadoEnvioService).marcarEnviada(ALERTA_ID);
+    }
+
+    @Test
+    void siOtroProcesoYaReclamoLaAlertaNoSeEnviaElCorreo() {
+        when(alertaVencimientoDatosService.datosDe(ALERTA_ID)).thenReturn(Optional.of(datos("contacto@acme.cr")));
+        when(alertaEstadoEnvioService.reclamar(ALERTA_ID)).thenReturn(false);
+
+        service.notificar(ALERTA_ID);
+
+        verifyNoInteractions(emailAlertaVencimientoService);
+        verify(alertaEstadoEnvioService, never()).marcarEnviada(any());
+        verify(alertaEstadoEnvioService, never()).registrarFallo(any());
+    }
+
+    @Test
+    void reclamaAntesDeEnviarYNoDespues() {
+        when(alertaVencimientoDatosService.datosDe(ALERTA_ID)).thenReturn(Optional.of(datos("contacto@acme.cr")));
+
+        service.notificar(ALERTA_ID);
+
+        InOrder orden = inOrder(alertaEstadoEnvioService, emailAlertaVencimientoService);
+        orden.verify(alertaEstadoEnvioService).reclamar(ALERTA_ID);
+        orden.verify(emailAlertaVencimientoService).enviarAlertaVencimiento(
+                anyString(), anyString(), anyString(), any(), anyLong(), anyString());
+        orden.verify(alertaEstadoEnvioService).marcarEnviada(ALERTA_ID);
+    }
+
+    @Test
+    void unCorreoInvalidoNiSiquieraIntentaReclamar() {
+        when(alertaVencimientoDatosService.datosDe(ALERTA_ID)).thenReturn(Optional.of(datos("sin-arroba")));
+
+        service.notificar(ALERTA_ID);
+
+        verify(alertaEstadoEnvioService, never()).reclamar(any());
+        verify(alertaEstadoEnvioService).marcarFallidaSinReintento(ALERTA_ID);
     }
 
     private static AlertaVencimientoNotificacionDTO datos(String correo) {
