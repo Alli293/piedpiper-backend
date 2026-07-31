@@ -1,12 +1,17 @@
 package com.piedpiper.carbonhub.certificacion.service;
 
 import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.SignedJWT;
 import com.piedpiper.carbonhub.certificacion.config.DefinicionCertificacion;
 import com.piedpiper.carbonhub.certificacion.models.entities.Certificacion;
+import com.piedpiper.carbonhub.exceptions.ApiException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.text.ParseException;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.util.Date;
@@ -28,6 +33,8 @@ import java.util.UUID;
  */
 @Service
 public class GeneradorCredencialOpenBadges {
+
+    private static final Logger log = LoggerFactory.getLogger(GeneradorCredencialOpenBadges.class);
 
     public static final String CONTEXTO_VC = "https://www.w3.org/ns/credentials/v2";
     public static final String CONTEXTO_OPENBADGES =
@@ -71,6 +78,33 @@ public class GeneradorCredencialOpenBadges {
         return firmanteCredencialService.firmar(claims);
     }
 
+    /**
+     * Decodifica un VC-JWT ya firmado y devuelve el documento JSON-LD tal cual
+     * fue firmado (el claim {@code vc}). Nunca reconstruir el documento
+     * llamando de nuevo a {@link #construirCredencial}: ese metodo genera un
+     * {@code id} aleatorio nuevo en cada llamada, asi que el resultado no
+     * coincidiria con lo que realmente se firmo para esta certificacion.
+     *
+     * <p>Deliberadamente no reverifica la firma: solo lee datos propios ya
+     * guardados en la base de datos (no entrada de un tercero), y acoplar la
+     * lectura a {@link FirmanteCredencialService} dejaria indescargables las
+     * certificaciones ya emitidas si la clave de firma se rota o se retira mas
+     * adelante.
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> decodificar(String credencialJwt) {
+        try {
+            Object vc = SignedJWT.parse(credencialJwt).getJWTClaimsSet().getClaim("vc");
+            if (!(vc instanceof Map)) {
+                throw ApiException.certificacionNoDisponible();
+            }
+            return (Map<String, Object>) vc;
+        } catch (ParseException e) {
+            log.error("No se pudo decodificar la credencial de una certificacion", e);
+            throw ApiException.certificacionNoDisponible();
+        }
+    }
+
     private Map<String, Object> construirCredencial(Certificacion certificacion,
                                                     DefinicionCertificacion definicion,
                                                     String credencialId) {
@@ -87,7 +121,23 @@ public class GeneradorCredencialOpenBadges {
                 .atTime(LocalTime.MIDNIGHT).toInstant(ZoneOffset.UTC).toString());
         credencial.put("credentialSubject", construirSujeto(certificacion, definicion));
         credencial.put("credentialStatus", construirEstadoCredencial(certificacion));
+        credencial.put("evidence", List.of(construirEvidencia(certificacion)));
         return credencial;
+    }
+
+    /**
+     * Referencia a la auditoria aprobada que respalda la certificacion. Sin
+     * {@code id} a proposito: todavia no existe una entidad {@code Auditoria}
+     * en el backend con una URL resoluble a la que apuntar (ver el comentario
+     * en {@code Certificacion.idAuditoria}); el campo {@code id} de Evidence es
+     * opcional en el Verifiable Credentials Data Model 2.0.
+     */
+    private Map<String, Object> construirEvidencia(Certificacion certificacion) {
+        Map<String, Object> evidencia = new LinkedHashMap<>();
+        evidencia.put("type", List.of("Evidence"));
+        evidencia.put("name", "Auditoría aprobada");
+        evidencia.put("narrative", "ID de auditoría: " + certificacion.getIdAuditoria());
+        return evidencia;
     }
 
     /**
@@ -165,6 +215,15 @@ public class GeneradorCredencialOpenBadges {
      */
     public String urlListaEstado() {
         return urlBase + "/api/certificaciones/estado/lista";
+    }
+
+    /**
+     * URL publica de verificacion de una certificacion puntual (sin sesion),
+     * usada por el frontend para armar el enlace de "Compartir en LinkedIn" y
+     * como destino de {@code CertificacionEmisorController#verificar}.
+     */
+    public String urlVerificacion(UUID certificacionId) {
+        return urlBase + "/api/certificaciones/" + certificacionId + "/verificar";
     }
 
     private String urlLogro(DefinicionCertificacion definicion) {

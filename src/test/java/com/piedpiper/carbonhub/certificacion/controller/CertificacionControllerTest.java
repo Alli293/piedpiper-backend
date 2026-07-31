@@ -29,6 +29,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -36,6 +37,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -72,13 +74,15 @@ class CertificacionControllerTest {
     private CertificacionResponseDTO respuesta(String nombre) {
         return new CertificacionResponseDTO(UUID.randomUUID(), UUID.randomUUID(),
                 UUID.randomUUID(), UUID.randomUUID(), "CARBONO_NEUTRAL", nombre,
-                Instant.now(), LocalDate.of(2027, 1, 10), "ACTIVA", true, "jwt.firmado.aqui", false);
+                Instant.now(), LocalDate.of(2027, 1, 10), "ACTIVA", true, "jwt.firmado.aqui", false,
+                "https://carbonhub.example/api/certificaciones/verificar");
     }
 
     private CertificacionResumenResponseDTO resumen(String nombre) {
         return new CertificacionResumenResponseDTO(UUID.randomUUID(), UUID.randomUUID(),
                 UUID.randomUUID(), UUID.randomUUID(), "CARBONO_NEUTRAL", nombre,
-                Instant.now(), LocalDate.of(2027, 1, 10), "ACTIVA", true);
+                Instant.now(), LocalDate.of(2027, 1, 10), "ACTIVA", true,
+                "https://carbonhub.example/api/certificaciones/verificar");
     }
 
     @Test
@@ -113,6 +117,31 @@ class CertificacionControllerTest {
                 .thenThrow(ApiException.recursoNoEncontrado("La certificacion no existe."));
 
         mockMvc.perform(get("/api/certificaciones/" + UUID.randomUUID()).principal(ADMIN_EMPRESA))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_ADMINISTRADOR_EMPRESA")
+    void descargarJsonLdDevuelve200ConContentDispositionYTipoVcLdJson() throws Exception {
+        UUID certificacionId = UUID.randomUUID();
+        when(consultaCertificacionService.descargarJsonLd(any(), any()))
+                .thenReturn(Map.of("id", "urn:uuid:algo", "name", "Carbono Neutral"));
+
+        mockMvc.perform(get("/api/certificaciones/" + certificacionId + "/jsonld").principal(ADMIN_EMPRESA))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "application/vc+ld+json"))
+                .andExpect(header().string("Content-Disposition",
+                        "attachment; filename=\"certificacion-" + certificacionId + ".jsonld\""))
+                .andExpect(jsonPath("$.name").value("Carbono Neutral"));
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_ADMINISTRADOR_EMPRESA")
+    void descargarJsonLdDeOtraEmpresaDevuelve404YNoRevelaSuExistencia() throws Exception {
+        when(consultaCertificacionService.descargarJsonLd(any(), any()))
+                .thenThrow(ApiException.recursoNoEncontrado("La certificacion no existe."));
+
+        mockMvc.perform(get("/api/certificaciones/" + UUID.randomUUID() + "/jsonld").principal(ADMIN_EMPRESA))
                 .andExpect(status().isNotFound());
     }
 

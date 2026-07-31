@@ -85,7 +85,7 @@ class CertificacionAdminControllerTest {
         return new CertificacionResponseDTO(UUID.randomUUID(), UUID.randomUUID(),
                 UUID.randomUUID(), UUID.randomUUID(), "CARBONO_NEUTRAL", "Carbono Neutral",
                 Instant.now(), LocalDate.of(2027, 1, 10), "ACTIVA", true, "jwt.firmado.aqui",
-                recienEmitida);
+                recienEmitida, "https://carbonhub.example/api/certificaciones/verificar");
     }
 
     @Test
