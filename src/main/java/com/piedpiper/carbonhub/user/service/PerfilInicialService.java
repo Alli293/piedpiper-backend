@@ -87,14 +87,14 @@ public class PerfilInicialService {
         }
 
         usuario.setNombreVisible(request.getNombreVisible().trim());
-        usuario.setIdioma(idioma.get().name());
-        usuario.setMoneda(moneda.get().name());
-        usuario.setUnidades(unidades.get().name());
+        usuario.setIdioma(idioma.orElseThrow().name());
+        usuario.setMoneda(moneda.orElseThrow().name());
+        usuario.setUnidades(unidades.orElseThrow().name());
         usuario.setConfiguracionCompleta(true);
 
         Empresa empresa = null;
         if (request.getEmpresa() != null) {
-            empresa = aplicarDatosEmpresa(usuario.getEmpresa(), request.getEmpresa(), sector.get());
+            empresa = aplicarDatosEmpresa(usuario.getEmpresa(), request.getEmpresa(), sector.orElseThrow());
         }
 
         try {

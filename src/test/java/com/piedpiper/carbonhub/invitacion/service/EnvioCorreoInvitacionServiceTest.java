@@ -14,12 +14,16 @@ class EnvioCorreoInvitacionServiceTest {
     @Test
     void envioExitosoNoReintenta() throws Exception {
         AtomicInteger intentos = new AtomicInteger();
-        EmailInvitacionService email = (destinatario, empresa, token) -> intentos.incrementAndGet();
+        CountDownLatch latch = new CountDownLatch(1);
+        EmailInvitacionService email = (destinatario, empresa, token) -> {
+            intentos.incrementAndGet();
+            latch.countDown();
+        };
         EnvioCorreoInvitacionService envio = new EnvioCorreoInvitacionService(email, 5);
 
         envio.enviar("colab@correo.com", "Acme S.A.", "token");
-        Thread.sleep(50);
 
+        assertThat(latch.await(2, TimeUnit.SECONDS)).isTrue();
         assertThat(intentos.get()).isEqualTo(1);
     }
 
@@ -41,9 +45,14 @@ class EnvioCorreoInvitacionServiceTest {
     void reintentoExitosoDetieneLosSiguientes() throws Exception {
         AtomicInteger intentos = new AtomicInteger();
         CountDownLatch latch = new CountDownLatch(2);
+        CountDownLatch latchTercerIntento = new CountDownLatch(1);
         EmailInvitacionService email = (destinatario, empresa, token) -> {
+            int intento = intentos.incrementAndGet();
             latch.countDown();
-            if (intentos.incrementAndGet() == 1) {
+            if (intento >= 3) {
+                latchTercerIntento.countDown();
+            }
+            if (intento == 1) {
                 throw new IllegalStateException("smtp caido");
             }
         };
@@ -52,7 +61,7 @@ class EnvioCorreoInvitacionServiceTest {
         envio.enviar("colab@correo.com", "Acme S.A.", "token");
 
         assertThat(latch.await(2, TimeUnit.SECONDS)).isTrue();
-        Thread.sleep(50);
         assertThat(intentos.get()).isEqualTo(2);
+        assertThat(latchTercerIntento.await(200, TimeUnit.MILLISECONDS)).isFalse();
     }
 }

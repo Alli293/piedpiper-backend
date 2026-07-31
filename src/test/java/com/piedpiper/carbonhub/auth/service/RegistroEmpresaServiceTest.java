@@ -63,7 +63,8 @@ class RegistroEmpresaServiceTest {
                 .thenReturn(new GoogleClaims("sub-1", "rep@gmail.com", true, "Rep", "Rep", "Empresa"));
         when(usuarioRepository.existsByGoogleSub("sub-1")).thenReturn(true);
 
-        assertThatThrownBy(() -> service.registrar(request()))
+        RegistroEmpresaRequestDTO solicitud = request();
+        assertThatThrownBy(() -> service.registrar(solicitud))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.CONFLICT);
@@ -75,7 +76,8 @@ class RegistroEmpresaServiceTest {
         when(googleTokenVerifier.verificar("token"))
                 .thenReturn(new GoogleClaims("sub-1", "rep@gmail.com", false, "Rep", "Rep", "Empresa"));
 
-        assertThatThrownBy(() -> service.registrar(request()))
+        RegistroEmpresaRequestDTO solicitud = request();
+        assertThatThrownBy(() -> service.registrar(solicitud))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);

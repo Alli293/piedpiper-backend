@@ -1,20 +1,12 @@
 package com.piedpiper.carbonhub.auth.controller;
 
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
-import com.piedpiper.carbonhub.auth.models.dtos.MensajeResponseDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.RegistroPendienteResponseDTO;
 import com.piedpiper.carbonhub.auth.service.JwtService;
-import com.piedpiper.carbonhub.auth.service.LoginService;
 import com.piedpiper.carbonhub.auth.service.RegistroAuditorCorreoService;
-import com.piedpiper.carbonhub.auth.service.RegistroAuditorService;
 import com.piedpiper.carbonhub.auth.service.RegistroEmpresaCorreoService;
-import com.piedpiper.carbonhub.auth.service.RegistroEmpresaService;
 import com.piedpiper.carbonhub.auth.service.RegistroInvitacionCorreoService;
-import com.piedpiper.carbonhub.auth.service.RegistroInvitacionService;
 import com.piedpiper.carbonhub.auth.service.RegistroUsuarioCorreoService;
-import com.piedpiper.carbonhub.auth.service.RegistroUsuarioService;
-import com.piedpiper.carbonhub.auth.service.RestablecerContrasenaService;
-import com.piedpiper.carbonhub.auth.service.VerificarCorreoService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 import org.junit.jupiter.api.Test;
@@ -31,48 +23,32 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(controllers = AuthController.class,
+@WebMvcTest(controllers = RegistroCorreoController.class,
         excludeAutoConfiguration = {SecurityAutoConfiguration.class, OAuth2ClientAutoConfiguration.class},
         excludeFilters = @ComponentScan.Filter(
                 type = FilterType.ASSIGNABLE_TYPE, classes = SecurityConfig.class))
 @AutoConfigureMockMvc(addFilters = false)
-class AuthControllerCorreoTest {
-
-    @MockitoBean
-    private RegistroInvitacionService registroInvitacionService;
-    @MockitoBean
-    private RegistroInvitacionCorreoService registroInvitacionCorreoService;
+class RegistroCorreoControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
     @MockitoBean
-    private RegistroUsuarioService registroUsuarioService;
-    @MockitoBean
-    private RegistroEmpresaService registroEmpresaService;
-    @MockitoBean
-    private RegistroAuditorService registroAuditorService;
-    @MockitoBean
-    private RegistroAuditorCorreoService registroAuditorCorreoService;
-    @MockitoBean
-    private LoginService loginService;
-    @MockitoBean
-    private JwtService jwtService;
-    @MockitoBean
-    private UsuarioRepository usuarioRepository;
-    @MockitoBean
     private RegistroUsuarioCorreoService registroUsuarioCorreoService;
     @MockitoBean
     private RegistroEmpresaCorreoService registroEmpresaCorreoService;
     @MockitoBean
-    private VerificarCorreoService verificarCorreoService;
+    private RegistroAuditorCorreoService registroAuditorCorreoService;
     @MockitoBean
-    private RestablecerContrasenaService restablecerContrasenaService;
+    private RegistroInvitacionCorreoService registroInvitacionCorreoService;
+    @MockitoBean
+    private JwtService jwtService;
+    @MockitoBean
+    private UsuarioRepository usuarioRepository;
 
     private static final String REGISTRO_USUARIO_JSON = """
             {"nombre":"Ana","apellidos":"Perez","email":"ana.perez@example.com",
@@ -133,74 +109,37 @@ class AuthControllerCorreoTest {
     }
 
     @Test
-    void verificarCorreoConTokenValidoDevuelve200() throws Exception {
-        String tokenValido = "a".repeat(43);
-        when(verificarCorreoService.verificar(tokenValido))
-                .thenReturn(new MensajeResponseDTO("Tu correo fue verificado. Ya puedes iniciar sesión."));
+    void registroAuditorCorreoValidoDevuelve201() throws Exception {
+        when(registroAuditorCorreoService.registrar(any()))
+                .thenReturn(new RegistroPendienteResponseDTO(
+                        "Registro exitoso. Revisa tu correo para verificar tu cuenta.",
+                        "auditor@example.com"));
 
-        mockMvc.perform(get("/api/auth/verificar-correo").param("token", tokenValido))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.mensaje").value("Tu correo fue verificado. Ya puedes iniciar sesión."));
+        String body = """
+                {"nombre":"Carlos","apellidos":"Ramirez","email":"auditor@example.com",\
+                "contrasena":"segura123","confirmarContrasena":"segura123","aceptaTerminos":true}""";
+
+        mockMvc.perform(post("/api/auth/registro/auditor/correo")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.email").value("auditor@example.com"))
+                .andExpect(jsonPath("$.mensaje").value("Registro exitoso. Revisa tu correo para verificar tu cuenta."));
     }
 
     @Test
-    void verificarCorreoConTokenInexistenteOExpiradoDevuelve410() throws Exception {
-        String token = "a".repeat(43);
-        when(verificarCorreoService.verificar(token))
-                .thenThrow(ApiException.tokenVerificacionInvalido());
+    void registroAuditorCorreoDuplicadoDevuelve409() throws Exception {
+        when(registroAuditorCorreoService.registrar(any()))
+                .thenThrow(ApiException.cuentaDuplicada(
+                        "Ya existe una cuenta con este correo. ¿Deseas iniciar sesión?"));
 
-        mockMvc.perform(get("/api/auth/verificar-correo").param("token", token))
-                .andExpect(status().isGone());
-    }
+        String body = """
+                {"nombre":"Carlos","apellidos":"Ramirez","email":"auditor@example.com",\
+                "contrasena":"segura123","confirmarContrasena":"segura123","aceptaTerminos":true}""";
 
-    @Test
-    void verificarCorreoConTokenMalFormadoDevuelve400() throws Exception {
-        when(verificarCorreoService.verificar("token-corto"))
-                .thenThrow(ApiException.tokenVerificacionMalFormado());
-
-        mockMvc.perform(get("/api/auth/verificar-correo").param("token", "token-corto"))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void verificarCorreoConCuentaYaVerificadaDevuelve409() throws Exception {
-        String token = "a".repeat(43);
-        when(verificarCorreoService.verificar(token))
-                .thenThrow(ApiException.correoYaVerificado());
-
-        mockMvc.perform(get("/api/auth/verificar-correo").param("token", token))
+        mockMvc.perform(post("/api/auth/registro/auditor/correo")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
                 .andExpect(status().isConflict());
-    }
-
-    @Test
-    void reenviarVerificacionValidoDevuelve200() throws Exception {
-        when(verificarCorreoService.reenviar("ana.perez@example.com")).thenReturn(
-                new MensajeResponseDTO("Si tu cuenta requiere verificación, te enviamos un nuevo enlace."));
-
-        mockMvc.perform(post("/api/auth/reenviar-verificacion")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"ana.perez@example.com\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.mensaje")
-                        .value("Si tu cuenta requiere verificación, te enviamos un nuevo enlace."));
-    }
-
-    @Test
-    void reenviarVerificacionConEmailMalFormadoDevuelve400() throws Exception {
-        mockMvc.perform(post("/api/auth/reenviar-verificacion")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"no-es-un-correo\"}"))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void reenviarVerificacionConExcesoDeSolicitudesDevuelve429() throws Exception {
-        when(verificarCorreoService.reenviar("ana.perez@example.com"))
-                .thenThrow(ApiException.reenviosVerificacionExcedidos());
-
-        mockMvc.perform(post("/api/auth/reenviar-verificacion")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"ana.perez@example.com\"}"))
-                .andExpect(status().isTooManyRequests());
     }
 }

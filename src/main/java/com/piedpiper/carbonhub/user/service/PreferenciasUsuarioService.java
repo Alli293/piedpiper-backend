@@ -62,9 +62,13 @@ public class PreferenciasUsuarioService {
             throw ApiException.valorNoSoportado(String.join(" ", errores));
         }
 
-        usuario.setIdioma(idioma.get().name());
-        usuario.setMoneda(moneda.get().name());
-        usuario.setUnidades(unidades.get().name());
+        Idioma idiomaResuelta = idioma.orElseThrow();
+        Moneda monedaResuelta = moneda.orElseThrow();
+        UnidadesMedida unidadesResueltas = unidades.orElseThrow();
+
+        usuario.setIdioma(idiomaResuelta.name());
+        usuario.setMoneda(monedaResuelta.name());
+        usuario.setUnidades(unidadesResueltas.name());
 
         try {
             usuarioRepository.saveAndFlush(usuario);
@@ -74,7 +78,7 @@ public class PreferenciasUsuarioService {
                     "No se pudieron guardar tus preferencias. Intenta nuevamente.");
         }
 
-        return PreferenciasUsuarioResponseDTO.de(idioma.get(), moneda.get(), unidades.get());
+        return PreferenciasUsuarioResponseDTO.de(idiomaResuelta, monedaResuelta, unidadesResueltas);
     }
 
     private Usuario buscarUsuario(UUID usuarioId) {

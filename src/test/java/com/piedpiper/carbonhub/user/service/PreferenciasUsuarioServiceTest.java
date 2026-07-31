@@ -10,6 +10,8 @@ import com.piedpiper.carbonhub.user.models.enums.Rol;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -81,38 +83,18 @@ class PreferenciasUsuarioServiceTest {
         assertThat(response.getUnidades()).isEqualTo("METRICO");
     }
 
-    @Test
-    void idiomaFueraDeCatalogo_rechazaCon422YNoPersiste() {
+    @ParameterizedTest
+    @CsvSource({
+            "FRANCES, CRC, METRICO",
+            "ESPANOL, EUR, METRICO",
+            "ESPANOL, CRC, IMPERIAL"
+    })
+    void valorFueraDeCatalogo_rechazaCon422YNoPersiste(String idioma, String moneda, String unidades) {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
 
-        assertThatThrownBy(() -> service.actualizarPreferencias(
-                USUARIO_ID, new PreferenciasUsuarioRequestDTO("FRANCES", "CRC", "METRICO")))
-                .isInstanceOf(ApiException.class)
-                .satisfies(ex -> assertThat(((ApiException) ex).getStatus())
-                        .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY));
-
-        verify(usuarioRepository, never()).saveAndFlush(any(Usuario.class));
-    }
-
-    @Test
-    void monedaFueraDeCatalogo_rechazaCon422YNoPersiste() {
-        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
-
-        assertThatThrownBy(() -> service.actualizarPreferencias(
-                USUARIO_ID, new PreferenciasUsuarioRequestDTO("ESPANOL", "EUR", "METRICO")))
-                .isInstanceOf(ApiException.class)
-                .satisfies(ex -> assertThat(((ApiException) ex).getStatus())
-                        .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY));
-
-        verify(usuarioRepository, never()).saveAndFlush(any(Usuario.class));
-    }
-
-    @Test
-    void unidadesFueraDeCatalogo_rechazaCon422YNoPersiste() {
-        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
-
-        assertThatThrownBy(() -> service.actualizarPreferencias(
-                USUARIO_ID, new PreferenciasUsuarioRequestDTO("ESPANOL", "CRC", "IMPERIAL")))
+        PreferenciasUsuarioRequestDTO request =
+                new PreferenciasUsuarioRequestDTO(idioma, moneda, unidades);
+        assertThatThrownBy(() -> service.actualizarPreferencias(USUARIO_ID, request))
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> assertThat(((ApiException) ex).getStatus())
                         .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY));
@@ -156,8 +138,9 @@ class PreferenciasUsuarioServiceTest {
         when(usuarioRepository.saveAndFlush(any(Usuario.class)))
                 .thenThrow(new DataAccessResourceFailureException("BD no disponible"));
 
-        assertThatThrownBy(() -> service.actualizarPreferencias(
-                USUARIO_ID, new PreferenciasUsuarioRequestDTO("INGLES", "USD", "METRICO")))
+        PreferenciasUsuarioRequestDTO request =
+                new PreferenciasUsuarioRequestDTO("INGLES", "USD", "METRICO");
+        assertThatThrownBy(() -> service.actualizarPreferencias(USUARIO_ID, request))
                 .isInstanceOf(ApiException.class)
                 .hasMessage("No se pudieron guardar tus preferencias. Intenta nuevamente.")
                 .satisfies(ex -> assertThat(((ApiException) ex).getStatus())
@@ -178,8 +161,9 @@ class PreferenciasUsuarioServiceTest {
     void variosValoresInvalidos_reportaTodosLosErroresEnUnSolo422() {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario()));
 
-        assertThatThrownBy(() -> service.actualizarPreferencias(
-                USUARIO_ID, new PreferenciasUsuarioRequestDTO("FRANCES", "EUR", "IMPERIAL")))
+        PreferenciasUsuarioRequestDTO request =
+                new PreferenciasUsuarioRequestDTO("FRANCES", "EUR", "IMPERIAL");
+        assertThatThrownBy(() -> service.actualizarPreferencias(USUARIO_ID, request))
                 .isInstanceOf(ApiException.class)
                 .hasMessageContaining("idioma")
                 .hasMessageContaining("moneda")

@@ -9,28 +9,13 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.HtmlUtils;
 
+import com.piedpiper.carbonhub.notification.EmailPlantillaHtml;
+
 @Service
 @ConditionalOnProperty(name = "app.email.provider", havingValue = "gmail")
 public class EmailValidacionAuditorServiceImpl implements EmailValidacionAuditorService {
 
-    private static final String PLANTILLA_APROBADO = """
-            <!DOCTYPE html>
-            <html lang="es">
-            <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Solicitud de auditor aprobada - CarbonHub</title>
-            </head>
-            <body style="margin:0; padding:0; background-color:#f0f2f5; font-family:Arial, Helvetica, sans-serif;">
-              <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="background-color:#f0f2f5; padding:32px 16px;">
-                <tr>
-                  <td align="center">
-                    <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px; width:100%%; background-color:#ffffff; border-radius:12px; overflow:hidden; border:1px solid #e2e8f0;">
-                      <tr>
-                        <td style="padding:32px 40px 8px 40px;" align="left">
-                          <span style="font-size:22px; font-weight:700; color:#0e2a3b;">Carbon</span><span style="font-size:22px; font-weight:700; color:#1f8a5b;">Hub</span>
-                        </td>
-                      </tr>
+    private static final String CUERPO_APROBADO = """
                       <tr>
                         <td style="padding:24px 40px 0 40px;">
                           <p style="margin:0 0 16px 0; font-size:16px; color:#0e2a3b;">Hola %s,</p>
@@ -39,50 +24,10 @@ public class EmailValidacionAuditorServiceImpl implements EmailValidacionAuditor
                           </p>
                         </td>
                       </tr>
-                      <tr>
-                        <td style="padding:0 40px 24px 40px;" align="center">
-                          <table role="presentation" cellpadding="0" cellspacing="0">
-                            <tr>
-                              <td style="border-radius:8px; background-color:#1f8a5b;">
-                                <a href="%s" target="_blank" style="display:inline-block; padding:14px 32px; font-size:15px; font-weight:600; color:#ffffff; text-decoration:none; border-radius:8px;">
-                                  Ir a iniciar sesión
-                                </a>
-                              </td>
-                            </tr>
-                          </table>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="padding:24px 40px; border-top:1px solid #e2e8f0;" align="center">
-                          <p style="margin:0; font-size:12px; color:#8a9bae;">CarbonHub — Costa Rica</p>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
-            </body>
-            </html>
+                      %s
             """;
 
-    private static final String PLANTILLA_RECHAZADO = """
-            <!DOCTYPE html>
-            <html lang="es">
-            <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Solicitud de auditor rechazada - CarbonHub</title>
-            </head>
-            <body style="margin:0; padding:0; background-color:#f0f2f5; font-family:Arial, Helvetica, sans-serif;">
-              <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="background-color:#f0f2f5; padding:32px 16px;">
-                <tr>
-                  <td align="center">
-                    <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px; width:100%%; background-color:#ffffff; border-radius:12px; overflow:hidden; border:1px solid #e2e8f0;">
-                      <tr>
-                        <td style="padding:32px 40px 8px 40px;" align="left">
-                          <span style="font-size:22px; font-weight:700; color:#0e2a3b;">Carbon</span><span style="font-size:22px; font-weight:700; color:#1f8a5b;">Hub</span>
-                        </td>
-                      </tr>
+    private static final String CUERPO_RECHAZADO = """
                       <tr>
                         <td style="padding:24px 40px 0 40px;">
                           <p style="margin:0 0 16px 0; font-size:16px; color:#0e2a3b;">Hola %s,</p>
@@ -94,17 +39,6 @@ public class EmailValidacionAuditorServiceImpl implements EmailValidacionAuditor
                           </p>
                         </td>
                       </tr>
-                      <tr>
-                        <td style="padding:24px 40px; border-top:1px solid #e2e8f0;" align="center">
-                          <p style="margin:0; font-size:12px; color:#8a9bae;">CarbonHub — Costa Rica</p>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
-            </body>
-            </html>
             """;
 
     private final JavaMailSender mailSender;
@@ -123,14 +57,17 @@ public class EmailValidacionAuditorServiceImpl implements EmailValidacionAuditor
     public void enviarResultadoValidacion(String nombre, String email, boolean aprobado, String motivoRechazo) {
         String nombreEscapado = HtmlUtils.htmlEscape(nombre);
         if (aprobado) {
-            String html = PLANTILLA_APROBADO.formatted(nombreEscapado, loginUrl);
+            String boton = EmailPlantillaHtml.boton(loginUrl, "Ir a iniciar sesión");
+            String cuerpo = CUERPO_APROBADO.formatted(nombreEscapado, boton);
+            String html = EmailPlantillaHtml.documento("Solicitud de auditor aprobada - CarbonHub", cuerpo);
             String textoPlano = "Hola %s,\n\n".formatted(nombre)
                     + "Tu solicitud para convertirte en auditor en CarbonHub fue aprobada. "
                     + "Ya puedes iniciar sesión aquí:\n" + loginUrl;
             enviar(email, "Solicitud de auditor aprobada - CarbonHub", textoPlano, html);
         } else {
             String motivoEscapado = HtmlUtils.htmlEscape(motivoRechazo);
-            String html = PLANTILLA_RECHAZADO.formatted(nombreEscapado, motivoEscapado);
+            String cuerpo = CUERPO_RECHAZADO.formatted(nombreEscapado, motivoEscapado);
+            String html = EmailPlantillaHtml.documento("Solicitud de auditor rechazada - CarbonHub", cuerpo);
             String textoPlano = "Hola %s,\n\n".formatted(nombre)
                     + "Tu solicitud para convertirte en auditor en CarbonHub fue rechazada.\n\n"
                     + "Motivo: " + motivoRechazo;

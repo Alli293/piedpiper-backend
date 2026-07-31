@@ -90,7 +90,8 @@ class RegistroAuditorCorreoServiceTest {
     void emailDuplicadoPreexistente_lanza409YNoPersiste() {
         when(usuarioRepository.existsByEmailIgnoreCase("carlos.lopez@example.com")).thenReturn(true);
 
-        assertThatThrownBy(() -> service.registrar(request()))
+        RegistroAuditorCorreoRequestDTO solicitud = request();
+        assertThatThrownBy(() -> service.registrar(solicitud))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.CONFLICT);
@@ -106,7 +107,8 @@ class RegistroAuditorCorreoServiceTest {
         when(usuarioRepository.saveAndFlush(any(Usuario.class)))
                 .thenThrow(new RuntimeException("DB connection lost"));
 
-        assertThatThrownBy(() -> service.registrar(request()))
+        RegistroAuditorCorreoRequestDTO solicitud = request();
+        assertThatThrownBy(() -> service.registrar(solicitud))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);

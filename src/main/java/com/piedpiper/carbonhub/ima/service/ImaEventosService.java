@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.Month;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -77,33 +78,39 @@ public class ImaEventosService {
         ImaTendenciaPuntoDTO anterior = null;
 
         for (ImaTendenciaPuntoDTO actual : serie) {
-            if (tieneAmbos(actual)) {
-                // Solo se compara contra el mes calendario inmediatamente anterior:
-                // si hay un hueco en medio, no se atraviesa para inventar un cruce.
-                if (anterior != null && esMesSiguiente(anterior, actual)) {
-                    int signoAnterior = comparar(anterior);
-                    int signoActual = comparar(actual);
-                    // Solo hay cruce si el lado cambia; empatar no cuenta como cruce.
-                    if (signoAnterior != 0 && signoActual != 0 && signoAnterior != signoActual) {
-                        eventos.add(ImaEventoDTO.builder()
-                                .mes(actual.getMes())
-                                .tipo(TipoEventoIma.CRUCE_SECTOR)
-                                .texto(signoActual > 0
-                                        ? "En " + nombrarMes(actual.getMes())
-                                          + " tu IMA superó el promedio de tu sector."
-                                        : "En " + nombrarMes(actual.getMes())
-                                          + " tu IMA quedó por debajo del promedio de tu sector.")
-                                .build());
-                    }
-                }
-                anterior = actual;
-            } else {
+            if (!tieneAmbos(actual)) {
                 // Un mes sin ambos valores corta la comparación: el próximo punto
                 // no debe compararse contra un mes que ya no es su predecesor.
                 anterior = null;
+                continue;
             }
+            // Solo se compara contra el mes calendario inmediatamente anterior:
+            // si hay un hueco en medio, no se atraviesa para inventar un cruce.
+            if (anterior != null && esMesSiguiente(anterior, actual)) {
+                detectarCruce(anterior, actual).ifPresent(eventos::add);
+            }
+            anterior = actual;
         }
         return eventos;
+    }
+
+    /** Cruce entre {@code anterior} y {@code actual} si el lado respecto al sector cambió. */
+    private Optional<ImaEventoDTO> detectarCruce(ImaTendenciaPuntoDTO anterior, ImaTendenciaPuntoDTO actual) {
+        int signoAnterior = comparar(anterior);
+        int signoActual = comparar(actual);
+        // Solo hay cruce si el lado cambia; empatar no cuenta como cruce.
+        if (signoAnterior == 0 || signoActual == 0 || signoAnterior == signoActual) {
+            return Optional.empty();
+        }
+        return Optional.of(ImaEventoDTO.builder()
+                .mes(actual.getMes())
+                .tipo(TipoEventoIma.CRUCE_SECTOR)
+                .texto(signoActual > 0
+                        ? "En " + nombrarMes(actual.getMes())
+                          + " tu IMA superó el promedio de tu sector."
+                        : "En " + nombrarMes(actual.getMes())
+                          + " tu IMA quedó por debajo del promedio de tu sector.")
+                .build());
     }
 
     /** true si {@code actual} es exactamente el mes calendario siguiente a {@code anterior}. */
@@ -174,7 +181,7 @@ public class ImaEventosService {
     }
 
     /**
-     * Primera aparición de cada categoría. Se recorre todo el historial disponible,
+     * Primera aparición de cada categoría. Se recorre el historial completo disponible,
      * de modo que una categoría ya registrada antes de la ventana no genera evento.
      */
     private List<ImaEventoDTO> detectarNuevasCategorias(Map<YearMonth, Set<CategoriaEmision>> categoriasPorMes,
@@ -201,14 +208,14 @@ public class ImaEventosService {
     }
 
     /**
-     * Carga las categorías registradas por la empresa en TODO su historial, no solo en la
+     * Carga las categorías registradas por la empresa en la totalidad de su historial, no solo en la
      * ventana. Es intencional: NUEVA_CATEGORIA necesita saber si una categoría ya existía
      * antes de la ventana para no marcarla como nueva. Por eso no recibe la fecha de inicio
      * de la ventana; consulta desde el comienzo del historial.
      */
     private Map<YearMonth, Set<CategoriaEmision>> cargarCategoriasPorMes(UUID empresaId) {
         List<CategoriaMensual> filas = emisionRepository.listarCategoriasPorMes(
-                empresaId, LocalDate.of(1970, 1, 1));
+                empresaId, LocalDate.of(1970, Month.JANUARY, 1));
 
         Map<YearMonth, Set<CategoriaEmision>> porMes = new HashMap<>();
         for (CategoriaMensual fila : filas) {

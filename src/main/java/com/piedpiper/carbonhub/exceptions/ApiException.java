@@ -314,4 +314,19 @@ public class ApiException extends RuntimeException {
                 "Ya existe una solicitud de auditoría en curso para un período que se traslapa "
                         + "con el seleccionado.");
     }
+
+    public static ApiException resultadoAuditoriaNoAprobado() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "Solo se emite una certificacion para auditorias con resultado 'aprobada'.");
+    }
+
+    public static ApiException fechaVencimientoCertInvalida() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "La fecha de vencimiento de la certificacion debe ser posterior a la fecha de la auditoria.");
+    }
+
+    public static ApiException auditorNoValido() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "El usuario indicado no tiene el rol de auditor certificado activo.");
+    }
 }

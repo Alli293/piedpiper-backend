@@ -9,7 +9,6 @@ import net.jqwik.api.constraints.*;
 import net.jqwik.api.lifecycle.BeforeTry;
 
 import org.mockito.ArgumentCaptor;
-import org.mockito.Mockito;
 import org.springframework.ai.chat.client.ChatClient;
 
 import java.math.BigDecimal;
@@ -36,11 +35,11 @@ class ImaInterpretacionServicePropertyTest {
 
     @BeforeTry
     void setUp() {
-        chatClientBuilder = Mockito.mock(ChatClient.Builder.class);
-        chatClient = Mockito.mock(ChatClient.class);
-        requestSpec = Mockito.mock(ChatClient.ChatClientRequestSpec.class);
-        callResponseSpec = Mockito.mock(ChatClient.CallResponseSpec.class);
-        imaSnapshotRepository = Mockito.mock(ImaSnapshotRepository.class);
+        chatClientBuilder = mock(ChatClient.Builder.class);
+        chatClient = mock(ChatClient.class);
+        requestSpec = mock(ChatClient.ChatClientRequestSpec.class);
+        callResponseSpec = mock(ChatClient.CallResponseSpec.class);
+        imaSnapshotRepository = mock(ImaSnapshotRepository.class);
 
         when(chatClientBuilder.build()).thenReturn(chatClient);
         when(chatClient.prompt()).thenReturn(requestSpec);

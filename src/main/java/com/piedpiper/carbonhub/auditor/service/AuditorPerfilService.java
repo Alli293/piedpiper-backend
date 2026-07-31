@@ -2,7 +2,6 @@ package com.piedpiper.carbonhub.auditor.service;
 
 import com.piedpiper.carbonhub.auditor.mappers.PerfilAuditorMapper;
 import com.piedpiper.carbonhub.auditor.models.dtos.ActualizarPerfilAuditorRequestDTO;
-import com.piedpiper.carbonhub.auditor.models.dtos.PerfilAuditorResponseDTO;
 import com.piedpiper.carbonhub.auditor.models.dtos.ResultadoPerfil;
 import com.piedpiper.carbonhub.auditor.models.entities.PerfilAuditor;
 import com.piedpiper.carbonhub.auditor.models.enums.EspecialidadAuditor;
@@ -73,7 +72,7 @@ public class AuditorPerfilService {
         // 5. Validar membership en catálogos usando Catalogos.desde()
         List<String> especialidadesInvalidas = request.getEspecialidades().stream()
                 .filter(e -> Catalogos.desde(EspecialidadAuditor.class, e).isEmpty())
-                .collect(Collectors.toList());
+                .toList();
 
         if (!especialidadesInvalidas.isEmpty()) {
             throw ApiException.especialidadesInvalidas(especialidadesInvalidas);
@@ -81,7 +80,7 @@ public class AuditorPerfilService {
 
         List<String> zonasInvalidas = request.getZonasCobertura().stream()
                 .filter(z -> Catalogos.desde(ProvinciaCR.class, z).isEmpty())
-                .collect(Collectors.toList());
+                .toList();
 
         if (!zonasInvalidas.isEmpty()) {
             throw ApiException.zonasInvalidas(zonasInvalidas);

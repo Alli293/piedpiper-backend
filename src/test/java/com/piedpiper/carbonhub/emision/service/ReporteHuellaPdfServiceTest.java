@@ -5,8 +5,7 @@ import com.piedpiper.carbonhub.emision.models.entities.Emision;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionElectricidad;
 import com.piedpiper.carbonhub.emision.models.entities.EmisionFlota;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
-import com.piedpiper.carbonhub.empresa.mappers.EmpresaMapper;
-import com.piedpiper.carbonhub.empresa.models.dtos.EmpresaReporteDTO;
+import com.piedpiper.carbonhub.empresa.mappers.EmpresaMapperImpl;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.limite.models.entities.LimiteEmisiones;
@@ -21,7 +20,6 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
@@ -42,14 +40,14 @@ class ReporteHuellaPdfServiceTest {
     @Mock
     private LimiteEmisionesRepository limiteEmisionesRepository;
     @Mock
-    private EmpresaMapper empresaMapper;
-    @Mock
     private UsuarioRepository usuarioRepository;
     @Mock
     private ReporteHuellaPdfGenerator pdfGenerator;
 
-    @InjectMocks
-    private ReporteHuellaPdfService service;
+    private ReporteHuellaPdfService service() {
+        return new ReporteHuellaPdfService(
+                emisionRepository, limiteEmisionesRepository, new EmpresaMapperImpl(), usuarioRepository, pdfGenerator);
+    }
 
     @Test
     void generaPdfConResumenAgregado() {
@@ -71,7 +69,7 @@ class ReporteHuellaPdfServiceTest {
                 .thenReturn(new BigDecimal("1500.000"));
         when(pdfGenerator.generar(org.mockito.ArgumentMatchers.any())).thenReturn("%PDF".getBytes());
 
-        byte[] pdf = service.generar(USUARIO_ID, 2026, null);
+        byte[] pdf = service().generar(USUARIO_ID, 2026, null);
 
         ArgumentCaptor<ReporteHuellaPdfDTO> captor = ArgumentCaptor.forClass(ReporteHuellaPdfDTO.class);
         verify(pdfGenerator).generar(captor.capture());
@@ -94,7 +92,7 @@ class ReporteHuellaPdfServiceTest {
         when(limiteEmisionesRepository.findByEmpresaIdAndAnio(EMPRESA_ID, 2026)).thenReturn(Optional.empty());
         when(pdfGenerator.generar(org.mockito.ArgumentMatchers.any())).thenReturn("%PDF".getBytes());
 
-        byte[] pdf = service.generar(USUARIO_ID, 2026, 7);
+        byte[] pdf = service().generar(USUARIO_ID, 2026, 7);
 
         ArgumentCaptor<ReporteHuellaPdfDTO> captor = ArgumentCaptor.forClass(ReporteHuellaPdfDTO.class);
         verify(pdfGenerator).generar(captor.capture());
@@ -121,7 +119,7 @@ class ReporteHuellaPdfServiceTest {
                 .thenReturn(new BigDecimal("2500.000"));
         when(pdfGenerator.generar(org.mockito.ArgumentMatchers.any())).thenReturn("%PDF".getBytes());
 
-        service.generar(USUARIO_ID, 2026, 7);
+        service().generar(USUARIO_ID, 2026, 7);
 
         ArgumentCaptor<ReporteHuellaPdfDTO> captor = ArgumentCaptor.forClass(ReporteHuellaPdfDTO.class);
         verify(pdfGenerator).generar(captor.capture());
@@ -137,7 +135,8 @@ class ReporteHuellaPdfServiceTest {
                 .build();
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario));
 
-        assertThatThrownBy(() -> service.generar(USUARIO_ID, 2026, null))
+        ReporteHuellaPdfService servicio = service();
+        assertThatThrownBy(() -> servicio.generar(USUARIO_ID, 2026, null))
                 .isInstanceOf(ApiException.class)
                 .extracting("status")
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
@@ -145,7 +144,8 @@ class ReporteHuellaPdfServiceTest {
 
     @Test
     void fallaSiAnioEsInvalido() {
-        assertThatThrownBy(() -> service.generar(USUARIO_ID, 1899, null))
+        ReporteHuellaPdfService servicio = service();
+        assertThatThrownBy(() -> servicio.generar(USUARIO_ID, 1899, null))
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> {
                     ApiException apiException = (ApiException) ex;
@@ -156,7 +156,8 @@ class ReporteHuellaPdfServiceTest {
 
     @Test
     void fallaSiMesEsInvalido() {
-        assertThatThrownBy(() -> service.generar(USUARIO_ID, 2026, 13))
+        ReporteHuellaPdfService servicio = service();
+        assertThatThrownBy(() -> servicio.generar(USUARIO_ID, 2026, 13))
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> {
                     ApiException apiException = (ApiException) ex;
@@ -171,8 +172,6 @@ class ReporteHuellaPdfServiceTest {
                 .empresa(empresa)
                 .build();
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario));
-        when(empresaMapper.toReporteDto(empresa))
-                .thenReturn(new EmpresaReporteDTO(EMPRESA_ID, "CarbonHub Demo"));
     }
 
     private Empresa empresa() {

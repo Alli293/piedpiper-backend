@@ -14,7 +14,6 @@ import net.jqwik.api.Provide;
 import net.jqwik.api.Combinators;
 import net.jqwik.api.Arbitraries;
 
-import org.mockito.Mockito;
 import org.springframework.http.HttpStatus;
 
 import java.util.List;
@@ -22,14 +21,15 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
 
 // Feature: PP-54-gestion-especialidades-auditor, Property 2: Ownership enforcement rejects mismatched IDs
 // Validates: Requirements 2.1
 class AuditorPerfilServiceOwnershipPropertyTest {
 
-    private final PerfilAuditorRepository perfilAuditorRepository = Mockito.mock(PerfilAuditorRepository.class);
-    private final UsuarioRepository usuarioRepository = Mockito.mock(UsuarioRepository.class);
-    private final PerfilAuditorMapper perfilAuditorMapper = Mockito.mock(PerfilAuditorMapper.class);
+    private final PerfilAuditorRepository perfilAuditorRepository = mock(PerfilAuditorRepository.class);
+    private final UsuarioRepository usuarioRepository = mock(UsuarioRepository.class);
+    private final PerfilAuditorMapper perfilAuditorMapper = mock(PerfilAuditorMapper.class);
 
     private final AuditorPerfilService service = new AuditorPerfilService(
             perfilAuditorRepository, usuarioRepository, perfilAuditorMapper);

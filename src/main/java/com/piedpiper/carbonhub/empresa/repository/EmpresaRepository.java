@@ -1,6 +1,7 @@
 package com.piedpiper.carbonhub.empresa.repository;
 
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
+import com.piedpiper.carbonhub.empresa.models.enums.EstadoEmpresa;
 import com.piedpiper.carbonhub.empresa.models.enums.SectorIndustrial;
 
 import jakarta.persistence.LockModeType;
@@ -32,4 +33,5 @@ public interface EmpresaRepository extends JpaRepository<Empresa, UUID> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select e from Empresa e where e.id = :empresaId")
     Optional<Empresa> bloquearPorId(UUID empresaId);
+    Optional<Empresa> findBySlugAndEstado(String slug, EstadoEmpresa estado);
 }
