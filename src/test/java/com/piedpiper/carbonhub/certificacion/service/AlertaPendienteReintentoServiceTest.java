@@ -17,6 +17,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -70,7 +71,7 @@ class AlertaPendienteReintentoServiceTest {
 
     private void pendientes(List<Alerta> alertas) {
         when(alertaRepository.findTop50ByEstadoAndIntentosEnvioLessThanOrderByFechaGeneracionAsc(
-                any(EstadoAlerta.class), org.mockito.ArgumentMatchers.anyInt()))
+                any(EstadoAlerta.class), anyInt()))
                 .thenReturn(alertas);
     }
 

@@ -20,6 +20,11 @@ import java.util.List;
  * la restriccion de unicidad hace que la alerta ya exista.</p>
  *
  * <p>Un fallo al notificar una alerta no detiene a las demas: cada una va en su propio try/catch.</p>
+ *
+ * <p>Que este barrido y el proceso nocturno puedan mirar la misma alerta no genera correos
+ * duplicados, y no porque el scheduler tenga un solo hilo: lo garantiza el UPDATE condicional de
+ * {@code AlertaRepository.reclamarParaEnvio}, que solo le entrega la fila a uno. Sigue siendo cierto
+ * con el pool mas grande o con varias instancias corriendo en paralelo.</p>
  */
 @Service
 public class AlertaPendienteReintentoService {
