@@ -12,8 +12,10 @@ import com.piedpiper.carbonhub.auth.config.JwtAuthenticationFilter;
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
 import com.piedpiper.carbonhub.dashboard.models.dtos.CalendarioVencimientosResponseDTO;
 import com.piedpiper.carbonhub.dashboard.models.dtos.CertificacionVencimientoDTO;
+import com.piedpiper.carbonhub.dashboard.models.dtos.ResumenCertificacionesDashboardResponseDTO;
 import com.piedpiper.carbonhub.dashboard.models.dtos.ResumenHuellaDashboardResponseDTO;
 import com.piedpiper.carbonhub.dashboard.service.CalendarioVencimientosService;
+import com.piedpiper.carbonhub.dashboard.service.DashboardCertificacionesService;
 import com.piedpiper.carbonhub.dashboard.service.DashboardHuellaService;
 import java.math.BigDecimal;
 import java.util.List;
@@ -58,6 +60,8 @@ class DashboardControllerTest {
 
     @MockitoBean
     private DashboardHuellaService dashboardHuellaService;
+    @MockitoBean
+    private DashboardCertificacionesService dashboardCertificacionesService;
     @MockitoBean
     private CalendarioVencimientosService calendarioVencimientosService;
 
@@ -133,6 +137,31 @@ class DashboardControllerTest {
         mockMvc.perform(get("/api/dashboard/huella")
                         .principal(principal("ROLE_AUDITOR_CERTIFICADO"))
                         .param("periodo", "mes_actual"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("No tiene permisos para realizar esta acción."));
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
+    void obtenerCertificacionesDevuelve200ConLosTresConteos() throws Exception {
+        when(dashboardCertificacionesService.obtenerResumen(UUID.fromString(USUARIO_ID)))
+                .thenReturn(new ResumenCertificacionesDashboardResponseDTO(5, 3, 1));
+
+        mockMvc.perform(get("/api/dashboard/certificaciones")
+                        .principal(principal("ROLE_ADMINISTRADOR_EMPRESA")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.activas").value(5))
+                .andExpect(jsonPath("$.proximasAVencer").value(3))
+                .andExpect(jsonPath("$.vencidas").value(1));
+
+        verify(dashboardCertificacionesService).obtenerResumen(UUID.fromString(USUARIO_ID));
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
+    void obtenerCertificacionesRolNoAutorizadoDevuelve403() throws Exception {
+        mockMvc.perform(get("/api/dashboard/certificaciones")
+                        .principal(principal("ROLE_AUDITOR_CERTIFICADO")))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value("No tiene permisos para realizar esta acción."));
     }
