@@ -6,6 +6,7 @@ import com.piedpiper.carbonhub.perfilpublico.exceptions.PerfilNoEncontradoExcept
 import com.piedpiper.carbonhub.perfilpublico.models.dtos.PerfilPublicoResponseDTO;
 import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoCertificacionesService;
 import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoConsultaService;
+import com.piedpiper.carbonhub.insignia.service.InsigniaEmpresaConsultaService;
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
 import com.piedpiper.carbonhub.auth.service.JwtService;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
@@ -24,6 +25,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -54,6 +56,8 @@ class ContentSecurityPolicyFilterTest {
     private PerfilPublicoConsultaService perfilPublicoConsultaService;
     @MockitoBean
     private PerfilPublicoCertificacionesService perfilPublicoCertificacionesService;
+    @MockitoBean
+    private InsigniaEmpresaConsultaService insigniaEmpresaConsultaService;
     @MockitoBean
     private JwtService jwtService;
     @MockitoBean
@@ -104,5 +108,26 @@ class ContentSecurityPolicyFilterTest {
         // recibir la cabecera CSP del filtro.
         mockMvc.perform(get("/api/otra-ruta"))
                 .andExpect(header().doesNotExist(CSP_HEADER));
+    }
+
+    @Test
+    void respuestaNoContieneSetCookieEnEndpointPublico() throws Exception {
+        PerfilPublicoResponseDTO dto = new PerfilPublicoResponseDTO();
+        dto.setNombreEmpresa("Empresa Verde S.A.");
+        dto.setSectorIndustrial("Tecnología");
+        dto.setPais("Costa Rica");
+        dto.setNivelEcologico("Oro");
+        dto.setFechaActualizacionNivel(Instant.parse("2025-01-15T10:00:00Z"));
+        dto.setCertificacionesVigentes(3);
+        dto.setInsigniasActivas(2);
+
+        when(perfilPublicoConsultaService.obtenerPorSlug(SLUG)).thenReturn(dto);
+
+        mockMvc.perform(get("/api/perfil-publico/{slug}", SLUG))
+                .andExpect(status().isOk())
+                .andExpect(result -> {
+                    var setCookieHeaders = result.getResponse().getHeaders("Set-Cookie");
+                    assertThat(setCookieHeaders).isEmpty();
+                });
     }
 }
