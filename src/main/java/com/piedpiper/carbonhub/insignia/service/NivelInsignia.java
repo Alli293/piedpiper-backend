@@ -17,6 +17,10 @@ public enum NivelInsignia {
         return codigo;
     }
 
+    public int getOrden() {
+        return ordinal();
+    }
+
     public Optional<NivelInsignia> anterior() {
         return switch (this) {
             case BRONCE -> Optional.empty();

@@ -14,7 +14,7 @@ class CatalogoTiposCertificacionTest {
     private final CatalogoTiposCertificacion catalogo = new CatalogoTiposCertificacion();
 
     @Test
-    void resuelveLosSieteTiposDelCatalogo() {
+    void resuelveTodosLosTiposDelCatalogo() {
         assertThat(catalogo.listar()).hasSize(TipoCertificacion.values().length);
         for (TipoCertificacion tipo : TipoCertificacion.values()) {
             assertThat(catalogo.buscar(tipo)).as("falta la definicion de %s", tipo).isPresent();
@@ -30,6 +30,7 @@ class CatalogoTiposCertificacionTest {
         assertThat(vigencia(TipoCertificacion.CARBONO_NEUTRAL_PLUS)).isEqualTo(12);
         assertThat(vigencia(TipoCertificacion.ADAPTACION_CLIMATICA)).isEqualTo(24);
         assertThat(vigencia(TipoCertificacion.HUELLA_PRODUCTO)).isEqualTo(36);
+        assertThat(vigencia(TipoCertificacion.EXCELENCIA_CLIMATICA_EMPRESARIAL)).isEqualTo(24);
     }
 
     @Test
@@ -44,6 +45,8 @@ class CatalogoTiposCertificacionTest {
                 .isEqualTo(TipoLogroOpenBadges.QUALITY_ASSURANCE_CREDENTIAL);
         assertThat(tipoLogro(TipoCertificacion.REDUCCION_EMISIONES))
                 .isEqualTo(TipoLogroOpenBadges.CERTIFICATE);
+        assertThat(tipoLogro(TipoCertificacion.EXCELENCIA_CLIMATICA_EMPRESARIAL))
+                .isEqualTo(TipoLogroOpenBadges.CERTIFICATION);
     }
 
     @Test
@@ -66,6 +69,8 @@ class CatalogoTiposCertificacionTest {
                 .contains(TipoCertificacion.CARBONO_NEUTRAL);
         assertThat(TipoCertificacion.desde("CARBONO_NEUTRAL"))
                 .contains(TipoCertificacion.CARBONO_NEUTRAL);
+        assertThat(TipoCertificacion.desde("excelencia_climatica_empresarial"))
+                .contains(TipoCertificacion.EXCELENCIA_CLIMATICA_EMPRESARIAL);
         assertThat(TipoCertificacion.desde("inexistente")).isEmpty();
         assertThat(TipoCertificacion.desde(null)).isEmpty();
     }

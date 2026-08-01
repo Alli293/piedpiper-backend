@@ -63,7 +63,7 @@ class InsigniaEmpresaEvaluacionServiceTest {
     void otorgaBronceCuandoCumpleRequisitosDelCatalogo() {
         CatalogoInsignia bronce = insignia(1L, "bronce", 1,
                 Set.of(TipoCertificacion.CARBONO_NEUTRAL));
-        when(catalogoInsigniaRepository.findByActivaTrueOrderByIdInsigniaAscNivelInsigniaAsc())
+        when(catalogoInsigniaRepository.findByActivaTrue())
                 .thenReturn(List.of(bronce));
         when(insigniaEmpresaRepository.existsByEmpresaIdAndIdInsigniaAndNivelInsignia(
                 ID_EMPRESA, 1L, "bronce"))
@@ -90,7 +90,7 @@ class InsigniaEmpresaEvaluacionServiceTest {
     @Test
     void noOtorgaPlataSiNoExisteBroncePrevio() {
         CatalogoInsignia plata = insignia(1L, "plata", 2, Set.of());
-        when(catalogoInsigniaRepository.findByActivaTrueOrderByIdInsigniaAscNivelInsigniaAsc())
+        when(catalogoInsigniaRepository.findByActivaTrue())
                 .thenReturn(List.of(plata));
         when(insigniaEmpresaRepository.existsByEmpresaIdAndIdInsigniaAndNivelInsignia(
                 ID_EMPRESA, 1L, "bronce"))
@@ -104,7 +104,7 @@ class InsigniaEmpresaEvaluacionServiceTest {
     @Test
     void otorgaPlataConBroncePrevioYRequisitosCumplidos() {
         CatalogoInsignia plata = insignia(1L, "plata", 2, Set.of());
-        when(catalogoInsigniaRepository.findByActivaTrueOrderByIdInsigniaAscNivelInsigniaAsc())
+        when(catalogoInsigniaRepository.findByActivaTrue())
                 .thenReturn(List.of(plata));
         when(insigniaEmpresaRepository.existsByEmpresaIdAndIdInsigniaAndNivelInsignia(
                 ID_EMPRESA, 1L, "bronce"))
@@ -127,9 +127,41 @@ class InsigniaEmpresaEvaluacionServiceTest {
     }
 
     @Test
+    void otorgaBroncePlataYOroEnUnaSolaEvaluacionAunqueCatalogoVengaOrdenadoAlfabeticamente() {
+        CatalogoInsignia bronce = insignia(1L, "bronce", 1, Set.of());
+        CatalogoInsignia oro = insignia(1L, "oro", 3, Set.of());
+        CatalogoInsignia plata = insignia(1L, "plata", 2, Set.of());
+        when(catalogoInsigniaRepository.findByActivaTrue())
+                .thenReturn(List.of(bronce, oro, plata));
+        when(insigniaEmpresaRepository.existsByEmpresaIdAndIdInsigniaAndNivelInsignia(
+                ID_EMPRESA, 1L, "bronce"))
+                .thenReturn(false, true);
+        when(insigniaEmpresaRepository.existsByEmpresaIdAndIdInsigniaAndNivelInsignia(
+                ID_EMPRESA, 1L, "plata"))
+                .thenReturn(false, true);
+        when(insigniaEmpresaRepository.existsByEmpresaIdAndIdInsigniaAndNivelInsignia(
+                ID_EMPRESA, 1L, "oro"))
+                .thenReturn(false);
+        when(certificacionRepository.countByEmpresaIdAndEstado(
+                ID_EMPRESA, EstadoCertificacion.ACTIVA))
+                .thenReturn(3L);
+        when(empresaRepository.findById(ID_EMPRESA))
+                .thenReturn(Optional.of(Empresa.builder().id(ID_EMPRESA).build()));
+
+        service.evaluarPorNuevaCertificacion(ID_EMPRESA);
+
+        ArgumentCaptor<InsigniaEmpresa> captor =
+                ArgumentCaptor.forClass(InsigniaEmpresa.class);
+        verify(insigniaEmpresaRegistroService, times(3)).registrar(captor.capture());
+        assertThat(captor.getAllValues())
+                .extracting(InsigniaEmpresa::getNivelInsignia)
+                .containsExactly("bronce", "plata", "oro");
+    }
+
+    @Test
     void noDuplicaInsigniaYaOtorgada() {
         CatalogoInsignia bronce = insignia(1L, "bronce", 1, Set.of());
-        when(catalogoInsigniaRepository.findByActivaTrueOrderByIdInsigniaAscNivelInsigniaAsc())
+        when(catalogoInsigniaRepository.findByActivaTrue())
                 .thenReturn(List.of(bronce));
         when(insigniaEmpresaRepository.existsByEmpresaIdAndIdInsigniaAndNivelInsignia(
                 ID_EMPRESA, 1L, "bronce"))
@@ -144,7 +176,7 @@ class InsigniaEmpresaEvaluacionServiceTest {
     void falloAlRegistrarUnaInsigniaPermiteEvaluarLasDemas() {
         CatalogoInsignia primera = insignia(1L, "bronce", 1, Set.of());
         CatalogoInsignia segunda = insignia(2L, "bronce", 1, Set.of());
-        when(catalogoInsigniaRepository.findByActivaTrueOrderByIdInsigniaAscNivelInsigniaAsc())
+        when(catalogoInsigniaRepository.findByActivaTrue())
                 .thenReturn(List.of(primera, segunda));
         when(insigniaEmpresaRepository.existsByEmpresaIdAndIdInsigniaAndNivelInsignia(
                 ID_EMPRESA, 1L, "bronce"))
@@ -169,7 +201,7 @@ class InsigniaEmpresaEvaluacionServiceTest {
     @Test
     void nivelInvalidoEsRechazadoPorElProcesoDeOtorgamiento() {
         CatalogoInsignia invalida = insignia(1L, "diamante", 1, Set.of());
-        when(catalogoInsigniaRepository.findByActivaTrueOrderByIdInsigniaAscNivelInsigniaAsc())
+        when(catalogoInsigniaRepository.findByActivaTrue())
                 .thenReturn(List.of(invalida));
 
         service.evaluarPorNuevaCertificacion(ID_EMPRESA);

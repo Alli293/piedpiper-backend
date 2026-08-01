@@ -72,7 +72,14 @@ public class CatalogoTiposCertificacion {
                                 + "de su ciclo de vida.",
                         36, TipoLogroOpenBadges.QUALITY_ASSURANCE_CREDENTIAL,
                         "Presentar el analisis de ciclo de vida del producto y superar la auditoria "
-                                + "de CarbonHub."));
+                                + "de CarbonHub."),
+                new DefinicionCertificacion(TipoCertificacion.EXCELENCIA_CLIMATICA_EMPRESARIAL,
+                        "Excelencia Climatica Empresarial",
+                        "La organizacion demostro una gestion climatica integral, sostenida y "
+                                + "verificable sobre sus operaciones.",
+                        24, TipoLogroOpenBadges.CERTIFICATION,
+                        "Mantener evidencias auditadas de inventario, reduccion y neutralidad "
+                                + "climatica, con trazabilidad suficiente para verificacion externa."));
 
         this.definicionesPorTipo = definiciones.stream()
                 .collect(Collectors.toUnmodifiableMap(DefinicionCertificacion::tipo,
