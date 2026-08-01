@@ -6,6 +6,7 @@ import com.piedpiper.carbonhub.emision.models.dtos.ReporteHuellaPdfDTO;
 import com.piedpiper.carbonhub.emision.models.entities.Emision;
 import com.piedpiper.carbonhub.emision.models.enums.CategoriaEmision;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
+import com.piedpiper.carbonhub.common.ZonasHorarias;
 import com.piedpiper.carbonhub.empresa.mappers.EmpresaMapper;
 import com.piedpiper.carbonhub.empresa.models.dtos.EmpresaReporteDTO;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
@@ -16,7 +17,6 @@ import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.time.Year;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
@@ -32,7 +32,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class ReporteHuellaPdfService {
 
     private static final BigDecimal CIEN = new BigDecimal("100");
-    private static final ZoneId ZONA_COSTA_RICA = ZoneId.of("America/Costa_Rica");
 
     private final EmisionRepository emisionRepository;
     private final LimiteEmisionesRepository limiteEmisionesRepository;
@@ -72,7 +71,7 @@ public class ReporteHuellaPdfService {
                 categorias(totalesPorCategoria, totalKg),
                 comparacion(empresa.id(), anio),
                 totalKg.compareTo(BigDecimal.ZERO) == 0,
-                ZonedDateTime.now(ZONA_COSTA_RICA)
+                ZonedDateTime.now(ZonasHorarias.COSTA_RICA)
         );
 
         try {

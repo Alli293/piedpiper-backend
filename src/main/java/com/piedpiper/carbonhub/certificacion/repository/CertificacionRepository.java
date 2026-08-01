@@ -18,6 +18,13 @@ public interface CertificacionRepository extends JpaRepository<Certificacion, UU
 
     Optional<Certificacion> findByIdAuditoria(UUID idAuditoria);
 
+    /**
+     * Usada por el proceso nocturno de alertas de vencimiento (PP-70): evalua
+     * todas las certificaciones activas de todas las empresas, sin importar
+     * quien esta autenticado.
+     */
+    List<Certificacion> findByEstado(EstadoCertificacion estado);
+
     List<Certificacion> findByEmpresaIdOrderByFechaEmisionDesc(UUID empresaId);
 
     Optional<Certificacion> findByIdAndEmpresaId(UUID id, UUID empresaId);
