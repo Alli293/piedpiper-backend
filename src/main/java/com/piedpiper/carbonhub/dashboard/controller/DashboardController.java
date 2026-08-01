@@ -1,8 +1,10 @@
 package com.piedpiper.carbonhub.dashboard.controller;
 
 import com.piedpiper.carbonhub.common.Autenticaciones;
+import com.piedpiper.carbonhub.dashboard.models.dtos.CalendarioVencimientosResponseDTO;
 import com.piedpiper.carbonhub.dashboard.models.dtos.ResumenCertificacionesDashboardResponseDTO;
 import com.piedpiper.carbonhub.dashboard.models.dtos.ResumenHuellaDashboardResponseDTO;
+import com.piedpiper.carbonhub.dashboard.service.CalendarioVencimientosService;
 import com.piedpiper.carbonhub.dashboard.service.DashboardCertificacionesService;
 import com.piedpiper.carbonhub.dashboard.service.DashboardHuellaService;
 import org.springframework.http.ResponseEntity;
@@ -20,12 +22,15 @@ public class DashboardController {
 
     private final DashboardHuellaService dashboardHuellaService;
     private final DashboardCertificacionesService dashboardCertificacionesService;
+    private final CalendarioVencimientosService calendarioVencimientosService;
 
     public DashboardController(
             DashboardHuellaService dashboardHuellaService,
-            DashboardCertificacionesService dashboardCertificacionesService) {
+            DashboardCertificacionesService dashboardCertificacionesService,
+            CalendarioVencimientosService calendarioVencimientosService) {
         this.dashboardHuellaService = dashboardHuellaService;
         this.dashboardCertificacionesService = dashboardCertificacionesService;
+        this.calendarioVencimientosService = calendarioVencimientosService;
     }
 
     @GetMapping("/huella")
@@ -44,5 +49,13 @@ public class DashboardController {
             Authentication authentication) {
         return ResponseEntity.ok(dashboardCertificacionesService.obtenerResumen(
                 Autenticaciones.usuarioId(authentication)));
+    }
+
+    @GetMapping("/calendario")
+    public ResponseEntity<CalendarioVencimientosResponseDTO> obtenerCalendario(
+            Authentication authentication,
+            @RequestParam(required = false) String mes) {
+        return ResponseEntity.ok(calendarioVencimientosService.obtenerCalendario(
+                Autenticaciones.usuarioId(authentication), mes));
     }
 }
