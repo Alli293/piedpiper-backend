@@ -90,13 +90,17 @@ public class PerfilPublicoConsultaService {
 
     @Transactional(readOnly = true)
     public Page<BusquedaPerfilPublicoDTO> buscarPorNombre(String nombre, int page, int size) {
-        if (nombre == null || nombre.trim().length() < 3) {
-            return Page.empty();
-        }
-        int limitedSize = Math.min(size, 10);
+        int limitedSize = Math.min(size, 12);
         Pageable pageable = PageRequest.of(page, limitedSize);
-        Page<Empresa> empresas = empresaRepository.findByNombreEmpresaContainingIgnoreCaseAndEstado(
-                nombre.trim(), EstadoEmpresa.ACTIVO, pageable);
+
+        Page<Empresa> empresas;
+        if (nombre == null || nombre.trim().length() < 3) {
+            // Sin filtro: retorna las primeras empresas activas (catálogo)
+            empresas = empresaRepository.findByEstado(EstadoEmpresa.ACTIVO, pageable);
+        } else {
+            empresas = empresaRepository.findByNombreEmpresaContainingIgnoreCaseAndEstado(
+                    nombre.trim(), EstadoEmpresa.ACTIVO, pageable);
+        }
         return empresas.map(this::mapToBusquedaDTO);
     }
 

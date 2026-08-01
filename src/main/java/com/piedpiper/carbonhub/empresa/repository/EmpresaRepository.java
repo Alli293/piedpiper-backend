@@ -25,4 +25,6 @@ public interface EmpresaRepository extends JpaRepository<Empresa, UUID> {
     Optional<Empresa> findBySlug(String slug);
 
     Page<Empresa> findByNombreEmpresaContainingIgnoreCaseAndEstado(String nombre, EstadoEmpresa estado, Pageable pageable);
+
+    Page<Empresa> findByEstado(EstadoEmpresa estado, Pageable pageable);
 }
