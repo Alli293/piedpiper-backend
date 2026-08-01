@@ -1,11 +1,8 @@
 package com.piedpiper.carbonhub.dashboard.service;
 
-import com.piedpiper.carbonhub.certificacion.models.entities.Alerta;
 import com.piedpiper.carbonhub.certificacion.models.entities.Certificacion;
 import com.piedpiper.carbonhub.certificacion.models.enums.EstadoCertificacion;
-import com.piedpiper.carbonhub.certificacion.models.enums.TipoAlerta;
 import com.piedpiper.carbonhub.certificacion.models.enums.TipoCertificacion;
-import com.piedpiper.carbonhub.certificacion.repository.AlertaRepository;
 import com.piedpiper.carbonhub.certificacion.repository.CertificacionRepository;
 import com.piedpiper.carbonhub.common.ZonasHorarias;
 import com.piedpiper.carbonhub.dashboard.models.dtos.ResumenCertificacionesDashboardResponseDTO;
@@ -26,6 +23,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/**
+ * La clasificacion depende exclusivamente de {@code fechaVencimiento} contra
+ * hoy, no de si el proceso nocturno de alertas (PP-70) ya genero una fila en
+ * {@code alertas} para la certificacion — ver el javadoc de
+ * {@link DashboardCertificacionesService} para el porque. Por eso estos
+ * tests no mockean {@code AlertaRepository}: el servicio ya no depende de el.
+ */
 @ExtendWith(MockitoExtension.class)
 class DashboardCertificacionesServiceTest {
 
@@ -33,8 +37,6 @@ class DashboardCertificacionesServiceTest {
     private EmisionEmpresaService emisionEmpresaService;
     @Mock
     private CertificacionRepository certificacionRepository;
-    @Mock
-    private AlertaRepository alertaRepository;
 
     @InjectMocks
     private DashboardCertificacionesService service;
@@ -43,20 +45,18 @@ class DashboardCertificacionesServiceTest {
     private static final UUID EMPRESA_ID = UUID.randomUUID();
 
     @Test
-    void cuentaActivasConAlertaYVencidasPorSeparado() {
+    void cuentaActivasProximasYVencidasSegunDiasRestantes() {
         when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
 
-        Certificacion activaSinAlerta1 = certificacion(60);
-        Certificacion activaSinAlerta2 = certificacion(120);
-        Certificacion activaSinAlerta3 = certificacion(200);
-        Certificacion conAlerta = certificacion(30);
+        Certificacion activa1 = certificacion(91);
+        Certificacion activa2 = certificacion(120);
+        Certificacion activa3 = certificacion(200);
+        Certificacion proxima = certificacion(30);
         Certificacion vencida1 = certificacion(-1);
         Certificacion vencida2 = certificacion(-10);
 
         when(certificacionRepository.findByEmpresaIdOrderByFechaEmisionDesc(EMPRESA_ID)).thenReturn(List.of(
-                activaSinAlerta1, activaSinAlerta2, activaSinAlerta3, conAlerta, vencida1, vencida2));
-        when(alertaRepository.findByEmpresaId(EMPRESA_ID)).thenReturn(List.of(
-                alertaPara(conAlerta)));
+                activa1, activa2, activa3, proxima, vencida1, vencida2));
 
         ResumenCertificacionesDashboardResponseDTO resumen = service.obtenerResumen(USUARIO_ID);
 
@@ -66,10 +66,33 @@ class DashboardCertificacionesServiceTest {
     }
 
     @Test
+    void aExactamente90DiasCuentaComoProximaAVencer() {
+        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
+        when(certificacionRepository.findByEmpresaIdOrderByFechaEmisionDesc(EMPRESA_ID))
+                .thenReturn(List.of(certificacion(90)));
+
+        ResumenCertificacionesDashboardResponseDTO resumen = service.obtenerResumen(USUARIO_ID);
+
+        assertThat(resumen.getProximasAVencer()).isEqualTo(1);
+        assertThat(resumen.getActivas()).isZero();
+    }
+
+    @Test
+    void a91DiasCuentaComoActiva() {
+        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
+        when(certificacionRepository.findByEmpresaIdOrderByFechaEmisionDesc(EMPRESA_ID))
+                .thenReturn(List.of(certificacion(91)));
+
+        ResumenCertificacionesDashboardResponseDTO resumen = service.obtenerResumen(USUARIO_ID);
+
+        assertThat(resumen.getActivas()).isEqualTo(1);
+        assertThat(resumen.getProximasAVencer()).isZero();
+    }
+
+    @Test
     void empresaSinCertificacionesDevuelveTodosLosConteosEnCero() {
         when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
         when(certificacionRepository.findByEmpresaIdOrderByFechaEmisionDesc(EMPRESA_ID)).thenReturn(List.of());
-        when(alertaRepository.findByEmpresaId(EMPRESA_ID)).thenReturn(List.of());
 
         ResumenCertificacionesDashboardResponseDTO resumen = service.obtenerResumen(USUARIO_ID);
 
@@ -84,7 +107,6 @@ class DashboardCertificacionesServiceTest {
         Certificacion venceHoy = certificacion(0);
         when(certificacionRepository.findByEmpresaIdOrderByFechaEmisionDesc(EMPRESA_ID))
                 .thenReturn(List.of(venceHoy));
-        when(alertaRepository.findByEmpresaId(EMPRESA_ID)).thenReturn(List.of());
 
         ResumenCertificacionesDashboardResponseDTO resumen = service.obtenerResumen(USUARIO_ID);
 
@@ -94,15 +116,13 @@ class DashboardCertificacionesServiceTest {
     }
 
     @Test
-    void soloConsultaLasCertificacionesYAlertasDeLaEmpresaAutenticada() {
+    void soloConsultaLasCertificacionesDeLaEmpresaAutenticada() {
         when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
         when(certificacionRepository.findByEmpresaIdOrderByFechaEmisionDesc(EMPRESA_ID)).thenReturn(List.of());
-        when(alertaRepository.findByEmpresaId(EMPRESA_ID)).thenReturn(List.of());
 
         service.obtenerResumen(USUARIO_ID);
 
         verify(certificacionRepository).findByEmpresaIdOrderByFechaEmisionDesc(EMPRESA_ID);
-        verify(alertaRepository).findByEmpresaId(EMPRESA_ID);
     }
 
     private static Certificacion certificacion(int diasParaVencer) {
@@ -113,15 +133,6 @@ class DashboardCertificacionesServiceTest {
                 .tipo(TipoCertificacion.CARBONO_NEUTRAL)
                 .estado(EstadoCertificacion.ACTIVA)
                 .fechaVencimiento(LocalDate.now(ZonasHorarias.COSTA_RICA).plusDays(diasParaVencer))
-                .build();
-    }
-
-    private static Alerta alertaPara(Certificacion certificacion) {
-        return Alerta.builder()
-                .id(UUID.randomUUID())
-                .empresa(certificacion.getEmpresa())
-                .certificacion(certificacion)
-                .tipoAlerta(TipoAlerta.DIAS_30)
                 .build();
     }
 }
