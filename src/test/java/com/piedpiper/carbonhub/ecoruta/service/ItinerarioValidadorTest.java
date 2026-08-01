@@ -131,4 +131,69 @@ class ItinerarioValidadorTest {
 
         assertThat(validador.validar(respuesta, 1)).isEqualTo(ResultadoValidacionItinerario.VALIDO_COMPLETO);
     }
+
+    @Test
+    void nombreQueExcedeElLimiteDeColumnaEsInvalida() {
+        ActividadIaDTO actividadInvalida = new ActividadIaDTO(
+                "N".repeat(201), null, "09:00", 60, null, null, null, "LIMON");
+        DiaIaDTO dia = new DiaIaDTO(1, "2026-08-01", List.of(actividadInvalida));
+        ItinerarioIaResponseDTO respuesta = new ItinerarioIaResponseDTO(List.of(dia), 82);
+
+        assertThat(validador.validar(respuesta, 1)).isEqualTo(ResultadoValidacionItinerario.INVALIDO);
+    }
+
+    @Test
+    void descripcionQueExcedeElLimiteDeColumnaEsInvalida() {
+        ActividadIaDTO actividadInvalida = new ActividadIaDTO(
+                "Tour", "D".repeat(501), "09:00", 60, null, null, null, "LIMON");
+        DiaIaDTO dia = new DiaIaDTO(1, "2026-08-01", List.of(actividadInvalida));
+        ItinerarioIaResponseDTO respuesta = new ItinerarioIaResponseDTO(List.of(dia), 82);
+
+        assertThat(validador.validar(respuesta, 1)).isEqualTo(ResultadoValidacionItinerario.INVALIDO);
+    }
+
+    @Test
+    void establecimientoQueExcedeElLimiteDeColumnaEsInvalida() {
+        ActividadIaDTO actividadInvalida = new ActividadIaDTO(
+                "Tour", null, "09:00", 60, null, null, "E".repeat(201), "LIMON");
+        DiaIaDTO dia = new DiaIaDTO(1, "2026-08-01", List.of(actividadInvalida));
+        ItinerarioIaResponseDTO respuesta = new ItinerarioIaResponseDTO(List.of(dia), 82);
+
+        assertThat(validador.validar(respuesta, 1)).isEqualTo(ResultadoValidacionItinerario.INVALIDO);
+    }
+
+    @Test
+    void costoAproximadoNegativoEsInvalida() {
+        ActividadIaDTO actividadInvalida = new ActividadIaDTO(
+                "Tour", null, "09:00", 60, new BigDecimal("-1"), "CRC", null, "LIMON");
+        DiaIaDTO dia = new DiaIaDTO(1, "2026-08-01", List.of(actividadInvalida));
+        ItinerarioIaResponseDTO respuesta = new ItinerarioIaResponseDTO(List.of(dia), 82);
+
+        assertThat(validador.validar(respuesta, 1)).isEqualTo(ResultadoValidacionItinerario.INVALIDO);
+    }
+
+    @Test
+    void diasParcialesContiguosDesdeElDiaUnoSonValidos() {
+        ItinerarioIaResponseDTO respuesta = new ItinerarioIaResponseDTO(
+                List.of(diaValido(1), diaValido(2)), 82);
+
+        assertThat(validador.validar(respuesta, 3)).isEqualTo(ResultadoValidacionItinerario.VALIDO_PARCIAL);
+    }
+
+    @Test
+    void diasParcialesNoContiguosDesdeElDiaUnoSonInvalidos() {
+        // Solo el día 3 de un viaje de 3 días dejaría huecos sin actividades en los días 1 y 2.
+        ItinerarioIaResponseDTO respuesta = new ItinerarioIaResponseDTO(List.of(diaValido(3)), 82);
+
+        assertThat(validador.validar(respuesta, 3)).isEqualTo(ResultadoValidacionItinerario.INVALIDO);
+    }
+
+    @Test
+    void diasParcialesConHuecoIntermedioSonInvalidos() {
+        // Días 1 y 3 de un viaje de 3 días dejarían el día 2 sin actividades.
+        ItinerarioIaResponseDTO respuesta = new ItinerarioIaResponseDTO(
+                List.of(diaValido(1), diaValido(3)), 82);
+
+        assertThat(validador.validar(respuesta, 3)).isEqualTo(ResultadoValidacionItinerario.INVALIDO);
+    }
 }

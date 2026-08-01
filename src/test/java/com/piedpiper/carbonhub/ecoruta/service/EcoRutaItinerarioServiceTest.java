@@ -33,7 +33,6 @@ import org.springframework.http.HttpStatus;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -44,6 +43,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -60,6 +60,8 @@ class EcoRutaItinerarioServiceTest {
     @Mock
     private ItinerarioIaClienteService itinerarioIaClienteService;
     @Mock
+    private ItinerarioCuotaService itinerarioCuotaService;
+    @Mock
     private EventoReconocimientoService eventoReconocimientoService;
 
     private ItinerarioMapper mapper;
@@ -70,7 +72,7 @@ class EcoRutaItinerarioServiceTest {
         mapper = new ItinerarioMapperImpl();
         service = new EcoRutaItinerarioService(
                 preferenciasViajeRepository, itinerarioRepository,
-                itinerarioIaClienteService, eventoReconocimientoService, mapper);
+                itinerarioIaClienteService, itinerarioCuotaService, eventoReconocimientoService, mapper);
     }
 
     private Usuario usuario() {
@@ -135,6 +137,8 @@ class EcoRutaItinerarioServiceTest {
                 .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
 
         verify(itinerarioIaClienteService, never()).generar(any(), anyInt());
+        // La fecha vencida no debe consumir cuota: se valida antes de reservarGeneracion.
+        verify(itinerarioCuotaService, never()).reservarGeneracion(any());
     }
 
     @Test
@@ -217,11 +221,15 @@ class EcoRutaItinerarioServiceTest {
                 USUARIO_ID, EventoReconocimientoCodigo.CINCO_ITINERARIOS_GENERADOS.getCodigo());
     }
 
+    // La lógica de la ventana/contador de cuota en sí se prueba en ItinerarioCuotaServiceTest
+    // (unitario) y en ItinerarioCuotaServiceIntegrationTest (que confirma con una transacción
+    // real que el incremento sobrevive el rollback del llamador). Acá solo nos interesa que
+    // EcoRutaItinerarioService delegue correctamente y reaccione bien a lo que el bean de cuota
+    // decida.
+
     @Test
-    void reinicializaLaVentanaDeRateLimitPasadaUnaHora() {
+    void reservaLaCuotaAntesDeLlamarALaIA() {
         PreferenciasViaje preferencias = preferencias();
-        preferencias.setItinerarioGeneracionContador(5);
-        preferencias.setItinerarioGeneracionVentanaInicio(Instant.now().minus(2, ChronoUnit.HOURS));
         when(preferenciasViajeRepository.findByUsuario_Id(USUARIO_ID)).thenReturn(Optional.of(preferencias));
         when(itinerarioIaClienteService.generar(any(), eq(2))).thenReturn(
                 new ResultadoGeneracionIA(respuestaValida(2), ResultadoValidacionItinerario.VALIDO_COMPLETO));
@@ -230,25 +238,26 @@ class EcoRutaItinerarioServiceTest {
 
         service.generar(USUARIO_ID);
 
-        assertThat(preferencias.getItinerarioGeneracionContador()).isEqualTo(1);
+        verify(itinerarioCuotaService).reservarGeneracion(USUARIO_ID);
     }
 
     @Test
-    void sextaSolicitudEnLaMismaHoraLanza429SinLlamarALaIA() {
+    void cuotaExcedidaLanza429SinLlamarALaIAYSinGuardarNada() {
         PreferenciasViaje preferencias = preferencias();
-        preferencias.setItinerarioGeneracionContador(5);
-        preferencias.setItinerarioGeneracionVentanaInicio(Instant.now());
         when(preferenciasViajeRepository.findByUsuario_Id(USUARIO_ID)).thenReturn(Optional.of(preferencias));
+        doThrow(ApiException.itinerarioGeneracionesExcedidas())
+                .when(itinerarioCuotaService).reservarGeneracion(USUARIO_ID);
 
         assertThatThrownBy(() -> service.generar(USUARIO_ID))
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS));
 
         verify(itinerarioIaClienteService, never()).generar(any(), anyInt());
+        verify(itinerarioRepository, never()).saveAndFlush(any());
     }
 
     @Test
-    void unaLlamadaFallidaAunAsiCuentaContraLaCuota() {
+    void unaLlamadaFallidaALaIANoRevierteLaCuotaYaReservada() {
         PreferenciasViaje preferencias = preferencias();
         when(preferenciasViajeRepository.findByUsuario_Id(USUARIO_ID)).thenReturn(Optional.of(preferencias));
         when(itinerarioIaClienteService.generar(any(), eq(2)))
@@ -256,7 +265,9 @@ class EcoRutaItinerarioServiceTest {
 
         assertThatThrownBy(() -> service.generar(USUARIO_ID)).isInstanceOf(ApiException.class);
 
-        assertThat(preferencias.getItinerarioGeneracionContador()).isEqualTo(1);
+        // La cuota ya se reservó (y se guardó en su propia transacción REQUIRES_NEW) antes de
+        // llamar a la IA — el fallo posterior de la IA no debe deshacerla.
+        verify(itinerarioCuotaService).reservarGeneracion(USUARIO_ID);
     }
 
     // --- obtener ---
