@@ -135,16 +135,14 @@ public class Usuario {
     private String unidades = UnidadesMedida.POR_DEFECTO.name();
 
     /**
-     * Nombre para mostrar: nombre y apellidos, con {@code nombreVisible} como respaldo cuando el
-     * usuario no tiene esos campos (por ejemplo si entró por Google). Vive acá para que los correos
-     * y las respuestas de la API no armen el nombre cada uno a su manera y muestren al mismo
-     * auditor con dos formatos distintos.
-     */
-    /**
-     * Nombre para mostrar, nunca nulo: cae a {@code nombreVisible} y, si ese tampoco esta, a la
-     * parte local del correo. Los consumidores lo meten en DTOs y en el cuerpo de correos, donde un
-     * nulo se vuelve un "null" impreso o una linea vacia, asi que la garantia vive aca y no en cada
-     * llamador.
+     * Nombre para mostrar, nunca nulo: nombre y apellidos, con {@code nombreVisible} como respaldo
+     * cuando el usuario no tiene esos campos (por ejemplo si entro por Google) y, si ese tampoco
+     * esta, la parte local del correo.
+     *
+     * <p>Vive aca para que los correos y las respuestas de la API no armen el nombre cada uno a su
+     * manera y muestren al mismo auditor con dos formatos distintos, y para que la garantia de no
+     * ser nulo sea del contrato: los consumidores lo meten en DTOs y en cuerpos de correo, donde un
+     * nulo se vuelve un "null" impreso o una linea vacia.</p>
      */
     public String nombreCompleto() {
         String armado = Stream.of(nombre, apellidos)
