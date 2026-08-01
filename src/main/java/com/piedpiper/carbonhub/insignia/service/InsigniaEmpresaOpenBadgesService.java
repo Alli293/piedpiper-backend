@@ -59,7 +59,8 @@ public class InsigniaEmpresaOpenBadgesService {
     }
 
     @Transactional(readOnly = true)
-    public DocumentoInsigniaOpenBadges generarParaEmpresaAutenticada(UUID usuarioId, UUID idInsigniaEmpresa) {
+    public DocumentoInsigniaOpenBadges generarParaEmpresaAutenticada(UUID usuarioId,
+                                                                     UUID idInsigniaEmpresa) {
         UUID empresaId = emisionEmpresaService.empresaId(usuarioId);
         InsigniaEmpresa insigniaEmpresa = buscarInsigniaPropia(idInsigniaEmpresa, empresaId);
         CatalogoInsignia catalogo = buscarCatalogo(insigniaEmpresa);

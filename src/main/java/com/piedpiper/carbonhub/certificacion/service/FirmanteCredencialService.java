@@ -27,7 +27,6 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.RSAPublicKeySpec;
 import java.util.Base64;
 import java.util.Map;
-import java.nio.charset.StandardCharsets;
 
 /**
  * Firma credenciales OpenBadges 3.0 como VC-JWT.
@@ -118,13 +117,14 @@ public class FirmanteCredencialService {
     }
 
     private static String normalizarPem(String valor) {
-        String normalizado = valor.trim().replace("\\n", "\n");
+        String normalizado = normalizarSaltosLinea(quitarComillasExteriores(valor.trim()));
         if (normalizado.contains("-----BEGIN PRIVATE KEY-----")) {
             return normalizado;
         }
         try {
-            String decodificado = new String(Base64.getDecoder().decode(normalizado),
-                    StandardCharsets.UTF_8);
+            String decodificado = new String(Base64.getDecoder().decode(
+                    normalizado.replaceAll("\\s", "")), StandardCharsets.UTF_8);
+            decodificado = normalizarSaltosLinea(quitarComillasExteriores(decodificado.trim()));
             if (decodificado.contains("-----BEGIN PRIVATE KEY-----")) {
                 return decodificado;
             }
@@ -132,6 +132,25 @@ public class FirmanteCredencialService {
             // Si no era un PEM completo codificado en base64, se tratara como DER/base64 directo.
         }
         return normalizado;
+    }
+
+    private static String normalizarSaltosLinea(String valor) {
+        return valor
+                .replace("\\r\\n", "\n")
+                .replace("\\n", "\n")
+                .replace("\\r", "\n");
+    }
+
+    private static String quitarComillasExteriores(String valor) {
+        if (valor.length() < 2) {
+            return valor;
+        }
+        boolean comillasDobles = valor.startsWith("\"") && valor.endsWith("\"");
+        boolean comillasSimples = valor.startsWith("'") && valor.endsWith("'");
+        if (comillasDobles || comillasSimples) {
+            return valor.substring(1, valor.length() - 1);
+        }
+        return valor;
     }
 
     public boolean claveConfigurada() {
