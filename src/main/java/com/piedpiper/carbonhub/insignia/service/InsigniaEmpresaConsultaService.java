@@ -29,21 +29,17 @@ public class InsigniaEmpresaConsultaService {
     private final EmpresaRepository empresaRepository;
     private final EmisionEmpresaService emisionEmpresaService;
     private final InsigniaEmpresaMapper insigniaEmpresaMapper;
-    private final InsigniaEmpresaOpenBadgesService insigniaEmpresaOpenBadgesService;
 
     public InsigniaEmpresaConsultaService(InsigniaEmpresaRepository insigniaEmpresaRepository,
                                           CatalogoInsigniaRepository catalogoInsigniaRepository,
                                           EmpresaRepository empresaRepository,
                                           EmisionEmpresaService emisionEmpresaService,
-                                          InsigniaEmpresaMapper insigniaEmpresaMapper,
-                                          InsigniaEmpresaOpenBadgesService
-                                                  insigniaEmpresaOpenBadgesService) {
+                                          InsigniaEmpresaMapper insigniaEmpresaMapper) {
         this.insigniaEmpresaRepository = insigniaEmpresaRepository;
         this.catalogoInsigniaRepository = catalogoInsigniaRepository;
         this.empresaRepository = empresaRepository;
         this.emisionEmpresaService = emisionEmpresaService;
         this.insigniaEmpresaMapper = insigniaEmpresaMapper;
-        this.insigniaEmpresaOpenBadgesService = insigniaEmpresaOpenBadgesService;
     }
 
     @Transactional(readOnly = true)
@@ -84,15 +80,6 @@ public class InsigniaEmpresaConsultaService {
         if (catalogo != null) {
             dto.setNombre(catalogo.getNombre());
             dto.setDescripcion(catalogo.getDescripcion());
-            dto.setCriteriosObtencion(insigniaEmpresaOpenBadgesService.criterios(catalogo));
-            dto.setEmisor(insigniaEmpresaOpenBadgesService.emisorNombre());
-            dto.setReceptor(insigniaEmpresa.getEmpresa().getNombreEmpresa());
-            dto.setUrlVerificacionPublica(insigniaEmpresaOpenBadgesService
-                    .urlVerificacionPublica(insigniaEmpresa.getId()));
-            dto.setUrlVerificacionJwt(insigniaEmpresaOpenBadgesService
-                    .urlVerificacionJwt(insigniaEmpresa.getId()));
-            dto.setUrlLinkedIn(insigniaEmpresaOpenBadgesService.urlLinkedIn(
-                    insigniaEmpresa, catalogo));
         }
         return dto;
     }
