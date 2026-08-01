@@ -6,8 +6,12 @@ import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.empresa.models.enums.EstadoEmpresa;
 import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 import com.piedpiper.carbonhub.perfilpublico.exceptions.PerfilNoEncontradoException;
+import com.piedpiper.carbonhub.perfilpublico.models.dtos.BusquedaPerfilPublicoDTO;
 import com.piedpiper.carbonhub.perfilpublico.models.dtos.PerfilPublicoResponseDTO;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -82,6 +86,27 @@ public class PerfilPublicoConsultaService {
         } catch (Exception e) {
             return 0;
         }
+    }
+
+    @Transactional(readOnly = true)
+    public Page<BusquedaPerfilPublicoDTO> buscarPorNombre(String nombre, int page, int size) {
+        if (nombre == null || nombre.trim().length() < 3) {
+            return Page.empty();
+        }
+        int limitedSize = Math.min(size, 10);
+        Pageable pageable = PageRequest.of(page, limitedSize);
+        Page<Empresa> empresas = empresaRepository.findByNombreEmpresaContainingIgnoreCaseAndEstado(
+                nombre.trim(), EstadoEmpresa.ACTIVO, pageable);
+        return empresas.map(this::mapToBusquedaDTO);
+    }
+
+    private BusquedaPerfilPublicoDTO mapToBusquedaDTO(Empresa empresa) {
+        return new BusquedaPerfilPublicoDTO(
+                empresa.getNombreEmpresa(),
+                empresa.getSlug(),
+                empresa.getSectorIndustrial() != null ? empresa.getSectorIndustrial().name() : null,
+                resolverNivelEcologico(empresa.getNivelEcologico())
+        );
     }
 
     private String resolverNivelEcologico(String nivelEcologico) {
