@@ -1,8 +1,11 @@
 package com.piedpiper.carbonhub.dashboard.service;
 
+import com.piedpiper.carbonhub.certificacion.config.CatalogoTiposCertificacion;
+import com.piedpiper.carbonhub.certificacion.config.DefinicionCertificacion;
 import com.piedpiper.carbonhub.certificacion.models.entities.Certificacion;
 import com.piedpiper.carbonhub.certificacion.models.enums.EstadoCertificacion;
 import com.piedpiper.carbonhub.certificacion.models.enums.TipoCertificacion;
+import com.piedpiper.carbonhub.certificacion.models.enums.TipoLogroOpenBadges;
 import com.piedpiper.carbonhub.certificacion.repository.CertificacionRepository;
 import com.piedpiper.carbonhub.common.ZonasHorarias;
 import com.piedpiper.carbonhub.dashboard.models.dtos.CalendarioVencimientosResponseDTO;
@@ -21,11 +24,13 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -36,6 +41,8 @@ class CalendarioVencimientosServiceTest {
     private EmisionEmpresaService emisionEmpresaService;
     @Mock
     private CertificacionRepository certificacionRepository;
+    @Mock
+    private CatalogoTiposCertificacion catalogoTiposCertificacion;
 
     @InjectMocks
     private CalendarioVencimientosService service;
@@ -56,6 +63,9 @@ class CalendarioVencimientosServiceTest {
         when(certificacionRepository.findByEmpresaIdAndFechaVencimientoBetween(
                 EMPRESA_ID, mes.atDay(1), mes.atEndOfMonth()))
                 .thenReturn(List.of(certA1, certA2, certB));
+        stubNombre(TipoCertificacion.CARBONO_NEUTRAL, "Carbono Neutral");
+        stubNombre(TipoCertificacion.INVENTARIO_GEI, "Inventario de GEI");
+        stubNombre(TipoCertificacion.HUELLA_PRODUCTO, "Huella de Carbono de Producto");
 
         CalendarioVencimientosResponseDTO resultado = service.obtenerCalendario(USUARIO_ID, mes.toString());
 
@@ -100,11 +110,12 @@ class CalendarioVencimientosServiceTest {
     }
 
     @Test
-    void certificacionVencidaOMuyProximaQuedaEnLaUrgenciaMasAlta() {
+    void certificacionYaVencidaTieneUrgenciaVencidaYNoUnUmbralDeAlerta() {
         when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
         Certificacion vencidaHaceDias = certificacion(HOY.minusDays(5), TipoCertificacion.CARBONO_NEUTRAL);
         when(certificacionRepository.findByEmpresaIdAndFechaVencimientoBetween(any(), any(), any()))
                 .thenReturn(List.of(vencidaHaceDias));
+        stubNombre(TipoCertificacion.CARBONO_NEUTRAL, "Carbono Neutral");
 
         CalendarioVencimientosResponseDTO resultado =
                 service.obtenerCalendario(USUARIO_ID, YearMonth.from(HOY).toString());
@@ -112,8 +123,23 @@ class CalendarioVencimientosServiceTest {
         CertificacionVencimientoDTO dto = resultado.getVencimientosPorFecha()
                 .get(HOY.minusDays(5).toString())
                 .get(0);
-        assertThat(dto.getUrgencia()).isEqualTo("7_dias");
+        assertThat(dto.getUrgencia()).isEqualTo("vencida");
         assertThat(dto.getNombre()).isEqualTo("Carbono Neutral");
+    }
+
+    @Test
+    void certificacionQueVenceHoyTieneUrgenciaVencida() {
+        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
+        Certificacion venceHoy = certificacion(HOY, TipoCertificacion.CARBONO_NEUTRAL);
+        when(certificacionRepository.findByEmpresaIdAndFechaVencimientoBetween(any(), any(), any()))
+                .thenReturn(List.of(venceHoy));
+        stubNombre(TipoCertificacion.CARBONO_NEUTRAL, "Carbono Neutral");
+
+        CalendarioVencimientosResponseDTO resultado =
+                service.obtenerCalendario(USUARIO_ID, YearMonth.from(HOY).toString());
+
+        CertificacionVencimientoDTO dto = resultado.getVencimientosPorFecha().get(HOY.toString()).get(0);
+        assertThat(dto.getUrgencia()).isEqualTo("vencida");
     }
 
     @Test
@@ -125,12 +151,48 @@ class CalendarioVencimientosServiceTest {
         when(certificacionRepository.findByEmpresaIdAndFechaVencimientoBetween(
                 EMPRESA_ID, mesLejano.atDay(1), mesLejano.atEndOfMonth()))
                 .thenReturn(List.of(lejana));
+        stubNombre(TipoCertificacion.CARBONO_NEUTRAL, "Carbono Neutral");
 
         CalendarioVencimientosResponseDTO resultado =
                 service.obtenerCalendario(USUARIO_ID, mesLejano.toString());
 
         CertificacionVencimientoDTO dto = resultado.getVencimientosPorFecha().get(fechaLejana.toString()).get(0);
         assertThat(dto.getUrgencia()).isEqualTo("90_dias");
+    }
+
+    @Test
+    void elNombreSaleDelCatalogoDeTiposDeCertificacionNoDelEnum() {
+        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
+        Certificacion cert = certificacion(HOY.plusDays(10), TipoCertificacion.HUELLA_PRODUCTO);
+        when(certificacionRepository.findByEmpresaIdAndFechaVencimientoBetween(any(), any(), any()))
+                .thenReturn(List.of(cert));
+        stubNombre(TipoCertificacion.HUELLA_PRODUCTO, "Huella de Carbono de Producto");
+
+        CalendarioVencimientosResponseDTO resultado =
+                service.obtenerCalendario(USUARIO_ID, YearMonth.from(HOY).toString());
+
+        CertificacionVencimientoDTO dto = resultado.getVencimientosPorFecha()
+                .get(HOY.plusDays(10).toString())
+                .get(0);
+        assertThat(dto.getNombre()).isEqualTo("Huella de Carbono de Producto");
+    }
+
+    @Test
+    void siElCatalogoNoTieneDefinicionUsaElCodigoComoRespaldo() {
+        when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
+        Certificacion cert = certificacion(HOY.plusDays(10), TipoCertificacion.CARBONO_NEUTRAL);
+        when(certificacionRepository.findByEmpresaIdAndFechaVencimientoBetween(any(), any(), any()))
+                .thenReturn(List.of(cert));
+        lenient().when(catalogoTiposCertificacion.buscar(TipoCertificacion.CARBONO_NEUTRAL))
+                .thenReturn(Optional.empty());
+
+        CalendarioVencimientosResponseDTO resultado =
+                service.obtenerCalendario(USUARIO_ID, YearMonth.from(HOY).toString());
+
+        CertificacionVencimientoDTO dto = resultado.getVencimientosPorFecha()
+                .get(HOY.plusDays(10).toString())
+                .get(0);
+        assertThat(dto.getNombre()).isEqualTo("carbono_neutral");
     }
 
     @Test
@@ -147,6 +209,12 @@ class CalendarioVencimientosServiceTest {
                 eq(EMPRESA_ID), desdeCaptor.capture(), hastaCaptor.capture());
         assertThat(desdeCaptor.getValue()).isEqualTo(LocalDate.of(2026, 2, 1));
         assertThat(hastaCaptor.getValue()).isEqualTo(LocalDate.of(2026, 2, 28));
+    }
+
+    private void stubNombre(TipoCertificacion tipo, String nombre) {
+        lenient().when(catalogoTiposCertificacion.buscar(tipo)).thenReturn(Optional.of(
+                new DefinicionCertificacion(tipo, nombre, "descripcion", 12,
+                        TipoLogroOpenBadges.CERTIFICATE, "criterio")));
     }
 
     private static Certificacion certificacion(LocalDate fechaVencimiento, TipoCertificacion tipo) {

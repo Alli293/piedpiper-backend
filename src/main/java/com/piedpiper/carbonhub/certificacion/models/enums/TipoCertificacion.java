@@ -9,29 +9,22 @@ import java.util.Optional;
  * Programa Pais (PPCN/PPLC) de Costa Rica, pero usa nomenclatura propia de CarbonHub
  */
 public enum TipoCertificacion {
-    INVENTARIO_GEI("inventario_gei", "Inventario de GEI"),
-    REDUCCION_EMISIONES("reduccion_emisiones", "Reducción de Emisiones"),
-    REDUCCION_PLUS("reduccion_plus", "Reducción Plus"),
-    CARBONO_NEUTRAL("carbono_neutral", "Carbono Neutral"),
-    CARBONO_NEUTRAL_PLUS("carbono_neutral_plus", "Carbono Neutral Plus"),
-    ADAPTACION_CLIMATICA("adaptacion_climatica", "Adaptación Climática"),
-    HUELLA_PRODUCTO("huella_producto", "Huella de Producto");
+    INVENTARIO_GEI("inventario_gei"),
+    REDUCCION_EMISIONES("reduccion_emisiones"),
+    REDUCCION_PLUS("reduccion_plus"),
+    CARBONO_NEUTRAL("carbono_neutral"),
+    CARBONO_NEUTRAL_PLUS("carbono_neutral_plus"),
+    ADAPTACION_CLIMATICA("adaptacion_climatica"),
+    HUELLA_PRODUCTO("huella_producto");
 
     private final String codigo;
-    private final String etiqueta;
 
-    TipoCertificacion(String codigo, String etiqueta) {
+    TipoCertificacion(String codigo) {
         this.codigo = codigo;
-        this.etiqueta = etiqueta;
     }
 
     public String getCodigo() {
         return codigo;
-    }
-
-    /** Nombre legible para mostrar en UI (p. ej. el calendario de vencimientos de PP-77). */
-    public String getEtiqueta() {
-        return etiqueta;
     }
 
     public static Optional<TipoCertificacion> desde(String codigo) {

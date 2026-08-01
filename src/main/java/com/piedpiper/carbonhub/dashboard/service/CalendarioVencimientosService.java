@@ -1,5 +1,7 @@
 package com.piedpiper.carbonhub.dashboard.service;
 
+import com.piedpiper.carbonhub.certificacion.config.CatalogoTiposCertificacion;
+import com.piedpiper.carbonhub.certificacion.config.DefinicionCertificacion;
 import com.piedpiper.carbonhub.certificacion.models.entities.Certificacion;
 import com.piedpiper.carbonhub.certificacion.models.enums.TipoAlerta;
 import com.piedpiper.carbonhub.certificacion.repository.CertificacionRepository;
@@ -31,14 +33,19 @@ import java.util.stream.Collectors;
 @Service
 public class CalendarioVencimientosService {
 
+    private static final String URGENCIA_VENCIDA = "vencida";
+
     private final EmisionEmpresaService emisionEmpresaService;
     private final CertificacionRepository certificacionRepository;
+    private final CatalogoTiposCertificacion catalogoTiposCertificacion;
 
     public CalendarioVencimientosService(
             EmisionEmpresaService emisionEmpresaService,
-            CertificacionRepository certificacionRepository) {
+            CertificacionRepository certificacionRepository,
+            CatalogoTiposCertificacion catalogoTiposCertificacion) {
         this.emisionEmpresaService = emisionEmpresaService;
         this.certificacionRepository = certificacionRepository;
+        this.catalogoTiposCertificacion = catalogoTiposCertificacion;
     }
 
     @Transactional(readOnly = true)
@@ -63,18 +70,41 @@ public class CalendarioVencimientosService {
     private CertificacionVencimientoDTO aDto(Certificacion certificacion, LocalDate hoy) {
         long diasRestantes = ChronoUnit.DAYS.between(hoy, certificacion.getFechaVencimiento());
 
-        // Mismos umbrales que las alertas de PP-70: el mas urgente (menor cantidad
-        // de dias) que todavia cubre los dias restantes. Vencimientos a mas de 90
-        // dias caen en el umbral mas laxo (DIAS_90) a falta de un nivel propio.
-        TipoAlerta urgencia = Arrays.stream(TipoAlerta.values())
-                .filter(tipo -> diasRestantes <= tipo.getDias())
-                .min(Comparator.comparingInt(TipoAlerta::getDias))
-                .orElse(TipoAlerta.DIAS_90);
-
         return new CertificacionVencimientoDTO(
                 certificacion.getId(),
-                certificacion.getTipo().getEtiqueta(),
-                urgencia.getCodigo());
+                nombreLegible(certificacion),
+                urgenciaPara(diasRestantes));
+    }
+
+    /**
+     * El nombre legible vive en {@link CatalogoTiposCertificacion} — es el
+     * mismo que ya usan la credencial OpenBadges y los correos de vencimiento
+     * de PP-71. No se duplica acá para no arriesgar que las dos copias
+     * diverjan (ya paso una vez en este mismo cambio).
+     */
+    private String nombreLegible(Certificacion certificacion) {
+        return catalogoTiposCertificacion.buscar(certificacion.getTipo())
+                .map(DefinicionCertificacion::nombre)
+                .orElseGet(certificacion.getTipo()::getCodigo);
+    }
+
+    /**
+     * "vencida" es un valor propio del calendario, no de {@link TipoAlerta}:
+     * una certificacion con {@code diasRestantes <= 0} ya paso su fecha de
+     * vencimiento, lo cual es un estado distinto de "esta por vencer en los
+     * proximos 7/30/90 dias". Separarlo evita que el front tenga que
+     * re-derivar "ya vencio" comparando la fecha (llave del mapa) contra hoy.
+     */
+    private String urgenciaPara(long diasRestantes) {
+        if (diasRestantes <= 0) {
+            return URGENCIA_VENCIDA;
+        }
+
+        return Arrays.stream(TipoAlerta.values())
+                .filter(tipo -> diasRestantes <= tipo.getDias())
+                .min(Comparator.comparingInt(TipoAlerta::getDias))
+                .map(TipoAlerta::getCodigo)
+                .orElse(TipoAlerta.DIAS_90.getCodigo());
     }
 
     private YearMonth parsearMes(String mesSolicitado) {
