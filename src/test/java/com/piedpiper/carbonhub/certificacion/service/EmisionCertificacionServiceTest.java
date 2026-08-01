@@ -15,6 +15,7 @@ import com.piedpiper.carbonhub.certificacion.repository.NotificacionPanelReposit
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.insignia.service.InsigniaEmpresaEvaluacionService;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
 import com.piedpiper.carbonhub.user.models.enums.Rol;
@@ -64,6 +65,8 @@ class EmisionCertificacionServiceTest {
     private CertificacionMapper certificacionMapper;
     @Mock
     private CertificacionPersistenciaService certificacionPersistenciaService;
+    @Mock
+    private InsigniaEmpresaEvaluacionService insigniaEmpresaEvaluacionService;
 
     private final CatalogoTiposCertificacion catalogo = new CatalogoTiposCertificacion();
 
@@ -76,7 +79,8 @@ class EmisionCertificacionServiceTest {
                 notificacionPanelRepository, indiceEstadoCertificacionRepository,
                 empresaRepository, usuarioRepository,
                 catalogo, generadorCredencialOpenBadges, certificacionMapper,
-                certificacionPersistenciaService);
+                certificacionPersistenciaService,
+                insigniaEmpresaEvaluacionService);
     }
 
     private EmisionCertificacionService service() {
@@ -151,6 +155,7 @@ class EmisionCertificacionServiceTest {
         assertThat(guardada.getCredencialJwt()).isEqualTo("jwt.firmado.aqui");
         assertThat(guardada.getTipo()).isEqualTo(TipoCertificacion.CARBONO_NEUTRAL);
         verify(notificacionPanelRepository).save(any(NotificacionPanel.class));
+        verify(insigniaEmpresaEvaluacionService).evaluarPorNuevaCertificacion(ID_EMPRESA);
         assertThat(response.isRecienEmitida()).isTrue();
         assertThat(response.getNombreCertificacion()).isEqualTo("Carbono Neutral");
     }

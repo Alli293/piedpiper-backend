@@ -1,6 +1,8 @@
 package com.piedpiper.carbonhub.perfilpublico.controller;
 
 import com.piedpiper.carbonhub.certificacion.models.dtos.CertificacionPublicaResponseDTO;
+import com.piedpiper.carbonhub.insignia.models.dtos.InsigniaEmpresaResponseDTO;
+import com.piedpiper.carbonhub.insignia.service.InsigniaEmpresaConsultaService;
 import com.piedpiper.carbonhub.perfilpublico.models.dtos.BusquedaPerfilPublicoDTO;
 import com.piedpiper.carbonhub.perfilpublico.models.dtos.PerfilPublicoResponseDTO;
 import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoCertificacionesService;
@@ -28,12 +30,15 @@ public class PerfilPublicoController {
 
     private final PerfilPublicoConsultaService service;
     private final PerfilPublicoCertificacionesService perfilPublicoCertificacionesService;
+    private final InsigniaEmpresaConsultaService insigniaEmpresaConsultaService;
 
     public PerfilPublicoController(
             PerfilPublicoConsultaService service,
-            PerfilPublicoCertificacionesService perfilPublicoCertificacionesService) {
+            PerfilPublicoCertificacionesService perfilPublicoCertificacionesService,
+            InsigniaEmpresaConsultaService insigniaEmpresaConsultaService) {
         this.service = service;
         this.perfilPublicoCertificacionesService = perfilPublicoCertificacionesService;
+        this.insigniaEmpresaConsultaService = insigniaEmpresaConsultaService;
     }
 
     @GetMapping("/{slug}")
@@ -53,5 +58,10 @@ public class PerfilPublicoController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         return ResponseEntity.ok(service.buscarPorNombre(nombre, page, size));
+    }
+
+    @GetMapping("/{slug}/insignias")
+    public ResponseEntity<List<InsigniaEmpresaResponseDTO>> insignias(@PathVariable String slug) {
+        return ResponseEntity.ok(insigniaEmpresaConsultaService.listarPorSlug(slug));
     }
 }

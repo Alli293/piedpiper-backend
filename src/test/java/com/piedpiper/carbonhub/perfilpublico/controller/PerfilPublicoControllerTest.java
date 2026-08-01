@@ -4,6 +4,8 @@ import com.piedpiper.carbonhub.auth.config.SecurityConfig;
 import com.piedpiper.carbonhub.auth.service.JwtService;
 import com.piedpiper.carbonhub.certificacion.models.dtos.CertificacionPublicaResponseDTO;
 import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.insignia.models.dtos.InsigniaEmpresaResponseDTO;
+import com.piedpiper.carbonhub.insignia.service.InsigniaEmpresaConsultaService;
 import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoCertificacionesService;
 import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoConsultaService;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
@@ -50,6 +52,8 @@ class PerfilPublicoControllerTest {
     private PerfilPublicoCertificacionesService perfilPublicoCertificacionesService;
     @MockitoBean
     private PerfilPublicoConsultaService perfilPublicoConsultaService;
+    @MockitoBean
+    private InsigniaEmpresaConsultaService insigniaEmpresaConsultaService;
     @MockitoBean
     private JwtService jwtService;
     @MockitoBean
@@ -99,5 +103,21 @@ class PerfilPublicoControllerTest {
 
         mockMvc.perform(get("/api/perfil-publico/{slug}/certificaciones", SLUG))
                 .andExpect(status().isOk());
+    }
+    @Test
+    void insigniasEsAccesibleSinAutenticacion() throws Exception {
+        when(insigniaEmpresaConsultaService.listarPorSlug(SLUG))
+                .thenReturn(List.of(new InsigniaEmpresaResponseDTO(
+                        1L,
+                        "bronce",
+                        "Carbono Neutral",
+                        "Insignia activa verificable.",
+                        Instant.parse("2026-01-15T00:00:00Z")
+                )));
+
+        mockMvc.perform(get("/api/perfil-publico/{slug}/insignias", SLUG))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].nivelInsignia").value("bronce"))
+                .andExpect(jsonPath("$[0].nombre").value("Carbono Neutral"));
     }
 }
