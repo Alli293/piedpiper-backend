@@ -61,6 +61,8 @@ class EcoRutaItinerarioServiceTest {
     private ItinerarioIaClienteService itinerarioIaClienteService;
     @Mock
     private EventoReconocimientoService eventoReconocimientoService;
+    @Mock
+    private PriorizacionAmbientalService priorizacionAmbientalService;
 
     private ItinerarioMapper mapper;
     private EcoRutaItinerarioService service;
@@ -70,7 +72,8 @@ class EcoRutaItinerarioServiceTest {
         mapper = new ItinerarioMapperImpl();
         service = new EcoRutaItinerarioService(
                 preferenciasViajeRepository, itinerarioRepository,
-                itinerarioIaClienteService, eventoReconocimientoService, mapper);
+                itinerarioIaClienteService, eventoReconocimientoService,
+                priorizacionAmbientalService, mapper);
     }
 
     private Usuario usuario() {
