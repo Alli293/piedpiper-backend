@@ -127,9 +127,11 @@ class EcoRutaItinerarioControllerTest {
     @WithMockUser(username = USUARIO_ID, authorities = "ROLE_USUARIO_INDIVIDUAL")
     void getConItinerarioPropioDevuelve200() throws Exception {
         UUID itinerarioId = UUID.randomUUID();
+        UUID usuarioId = UUID.fromString(USUARIO_ID);
         ItinerarioResponseDTO response = respuesta();
         response.setId(itinerarioId);
-        when(service.obtener(eq(itinerarioId), any(UUID.class))).thenReturn(response);
+        when(service.perteneceAlUsuario(eq(itinerarioId), eq(usuarioId))).thenReturn(true);
+        when(service.obtener(eq(itinerarioId), eq(usuarioId))).thenReturn(response);
 
         mockMvc.perform(get("/api/ecoruta/itinerarios/" + itinerarioId)
                         .principal(authentication("ROLE_USUARIO_INDIVIDUAL")))
@@ -141,7 +143,9 @@ class EcoRutaItinerarioControllerTest {
     @WithMockUser(username = USUARIO_ID, authorities = "ROLE_USUARIO_INDIVIDUAL")
     void getConItinerarioInexistenteOAjenoDevuelve404() throws Exception {
         UUID itinerarioId = UUID.randomUUID();
-        when(service.obtener(eq(itinerarioId), any(UUID.class)))
+        UUID usuarioId = UUID.fromString(USUARIO_ID);
+        when(service.perteneceAlUsuario(eq(itinerarioId), eq(usuarioId))).thenReturn(true);
+        when(service.obtener(eq(itinerarioId), eq(usuarioId)))
                 .thenThrow(ApiException.recursoNoEncontrado("Itinerario no encontrado."));
 
         mockMvc.perform(get("/api/ecoruta/itinerarios/" + itinerarioId)
