@@ -57,9 +57,21 @@ public class SecurityConfig {
                                 "/api/certificaciones/estado/lista").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/certificaciones/logros/**")
                         .permitAll()
-                        // Perfil publico de reputacion: pagina publica sin sesion.
-                        // Cubre GET /api/perfil-publico/{slug} y sub-recursos como
-                        // /api/perfil-publico/{slug}/certificaciones.
+                        // Verificacion publica de una certificacion puntual (PP-59): un
+                        // tercero sin sesion (o LinkedIn) debe poder resolverla por id.
+                        .requestMatchers(HttpMethod.GET, "/api/certificaciones/*/verificar")
+                        .permitAll()
+                        // VC-JWT crudo de una certificacion puntual: es el artefacto que
+                        // realmente esperan los validadores de OpenBadges 3.0 (tres partes
+                        // separadas por punto) -- /verificar solo devuelve el documento
+                        // JSON-LD decodificado, sin firma.
+                        .requestMatchers(HttpMethod.GET, "/api/certificaciones/*/verificacion.jwt")
+                        .permitAll()
+                        // Perfil publico de una empresa: pagina publica sin sesion, expone
+                        // solo certificaciones activas por slug. Ruta explicita, no comodin
+                        // "/**", para que un endpoint nuevo bajo este prefijo no nazca publico
+                        // sin que alguien lo revise (mismo criterio que las rutas de
+                        // certificaciones listadas arriba).
                         .requestMatchers(HttpMethod.GET,
                                 "/api/perfil-publico/**").permitAll()
                         .anyRequest().authenticated())

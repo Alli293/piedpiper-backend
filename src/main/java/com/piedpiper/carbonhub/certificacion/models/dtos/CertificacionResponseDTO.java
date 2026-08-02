@@ -36,4 +36,7 @@ public class CertificacionResponseDTO {
 
     /** Falso cuando la certificacion ya existia y la emision se omitio. */
     private boolean recienEmitida;
+
+    /** URL publica de verificacion, sin autenticacion (ver CertificacionEmisorController). */
+    private String urlVerificacion;
 }

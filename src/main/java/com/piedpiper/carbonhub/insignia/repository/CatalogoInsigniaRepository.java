@@ -9,7 +9,10 @@ import java.util.Optional;
 
 public interface CatalogoInsigniaRepository extends JpaRepository<CatalogoInsignia, Long> {
 
-    List<CatalogoInsignia> findByActivaTrueOrderByIdInsigniaAscNivelInsigniaAsc();
+    List<CatalogoInsignia> findByActivaTrue();
+
+    Optional<CatalogoInsignia> findByIdInsigniaAndNivelInsignia(
+            Long idInsignia, String nivelInsignia);
 
     Optional<CatalogoInsignia> findByIdInsigniaAndNivelInsigniaAndActivaTrue(
             Long idInsignia, String nivelInsignia);

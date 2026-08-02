@@ -127,7 +127,7 @@ class GeneradorCredencialOpenBadgesTest {
         Map<String, Object> credencial = credencialDe(TipoCertificacion.CARBONO_NEUTRAL);
 
         Map<String, Object> emisor = (Map<String, Object>) credencial.get("issuer");
-        assertThat(emisor.get("type")).isEqualTo("Profile");
+        assertThat(emisor.get("type")).isEqualTo(List.of("Profile"));
         assertThat(emisor.get("name")).isEqualTo("CarbonHub");
         assertThat(emisor.get("id")).isEqualTo(URL_BASE + "/api/certificaciones/emisor");
     }
@@ -137,11 +137,11 @@ class GeneradorCredencialOpenBadgesTest {
         Map<String, Object> credencial = credencialDe(TipoCertificacion.CARBONO_NEUTRAL);
 
         Map<String, Object> sujeto = (Map<String, Object>) credencial.get("credentialSubject");
-        assertThat(sujeto.get("type")).isEqualTo("AchievementSubject");
+        assertThat(sujeto.get("type")).isEqualTo(List.of("AchievementSubject"));
         assertThat(sujeto.get("id")).isEqualTo(URL_BASE + "/api/empresas/" + EMPRESA_ID);
 
         Map<String, Object> logro = (Map<String, Object>) sujeto.get("achievement");
-        assertThat(logro.get("type")).isEqualTo("Achievement");
+        assertThat(logro.get("type")).isEqualTo(List.of("Achievement"));
         assertThat(logro.get("name")).isEqualTo("Carbono Neutral");
         assertThat(logro.get("id"))
                 .isEqualTo(URL_BASE + "/api/certificaciones/logros/carbono_neutral");
@@ -193,6 +193,37 @@ class GeneradorCredencialOpenBadgesTest {
         assertThat(estado.get("statusListCredential")).isEqualTo(urlLista);
         assertThat(estado.get("statusListIndex")).isEqualTo(String.valueOf(INDICE_ESTADO));
         assertThat(estado.get("id")).isEqualTo(urlLista + "#" + INDICE_ESTADO);
+    }
+
+    @Test
+    void emiteUnaEvidenciaQueReferenciaLaAuditoriaAprobada() throws Exception {
+        Certificacion cert = certificacion(TipoCertificacion.CARBONO_NEUTRAL);
+        String jwt = generador.generar(cert, definicion(TipoCertificacion.CARBONO_NEUTRAL));
+        Map<String, Object> credencial =
+                (Map<String, Object>) SignedJWT.parse(jwt).getJWTClaimsSet().getClaim("vc");
+
+        List<Map<String, Object>> evidencia = (List<Map<String, Object>>) credencial.get("evidence");
+        assertThat(evidencia).hasSize(1);
+        assertThat((List<String>) evidencia.get(0).get("type")).containsExactly("Evidence");
+        assertThat((String) evidencia.get(0).get("narrative"))
+                .contains(cert.getIdAuditoria().toString());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void decodificarDevuelveElMismoDocumentoQueSeFirmo() throws Exception {
+        String jwt = generador.generar(certificacion(TipoCertificacion.CARBONO_NEUTRAL),
+                definicion(TipoCertificacion.CARBONO_NEUTRAL));
+        Map<String, Object> firmado =
+                (Map<String, Object>) SignedJWT.parse(jwt).getJWTClaimsSet().getClaim("vc");
+
+        assertThat(generador.decodificar(jwt)).isEqualTo(firmado);
+    }
+
+    @Test
+    void decodificarUnJwtMalFormadoLanzaApiException() {
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> generador.decodificar("no-es-un-jwt"))
+                .isInstanceOf(com.piedpiper.carbonhub.exceptions.ApiException.class);
     }
 
     @Test

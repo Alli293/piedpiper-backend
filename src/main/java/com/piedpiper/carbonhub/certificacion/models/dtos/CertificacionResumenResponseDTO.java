@@ -35,4 +35,7 @@ public class CertificacionResumenResponseDTO {
      * ya no estar vigente.
      */
     private boolean vigente;
+
+    /** URL publica de verificacion, sin autenticacion (ver CertificacionEmisorController). */
+    private String urlVerificacion;
 }
