@@ -15,6 +15,7 @@ import com.piedpiper.carbonhub.certificacion.repository.NotificacionPanelReposit
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.insignia.service.InsigniaEmpresaEvaluacionService;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
 import com.piedpiper.carbonhub.user.models.enums.Rol;
@@ -25,10 +26,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Emision automatica de certificaciones digitales al aprobarse una auditoria
@@ -57,6 +61,7 @@ public class EmisionCertificacionService implements EmisionCertificacionPort {
     private final GeneradorCredencialOpenBadges generadorCredencialOpenBadges;
     private final CertificacionMapper certificacionMapper;
     private final CertificacionPersistenciaService certificacionPersistenciaService;
+    private final InsigniaEmpresaEvaluacionService insigniaEmpresaEvaluacionService;
 
     public EmisionCertificacionService(CertificacionRepository certificacionRepository,
                                        NotificacionPanelRepository notificacionPanelRepository,
@@ -67,7 +72,9 @@ public class EmisionCertificacionService implements EmisionCertificacionPort {
                                        CatalogoTiposCertificacion catalogoTiposCertificacion,
                                        GeneradorCredencialOpenBadges generadorCredencialOpenBadges,
                                        CertificacionMapper certificacionMapper,
-                                       CertificacionPersistenciaService certificacionPersistenciaService) {
+                                       CertificacionPersistenciaService certificacionPersistenciaService,
+                                       InsigniaEmpresaEvaluacionService
+                                               insigniaEmpresaEvaluacionService) {
         this.certificacionRepository = certificacionRepository;
         this.notificacionPanelRepository = notificacionPanelRepository;
         this.indiceEstadoCertificacionRepository = indiceEstadoCertificacionRepository;
@@ -77,6 +84,7 @@ public class EmisionCertificacionService implements EmisionCertificacionPort {
         this.generadorCredencialOpenBadges = generadorCredencialOpenBadges;
         this.certificacionMapper = certificacionMapper;
         this.certificacionPersistenciaService = certificacionPersistenciaService;
+        this.insigniaEmpresaEvaluacionService = insigniaEmpresaEvaluacionService;
     }
 
     @Override
@@ -178,7 +186,23 @@ public class EmisionCertificacionService implements EmisionCertificacionPort {
         log.info("Certificacion {} emitida para la empresa {} por la auditoria {}.",
                 definicion.tipo(), empresa.getId(), comando.getIdAuditoria());
 
+        evaluarInsigniasTrasCommit(empresa.getId());
+
         return aDto(certificacion, true);
+    }
+
+    private void evaluarInsigniasTrasCommit(UUID empresaId) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            insigniaEmpresaEvaluacionService.evaluarPorNuevaCertificacion(empresaId);
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                insigniaEmpresaEvaluacionService.evaluarPorNuevaCertificacion(empresaId);
+            }
+        });
     }
 
     /**
