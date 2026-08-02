@@ -2,9 +2,13 @@ package com.piedpiper.carbonhub.certificacion.repository;
 
 import com.piedpiper.carbonhub.certificacion.models.entities.Certificacion;
 import com.piedpiper.carbonhub.certificacion.models.enums.EstadoCertificacion;
+import com.piedpiper.carbonhub.certificacion.models.enums.TipoCertificacion;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -39,6 +43,19 @@ public interface CertificacionRepository extends JpaRepository<Certificacion, UU
     List<Certificacion> findByEmpresaIdAndEstadoAndFechaVencimientoGreaterThanOrderByFechaEmisionDesc(
             UUID empresaId, EstadoCertificacion estado, LocalDate hoy);
 
+    long countByEmpresaIdAndEstado(UUID empresaId, EstadoCertificacion estado);
+
+    @Query("""
+            select count(distinct c.tipo)
+            from Certificacion c
+            where c.empresa.id = :empresaId
+              and c.estado = :estado
+              and c.tipo in :tipos
+            """)
+    long countDistinctTiposActivos(
+            @Param("empresaId") UUID empresaId,
+            @Param("estado") EstadoCertificacion estado,
+            @Param("tipos") Collection<TipoCertificacion> tipos);
     /** Usada por el calendario de vencimientos del dashboard (PP-77). */
     List<Certificacion> findByEmpresaIdAndFechaVencimientoBetween(
             UUID empresaId, LocalDate desde, LocalDate hasta);

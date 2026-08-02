@@ -63,7 +63,8 @@ public class SecurityConfig {
                         // sin que alguien lo revise (mismo criterio que las rutas de
                         // certificaciones listadas arriba).
                         .requestMatchers(HttpMethod.GET,
-                                "/api/perfil-publico/*/certificaciones").permitAll()
+                                "/api/perfil-publico/*/certificaciones",
+                                "/api/perfil-publico/*/insignias").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(e -> e.authenticationEntryPoint(
                         new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
