@@ -12,9 +12,9 @@ import com.piedpiper.carbonhub.insignia.repository.InsigniaEmpresaRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -51,7 +51,11 @@ public class InsigniaEmpresaEvaluacionService {
 
         List<CatalogoInsignia> catalogo;
         try {
-            catalogo = catalogoInsigniaRepository.findByActivaTrueOrderByIdInsigniaAscNivelInsigniaAsc();
+            catalogo = catalogoInsigniaRepository.findByActivaTrue()
+                    .stream()
+                    .sorted(Comparator.comparing(CatalogoInsignia::getIdInsignia)
+                            .thenComparing(this::ordenNivel))
+                    .toList();
         } catch (Exception e) {
             log.error("Error al consultar el catalogo de insignias para la empresa {}", empresaId, e);
             return;
@@ -67,7 +71,6 @@ public class InsigniaEmpresaEvaluacionService {
         }
     }
 
-    @Transactional(readOnly = true)
     boolean cumpleRequisitos(UUID empresaId, CatalogoInsignia insignia) {
         NivelInsignia nivel = NivelInsignia.desde(insignia.getNivelInsignia())
                 .orElse(null);
@@ -136,5 +139,11 @@ public class InsigniaEmpresaEvaluacionService {
     private boolean yaObtenida(UUID empresaId, Long idInsignia, String nivelInsignia) {
         return insigniaEmpresaRepository.existsByEmpresaIdAndIdInsigniaAndNivelInsignia(
                 empresaId, idInsignia, nivelInsignia);
+    }
+
+    private int ordenNivel(CatalogoInsignia insignia) {
+        return NivelInsignia.desde(insignia.getNivelInsignia())
+                .map(NivelInsignia::getOrden)
+                .orElse(Integer.MAX_VALUE);
     }
 }

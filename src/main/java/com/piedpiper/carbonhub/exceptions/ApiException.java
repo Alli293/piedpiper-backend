@@ -303,4 +303,9 @@ public class ApiException extends RuntimeException {
         return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
                 "El usuario indicado no tiene el rol de auditor certificado activo.");
     }
+
+    public static ApiException certificacionNoDisponible() {
+        return new ApiException(HttpStatus.INTERNAL_SERVER_ERROR,
+                "No fue posible descargar la certificación. Intenta nuevamente.");
+    }
 }

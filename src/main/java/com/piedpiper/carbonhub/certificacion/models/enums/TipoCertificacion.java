@@ -15,7 +15,8 @@ public enum TipoCertificacion {
     CARBONO_NEUTRAL("carbono_neutral"),
     CARBONO_NEUTRAL_PLUS("carbono_neutral_plus"),
     ADAPTACION_CLIMATICA("adaptacion_climatica"),
-    HUELLA_PRODUCTO("huella_producto");
+    HUELLA_PRODUCTO("huella_producto"),
+    EXCELENCIA_CLIMATICA_EMPRESARIAL("excelencia_climatica_empresarial");
 
     private final String codigo;
 
