@@ -36,23 +36,25 @@ public class PuntuacionAmbientalCalculator {
 
     /**
      * Calcula la puntuación ambiental a partir de los indicadores disponibles.
+     * Retorna un DTO con puntuación 0 si no hay indicadores (degradación graciosa).
      *
      * @param indicador Indicador ambiental con certificaciones activas, o null si no disponible
      * @param ima       IMA del establecimiento, o null si no disponible
      * @param benchmark Resultado de benchmarking, o null si no disponible
-     * @return DTO con la puntuación total y sus componentes individuales, o null si no hay datos
+     * @return DTO con la puntuación total y sus componentes individuales (nunca null)
      */
     public PuntuacionAmbientalResponseDTO calcular(
             @Nullable IndicadorAmbientalDTO indicador,
             @Nullable IMADTO ima,
             @Nullable BenchmarkDTO benchmark) {
-        return calcular(indicador, ima, benchmark, null);
+        return calcular(indicador, ima, benchmark, Integer.valueOf(0));
     }
 
     /**
      * Calcula la puntuación ambiental. Si no hay indicadores verificados pero hay un score
      * estimado por la IA, usa ese como fallback marcándolo como estimado.
-     * Si no hay NADA (ni datos ni estimación), retorna null para no mostrar badge.
+     * Si scoreIA es null (frontend display), retorna null para no mostrar badge.
+     * Si scoreIA es 0 (servicio de priorización), retorna DTO con puntuación neutral.
      */
     public PuntuacionAmbientalResponseDTO calcular(
             @Nullable IndicadorAmbientalDTO indicador,
@@ -62,10 +64,15 @@ public class PuntuacionAmbientalCalculator {
 
         if (indicador == null && ima == null && benchmark == null) {
             if (scoreEstimadoIA == null) {
-                // Sin ningún dato: no mostrar badge
+                // Sin ningún dato: no mostrar badge (frontend)
                 return null;
             }
-            // Sin datos verificados pero con estimación de la IA
+            if (scoreEstimadoIA == 0) {
+                // Degradación graciosa: puntuación neutral (servicio)
+                return new PuntuacionAmbientalResponseDTO(
+                        BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, 0);
+            }
+            // Con estimación de la IA
             PuntuacionAmbientalResponseDTO estimado = new PuntuacionAmbientalResponseDTO(
                     BigDecimal.valueOf(scoreEstimadoIA), BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, 0);
             estimado.setEstimado(true);

@@ -184,18 +184,18 @@ class PuntuacionAmbientalCalculatorTest {
 
         PuntuacionAmbientalResponseDTO resultado = calculator.calcular(indicador, ima, benchmark);
 
+        assertThat(resultado).isNotNull();
         if (tieneAlMenosUno) {
-            assertThat(resultado).isNotNull();
             assertThat(resultado.getPuntuacionTotal()).isGreaterThan(BigDecimal.ZERO);
             assertThat(resultado.isEstimado()).isFalse();
         } else {
-            // Sin indicadores ni estimación → null
-            assertThat(resultado).isNull();
+            // Sin indicadores → puntuación neutral cero
+            assertThat(resultado.getPuntuacionTotal()).isEqualByComparingTo(BigDecimal.ZERO);
         }
     }
 
     /**
-     * Property 8: Sin ningún indicador ni estimación de IA, retorna null.
+     * Property 8: Sin ningún indicador la puntuación es cero (degradación graciosa).
      *
      * Validates: Requirements 2.1
      */
@@ -204,7 +204,11 @@ class PuntuacionAmbientalCalculatorTest {
     void sinIndicadoresPuntuacionEstimada() {
         PuntuacionAmbientalResponseDTO resultado = calculator.calcular(null, null, null);
 
-        assertThat(resultado).isNull();
+        assertThat(resultado).isNotNull();
+        assertThat(resultado.getPuntuacionTotal()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(resultado.getComponenteCertificaciones()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(resultado.getComponenteIma()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(resultado.getComponenteBenchmark()).isEqualByComparingTo(BigDecimal.ZERO);
     }
 
     // ========================================================================
@@ -227,7 +231,9 @@ class PuntuacionAmbientalCalculatorTest {
         PuntuacionAmbientalResponseDTO r1 = calculator.calcular(indicador, ima, benchmark);
         PuntuacionAmbientalResponseDTO r2 = calculator.calcular(indicador, ima, benchmark);
 
-        // Deterministic: same input → same output
+        // Deterministic: same input → same output (3-arg version never returns null)
+        assertThat(r1).isNotNull();
+        assertThat(r2).isNotNull();
         assertThat(r1.getPuntuacionTotal()).isEqualByComparingTo(r2.getPuntuacionTotal());
         assertThat(r1.getComponenteCertificaciones()).isEqualByComparingTo(r2.getComponenteCertificaciones());
         assertThat(r1.getComponenteIma()).isEqualByComparingTo(r2.getComponenteIma());
@@ -399,11 +405,16 @@ class PuntuacionAmbientalCalculatorTest {
         }
 
         @Test
-        @DisplayName("Todos null → retorna null (sin datos)")
+        @DisplayName("Todos null → puntuación cero (degradación graciosa)")
         void todosNullRetornaNull() {
             PuntuacionAmbientalResponseDTO result = calculator.calcular(null, null, null);
 
-            assertThat(result).isNull();
+            assertThat(result).isNotNull();
+            assertThat(result.getPuntuacionTotal()).isEqualByComparingTo(BigDecimal.ZERO);
+            assertThat(result.getComponenteCertificaciones()).isEqualByComparingTo(BigDecimal.ZERO);
+            assertThat(result.getComponenteIma()).isEqualByComparingTo(BigDecimal.ZERO);
+            assertThat(result.getComponenteBenchmark()).isEqualByComparingTo(BigDecimal.ZERO);
+            assertThat(result.getCantidadCertificacionesActivas()).isEqualTo(0);
         }
 
         @Test

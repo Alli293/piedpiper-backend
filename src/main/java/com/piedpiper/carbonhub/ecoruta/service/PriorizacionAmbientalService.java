@@ -109,8 +109,10 @@ public class PriorizacionAmbientalService {
             // Si detalle es null (sin datos), el establecimiento mantiene puntuación turística base
         }
 
-        // Re-ordenar por puntuación final descendente
-        establecimientosBase.sort(Comparator.comparing(EstablecimientoRankeado::getPuntuacionFinal).reversed());
+        // Re-ordenar por puntuación final descendente (null-safe: sin datos van al final)
+        establecimientosBase.sort(
+                Comparator.comparing(EstablecimientoRankeado::getPuntuacionFinal,
+                        Comparator.nullsLast(Comparator.reverseOrder())));
 
         return new ResultadoPriorizacion(
                 establecimientosBase,
