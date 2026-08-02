@@ -43,8 +43,8 @@ class EmailVerificacionServiceImplTest {
         mensaje.saveChanges();
 
         assertThat(mensaje.getSubject()).isEqualTo("Verifica tu correo - CarbonHub");
-        assertThat(mensaje.getAllRecipients()[0].toString()).isEqualTo("ana.perez@example.com");
-        assertThat(mensaje.getFrom()[0].toString()).isEqualTo("no-reply@carbonhub.com");
+        assertThat(mensaje.getAllRecipients()[0]).hasToString("ana.perez@example.com");
+        assertThat(mensaje.getFrom()[0]).hasToString("no-reply@carbonhub.com");
         assertThat(mensaje.getContentType()).contains("text/html");
 
         String html = (String) mensaje.getContent();

@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Year;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -32,7 +33,7 @@ public class EmisionEvolucionService {
     public EvolucionMensualResponseDTO obtenerEvolucion(Integer anio, UUID usuarioId) {
         UUID empresaId = emisionEmpresaService.empresaId(usuarioId);
 
-        int anioEfectivo = anio != null ? anio : Year.now().getValue();
+        int anioEfectivo = anio != null ? anio : Year.now(ZoneId.systemDefault()).getValue();
         validarAnio(anioEfectivo);
 
         List<Object[]> resultados = emisionRepository.sumarCarbonKgPorMes(empresaId, anioEfectivo);
@@ -53,7 +54,7 @@ public class EmisionEvolucionService {
     }
 
     private void validarAnio(int anio) {
-        int anioActual = Year.now().getValue();
+        int anioActual = Year.now(ZoneId.systemDefault()).getValue();
         if (anio < 1900 || anio > anioActual + 1) {
             throw ApiException.anioInvalido();
         }

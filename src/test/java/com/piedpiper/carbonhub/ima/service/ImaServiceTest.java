@@ -6,6 +6,7 @@ import com.piedpiper.carbonhub.empresa.models.enums.SectorIndustrial;
 import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.ima.models.dtos.ImaResponseDTO;
+import com.piedpiper.carbonhub.ima.mappers.ImaSnapshotMapperImpl;
 import com.piedpiper.carbonhub.ima.models.entities.AgregadoSectorial;
 import com.piedpiper.carbonhub.ima.models.entities.ImaSnapshot;
 import com.piedpiper.carbonhub.ima.repository.AgregadoSectorialRepository;
@@ -15,7 +16,6 @@ import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
@@ -51,20 +51,11 @@ class ImaServiceTest {
     @Mock
     private UsuarioRepository usuarioRepository;
     @Mock
-    private com.piedpiper.carbonhub.ima.mappers.ImaSnapshotMapper imaSnapshotMapper;
-    @Mock
     private ImaInterpretacionService interpretacionService;
 
-    @InjectMocks
-    private ImaService service;
-
-    @org.junit.jupiter.api.BeforeEach
-    void configurarMapper() {
-        org.mockito.Mockito.lenient().when(imaSnapshotMapper.toDto(org.mockito.ArgumentMatchers.any())).thenAnswer(i -> {
-            var s = (com.piedpiper.carbonhub.ima.models.entities.ImaSnapshot) i.getArgument(0);
-            if (s == null) return null;
-            return com.piedpiper.carbonhub.ima.models.dtos.ImaResponseDTO.builder().cobertura(s.getCobertura()).puntajeIntensidadSectorial(s.getPuntajeIntensidadSectorial()).consistencia(s.getConsistencia()).ima(s.getIma()).parcial(s.isParcial()).motivoParcial(s.getMotivoParcial()).intensidad(s.getIntensidad()).calculatedAt(s.getCalculatedAt()).interpretacion(s.getInterpretacion()).siguientePaso(s.getSiguientePaso()).build();
-        });
+    private ImaService service() {
+        return new ImaService(imaSnapshotRepository, agregadoSectorialRepository, emisionRepository,
+                empresaRepository, usuarioRepository, new ImaSnapshotMapperImpl());
     }
 
     @Test
@@ -85,7 +76,7 @@ class ImaServiceTest {
         when(imaSnapshotRepository.findByEmpresaIdAndAnioAndMes(EMPRESA_ID, 2026, 6))
                 .thenReturn(Optional.of(existente));
 
-        ImaResponseDTO resultado = service.obtenerIma(2026, 6, USUARIO_ID);
+        ImaResponseDTO resultado = service().obtenerIma(2026, 6, USUARIO_ID);
 
         assertThat(resultado.getCobertura()).isEqualByComparingTo(new BigDecimal("75.0"));
         assertThat(resultado.getIma()).isEqualByComparingTo(new BigDecimal("61.7"));
@@ -105,7 +96,7 @@ class ImaServiceTest {
                 .thenReturn(new BigDecimal("5000"));
         when(imaSnapshotRepository.save(any())).thenAnswer(i -> i.getArgument(0));
 
-        ImaResponseDTO resultado = service.obtenerIma(2026, 6, USUARIO_ID);
+        ImaResponseDTO resultado = service().obtenerIma(2026, 6, USUARIO_ID);
 
         assertThat(resultado.getCobertura()).isEqualByComparingTo(new BigDecimal("75.0"));
     }
@@ -123,7 +114,7 @@ class ImaServiceTest {
                 .thenReturn(new BigDecimal("10000"));
         when(imaSnapshotRepository.save(any())).thenAnswer(i -> i.getArgument(0));
 
-        ImaResponseDTO resultado = service.obtenerIma(2026, 6, USUARIO_ID);
+        ImaResponseDTO resultado = service().obtenerIma(2026, 6, USUARIO_ID);
 
         assertThat(resultado.getConsistencia()).isEqualByComparingTo(new BigDecimal("66.7"));
     }
@@ -145,7 +136,7 @@ class ImaServiceTest {
                         .build()));
         when(imaSnapshotRepository.save(any())).thenAnswer(i -> i.getArgument(0));
 
-        ImaResponseDTO resultado = service.obtenerIma(2026, 6, USUARIO_ID);
+        ImaResponseDTO resultado = service().obtenerIma(2026, 6, USUARIO_ID);
 
         assertThat(resultado.isParcial()).isTrue();
         assertThat(resultado.getPuntajeIntensidadSectorial()).isNull();
@@ -170,7 +161,7 @@ class ImaServiceTest {
                         .build()));
         when(imaSnapshotRepository.save(any())).thenAnswer(i -> i.getArgument(0));
 
-        ImaResponseDTO resultado = service.obtenerIma(2026, 6, USUARIO_ID);
+        ImaResponseDTO resultado = service().obtenerIma(2026, 6, USUARIO_ID);
 
         assertThat(resultado.isParcial()).isTrue();
         assertThat(resultado.getPuntajeIntensidadSectorial()).isNull();
@@ -190,7 +181,7 @@ class ImaServiceTest {
                 .thenReturn(BigDecimal.ZERO);
         when(imaSnapshotRepository.save(any())).thenAnswer(i -> i.getArgument(0));
 
-        ImaResponseDTO resultado = service.obtenerIma(2026, 6, USUARIO_ID);
+        ImaResponseDTO resultado = service().obtenerIma(2026, 6, USUARIO_ID);
 
         assertThat(resultado.getPuntajeIntensidadSectorial())
                 .isEqualByComparingTo(new BigDecimal("100"));
@@ -213,7 +204,7 @@ class ImaServiceTest {
                         .build()));
         when(imaSnapshotRepository.save(any())).thenAnswer(i -> i.getArgument(0));
 
-        ImaResponseDTO resultado = service.obtenerIma(2026, 6, USUARIO_ID);
+        ImaResponseDTO resultado = service().obtenerIma(2026, 6, USUARIO_ID);
 
         assertThat(resultado.isParcial()).isTrue();
         assertThat(resultado.getMotivoParcial()).contains("Aún no hay emisiones");
@@ -226,7 +217,8 @@ class ImaServiceTest {
         Usuario sinEmpresa = Usuario.builder().id(USUARIO_ID).build();
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(sinEmpresa));
 
-        assertThatThrownBy(() -> service.obtenerIma(2026, 6, USUARIO_ID))
+        var servicio = service();
+        assertThatThrownBy(() -> servicio.obtenerIma(2026, 6, USUARIO_ID))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);

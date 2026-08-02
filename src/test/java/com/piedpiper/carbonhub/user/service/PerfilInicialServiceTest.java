@@ -192,7 +192,8 @@ class PerfilInicialServiceTest {
     void adminSinEmpresa_soloPreferencias_rechazaCon403SinMarcarCompletado() {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario(Rol.ADMINISTRADOR_EMPRESA)));
 
-        assertThatThrownBy(() -> service.completar(USUARIO_ID, requestBasico()))
+        PerfilInicialRequestDTO request = requestBasico();
+        assertThatThrownBy(() -> service.completar(USUARIO_ID, request))
                 .isInstanceOf(ApiException.class)
                 .hasMessageContaining("empresa")
                 .satisfies(ex -> assertThat(((ApiException) ex).getStatus())
@@ -208,7 +209,8 @@ class PerfilInicialServiceTest {
         when(usuarioRepository.saveAndFlush(any(Usuario.class)))
                 .thenThrow(new DataAccessResourceFailureException("BD no disponible"));
 
-        assertThatThrownBy(() -> service.completar(USUARIO_ID, requestBasico()))
+        PerfilInicialRequestDTO request = requestBasico();
+        assertThatThrownBy(() -> service.completar(USUARIO_ID, request))
                 .isInstanceOf(ApiException.class)
                 .hasMessage("No se pudo guardar tu perfil. Intenta nuevamente.")
                 .satisfies(ex -> assertThat(((ApiException) ex).getStatus())

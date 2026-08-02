@@ -181,7 +181,8 @@ class PreferenciasViajeServiceTest {
         when(preferenciasViajeRepository.saveAndFlush(any(PreferenciasViaje.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate key value violates unique constraint"));
 
-        assertThatThrownBy(() -> service.guardar(USUARIO_ID, requestValido()))
+        PreferenciasViajeRequestDTO request = requestValido();
+        assertThatThrownBy(() -> service.guardar(USUARIO_ID, request))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.CONFLICT);
@@ -208,7 +209,8 @@ class PreferenciasViajeServiceTest {
         when(preferenciasViajeRepository.saveAndFlush(any(PreferenciasViaje.class)))
                 .thenThrow(new DataAccessResourceFailureException("fallo de base de datos"));
 
-        assertThatThrownBy(() -> service.guardar(USUARIO_ID, requestValido()))
+        PreferenciasViajeRequestDTO request = requestValido();
+        assertThatThrownBy(() -> service.guardar(USUARIO_ID, request))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);

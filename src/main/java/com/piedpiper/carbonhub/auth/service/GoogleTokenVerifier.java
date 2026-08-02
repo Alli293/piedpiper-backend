@@ -16,6 +16,7 @@ import com.nimbusds.jose.JWSAlgorithm;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.List;
 import java.util.Set;
@@ -32,7 +33,7 @@ public class GoogleTokenVerifier {
     public GoogleTokenVerifier(
             @Value("${security.google.jwks-uri}") String jwksUri,
             @Value("${security.google.client-id}") String clientId,
-            @Value("${security.google.timeout-ms}") int timeoutMs) throws Exception {
+            @Value("${security.google.timeout-ms}") int timeoutMs) throws MalformedURLException {
         this.clientId = clientId;
         DefaultResourceRetriever retriever = new DefaultResourceRetriever(timeoutMs, timeoutMs);
         JWKSource<SecurityContext> jwkSource = new RemoteJWKSet<>(new URL(jwksUri), retriever);

@@ -94,7 +94,8 @@ class RegistroInvitacionServiceTest {
         when(invitacionService.validarParaAceptar("token-invitacion")).thenReturn(invitacion());
         when(googleTokenVerifier.verificar("id-token")).thenReturn(claims("otra@correo.com", true));
 
-        assertThatThrownBy(() -> service.registrar(request()))
+        var requestDto = request();
+        assertThatThrownBy(() -> service.registrar(requestDto))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.FORBIDDEN);
@@ -122,7 +123,8 @@ class RegistroInvitacionServiceTest {
         when(googleTokenVerifier.verificar("id-token")).thenReturn(claims("colab@correo.com", true));
         when(usuarioRepository.existsByGoogleSub("sub-1")).thenReturn(true);
 
-        assertThatThrownBy(() -> service.registrar(request()))
+        var requestDto = request();
+        assertThatThrownBy(() -> service.registrar(requestDto))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.CONFLICT);
@@ -135,7 +137,8 @@ class RegistroInvitacionServiceTest {
         when(invitacionService.validarParaAceptar("token-invitacion")).thenReturn(invitacion());
         when(googleTokenVerifier.verificar("id-token")).thenReturn(claims("colab@correo.com", false));
 
-        assertThatThrownBy(() -> service.registrar(request()))
+        var requestDto = request();
+        assertThatThrownBy(() -> service.registrar(requestDto))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);

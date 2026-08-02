@@ -54,23 +54,35 @@ public class ImaInterpretacionRetryService {
 
         for (ImaSnapshot snapshot : pendientes) {
             try {
-                Empresa empresa = empresaRepository.findById(snapshot.getEmpresaId()).orElse(null);
-                if (empresa == null) continue;
-
-                SectorIndustrial sector = empresa.getSectorIndustrial();
-                AgregadoSectorial agregado = agregadoSectorialRepository
-                        .findBySectorAndAnioAndMes(sector, snapshot.getAnio(), snapshot.getMes())
-                        .orElse(null);
-                if (agregado == null) continue;
+                DatosReintento datos = datosPara(snapshot);
+                if (datos == null) continue;
 
                 String tendencia = calcularTendencia(snapshot);
 
                 interpretacionService.generarInterpretacion(
-                        snapshot, sector.name(), agregado, tendencia);
+                        snapshot, datos.sector().name(), datos.agregado(), tendencia);
             } catch (Exception e) {
                 log.warn("Reintento fallido para snapshot {}: {}", snapshot.getId(), e.getMessage());
             }
         }
+    }
+
+    private record DatosReintento(SectorIndustrial sector, AgregadoSectorial agregado) {
+    }
+
+    private DatosReintento datosPara(ImaSnapshot snapshot) {
+        Empresa empresa = empresaRepository.findById(snapshot.getEmpresaId()).orElse(null);
+        if (empresa == null) {
+            return null;
+        }
+        SectorIndustrial sector = empresa.getSectorIndustrial();
+        AgregadoSectorial agregado = agregadoSectorialRepository
+                .findBySectorAndAnioAndMes(sector, snapshot.getAnio(), snapshot.getMes())
+                .orElse(null);
+        if (agregado == null) {
+            return null;
+        }
+        return new DatosReintento(sector, agregado);
     }
 
     private String calcularTendencia(ImaSnapshot snapshot) {

@@ -1,6 +1,7 @@
 package com.piedpiper.carbonhub.emision.service;
 
 import com.piedpiper.carbonhub.emision.mappers.EmisionEnvioMapper;
+import com.piedpiper.carbonhub.emision.mappers.EmisionEnvioMapperImpl;
 import com.piedpiper.carbonhub.emision.models.dtos.EmisionEnvioResponseDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.RegistrarEnvioRequestDTO;
 import com.piedpiper.carbonhub.emision.models.dtos.climatiq.ClimatiqEmissionFactorSelector;
@@ -20,6 +21,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 
@@ -34,6 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -46,8 +49,8 @@ class EmisionEnvioServiceTest {
     private EmisionRepository emisionRepository;
     @Mock
     private UsuarioRepository usuarioRepository;
-    @Mock
-    private EmisionEnvioMapper emisionEnvioMapper;
+    @Spy
+    private EmisionEnvioMapper emisionEnvioMapper = new EmisionEnvioMapperImpl();
 
     @Mock
     private ImaCacheInvalidator imaCacheInvalidator;
@@ -84,9 +87,6 @@ class EmisionEnvioServiceTest {
         when(climatiqClient.estimar(any(ClimatiqEmissionFactorSelector.class), any(Map.class)))
                 .thenReturn(estimacion(new BigDecimal("35.500")));
         when(emisionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        EmisionEnvioResponseDTO responseEsperado = new EmisionEnvioResponseDTO();
-        responseEsperado.setCarbonKg(new BigDecimal("35.500"));
-        when(emisionEnvioMapper.toDto(any())).thenReturn(responseEsperado);
 
         EmisionEnvioResponseDTO response = service.registrar(requestValido(), USUARIO_ID);
 
@@ -113,7 +113,8 @@ class EmisionEnvioServiceTest {
     void usuarioNoExistenteLanzaExcepcion() {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.registrar(requestValido(), USUARIO_ID))
+        RegistrarEnvioRequestDTO request = requestValido();
+        assertThatThrownBy(() -> service.registrar(request, USUARIO_ID))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
@@ -127,7 +128,8 @@ class EmisionEnvioServiceTest {
         Usuario sinEmpresa = Usuario.builder().id(USUARIO_ID).build();
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(sinEmpresa));
 
-        assertThatThrownBy(() -> service.registrar(requestValido(), USUARIO_ID))
+        RegistrarEnvioRequestDTO request = requestValido();
+        assertThatThrownBy(() -> service.registrar(request, USUARIO_ID))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
@@ -142,7 +144,8 @@ class EmisionEnvioServiceTest {
         when(climatiqClient.estimar(any(ClimatiqEmissionFactorSelector.class), any(Map.class)))
                 .thenThrow(ApiException.calculoNoDisponible());
 
-        assertThatThrownBy(() -> service.registrar(requestValido(), USUARIO_ID))
+        RegistrarEnvioRequestDTO request = requestValido();
+        assertThatThrownBy(() -> service.registrar(request, USUARIO_ID))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
@@ -157,7 +160,6 @@ class EmisionEnvioServiceTest {
         when(climatiqClient.estimar(any(ClimatiqEmissionFactorSelector.class), any(Map.class)))
                 .thenReturn(estimacion(new BigDecimal("1234.567")));
         when(emisionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        when(emisionEnvioMapper.toDto(any())).thenReturn(new EmisionEnvioResponseDTO());
 
         service.registrar(requestValido(), USUARIO_ID);
 
@@ -175,7 +177,6 @@ class EmisionEnvioServiceTest {
         when(climatiqClient.estimar(any(ClimatiqEmissionFactorSelector.class), any(Map.class)))
                 .thenReturn(estimacion(new BigDecimal("10")));
         when(emisionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        when(emisionEnvioMapper.toDto(any())).thenReturn(new EmisionEnvioResponseDTO());
 
         ArgumentCaptor<ClimatiqEmissionFactorSelector> selectorCaptor =
                 ArgumentCaptor.forClass(ClimatiqEmissionFactorSelector.class);
@@ -188,7 +189,7 @@ class EmisionEnvioServiceTest {
             service.registrar(request, USUARIO_ID);
         }
 
-        verify(climatiqClient, org.mockito.Mockito.times(4))
+        verify(climatiqClient, times(4))
                 .estimar(selectorCaptor.capture(), any(Map.class));
 
         List<String> activityIds = selectorCaptor.getAllValues().stream()
@@ -196,11 +197,12 @@ class EmisionEnvioServiceTest {
                 .toList();
 
         // All 4 methods should produce distinct activity IDs
-        assertThat(activityIds).hasSize(4);
-        assertThat(activityIds).doesNotHaveDuplicates();
-        assertThat(activityIds).anyMatch(id -> id.contains("commercial_truck"));  // TRUCK
-        assertThat(activityIds).anyMatch(id -> id.contains("sea_freight"));       // SHIP
-        assertThat(activityIds).anyMatch(id -> id.contains("freight_train"));     // TRAIN
-        assertThat(activityIds).anyMatch(id -> id.contains("freight_flight"));    // PLANE
+        assertThat(activityIds)
+                .hasSize(4)
+                .doesNotHaveDuplicates()
+                .anyMatch(id -> id.contains("commercial_truck"))  // TRUCK
+                .anyMatch(id -> id.contains("sea_freight"))       // SHIP
+                .anyMatch(id -> id.contains("freight_train"))     // TRAIN
+                .anyMatch(id -> id.contains("freight_flight"));   // PLANE
     }
 }

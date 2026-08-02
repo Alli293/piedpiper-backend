@@ -51,8 +51,9 @@ class JwtServiceTest {
         Claims claims = jwtService.parsear(token);
 
         assertThat(claims.getSubject()).isEqualTo(usuario.getId().toString());
-        assertThat(claims.get("email")).isEqualTo(usuario.getEmail());
-        assertThat(claims.get("rol")).isEqualTo(usuario.getRol().name());
+        assertThat(claims)
+                .containsEntry("email", usuario.getEmail())
+                .containsEntry("rol", usuario.getRol().name());
     }
 
     @Test

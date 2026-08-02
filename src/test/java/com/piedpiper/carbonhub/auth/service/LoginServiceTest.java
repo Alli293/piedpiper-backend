@@ -74,8 +74,8 @@ class LoginServiceTest {
         when(usuarioRepository.findByEmailIgnoreCase("ana@gmail.com")).thenReturn(Optional.of(usuario));
         when(passwordEncoder.matches("mala", "hash")).thenReturn(false);
 
-        assertThatThrownBy(() -> service.login(
-                new LoginRequestDTO(MetodoAuth.CORREO, null, "ana@gmail.com", "mala")))
+        var loginRequest = new LoginRequestDTO(MetodoAuth.CORREO, null, "ana@gmail.com", "mala");
+        assertThatThrownBy(() -> service.login(loginRequest))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.UNAUTHORIZED);
@@ -88,8 +88,8 @@ class LoginServiceTest {
         when(usuarioRepository.findByEmailIgnoreCase("ana@gmail.com")).thenReturn(Optional.of(usuario));
         when(passwordEncoder.matches("mala", "hash")).thenReturn(false);
 
-        assertThatThrownBy(() -> service.login(
-                new LoginRequestDTO(MetodoAuth.CORREO, null, "ana@gmail.com", "mala")))
+        var loginRequest = new LoginRequestDTO(MetodoAuth.CORREO, null, "ana@gmail.com", "mala");
+        assertThatThrownBy(() -> service.login(loginRequest))
                 .isInstanceOf(ApiException.class);
 
         ArgumentCaptor<Usuario> captor = ArgumentCaptor.forClass(Usuario.class);
@@ -105,8 +105,8 @@ class LoginServiceTest {
         usuario.setBloqueadoHasta(Instant.now().plusSeconds(600));
         when(usuarioRepository.findByEmailIgnoreCase("ana@gmail.com")).thenReturn(Optional.of(usuario));
 
-        assertThatThrownBy(() -> service.login(
-                new LoginRequestDTO(MetodoAuth.CORREO, null, "ana@gmail.com", "secreta")))
+        var loginRequest = new LoginRequestDTO(MetodoAuth.CORREO, null, "ana@gmail.com", "secreta");
+        assertThatThrownBy(() -> service.login(loginRequest))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
@@ -118,8 +118,8 @@ class LoginServiceTest {
                 .thenReturn(new GoogleClaims("sub-x", "nuevo@gmail.com", true, "Nuevo", "Nuevo", "Perez"));
         when(usuarioRepository.findByGoogleSub("sub-x")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.login(
-                new LoginRequestDTO(MetodoAuth.GOOGLE, "token", null, null)))
+        var loginRequest = new LoginRequestDTO(MetodoAuth.GOOGLE, "token", null, null);
+        assertThatThrownBy(() -> service.login(loginRequest))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.NOT_FOUND);
@@ -132,8 +132,8 @@ class LoginServiceTest {
         when(usuarioRepository.findByEmailIgnoreCase("ana@gmail.com")).thenReturn(Optional.of(usuario));
         when(passwordEncoder.matches("secreta", "hash")).thenReturn(true);
 
-        assertThatThrownBy(() -> service.login(
-                new LoginRequestDTO(MetodoAuth.CORREO, null, "ana@gmail.com", "secreta")))
+        var loginRequest = new LoginRequestDTO(MetodoAuth.CORREO, null, "ana@gmail.com", "secreta");
+        assertThatThrownBy(() -> service.login(loginRequest))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.FORBIDDEN);

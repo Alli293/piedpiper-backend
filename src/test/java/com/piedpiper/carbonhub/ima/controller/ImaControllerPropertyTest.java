@@ -11,7 +11,6 @@ import com.piedpiper.carbonhub.ima.models.entities.ImaSnapshot;
 import com.piedpiper.carbonhub.ima.repository.AgregadoSectorialRepository;
 import com.piedpiper.carbonhub.ima.repository.ImaSnapshotRepository;
 import com.piedpiper.carbonhub.ima.service.ImaBenchmarkService;
-import com.piedpiper.carbonhub.ima.service.ImaInterpretacionService;
 import com.piedpiper.carbonhub.ima.service.ImaService;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
@@ -23,7 +22,6 @@ import net.jqwik.api.*;
 import net.jqwik.api.constraints.*;
 import net.jqwik.api.lifecycle.BeforeTry;
 
-import org.mockito.Mockito;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -66,20 +64,20 @@ class ImaControllerPropertyTest {
     @BeforeTry
     void setUp() {
         // Mock simple para tests de Property 7
-        imaService = Mockito.mock(ImaService.class);
-        imaBenchmarkService = Mockito.mock(ImaBenchmarkService.class);
-        controller = new ImaController(imaService, imaBenchmarkService, Mockito.mock(com.piedpiper.carbonhub.ima.service.ImaTendenciaService.class));
+        imaService = mock(ImaService.class);
+        imaBenchmarkService = mock(ImaBenchmarkService.class);
+        controller = new ImaController(imaService, imaBenchmarkService, mock(com.piedpiper.carbonhub.ima.service.ImaTendenciaService.class));
         authentication = new TestingAuthenticationToken(
                 "41ce47ab-a46c-4306-8c46-2688dc97fa73", "password", "ROLE_ADMINISTRADOR_EMPRESA");
 
         // Configuración completa para tests de Property 8
-        imaSnapshotRepository = Mockito.mock(ImaSnapshotRepository.class);
-        agregadoSectorialRepository = Mockito.mock(AgregadoSectorialRepository.class);
-        emisionRepository = Mockito.mock(EmisionRepository.class);
-        empresaRepository = Mockito.mock(EmpresaRepository.class);
-        usuarioRepository = Mockito.mock(UsuarioRepository.class);
+        imaSnapshotRepository = mock(ImaSnapshotRepository.class);
+        agregadoSectorialRepository = mock(AgregadoSectorialRepository.class);
+        emisionRepository = mock(EmisionRepository.class);
+        empresaRepository = mock(EmpresaRepository.class);
+        usuarioRepository = mock(UsuarioRepository.class);
 
-        imaSnapshotMapper = Mockito.mock(ImaSnapshotMapper.class);
+        imaSnapshotMapper = mock(ImaSnapshotMapper.class);
         when(imaSnapshotMapper.toDto(any(ImaSnapshot.class))).thenAnswer(invocation -> {
             ImaSnapshot s = invocation.getArgument(0);
             return ImaResponseDTO.builder()

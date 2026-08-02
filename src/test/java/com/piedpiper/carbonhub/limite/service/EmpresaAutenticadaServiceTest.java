@@ -55,7 +55,8 @@ class EmpresaAutenticadaServiceTest {
         Usuario usuario = Usuario.builder().id(USUARIO_ID).build();
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario));
 
-        assertThatThrownBy(() -> service.obtenerEmpresaId(authentication(USUARIO_ID.toString())))
+        Authentication auth = authentication(USUARIO_ID.toString());
+        assertThatThrownBy(() -> service.obtenerEmpresaId(auth))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
@@ -65,7 +66,8 @@ class EmpresaAutenticadaServiceTest {
     void usuarioNoEncontradoLanza500() {
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.obtenerEmpresaId(authentication(USUARIO_ID.toString())))
+        Authentication auth = authentication(USUARIO_ID.toString());
+        assertThatThrownBy(() -> service.obtenerEmpresaId(auth))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
@@ -73,7 +75,8 @@ class EmpresaAutenticadaServiceTest {
 
     @Test
     void nombreDeUsuarioInvalidoLanza403() {
-        assertThatThrownBy(() -> service.obtenerEmpresaId(authentication("no-es-un-uuid")))
+        Authentication auth = authentication("no-es-un-uuid");
+        assertThatThrownBy(() -> service.obtenerEmpresaId(auth))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.FORBIDDEN);

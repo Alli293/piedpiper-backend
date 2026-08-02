@@ -21,7 +21,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.UUID;
@@ -57,7 +56,7 @@ class ImaTendenciaServiceTest {
 
     @BeforeEach
     void setUp() {
-        mesActual = YearMonth.from(LocalDate.now());
+        mesActual = YearMonth.now();
         // Por defecto la detección no aporta eventos: los tests de serie/sector no dependen de ella.
         // Es lenient porque algunos tests fallan en la validación antes de invocar la detección.
         lenient().when(imaEventosService.detectar(any(), any(), any(), any())).thenReturn(List.of());
