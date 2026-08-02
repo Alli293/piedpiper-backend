@@ -37,7 +37,6 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.time.temporal.ChronoUnit;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,11 +49,10 @@ public class EcoRutaItinerarioService {
 
     private static final Logger log = LoggerFactory.getLogger(EcoRutaItinerarioService.class);
 
-    private static final int MAX_GENERACIONES_POR_HORA = 5;
-
     private final PreferenciasViajeRepository preferenciasViajeRepository;
     private final ItinerarioRepository itinerarioRepository;
     private final ItinerarioIaClienteService itinerarioIaClienteService;
+    private final ItinerarioCuotaService itinerarioCuotaService;
     private final EventoReconocimientoService eventoReconocimientoService;
     private final PriorizacionAmbientalService priorizacionAmbientalService;
     private final EmpresaRepository empresaRepository;
@@ -63,6 +61,7 @@ public class EcoRutaItinerarioService {
     public EcoRutaItinerarioService(PreferenciasViajeRepository preferenciasViajeRepository,
                                     ItinerarioRepository itinerarioRepository,
                                     ItinerarioIaClienteService itinerarioIaClienteService,
+                                    ItinerarioCuotaService itinerarioCuotaService,
                                     EventoReconocimientoService eventoReconocimientoService,
                                     PriorizacionAmbientalService priorizacionAmbientalService,
                                     EmpresaRepository empresaRepository,
@@ -70,24 +69,31 @@ public class EcoRutaItinerarioService {
         this.preferenciasViajeRepository = preferenciasViajeRepository;
         this.itinerarioRepository = itinerarioRepository;
         this.itinerarioIaClienteService = itinerarioIaClienteService;
+        this.itinerarioCuotaService = itinerarioCuotaService;
         this.eventoReconocimientoService = eventoReconocimientoService;
         this.priorizacionAmbientalService = priorizacionAmbientalService;
         this.empresaRepository = empresaRepository;
         this.mapper = mapper;
     }
 
-    @Transactional
+    /**
+     * A propósito, NO {@code @Transactional}: la llamada a Gemini puede tardar hasta 10s y no debe
+     * retener una conexión del pool mientras espera. Cada paso con acceso a datos administra su
+     * propia transacción corta ({@link ItinerarioCuotaService#reservarGeneracion} en una separada
+     * vía {@code REQUIRES_NEW}, la lectura de preferencias/historial y el guardado final vía las
+     * transacciones implícitas de Spring Data por método).
+     */
     public ItinerarioResponseDTO generar(UUID usuarioId) {
         PreferenciasViaje preferencias = preferenciasViajeRepository.findByUsuario_Id(usuarioId)
                 .orElseThrow(() -> ApiException.recursoNoEncontrado(
                         "No has completado tus preferencias de viaje todavía."));
 
-        verificarLimiteDeGeneraciones(preferencias);
-
         if (preferencias.getFechaInicio().isBefore(LocalDate.now())) {
             throw ApiException.datosInvalidos(
                     "La fecha de inicio de tu viaje ya pasó. Actualiza tus preferencias antes de generar el itinerario.");
         }
+
+        itinerarioCuotaService.reservarGeneracion(usuarioId);
 
         HistorialEcoRutaDTO historial = construirHistorial(usuarioId);
         String contexto = construirContextoTuristico(preferencias, historial);
@@ -137,29 +143,6 @@ public class EcoRutaItinerarioService {
     @Transactional(readOnly = true)
     public boolean perteneceAlUsuario(UUID itinerarioId, UUID usuarioId) {
         return itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, usuarioId).isPresent();
-    }
-
-    /**
-     * Ventana fija de 1 hora, máximo {@value #MAX_GENERACIONES_POR_HORA} solicitudes — a
-     * diferencia del límite silencioso de restablecimiento de contraseña (PP-29), este SÍ es
-     * visible: protege la cuota de Gemini, no revela ninguna información sensible del usuario.
-     * Se incrementa el contador antes de llamar a la IA, para que un intento fallido también
-     * cuente contra la cuota.
-     */
-    private void verificarLimiteDeGeneraciones(PreferenciasViaje preferencias) {
-        Instant ahora = Instant.now();
-        Instant ventanaInicio = preferencias.getItinerarioGeneracionVentanaInicio();
-
-        if (ventanaInicio == null || ventanaInicio.isBefore(ahora.minus(1, ChronoUnit.HOURS))) {
-            preferencias.setItinerarioGeneracionVentanaInicio(ahora);
-            preferencias.setItinerarioGeneracionContador(0);
-        }
-
-        if (preferencias.getItinerarioGeneracionContador() >= MAX_GENERACIONES_POR_HORA) {
-            throw ApiException.itinerarioGeneracionesExcedidas();
-        }
-
-        preferencias.setItinerarioGeneracionContador(preferencias.getItinerarioGeneracionContador() + 1);
     }
 
     /**
@@ -256,7 +239,8 @@ public class EcoRutaItinerarioService {
      * acá — no se re-valida aquí (CONVENTIONS.md §4.7).
      */
     private ItinerarioActividad construirActividad(ItinerarioDia dia, ActividadIaDTO actividadIa, int orden) {
-        Provincia provincia = Catalogos.desde(Provincia.class, actividadIa.getProvincia()).get();
+        Provincia provincia = Catalogos.desde(Provincia.class, actividadIa.getProvincia())
+                .orElseThrow(() -> ApiException.itinerarioRespuestaInvalida());
         Moneda moneda = actividadIa.getMoneda() != null
                 ? Catalogos.desde(Moneda.class, actividadIa.getMoneda()).orElse(null)
                 : null;

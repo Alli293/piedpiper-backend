@@ -47,9 +47,27 @@ public class ItinerarioValidador {
             }
         }
 
+        if (dias.size() < cantidadDiasSolicitados && !esPrefijoContiguo(numerosDeDiaVistos, dias.size())) {
+            return ResultadoValidacionItinerario.INVALIDO;
+        }
+
         return dias.size() == cantidadDiasSolicitados
                 ? ResultadoValidacionItinerario.VALIDO_COMPLETO
                 : ResultadoValidacionItinerario.VALIDO_PARCIAL;
+    }
+
+    /**
+     * Un itinerario parcial solo tiene sentido como prefijo contiguo desde el día 1 (ej. días 1-2
+     * de un viaje de 3) — de lo contrario quedarían huecos sin actividades en días intermedios
+     * (ej. solo el día 3), lo cual el frontend no sabe representar y el usuario no puede completar.
+     */
+    private boolean esPrefijoContiguo(Set<Integer> numerosDeDiaVistos, int cantidadDias) {
+        for (int dia = 1; dia <= cantidadDias; dia++) {
+            if (!numerosDeDiaVistos.contains(dia)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private boolean diaEsValido(DiaIaDTO dia, int cantidadDiasSolicitados, Set<Integer> numerosDeDiaVistos) {
@@ -66,10 +84,25 @@ public class ItinerarioValidador {
         return dia.getActividades().stream().allMatch(this::actividadEsValida);
     }
 
+    // Deben coincidir con las columnas de ItinerarioActividad — una respuesta que las exceda
+    // se descarta aquí como inválida, en vez de fallar más adelante con un error de persistencia.
+    private static final int LONGITUD_MAXIMA_NOMBRE = 200;
+    private static final int LONGITUD_MAXIMA_DESCRIPCION = 500;
+    private static final int LONGITUD_MAXIMA_ESTABLECIMIENTO = 200;
+
     private boolean actividadEsValida(ActividadIaDTO actividad) {
         if (actividad == null
                 || actividad.getNombre() == null || actividad.getNombre().isBlank()
+                || actividad.getNombre().length() > LONGITUD_MAXIMA_NOMBRE
                 || actividad.getDuracionMinutos() == null || actividad.getDuracionMinutos() <= 0) {
+            return false;
+        }
+        if (actividad.getDescripcion() != null
+                && actividad.getDescripcion().length() > LONGITUD_MAXIMA_DESCRIPCION) {
+            return false;
+        }
+        if (actividad.getEstablecimientoRecomendado() != null
+                && actividad.getEstablecimientoRecomendado().length() > LONGITUD_MAXIMA_ESTABLECIMIENTO) {
             return false;
         }
         if (!horarioEsValido(actividad.getHorario())) {
@@ -78,9 +111,13 @@ public class ItinerarioValidador {
         if (Catalogos.desde(Provincia.class, actividad.getProvincia()).isEmpty()) {
             return false;
         }
-        if (actividad.getCostoAproximado() != null
-                && Catalogos.desde(Moneda.class, actividad.getMoneda()).isEmpty()) {
-            return false;
+        if (actividad.getCostoAproximado() != null) {
+            if (actividad.getCostoAproximado().signum() < 0) {
+                return false;
+            }
+            if (Catalogos.desde(Moneda.class, actividad.getMoneda()).isEmpty()) {
+                return false;
+            }
         }
         return true;
     }

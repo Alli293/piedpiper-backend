@@ -15,8 +15,6 @@ public interface ItinerarioRepository extends JpaRepository<Itinerario, UUID> {
 
     long countByUsuario_Id(UUID usuarioId);
 
-    List<Itinerario> findAllByUsuario_IdOrderByFechaGeneracionDesc(UUID usuarioId);
-
     Optional<Itinerario> findByIdAndUsuario_Id(UUID id, UUID usuarioId);
 
     @Query("""
