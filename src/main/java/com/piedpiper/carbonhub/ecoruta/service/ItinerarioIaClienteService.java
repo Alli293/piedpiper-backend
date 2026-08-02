@@ -41,7 +41,11 @@ public class ItinerarioIaClienteService {
             + "SAN_JOSE, ALAJUELA, CARTAGO, HEREDIA, GUANACASTE, PUNTARENAS, LIMON.\n"
             + "- moneda: exactamente \"CRC\" o \"USD\" (solo si costoAproximado no es nulo).\n"
             + "- puntuacionAmbientalPreliminar: un entero entre 0 y 100 (0 el peor, 100 el mejor "
-            + "desempeño ambiental), nunca una escala distinta.";
+            + "desempeño ambiental), nunca una escala distinta.\n"
+            + "- puntuacionAmbientalEstimada (por actividad): un entero entre 0 y 100 estimando "
+            + "qué tan sostenible es la actividad/establecimiento. Considera: si es naturaleza/parque "
+            + "nacional (alto), si usa recursos naturales de forma responsable (medio-alto), si es "
+            + "transporte motorizado o alta huella (bajo). Siempre incluir este campo.";
 
     private final ChatClient chatClient;
     private final ItinerarioValidador validador;

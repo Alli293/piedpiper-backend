@@ -2,8 +2,11 @@ package com.piedpiper.carbonhub.ecoruta.service;
 
 import com.piedpiper.carbonhub.common.Catalogos;
 import com.piedpiper.carbonhub.ecoruta.mappers.ItinerarioMapper;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.BenchmarkDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.EstablecimientoRankeado;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.HistorialEcoRutaDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.IMADTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.IndicadorAmbientalDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO.ActividadIaDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO.DiaIaDTO;
@@ -133,7 +136,12 @@ public class EcoRutaItinerarioService {
     public ItinerarioResponseDTO obtener(UUID itinerarioId, UUID usuarioId) {
         Itinerario itinerario = itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, usuarioId)
                 .orElseThrow(() -> ApiException.recursoNoEncontrado("Itinerario no encontrado."));
-        return mapper.toDto(itinerario);
+        ItinerarioResponseDTO responseDTO = mapper.toDto(itinerario);
+
+        // Enriquecer con puntuaciones ambientales calculadas al vuelo (sin persistir)
+        enriquecerConPuntuacionesCalculadas(responseDTO, itinerario);
+
+        return responseDTO;
     }
 
     /**
@@ -161,6 +169,8 @@ public class EcoRutaItinerarioService {
     /**
      * Solo incluye los campos de preferencias/historial necesarios para la recomendación — nunca
      * datos personales del usuario (nombre, correo, etc.) que no aportan a la generación.
+     * Incluye también la lista de establecimientos verificados en CarbonHub para que la IA los
+     * priorice al generar el itinerario (Req PP-86: priorización ambiental).
      */
     private String construirContextoTuristico(PreferenciasViaje preferencias, HistorialEcoRutaDTO historial) {
         StringBuilder sb = new StringBuilder();
@@ -188,7 +198,35 @@ public class EcoRutaItinerarioService {
             sb.append("Provincias ya visitadas por el usuario: ")
                     .append(historial.getProvinciasVisitadas()).append("\n");
         }
+
+        // Incluir establecimientos verificados para que la IA los priorice
+        List<String> nombresVerificados = obtenerNombresEstablecimientosVerificados();
+        if (!nombresVerificados.isEmpty()) {
+            sb.append("\nEstablecimientos verificados ambientalmente en CarbonHub (PRIORIZAR en el campo ")
+              .append("establecimientoRecomendado cuando sea geográficamente coherente): ")
+              .append(nombresVerificados).append("\n");
+        }
+
         return sb.toString();
+    }
+
+    /**
+     * Obtiene los nombres de empresas activas registradas en CarbonHub para inyectarlos en el
+     * prompt de la IA. Así Gemini puede priorizarlos como establecimientos recomendados y el
+     * matching posterior funciona correctamente para calcular puntuaciones ambientales.
+     */
+    private List<String> obtenerNombresEstablecimientosVerificados() {
+        try {
+            return empresaRepository.findByEstado(
+                    com.piedpiper.carbonhub.empresa.models.enums.EstadoEmpresa.ACTIVO,
+                    org.springframework.data.domain.PageRequest.of(0, 50))
+                    .getContent().stream()
+                    .map(com.piedpiper.carbonhub.empresa.models.entities.Empresa::getNombreEmpresa)
+                    .toList();
+        } catch (Exception e) {
+            log.warn("No se pudieron cargar establecimientos verificados para el prompt.", e);
+            return List.of();
+        }
     }
 
     private Itinerario construirItinerario(PreferenciasViaje preferencias, ResultadoGeneracionIA resultadoIA) {
@@ -256,6 +294,7 @@ public class EcoRutaItinerarioService {
                 .establecimientoRecomendado(actividadIa.getEstablecimientoRecomendado())
                 .provincia(provincia)
                 .orden(orden)
+                .puntuacionAmbientalEstimada(actividadIa.getPuntuacionAmbientalEstimada())
                 .build();
     }
 
@@ -398,6 +437,68 @@ public class EcoRutaItinerarioService {
                     PuntuacionAmbientalResponseDTO puntuacion =
                             puntuacionesPorEstablecimiento.get(actividad.getEstablecimientoRecomendado());
                     actividad.setPuntuacionAmbiental(puntuacion);
+                }
+            }
+        }
+    }
+
+    /**
+     * Calcula y asigna puntuaciones ambientales al DTO de respuesta sin persistir registros
+     * de auditoría. Usado al obtener un itinerario ya guardado para enriquecer la visualización.
+     */
+    private void enriquecerConPuntuacionesCalculadas(ItinerarioResponseDTO responseDTO, Itinerario itinerario) {
+        List<EstablecimientoRankeado> establecimientos = extraerEstablecimientosRankeados(itinerario);
+        if (establecimientos.isEmpty()) {
+            return;
+        }
+
+        List<UUID> empresaIds = establecimientos.stream()
+                .map(EstablecimientoRankeado::getEmpresaId)
+                .toList();
+
+        // Consultar indicadores (solo lectura, sin persistir)
+        Map<UUID, IndicadorAmbientalDTO> indicadores;
+        Map<UUID, IMADTO> imaMap;
+        Map<UUID, BenchmarkDTO> benchmarkMap;
+        try {
+            indicadores = priorizacionAmbientalService.consultarIndicadoresSafe(empresaIds);
+            imaMap = priorizacionAmbientalService.consultarImaSafe(empresaIds);
+            benchmarkMap = priorizacionAmbientalService.consultarBenchmarkSafe(empresaIds);
+        } catch (Exception e) {
+            log.warn("No se pudieron calcular puntuaciones ambientales para la visualización.", e);
+            return;
+        }
+
+        // Mapear score estimado de la IA por nombre de establecimiento
+        Map<String, Integer> scoreEstimadoPorNombre = new java.util.HashMap<>();
+        for (ItinerarioDia dia : itinerario.getDias()) {
+            for (ItinerarioActividad act : dia.getActividades()) {
+                if (act.getEstablecimientoRecomendado() != null && act.getPuntuacionAmbientalEstimada() != null) {
+                    scoreEstimadoPorNombre.put(act.getEstablecimientoRecomendado(), act.getPuntuacionAmbientalEstimada());
+                }
+            }
+        }
+
+        // Calcular puntuaciones sin persistir
+        PuntuacionAmbientalCalculator calculator = priorizacionAmbientalService.getCalculator();
+        Map<String, PuntuacionAmbientalResponseDTO> puntuacionesPorEstablecimiento = new java.util.HashMap<>();
+
+        for (EstablecimientoRankeado est : establecimientos) {
+            UUID empresaId = est.getEmpresaId();
+            Integer scoreIA = scoreEstimadoPorNombre.get(est.getNombreEstablecimiento());
+            PuntuacionAmbientalResponseDTO detalle = calculator.calcular(
+                    indicadores.get(empresaId), imaMap.get(empresaId), benchmarkMap.get(empresaId), scoreIA);
+            puntuacionesPorEstablecimiento.put(est.getNombreEstablecimiento(), detalle);
+        }
+
+        // Asignar al DTO de respuesta
+        if (responseDTO.getDias() == null) return;
+        for (var dia : responseDTO.getDias()) {
+            if (dia.getActividades() == null) continue;
+            for (var actividad : dia.getActividades()) {
+                if (actividad.getEstablecimientoRecomendado() != null) {
+                    actividad.setPuntuacionAmbiental(
+                            puntuacionesPorEstablecimiento.get(actividad.getEstablecimientoRecomendado()));
                 }
             }
         }

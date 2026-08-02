@@ -185,26 +185,26 @@ class PuntuacionAmbientalCalculatorTest {
         PuntuacionAmbientalResponseDTO resultado = calculator.calcular(indicador, ima, benchmark);
 
         if (tieneAlMenosUno) {
+            assertThat(resultado).isNotNull();
             assertThat(resultado.getPuntuacionTotal()).isGreaterThan(BigDecimal.ZERO);
+            assertThat(resultado.isEstimado()).isFalse();
         } else {
-            assertThat(resultado.getPuntuacionTotal()).isEqualByComparingTo(BigDecimal.ZERO);
+            // Sin indicadores ni estimación → null
+            assertThat(resultado).isNull();
         }
     }
 
     /**
-     * Property 8: Sin ningún indicador la puntuación es exactamente 0.
+     * Property 8: Sin ningún indicador ni estimación de IA, retorna null.
      *
      * Validates: Requirements 2.1
      */
     @Property(tries = 100)
     @Tag("Feature: priorizacion-ambiental, Property 8: Cálculo condicional de puntuación")
-    void sinIndicadoresPuntuacionCero() {
+    void sinIndicadoresPuntuacionEstimada() {
         PuntuacionAmbientalResponseDTO resultado = calculator.calcular(null, null, null);
 
-        assertThat(resultado.getPuntuacionTotal()).isEqualByComparingTo(BigDecimal.ZERO);
-        assertThat(resultado.getComponenteCertificaciones()).isEqualByComparingTo(BigDecimal.ZERO);
-        assertThat(resultado.getComponenteIma()).isEqualByComparingTo(BigDecimal.ZERO);
-        assertThat(resultado.getComponenteBenchmark()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(resultado).isNull();
     }
 
     // ========================================================================
@@ -399,15 +399,11 @@ class PuntuacionAmbientalCalculatorTest {
         }
 
         @Test
-        @DisplayName("Todos null → puntuación cero")
-        void todosNullPuntuacionCero() {
+        @DisplayName("Todos null → retorna null (sin datos)")
+        void todosNullRetornaNull() {
             PuntuacionAmbientalResponseDTO result = calculator.calcular(null, null, null);
 
-            assertThat(result.getPuntuacionTotal()).isEqualByComparingTo(BigDecimal.ZERO);
-            assertThat(result.getComponenteCertificaciones()).isEqualByComparingTo(BigDecimal.ZERO);
-            assertThat(result.getComponenteIma()).isEqualByComparingTo(BigDecimal.ZERO);
-            assertThat(result.getComponenteBenchmark()).isEqualByComparingTo(BigDecimal.ZERO);
-            assertThat(result.getCantidadCertificacionesActivas()).isEqualTo(0);
+            assertThat(result).isNull();
         }
 
         @Test

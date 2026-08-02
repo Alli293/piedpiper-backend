@@ -19,7 +19,7 @@ class ItinerarioValidadorTest {
     private ActividadIaDTO actividadValida() {
         return new ActividadIaDTO(
                 "Caminata por puentes colgantes", "Recorrido guiado", "09:00", 150,
-                new BigDecimal("13000"), "CRC", "Reserva Selvatura", "PUNTARENAS");
+                new BigDecimal("13000"), "CRC", "Reserva Selvatura", "PUNTARENAS", 75);
     }
 
     private DiaIaDTO diaValido(int numeroDia) {
@@ -81,7 +81,7 @@ class ItinerarioValidadorTest {
     @Test
     void provinciaFueraDeCostaRicaEsInvalida() {
         ActividadIaDTO actividadInvalida = new ActividadIaDTO(
-                "Tour", null, "09:00", 60, null, null, null, "FLORIDA");
+                "Tour", null, "09:00", 60, null, null, null, "FLORIDA", null);
         DiaIaDTO dia = new DiaIaDTO(1, "2026-08-01", List.of(actividadInvalida));
         ItinerarioIaResponseDTO respuesta = new ItinerarioIaResponseDTO(List.of(dia), 82);
 
@@ -91,7 +91,7 @@ class ItinerarioValidadorTest {
     @Test
     void horarioMalFormadoEsInvalida() {
         ActividadIaDTO actividadInvalida = new ActividadIaDTO(
-                "Tour", null, "no es una hora", 60, null, null, null, "LIMON");
+                "Tour", null, "no es una hora", 60, null, null, null, "LIMON", null);
         DiaIaDTO dia = new DiaIaDTO(1, "2026-08-01", List.of(actividadInvalida));
         ItinerarioIaResponseDTO respuesta = new ItinerarioIaResponseDTO(List.of(dia), 82);
 
@@ -101,7 +101,7 @@ class ItinerarioValidadorTest {
     @Test
     void costoSinMonedaEsInvalida() {
         ActividadIaDTO actividadInvalida = new ActividadIaDTO(
-                "Tour", null, "09:00", 60, new BigDecimal("5000"), null, null, "LIMON");
+                "Tour", null, "09:00", 60, new BigDecimal("5000"), null, null, "LIMON", null);
         DiaIaDTO dia = new DiaIaDTO(1, "2026-08-01", List.of(actividadInvalida));
         ItinerarioIaResponseDTO respuesta = new ItinerarioIaResponseDTO(List.of(dia), 82);
 
@@ -125,7 +125,7 @@ class ItinerarioValidadorTest {
     @Test
     void actividadSinCostoNiMonedaEsValida() {
         ActividadIaDTO actividadGratuita = new ActividadIaDTO(
-                "Playa pública", null, "09:00", 120, null, null, null, "GUANACASTE");
+                "Playa pública", null, "09:00", 120, null, null, null, "GUANACASTE", null);
         DiaIaDTO dia = new DiaIaDTO(1, "2026-08-01", List.of(actividadGratuita));
         ItinerarioIaResponseDTO respuesta = new ItinerarioIaResponseDTO(List.of(dia), 82);
 
@@ -135,7 +135,7 @@ class ItinerarioValidadorTest {
     @Test
     void nombreQueExcedeElLimiteDeColumnaEsInvalida() {
         ActividadIaDTO actividadInvalida = new ActividadIaDTO(
-                "N".repeat(201), null, "09:00", 60, null, null, null, "LIMON");
+                "N".repeat(201), null, "09:00", 60, null, null, null, "LIMON", null);
         DiaIaDTO dia = new DiaIaDTO(1, "2026-08-01", List.of(actividadInvalida));
         ItinerarioIaResponseDTO respuesta = new ItinerarioIaResponseDTO(List.of(dia), 82);
 
@@ -145,7 +145,7 @@ class ItinerarioValidadorTest {
     @Test
     void descripcionQueExcedeElLimiteDeColumnaEsInvalida() {
         ActividadIaDTO actividadInvalida = new ActividadIaDTO(
-                "Tour", "D".repeat(501), "09:00", 60, null, null, null, "LIMON");
+                "Tour", "D".repeat(501), "09:00", 60, null, null, null, "LIMON", null);
         DiaIaDTO dia = new DiaIaDTO(1, "2026-08-01", List.of(actividadInvalida));
         ItinerarioIaResponseDTO respuesta = new ItinerarioIaResponseDTO(List.of(dia), 82);
 
@@ -155,7 +155,7 @@ class ItinerarioValidadorTest {
     @Test
     void establecimientoQueExcedeElLimiteDeColumnaEsInvalida() {
         ActividadIaDTO actividadInvalida = new ActividadIaDTO(
-                "Tour", null, "09:00", 60, null, null, "E".repeat(201), "LIMON");
+                "Tour", null, "09:00", 60, null, null, "E".repeat(201), "LIMON", null);
         DiaIaDTO dia = new DiaIaDTO(1, "2026-08-01", List.of(actividadInvalida));
         ItinerarioIaResponseDTO respuesta = new ItinerarioIaResponseDTO(List.of(dia), 82);
 
@@ -165,7 +165,7 @@ class ItinerarioValidadorTest {
     @Test
     void costoAproximadoNegativoEsInvalida() {
         ActividadIaDTO actividadInvalida = new ActividadIaDTO(
-                "Tour", null, "09:00", 60, new BigDecimal("-1"), "CRC", null, "LIMON");
+                "Tour", null, "09:00", 60, new BigDecimal("-1"), "CRC", null, "LIMON", null);
         DiaIaDTO dia = new DiaIaDTO(1, "2026-08-01", List.of(actividadInvalida));
         ItinerarioIaResponseDTO respuesta = new ItinerarioIaResponseDTO(List.of(dia), 82);
 

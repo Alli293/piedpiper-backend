@@ -30,6 +30,7 @@ public class PuntuacionAmbientalCalculator {
     private static final BigDecimal W_BENCH = new BigDecimal("0.20");
     private static final BigDecimal CIEN = new BigDecimal("100");
     private static final BigDecimal BONUS_FECHA_RECIENTE = new BigDecimal("5");
+    private static final BigDecimal SCORE_ESTIMADO_BASE = new BigDecimal("50");
     private static final long MESES_RECIENTE = 6;
 
     /**
@@ -38,16 +39,36 @@ public class PuntuacionAmbientalCalculator {
      * @param indicador Indicador ambiental con certificaciones activas, o null si no disponible
      * @param ima       IMA del establecimiento, o null si no disponible
      * @param benchmark Resultado de benchmarking, o null si no disponible
-     * @return DTO con la puntuación total y sus componentes individuales
+     * @return DTO con la puntuación total y sus componentes individuales, o null si no hay datos
      */
     public PuntuacionAmbientalResponseDTO calcular(
             @Nullable IndicadorAmbientalDTO indicador,
             @Nullable IMADTO ima,
             @Nullable BenchmarkDTO benchmark) {
+        return calcular(indicador, ima, benchmark, null);
+    }
+
+    /**
+     * Calcula la puntuación ambiental. Si no hay indicadores verificados pero hay un score
+     * estimado por la IA, usa ese como fallback marcándolo como estimado.
+     * Si no hay NADA (ni datos ni estimación), retorna null para no mostrar badge.
+     */
+    public PuntuacionAmbientalResponseDTO calcular(
+            @Nullable IndicadorAmbientalDTO indicador,
+            @Nullable IMADTO ima,
+            @Nullable BenchmarkDTO benchmark,
+            @Nullable Integer scoreEstimadoIA) {
 
         if (indicador == null && ima == null && benchmark == null) {
-            return new PuntuacionAmbientalResponseDTO(
-                    BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, 0);
+            if (scoreEstimadoIA == null) {
+                // Sin ningún dato: no mostrar badge
+                return null;
+            }
+            // Sin datos verificados pero con estimación de la IA
+            PuntuacionAmbientalResponseDTO estimado = new PuntuacionAmbientalResponseDTO(
+                    BigDecimal.valueOf(scoreEstimadoIA), BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, 0);
+            estimado.setEstimado(true);
+            return estimado;
         }
 
         BigDecimal scoreCert = calcularScoreCertificaciones(indicador);

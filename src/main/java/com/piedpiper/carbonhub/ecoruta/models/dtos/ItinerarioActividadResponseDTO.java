@@ -21,4 +21,5 @@ public class ItinerarioActividadResponseDTO {
     private String establecimientoRecomendado;
     private String provincia;
     private PuntuacionAmbientalResponseDTO puntuacionAmbiental;
+    private Integer puntuacionAmbientalEstimada;
 }
