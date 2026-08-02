@@ -329,11 +329,9 @@ public class EcoRutaItinerarioService {
     }
 
     /**
-     * Extrae los establecimientos del itinerario como {@link EstablecimientoRankeado} e invoca
-     * el servicio de priorización ambiental. La puntuación turística base se asigna como 1/(orden)
-     * de forma que el orden original del itinerario generado por la IA se preserve como relevancia
-     * turística. La priorización y sus registros de auditoría se ejecutan dentro de la misma
-     * transacción que el itinerario (Req 5.4).
+     * Enriquece el itinerario con puntuaciones ambientales para los establecimientos que
+     * coincidan con empresas registradas en CarbonHub. No altera el orden del itinerario;
+     * los registros de ponderación se persisten para auditoría (Req 5.4).
      */
     private ResultadoPriorizacion aplicarPriorizacionAmbiental(Itinerario itinerario, UUID usuarioId) {
         List<EstablecimientoRankeado> establecimientos = extraerEstablecimientosRankeados(itinerario);
@@ -353,9 +351,9 @@ public class EcoRutaItinerarioService {
 
     /**
      * Construye la lista de {@link EstablecimientoRankeado} a partir de las actividades del
-     * itinerario. Busca cada establecimiento recomendado en la tabla de empresas por coincidencia
-     * parcial de nombre (case-insensitive). Si encuentra una empresa registrada, usa su UUID real
-     * para la consulta de indicadores ambientales.
+     * itinerario. Solo incluye establecimientos que coincidan con una empresa registrada en
+     * CarbonHub (por nombre parcial, case-insensitive). Los que no matchean se omiten del
+     * cálculo ambiental — su puntuación será calculada por la IA si disponible.
      */
     private List<EstablecimientoRankeado> extraerEstablecimientosRankeados(Itinerario itinerario) {
         List<EstablecimientoRankeado> establecimientos = new ArrayList<>();
@@ -379,13 +377,16 @@ public class EcoRutaItinerarioService {
 
                 // Buscar empresa registrada por coincidencia parcial de nombre
                 String nombreActividad = actividad.getEstablecimientoRecomendado().toLowerCase();
-                UUID empresaId = empresasActivas.stream()
+                var empresaMatch = empresasActivas.stream()
                         .filter(e -> e.getNombreEmpresa() != null &&
                                 (e.getNombreEmpresa().toLowerCase().contains(nombreActividad) ||
                                  nombreActividad.contains(e.getNombreEmpresa().toLowerCase())))
-                        .findFirst()
+                        .findFirst();
+
+                // Solo incluir si matchea con empresa real — sin match no hay datos verificados
+                UUID empresaId = empresaMatch
                         .map(com.piedpiper.carbonhub.empresa.models.entities.Empresa::getId)
-                        .orElse(UUID.nameUUIDFromBytes(nombreActividad.getBytes()));
+                        .orElse(null);
 
                 // Puntuación turística base: orden inverso normalizado (1.0 para el primero)
                 BigDecimal puntuacionTuristica = totalActividades > 0
