@@ -21,6 +21,7 @@ import com.piedpiper.carbonhub.ecoruta.models.enums.ResultadoValidacionItinerari
 import com.piedpiper.carbonhub.ecoruta.repository.ItinerarioRepository;
 import com.piedpiper.carbonhub.ecoruta.repository.PreferenciasViajeRepository;
 import com.piedpiper.carbonhub.ecoruta.service.ItinerarioIaClienteService.ResultadoGeneracionIA;
+import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.reconocimiento.models.enums.EventoReconocimientoCodigo;
 import com.piedpiper.carbonhub.reconocimiento.service.EventoReconocimientoService;
@@ -56,6 +57,7 @@ public class EcoRutaItinerarioService {
     private final ItinerarioIaClienteService itinerarioIaClienteService;
     private final EventoReconocimientoService eventoReconocimientoService;
     private final PriorizacionAmbientalService priorizacionAmbientalService;
+    private final EmpresaRepository empresaRepository;
     private final ItinerarioMapper mapper;
 
     public EcoRutaItinerarioService(PreferenciasViajeRepository preferenciasViajeRepository,
@@ -63,12 +65,14 @@ public class EcoRutaItinerarioService {
                                     ItinerarioIaClienteService itinerarioIaClienteService,
                                     EventoReconocimientoService eventoReconocimientoService,
                                     PriorizacionAmbientalService priorizacionAmbientalService,
+                                    EmpresaRepository empresaRepository,
                                     ItinerarioMapper mapper) {
         this.preferenciasViajeRepository = preferenciasViajeRepository;
         this.itinerarioRepository = itinerarioRepository;
         this.itinerarioIaClienteService = itinerarioIaClienteService;
         this.eventoReconocimientoService = eventoReconocimientoService;
         this.priorizacionAmbientalService = priorizacionAmbientalService;
+        this.empresaRepository = empresaRepository;
         this.mapper = mapper;
     }
 
@@ -326,15 +330,20 @@ public class EcoRutaItinerarioService {
 
     /**
      * Construye la lista de {@link EstablecimientoRankeado} a partir de las actividades del
-     * itinerario. Cada actividad con un establecimiento recomendado se mapea usando un UUID
-     * derivado del nombre del establecimiento (ya que la IA no provee un UUID de empresa directamente).
-     * La puntuación turística base refleja el orden inverso (primeras actividades = más relevantes).
+     * itinerario. Busca cada establecimiento recomendado en la tabla de empresas por coincidencia
+     * parcial de nombre (case-insensitive). Si encuentra una empresa registrada, usa su UUID real
+     * para la consulta de indicadores ambientales.
      */
     private List<EstablecimientoRankeado> extraerEstablecimientosRankeados(Itinerario itinerario) {
         List<EstablecimientoRankeado> establecimientos = new ArrayList<>();
         int totalActividades = itinerario.getDias().stream()
                 .mapToInt(dia -> dia.getActividades().size())
                 .sum();
+
+        // Pre-cargar todas las empresas activas para matching por nombre
+        var empresasActivas = empresaRepository.findByEstado(
+                com.piedpiper.carbonhub.empresa.models.enums.EstadoEmpresa.ACTIVO,
+                org.springframework.data.domain.PageRequest.of(0, 100)).getContent();
 
         int posicion = 0;
         for (ItinerarioDia dia : itinerario.getDias()) {
@@ -345,9 +354,15 @@ public class EcoRutaItinerarioService {
                     continue;
                 }
 
-                // Derivar un UUID determinista del nombre del establecimiento para la consulta
-                UUID empresaId = UUID.nameUUIDFromBytes(
-                        actividad.getEstablecimientoRecomendado().getBytes());
+                // Buscar empresa registrada por coincidencia parcial de nombre
+                String nombreActividad = actividad.getEstablecimientoRecomendado().toLowerCase();
+                UUID empresaId = empresasActivas.stream()
+                        .filter(e -> e.getNombreEmpresa() != null &&
+                                (e.getNombreEmpresa().toLowerCase().contains(nombreActividad) ||
+                                 nombreActividad.contains(e.getNombreEmpresa().toLowerCase())))
+                        .findFirst()
+                        .map(com.piedpiper.carbonhub.empresa.models.entities.Empresa::getId)
+                        .orElse(UUID.nameUUIDFromBytes(nombreActividad.getBytes()));
 
                 // Puntuación turística base: orden inverso normalizado (1.0 para el primero)
                 BigDecimal puntuacionTuristica = totalActividades > 0
