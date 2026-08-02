@@ -31,7 +31,8 @@ public class PuntuacionAmbientalCalculator {
     private static final BigDecimal CIEN = new BigDecimal("100");
     private static final BigDecimal BONUS_FECHA_RECIENTE = new BigDecimal("5");
     private static final BigDecimal SCORE_ESTIMADO_BASE = new BigDecimal("50");
-    private static final long MESES_RECIENTE = 6;
+    /** Ventana de recencia: 180 días (~6 meses). Instant.minus no acepta ChronoUnit.MONTHS. */
+    private static final long DIAS_RECIENTE = 180;
 
     /**
      * Calcula la puntuación ambiental a partir de los indicadores disponibles.
@@ -89,7 +90,7 @@ public class PuntuacionAmbientalCalculator {
 
     /**
      * Calcula el score de certificaciones: min(cantidad * 20, 100) + bonus si la más reciente
-     * fue emitida en los últimos 6 meses. El resultado se acota a máximo 100.
+     * fue emitida en los últimos 180 días. El resultado se acota a máximo 100.
      */
     BigDecimal calcularScoreCertificaciones(@Nullable IndicadorAmbientalDTO indicador) {
         if (indicador == null
@@ -107,7 +108,7 @@ public class PuntuacionAmbientalCalculator {
                 .max(Comparator.naturalOrder())
                 .orElse(null);
 
-        if (fechaMasReciente != null && fechaMasReciente.isAfter(Instant.now().minus(MESES_RECIENTE * 30, ChronoUnit.DAYS))) {
+        if (fechaMasReciente != null && fechaMasReciente.isAfter(Instant.now().minus(DIAS_RECIENTE, ChronoUnit.DAYS))) {
             base = base.add(BONUS_FECHA_RECIENTE).min(CIEN);
         }
 
