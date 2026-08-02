@@ -5,6 +5,9 @@ import com.piedpiper.carbonhub.certificacion.models.dtos.CertificacionResumenRes
 import com.piedpiper.carbonhub.certificacion.service.ConsultaCertificacionService;
 import com.piedpiper.carbonhub.common.Autenticaciones;
 
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -14,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -39,5 +43,20 @@ public class CertificacionController {
             @PathVariable UUID certificacionId) {
         UUID usuarioId = Autenticaciones.usuarioId(authentication);
         return ResponseEntity.ok(consultaCertificacionService.detalle(usuarioId, certificacionId));
+    }
+
+    @GetMapping("/{certificacionId}/jsonld")
+    public ResponseEntity<Map<String, Object>> descargarJsonLd(
+            Authentication authentication,
+            @PathVariable UUID certificacionId) {
+        UUID usuarioId = Autenticaciones.usuarioId(authentication);
+        Map<String, Object> credencial = consultaCertificacionService.descargarJsonLd(usuarioId, certificacionId);
+        return ResponseEntity.ok()
+                .contentType(MediaType.valueOf("application/vc+ld+json"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                        .filename("certificacion-" + certificacionId + ".jsonld")
+                        .build()
+                        .toString())
+                .body(credencial);
     }
 }

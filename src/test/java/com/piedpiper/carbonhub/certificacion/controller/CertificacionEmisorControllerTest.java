@@ -7,6 +7,7 @@ import com.piedpiper.carbonhub.certificacion.service.ConsultaCertificacionServic
 import com.piedpiper.carbonhub.certificacion.service.FirmanteCredencialService;
 import com.piedpiper.carbonhub.certificacion.service.GeneradorCredencialOpenBadges;
 import com.piedpiper.carbonhub.certificacion.service.ListaEstadoCredencialesService;
+import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.junit.jupiter.api.Test;
@@ -24,6 +25,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Map;
+import java.util.UUID;
 
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -78,7 +80,7 @@ class CertificacionEmisorControllerTest {
     void elPerfilDelEmisorEsAccesibleSinAutenticacion() throws Exception {
         mockMvc.perform(get("/api/certificaciones/emisor"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.type").value("Profile"))
+                .andExpect(jsonPath("$.type[0]").value("Profile"))
                 .andExpect(jsonPath("$.name").value("CarbonHub"))
                 .andExpect(jsonPath("$.id")
                         .value("https://carbonhub.example/api/certificaciones/emisor"))
@@ -102,7 +104,7 @@ class CertificacionEmisorControllerTest {
     void laDefinicionDelLogroEsAccesibleSinAutenticacion() throws Exception {
         mockMvc.perform(get("/api/certificaciones/logros/carbono_neutral"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.type").value("Achievement"))
+                .andExpect(jsonPath("$.type[0]").value("Achievement"))
                 .andExpect(jsonPath("$.name").value("Carbono Neutral"))
                 .andExpect(jsonPath("$.achievementType").value("Certification"))
                 .andExpect(jsonPath("$.criteria.narrative").isNotEmpty());
@@ -123,6 +125,48 @@ class CertificacionEmisorControllerTest {
                 .andExpect(content().string("jwt.de.la.lista"));
     }
 
+    @Test
+    void laVerificacionEsAccesibleSinAutenticacion() throws Exception {
+        UUID certificacionId = UUID.randomUUID();
+        when(consultaCertificacionService.verificarPublica(certificacionId))
+                .thenReturn(Map.of("id", "urn:uuid:algo", "name", "Carbono Neutral"));
+
+        mockMvc.perform(get("/api/certificaciones/" + certificacionId + "/verificar"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Carbono Neutral"));
+    }
+
+    @Test
+    void laVerificacionDeUnIdInexistenteDevuelve404() throws Exception {
+        UUID certificacionId = UUID.randomUUID();
+        when(consultaCertificacionService.verificarPublica(certificacionId))
+                .thenThrow(ApiException.recursoNoEncontrado("La certificacion no existe."));
+
+        mockMvc.perform(get("/api/certificaciones/" + certificacionId + "/verificar"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void elVcJwtEsAccesibleSinAutenticacion() throws Exception {
+        UUID certificacionId = UUID.randomUUID();
+        when(consultaCertificacionService.verificacionJwt(certificacionId))
+                .thenReturn("cabecera.payload.firma");
+
+        mockMvc.perform(get("/api/certificaciones/" + certificacionId + "/verificacion.jwt"))
+                .andExpect(status().isOk())
+                .andExpect(content().string("cabecera.payload.firma"));
+    }
+
+    @Test
+    void elVcJwtDeUnIdInexistenteDevuelve404() throws Exception {
+        UUID certificacionId = UUID.randomUUID();
+        when(consultaCertificacionService.verificacionJwt(certificacionId))
+                .thenThrow(ApiException.recursoNoEncontrado("La certificacion no existe."));
+
+        mockMvc.perform(get("/api/certificaciones/" + certificacionId + "/verificacion.jwt"))
+                .andExpect(status().isNotFound());
+    }
+
     /**
      * {@code /api/certificaciones/emisor} tambien encaja en el patron
      * {@code /api/certificaciones/{certificacionId}} de CertificacionController.
@@ -134,7 +178,7 @@ class CertificacionEmisorControllerTest {
     void laRutaDelEmisorNoLaCapturaElHandlerDeDetallePorId() throws Exception {
         mockMvc.perform(get("/api/certificaciones/emisor"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.type").value("Profile"));
+                .andExpect(jsonPath("$.type[0]").value("Profile"));
 
         verifyNoInteractions(consultaCertificacionService);
     }
