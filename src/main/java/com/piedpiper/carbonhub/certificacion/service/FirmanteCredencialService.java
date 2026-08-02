@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
@@ -26,6 +27,7 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.RSAPublicKeySpec;
 import java.util.Base64;
 import java.util.Map;
+import java.nio.charset.StandardCharsets;
 
 /**
  * Firma credenciales OpenBadges 3.0 como VC-JWT.
@@ -84,7 +86,8 @@ public class FirmanteCredencialService {
             return null;
         }
         try {
-            String base64 = clavePrivadaPem
+            String pemNormalizado = normalizarPem(clavePrivadaPem);
+            String base64 = pemNormalizado
                     .replace("-----BEGIN PRIVATE KEY-----", "")
                     .replace("-----END PRIVATE KEY-----", "")
                     .replaceAll("\\s", "");
@@ -112,6 +115,23 @@ public class FirmanteCredencialService {
             log.error("La clave privada configurada para firmar certificaciones no es valida", e);
             return null;
         }
+    }
+
+    private static String normalizarPem(String valor) {
+        String normalizado = valor.trim().replace("\\n", "\n");
+        if (normalizado.contains("-----BEGIN PRIVATE KEY-----")) {
+            return normalizado;
+        }
+        try {
+            String decodificado = new String(Base64.getDecoder().decode(normalizado),
+                    StandardCharsets.UTF_8);
+            if (decodificado.contains("-----BEGIN PRIVATE KEY-----")) {
+                return decodificado;
+            }
+        } catch (IllegalArgumentException ignored) {
+            // Si no era un PEM completo codificado en base64, se tratara como DER/base64 directo.
+        }
+        return normalizado;
     }
 
     public boolean claveConfigurada() {

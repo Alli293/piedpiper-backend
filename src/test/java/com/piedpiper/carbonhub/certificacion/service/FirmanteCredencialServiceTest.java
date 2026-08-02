@@ -36,6 +36,20 @@ class FirmanteCredencialServiceTest {
     }
 
     @Test
+    void aceptaPemConSaltosDeLineaEscapadosComoVariableDeEntorno() throws Exception {
+        RSAKey claveRsa = new RSAKeyGenerator(2048).keyID("prueba-1").generate();
+        FirmanteCredencialService servicio =
+                new FirmanteCredencialService(pemDe(claveRsa).replace("\n", "\\n"), "prueba-1");
+
+        Map<String, Object> jwks = servicio.jwksPublico();
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> claves = (List<Map<String, Object>>) jwks.get("keys");
+        assertThat(claves).hasSize(1);
+        assertThat(claves.get(0).get("kid")).isEqualTo("prueba-1");
+    }
+
+    @Test
     void jwksPublicoEsUnConjuntoVacioSinClaveConfigurada() {
         FirmanteCredencialService servicio = new FirmanteCredencialService("", "prueba-1");
 
