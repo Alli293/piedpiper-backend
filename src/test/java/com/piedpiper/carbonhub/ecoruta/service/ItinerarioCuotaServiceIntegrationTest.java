@@ -21,7 +21,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -62,9 +70,60 @@ class ItinerarioCuotaServiceIntegrationTest {
         assertThat(recargadas.getItinerarioGeneracionContador()).isEqualTo(1);
     }
 
+    /**
+     * Reproduce el escenario que señaló Ariela en la revisión: varias solicitudes concurrentes del
+     * mismo usuario no deben poder leer el mismo contador antes de que alguna confirme. Con
+     * {@code findByUsuario_IdForUpdate} tomando {@code PESSIMISTIC_WRITE}, cada hilo espera el lock
+     * de fila del anterior, así que como máximo {@code MAX_GENERACIONES_POR_HORA} (5) de los 8
+     * intentos concurrentes deben tener éxito — nunca más.
+     */
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void solicitudesConcurrentesDelMismoUsuarioNoPuedenPasarElLimite() throws InterruptedException {
+        Usuario usuario = usuarioRepository.saveAndFlush(usuarioActivo());
+        preferenciasViajeRepository.saveAndFlush(preferenciasDe(usuario));
+
+        int intentos = 8;
+        ExecutorService executor = Executors.newFixedThreadPool(intentos);
+        try {
+            List<Callable<Boolean>> tareas = IntStream.range(0, intentos)
+                    .<Callable<Boolean>>mapToObj(i -> () -> {
+                        try {
+                            cuotaService.reservarGeneracion(usuario.getId());
+                            return true;
+                        } catch (RuntimeException ex) {
+                            return false;
+                        }
+                    })
+                    .collect(Collectors.toList());
+
+            List<Future<Boolean>> resultados = executor.invokeAll(tareas);
+            long exitosos = resultados.stream().map(f -> {
+                try {
+                    return f.get();
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            }).filter(Boolean::booleanValue).count();
+
+            assertThat(exitosos).isEqualTo(5);
+        } finally {
+            executor.shutdown();
+            executor.awaitTermination(10, TimeUnit.SECONDS);
+        }
+
+        PreferenciasViaje recargadas = preferenciasViajeRepository.findByUsuario_Id(usuario.getId()).orElseThrow();
+        assertThat(recargadas.getItinerarioGeneracionContador()).isEqualTo(5);
+    }
+
+    /**
+     * Email único por llamada: los tests de esta clase corren con {@code NOT_SUPPORTED}, así que
+     * cada uno confirma sus propios inserts (no hay rollback de {@code @DataJpaTest} entre tests
+     * en la misma clase) y un email fijo colisionaría con el de un test anterior.
+     */
     private Usuario usuarioActivo() {
         return Usuario.builder()
-                .email("viajero.ecoruta@carbonhub.test")
+                .email("viajero.ecoruta." + UUID.randomUUID() + "@carbonhub.test")
                 .rol(Rol.USUARIO_INDIVIDUAL)
                 .estado(EstadoUsuario.ACTIVO)
                 .metodoAuth(MetodoAuth.CORREO)

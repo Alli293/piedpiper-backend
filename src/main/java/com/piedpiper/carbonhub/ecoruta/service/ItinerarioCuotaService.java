@@ -36,10 +36,16 @@ public class ItinerarioCuotaService {
      * Ventana fija de 1 hora, máximo {@value #MAX_GENERACIONES_POR_HORA} solicitudes — a diferencia
      * del límite silencioso de restablecimiento de contraseña (PP-29), este SÍ es visible: protege
      * la cuota de Gemini, no revela ninguna información sensible del usuario.
+     * <p>
+     * Usa {@code findByUsuario_IdForUpdate} (mismo patrón que {@code UsuarioRepository}) para que
+     * el lookup tome un {@code PESSIMISTIC_WRITE} sobre la fila: dos solicitudes concurrentes del
+     * mismo usuario ya no pueden leer el mismo contador antes de que alguna confirme, que era el
+     * escenario que señaló Ariela en la revisión — la segunda solicitud espera el lock y ve el
+     * contador ya incrementado por la primera.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void reservarGeneracion(UUID usuarioId) {
-        PreferenciasViaje preferencias = preferenciasViajeRepository.findByUsuario_Id(usuarioId)
+        PreferenciasViaje preferencias = preferenciasViajeRepository.findByUsuario_IdForUpdate(usuarioId)
                 .orElseThrow(() -> ApiException.recursoNoEncontrado(
                         "No has completado tus preferencias de viaje todavía."));
 
