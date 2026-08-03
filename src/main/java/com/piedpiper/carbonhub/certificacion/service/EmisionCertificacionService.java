@@ -62,6 +62,7 @@ public class EmisionCertificacionService implements EmisionCertificacionPort {
     private final CertificacionMapper certificacionMapper;
     private final CertificacionPersistenciaService certificacionPersistenciaService;
     private final InsigniaEmpresaEvaluacionService insigniaEmpresaEvaluacionService;
+    private final GeneradorCodigoVerificacionService generadorCodigoVerificacionService;
 
     public EmisionCertificacionService(CertificacionRepository certificacionRepository,
                                        NotificacionPanelRepository notificacionPanelRepository,
@@ -74,7 +75,9 @@ public class EmisionCertificacionService implements EmisionCertificacionPort {
                                        CertificacionMapper certificacionMapper,
                                        CertificacionPersistenciaService certificacionPersistenciaService,
                                        InsigniaEmpresaEvaluacionService
-                                               insigniaEmpresaEvaluacionService) {
+                                               insigniaEmpresaEvaluacionService,
+                                       GeneradorCodigoVerificacionService
+                                               generadorCodigoVerificacionService) {
         this.certificacionRepository = certificacionRepository;
         this.notificacionPanelRepository = notificacionPanelRepository;
         this.indiceEstadoCertificacionRepository = indiceEstadoCertificacionRepository;
@@ -85,6 +88,7 @@ public class EmisionCertificacionService implements EmisionCertificacionPort {
         this.certificacionMapper = certificacionMapper;
         this.certificacionPersistenciaService = certificacionPersistenciaService;
         this.insigniaEmpresaEvaluacionService = insigniaEmpresaEvaluacionService;
+        this.generadorCodigoVerificacionService = generadorCodigoVerificacionService;
     }
 
     @Override
@@ -159,6 +163,7 @@ public class EmisionCertificacionService implements EmisionCertificacionPort {
                 .fechaVencimiento(fechaVencimiento)
                 .estado(EstadoCertificacion.ACTIVA)
                 .indiceEstado(indiceEstado)
+                .codigoVerificacion(generadorCodigoVerificacionService.generar())
                 .build();
 
         certificacion.setCredencialJwt(

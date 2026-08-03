@@ -67,6 +67,8 @@ class EmisionCertificacionServiceTest {
     private CertificacionPersistenciaService certificacionPersistenciaService;
     @Mock
     private InsigniaEmpresaEvaluacionService insigniaEmpresaEvaluacionService;
+    @Mock
+    private GeneradorCodigoVerificacionService generadorCodigoVerificacionService;
 
     private final CatalogoTiposCertificacion catalogo = new CatalogoTiposCertificacion();
 
@@ -80,7 +82,7 @@ class EmisionCertificacionServiceTest {
                 empresaRepository, usuarioRepository,
                 catalogo, generadorCredencialOpenBadges, certificacionMapper,
                 certificacionPersistenciaService,
-                insigniaEmpresaEvaluacionService);
+                insigniaEmpresaEvaluacionService, generadorCodigoVerificacionService);
     }
 
     private EmisionCertificacionService service() {
@@ -111,6 +113,7 @@ class EmisionCertificacionServiceTest {
     private void mockearEmisionExitosa() {
         mockearEntidadesResueltas();
         mockearIndiceEstado();
+        when(generadorCodigoVerificacionService.generar()).thenReturn("CH-2026-TESTCODE1");
         when(generadorCredencialOpenBadges.generar(any(), any())).thenReturn("jwt.firmado.aqui");
         when(certificacionPersistenciaService.guardar(any(Certificacion.class)))
                 .thenAnswer(i -> i.getArgument(0));
@@ -158,6 +161,15 @@ class EmisionCertificacionServiceTest {
         verify(insigniaEmpresaEvaluacionService).evaluarPorNuevaCertificacion(ID_EMPRESA);
         assertThat(response.isRecienEmitida()).isTrue();
         assertThat(response.getNombreCertificacion()).isEqualTo("Carbono Neutral");
+    }
+
+    @Test
+    void asignaElCodigoDeVerificacionGeneradoALaCertificacion() {
+        mockearEmisionExitosa();
+
+        service().emitirPorAuditoriaAprobada(comando(TipoCertificacion.CARBONO_NEUTRAL));
+
+        assertThat(capturarGuardada().getCodigoVerificacion()).isEqualTo("CH-2026-TESTCODE1");
     }
 
     @Test

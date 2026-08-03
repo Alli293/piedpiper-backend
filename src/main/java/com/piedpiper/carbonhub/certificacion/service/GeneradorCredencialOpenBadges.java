@@ -205,6 +205,15 @@ public class GeneradorCredencialOpenBadges {
      * credencial que este backend firme, sea una certificacion individual o la
      * lista de estado que las respalda.
      */
+    /**
+     * Nombre legible del emisor (CarbonHub): es la entidad certificadora que
+     * respalda toda certificacion, ya que hoy no existe una entidad
+     * "entidad certificadora" propia distinta de CarbonHub.
+     */
+    public String emisorNombre() {
+        return emisorNombre;
+    }
+
     public String urlEmisor() {
         return urlBase + "/api/certificaciones/emisor";
     }

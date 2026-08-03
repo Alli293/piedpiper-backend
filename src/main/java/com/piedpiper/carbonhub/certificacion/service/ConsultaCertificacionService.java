@@ -5,9 +5,12 @@ import com.piedpiper.carbonhub.certificacion.mappers.CertificacionMapper;
 import com.piedpiper.carbonhub.certificacion.models.dtos.CertificacionPublicaResponseDTO;
 import com.piedpiper.carbonhub.certificacion.models.dtos.CertificacionResponseDTO;
 import com.piedpiper.carbonhub.certificacion.models.dtos.CertificacionResumenResponseDTO;
+import com.piedpiper.carbonhub.certificacion.models.dtos.VerificacionCredencialDTO;
 import com.piedpiper.carbonhub.certificacion.models.entities.Certificacion;
 import com.piedpiper.carbonhub.certificacion.models.enums.EstadoCertificacion;
+import com.piedpiper.carbonhub.certificacion.models.enums.EstadoVerificacion;
 import com.piedpiper.carbonhub.certificacion.repository.CertificacionRepository;
+import com.piedpiper.carbonhub.empresa.models.enums.EstadoEmpresa;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
@@ -15,6 +18,7 @@ import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -94,6 +98,57 @@ public class ConsultaCertificacionService {
         Certificacion certificacion = certificacionRepository.findById(certificacionId)
                 .orElseThrow(() -> ApiException.recursoNoEncontrado("La certificacion no existe."));
         return certificacion.getCredencialJwt();
+    }
+
+    /**
+     * Verificacion publica por {@code codigoVerificacion} (PP-68), para el
+     * enlace que reemplaza a {@code verificarPublica} en "Compartir en
+     * LinkedIn". Sin resolucion de usuario a proposito, igual que
+     * {@link #verificarPublica}.
+     *
+     * <p>Un codigo mal formado y uno bien formado pero inexistente devuelven
+     * el mismo 404, para no revelar informacion sobre el espacio de codigos
+     * (criterio de aceptacion de PP-68). Por el mismo motivo, una
+     * certificacion de una empresa con la cuenta inactiva tampoco se
+     * distingue de una inexistente: en ningun caso se exponen sus datos.
+     */
+    @Transactional(readOnly = true)
+    public VerificacionCredencialDTO verificarPorCodigo(String codigo) {
+        if (!GeneradorCodigoVerificacionService.formatoValido(codigo)) {
+            throw ApiException.recursoNoEncontrado("Credencial no encontrada.");
+        }
+
+        Certificacion certificacion = certificacionRepository.findByCodigoVerificacion(codigo)
+                .orElseThrow(() -> ApiException.recursoNoEncontrado("Credencial no encontrada."));
+
+        if (certificacion.getEmpresa().getEstado() != EstadoEmpresa.ACTIVO) {
+            throw ApiException.recursoNoEncontrado("Credencial no encontrada.");
+        }
+
+        VerificacionCredencialDTO dto = new VerificacionCredencialDTO();
+        dto.setEstado(resolverEstadoVerificacion(certificacion).getCodigo());
+        dto.setTipo(certificacion.getTipo().name());
+        catalogoTiposCertificacion.buscar(certificacion.getTipo())
+                .ifPresent(definicion -> dto.setNombreCertificacion(definicion.nombre()));
+        dto.setEmpresa(certificacion.getEmpresa().getNombreEmpresa());
+        dto.setAuditor(nombreVisible(certificacion.getAuditor()));
+        dto.setEntidadCertificadora(generadorCredencialOpenBadges.emisorNombre());
+        dto.setFechaEmision(certificacion.getFechaEmision());
+        dto.setFechaVencimiento(certificacion.getFechaVencimiento());
+        dto.setFechaRevocacion(certificacion.getFechaRevocacion());
+        dto.setFechaConsulta(Instant.now());
+        return dto;
+    }
+
+    private static EstadoVerificacion resolverEstadoVerificacion(Certificacion certificacion) {
+        if (certificacion.getEstado() == EstadoCertificacion.REVOCADA) {
+            return EstadoVerificacion.REVOCADA;
+        }
+        return esVigente(certificacion) ? EstadoVerificacion.VALIDA_VIGENTE : EstadoVerificacion.VALIDA_VENCIDA;
+    }
+
+    private static String nombreVisible(Usuario usuario) {
+        return usuario.getNombreVisible() != null ? usuario.getNombreVisible() : usuario.getNombre();
     }
 
     /**
