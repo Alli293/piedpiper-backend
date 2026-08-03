@@ -70,4 +70,17 @@ public class Alerta {
 
     @Column(name = "fecha_envio")
     private Instant fechaEnvio;
+
+    /**
+     * Intentos de envio del correo de la alerta (PP-71). Vive en la tabla y no en memoria para que
+     * los reintentos sobrevivan a un reinicio: una alerta que quedo {@code PENDIENTE} se recupera
+     * releyendola de la base, no de una cola del proceso.
+     *
+     * <p>El {@code default 0} es necesario para {@code ddl-auto=update}: sin el, Hibernate emite
+     * {@code add column ... not null} y Postgres lo rechaza si la tabla ya tiene filas, dejando la
+     * columna sin crear. Mismo patron que {@code Usuario.reenvioVerificacionContador}.</p>
+     */
+    @Column(name = "intentos_envio", nullable = false, columnDefinition = "integer default 0")
+    @Builder.Default
+    private int intentosEnvio = 0;
 }
