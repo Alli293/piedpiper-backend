@@ -5,6 +5,8 @@ import com.nimbusds.jose.jwk.RSAKey;
 
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 
@@ -44,5 +46,39 @@ class FirmanteCredencialServiceTest {
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> claves = (List<Map<String, Object>>) jwks.get("keys");
         assertThat(claves).isEmpty();
+    }
+
+    @Test
+    void aceptaPemConSaltosEscapadosComoVariableDeEntorno() throws Exception {
+        RSAKey claveRsa = new RSAKeyGenerator(2048).keyID("prueba-1").generate();
+        String pemEscapado = pemDe(claveRsa).replace("\n", "\\n");
+
+        FirmanteCredencialService servicio =
+                new FirmanteCredencialService(pemEscapado, "prueba-1");
+
+        assertThat(servicio.claveConfigurada()).isTrue();
+    }
+
+    @Test
+    void aceptaPemEnvueltoEnComillasComoVariableDeEntorno() throws Exception {
+        RSAKey claveRsa = new RSAKeyGenerator(2048).keyID("prueba-1").generate();
+        String pemEntreComillas = "\"" + pemDe(claveRsa).replace("\n", "\\n") + "\"";
+
+        FirmanteCredencialService servicio =
+                new FirmanteCredencialService(pemEntreComillas, "prueba-1");
+
+        assertThat(servicio.claveConfigurada()).isTrue();
+    }
+
+    @Test
+    void aceptaPemCompletoCodificadoEnBase64() throws Exception {
+        RSAKey claveRsa = new RSAKeyGenerator(2048).keyID("prueba-1").generate();
+        String pemCodificado = Base64.getEncoder()
+                .encodeToString(pemDe(claveRsa).getBytes(StandardCharsets.UTF_8));
+
+        FirmanteCredencialService servicio =
+                new FirmanteCredencialService(pemCodificado, "prueba-1");
+
+        assertThat(servicio.claveConfigurada()).isTrue();
     }
 }
