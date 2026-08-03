@@ -1,6 +1,7 @@
 package com.piedpiper.carbonhub.auditoria.models.dtos;
 
 import com.piedpiper.carbonhub.auditoria.models.enums.EstadoSolicitudAuditoria;
+import com.piedpiper.carbonhub.auditoria.models.enums.OrigenAsignacion;
 import com.piedpiper.carbonhub.auditoria.models.enums.TipoCertificacionSolicitud;
 
 import lombok.AllArgsConstructor;
@@ -25,4 +26,8 @@ public class SolicitudAuditoriaResponseDTO {
     private EstadoSolicitudAuditoria estado;
     private Instant fechaCreacion;
     private List<DocumentoRespaldoResponseDTO> documentos;
+    private UUID idAuditor;
+    private AuditorAsignadoResponseDTO auditor;
+    private OrigenAsignacion origenAsignacion;
+    private Instant fechaAsignacion;
 }

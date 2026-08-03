@@ -1,23 +1,30 @@
 package com.piedpiper.carbonhub.auditoria.service;
 
 import com.piedpiper.carbonhub.auditoria.mappers.SolicitudAuditoriaMapper;
+import com.piedpiper.carbonhub.auditoria.models.dtos.AsignarAuditorRequestDTO;
 import com.piedpiper.carbonhub.auditoria.models.dtos.CrearSolicitudAuditoriaRequestDTO;
 import com.piedpiper.carbonhub.auditoria.models.dtos.SolicitudAuditoriaResponseDTO;
 import com.piedpiper.carbonhub.auditoria.models.entities.DocumentoRespaldo;
 import com.piedpiper.carbonhub.auditoria.models.entities.SolicitudAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.EstadoSolicitudAuditoria;
+import com.piedpiper.carbonhub.auditoria.models.enums.OrigenAsignacion;
 import com.piedpiper.carbonhub.auditoria.models.enums.TipoCertificacionSolicitud;
 import com.piedpiper.carbonhub.auditoria.repository.SolicitudAuditoriaRepository;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
+import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
+import com.piedpiper.carbonhub.user.models.enums.Rol;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -47,19 +54,22 @@ public class SolicitudAuditoriaService {
     private final CertificacionActivaConsulta certificacionActivaConsulta;
     private final ValidadorDocumentosPdf validadorDocumentosPdf;
     private final SolicitudAuditoriaMapper solicitudAuditoriaMapper;
+    private final EnvioCorreoAsignacionAuditorService envioCorreoAsignacionAuditorService;
 
     public SolicitudAuditoriaService(SolicitudAuditoriaRepository solicitudAuditoriaRepository,
                                      UsuarioRepository usuarioRepository,
                                      EmpresaRepository empresaRepository,
                                      CertificacionActivaConsulta certificacionActivaConsulta,
                                      ValidadorDocumentosPdf validadorDocumentosPdf,
-                                     SolicitudAuditoriaMapper solicitudAuditoriaMapper) {
+                                     SolicitudAuditoriaMapper solicitudAuditoriaMapper,
+                                     EnvioCorreoAsignacionAuditorService envioCorreoAsignacionAuditorService) {
         this.solicitudAuditoriaRepository = solicitudAuditoriaRepository;
         this.usuarioRepository = usuarioRepository;
         this.empresaRepository = empresaRepository;
         this.certificacionActivaConsulta = certificacionActivaConsulta;
         this.validadorDocumentosPdf = validadorDocumentosPdf;
         this.solicitudAuditoriaMapper = solicitudAuditoriaMapper;
+        this.envioCorreoAsignacionAuditorService = envioCorreoAsignacionAuditorService;
     }
 
     @Transactional
@@ -97,6 +107,107 @@ public class SolicitudAuditoriaService {
         documentos.forEach(documento -> solicitud.agregarDocumento(documentoRespaldoDe(documento, ahora)));
 
         return solicitudAuditoriaMapper.toDto(solicitudAuditoriaRepository.save(solicitud));
+    }
+
+    @Transactional(readOnly = true)
+    public SolicitudAuditoriaResponseDTO obtener(UUID solicitudId, UUID usuarioId) {
+        SolicitudAuditoria solicitud = solicitudAuditoriaRepository.findById(solicitudId)
+                .orElseThrow(ApiException::solicitudAuditoriaNoEncontrada);
+        validarPertenencia(solicitud, usuarioId);
+        return solicitudAuditoriaMapper.toDto(solicitud);
+    }
+
+    @Transactional
+    public SolicitudAuditoriaResponseDTO asignarAuditor(UUID solicitudId,
+                                                        AsignarAuditorRequestDTO datos,
+                                                        UUID usuarioId) {
+        SolicitudAuditoria solicitud = solicitudAuditoriaRepository.findById(solicitudId)
+                .orElseThrow(ApiException::solicitudAuditoriaNoEncontrada);
+
+        validarPertenencia(solicitud, usuarioId);
+        validarSinAsignacionAOtroAuditor(solicitud, datos.getIdAuditor());
+
+        Usuario auditor = usuarioRepository.findById(datos.getIdAuditor())
+                .orElseThrow(ApiException::auditorNoDisponible);
+        if (auditor.getRol() != Rol.AUDITOR_CERTIFICADO || auditor.getEstado() != EstadoUsuario.ACTIVO) {
+            throw ApiException.auditorNoDisponible();
+        }
+
+        OrigenAsignacion origenAsignacion = OrigenAsignacion.desde(datos.getOrigenAsignacion())
+                .orElseThrow(ApiException::origenAsignacionInvalido);
+
+        boolean reasignacionAlMismoAuditor = solicitud.getAuditor() != null
+                && solicitud.getAuditor().getId().equals(auditor.getId());
+
+        solicitud.setAuditor(auditor);
+        solicitud.setOrigenAsignacion(origenAsignacion);
+        if (!reasignacionAlMismoAuditor) {
+            solicitud.setFechaAsignacion(Instant.now());
+        }
+
+        SolicitudAuditoria guardada = guardarAsignacion(solicitud);
+
+        if (!reasignacionAlMismoAuditor) {
+            notificarAsignacionTrasCommit(auditor.nombreCompleto(), auditor.getEmail(),
+                    guardada.getEmpresa().getNombreEmpresa());
+        }
+
+        return solicitudAuditoriaMapper.toDto(guardada);
+    }
+
+    /**
+     * La validación de que no haya otro auditor asignado se hace sobre lo leído al inicio de la
+     * transacción, así que dos asignaciones simultáneas pasan las dos y la segunda sobrescribiría a
+     * la primera sin devolver el 409. El {@code @Version} de la entidad hace que la perdedora falle
+     * al escribir, y acá se traduce al mismo conflicto que devuelve la validación.
+     *
+     * <p>El conflicto por carrera se responde distinto del conflicto por validación: la validación
+     * sabe que hay otro auditor asignado, mientras que acá lo único que se sabe es que alguien más
+     * escribió primero, y puede haber pedido el mismo auditor. Por eso el mensaje invita a recargar
+     * en vez de afirmar que hay otro auditor.</p>
+     *
+     * <p>A propósito no se relee para distinguir los dos casos: tras un fallo de bloqueo optimista
+     * la transacción queda condenada y el contexto de persistencia en un estado indefinido, así que
+     * consultar de nuevo acá devolvería la entidad en memoria y no lo que realmente quedó en la
+     * base. Distinguirlos de verdad exigiría reintentar en una transacción nueva.</p>
+     */
+    private SolicitudAuditoria guardarAsignacion(SolicitudAuditoria solicitud) {
+        try {
+            return solicitudAuditoriaRepository.saveAndFlush(solicitud);
+        } catch (ObjectOptimisticLockingFailureException e) {
+            throw ApiException.solicitudConflictoConcurrente();
+        }
+    }
+
+    private void validarPertenencia(SolicitudAuditoria solicitud, UUID usuarioId) {
+        Usuario usuario = usuarioRepository.findById(usuarioId)
+                .orElseThrow(() -> ApiException.errorInterno("No se pudo identificar al usuario autenticado."));
+        UUID empresaSolicitud = solicitud.getEmpresa() == null ? null : solicitud.getEmpresa().getId();
+        UUID empresaUsuario = usuario.getEmpresa() == null ? null : usuario.getEmpresa().getId();
+        if (empresaSolicitud == null || !empresaSolicitud.equals(empresaUsuario)) {
+            throw ApiException.solicitudAuditoriaAjena();
+        }
+    }
+
+    private void validarSinAsignacionAOtroAuditor(SolicitudAuditoria solicitud, UUID idAuditor) {
+        Usuario asignado = solicitud.getAuditor();
+        if (asignado != null && !asignado.getId().equals(idAuditor)) {
+            throw ApiException.asignacionAuditorPendiente();
+        }
+    }
+
+    private void notificarAsignacionTrasCommit(String nombreAuditor, String emailAuditor, String nombreEmpresa) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    envioCorreoAsignacionAuditorService.enviarAsignacion(
+                            nombreAuditor, emailAuditor, nombreEmpresa);
+                }
+            });
+        } else {
+            envioCorreoAsignacionAuditorService.enviarAsignacion(nombreAuditor, emailAuditor, nombreEmpresa);
+        }
     }
 
     private Empresa empresaDe(UUID usuarioId) {

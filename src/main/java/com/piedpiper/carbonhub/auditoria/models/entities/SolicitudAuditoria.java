@@ -1,8 +1,10 @@
 package com.piedpiper.carbonhub.auditoria.models.entities;
 
 import com.piedpiper.carbonhub.auditoria.models.enums.EstadoSolicitudAuditoria;
+import com.piedpiper.carbonhub.auditoria.models.enums.OrigenAsignacion;
 import com.piedpiper.carbonhub.auditoria.models.enums.TipoCertificacionSolicitud;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
+import com.piedpiper.carbonhub.user.models.entities.Usuario;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -17,6 +19,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -68,9 +71,27 @@ public class SolicitudAuditoria {
     @Column(name = "fecha_creacion", nullable = false)
     private Instant fechaCreacion;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "auditor_id")
+    private Usuario auditor;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "origen_asignacion", length = 20)
+    private OrigenAsignacion origenAsignacion;
+
+    @Column(name = "fecha_asignacion")
+    private Instant fechaAsignacion;
+
     @OneToMany(mappedBy = "solicitud", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<DocumentoRespaldo> documentos = new ArrayList<>();
+
+    // El default es necesario para ddl-auto=update: sin el, Hibernate emite
+    // "add column version bigint not null" y Postgres lo rechaza si la tabla ya tiene filas,
+    // dejando la columna sin crear y toda consulta a la entidad fallando en tiempo de ejecucion.
+    @Version
+    @Column(nullable = false, columnDefinition = "bigint default 0")
+    private long version;
 
     public void agregarDocumento(DocumentoRespaldo documento) {
         documento.setSolicitud(this);

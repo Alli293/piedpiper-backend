@@ -61,6 +61,8 @@ class SolicitudAuditoriaServiceTest {
     private EmpresaRepository empresaRepository;
     @Mock
     private CertificacionActivaConsulta certificacionActivaConsulta;
+    @Mock
+    private EnvioCorreoAsignacionAuditorService envioCorreoAsignacionAuditorService;
 
     private SolicitudAuditoriaService service;
 
@@ -72,7 +74,8 @@ class SolicitudAuditoriaServiceTest {
                 empresaRepository,
                 certificacionActivaConsulta,
                 new ValidadorDocumentosPdf(),
-                new SolicitudAuditoriaMapperImpl());
+                new SolicitudAuditoriaMapperImpl(),
+                envioCorreoAsignacionAuditorService);
 
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuarioConEmpresa()));
         when(empresaRepository.bloquearPorId(EMPRESA_ID)).thenReturn(Optional.of(empresa()));
