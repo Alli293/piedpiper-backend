@@ -266,6 +266,21 @@ public class ApiException extends RuntimeException {
                 "Conflicto al guardar tus preferencias. Intenta nuevamente.");
     }
 
+    public static ApiException itinerarioGeneracionTimeout() {
+        return new ApiException(HttpStatus.GATEWAY_TIMEOUT,
+                "Ocurrió un error al generar el itinerario. Intenta nuevamente más tarde.");
+    }
+
+    public static ApiException itinerarioRespuestaInvalida() {
+        return new ApiException(HttpStatus.BAD_GATEWAY,
+                "No fue posible generar una propuesta válida. Intenta nuevamente más tarde.");
+    }
+
+    public static ApiException itinerarioGeneracionesExcedidas() {
+        return new ApiException(HttpStatus.TOO_MANY_REQUESTS,
+                "Has alcanzado el límite de itinerarios generados. Intenta de nuevo en una hora.");
+    }
+
     public static ApiException periodoImaInvalido(String mensaje) {
         return new ApiException(HttpStatus.BAD_REQUEST, mensaje);
     }
