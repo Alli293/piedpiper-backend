@@ -34,4 +34,6 @@ public interface EmpresaRepository extends JpaRepository<Empresa, UUID> {
     @Query("select e from Empresa e where e.id = :empresaId")
     Optional<Empresa> bloquearPorId(UUID empresaId);
     Optional<Empresa> findBySlugAndEstado(String slug, EstadoEmpresa estado);
+
+    List<Empresa> findByEstado(EstadoEmpresa estado);
 }
