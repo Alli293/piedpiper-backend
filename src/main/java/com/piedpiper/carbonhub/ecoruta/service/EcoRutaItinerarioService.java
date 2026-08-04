@@ -364,9 +364,15 @@ public class EcoRutaItinerarioService {
                 .sum();
 
         // Pre-cargar todas las empresas activas para matching por nombre
-        var empresasActivas = empresaRepository.findByEstado(
+        var paginaEmpresas = empresaRepository.findByEstado(
                 com.piedpiper.carbonhub.empresa.models.enums.EstadoEmpresa.ACTIVO,
-                org.springframework.data.domain.PageRequest.of(0, 100)).getContent();
+                org.springframework.data.domain.PageRequest.of(0, 100));
+        var empresasActivas = paginaEmpresas.getContent();
+        if (paginaEmpresas.getTotalElements() > 100) {
+            log.warn("Catálogo de empresas activas ({}) supera el tope de matching (100). "
+                    + "Establecimientos fuera del primer bloque no se vincularán con scores reales.",
+                    paginaEmpresas.getTotalElements());
+        }
 
         int posicion = 0;
         for (ItinerarioDia dia : itinerario.getDias()) {

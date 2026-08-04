@@ -39,7 +39,7 @@ public class ItinerarioCuotaService {
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void reservarGeneracion(UUID usuarioId) {
-        PreferenciasViaje preferencias = preferenciasViajeRepository.findByUsuario_Id(usuarioId)
+        PreferenciasViaje preferencias = preferenciasViajeRepository.findWithLockByUsuario_Id(usuarioId)
                 .orElseThrow(() -> ApiException.recursoNoEncontrado(
                         "No has completado tus preferencias de viaje todavía."));
 

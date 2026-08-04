@@ -49,7 +49,7 @@ class ItinerarioCuotaServiceTest {
 
     @Test
     void sinPreferenciasGuardadasLanza404() {
-        when(preferenciasViajeRepository.findByUsuario_Id(USUARIO_ID)).thenReturn(Optional.empty());
+        when(preferenciasViajeRepository.findWithLockByUsuario_Id(USUARIO_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.reservarGeneracion(USUARIO_ID))
                 .isInstanceOf(ApiException.class)
@@ -59,7 +59,7 @@ class ItinerarioCuotaServiceTest {
     @Test
     void primeraSolicitudIncrementaElContadorYGuarda() {
         PreferenciasViaje preferencias = preferencias();
-        when(preferenciasViajeRepository.findByUsuario_Id(USUARIO_ID)).thenReturn(Optional.of(preferencias));
+        when(preferenciasViajeRepository.findWithLockByUsuario_Id(USUARIO_ID)).thenReturn(Optional.of(preferencias));
 
         service.reservarGeneracion(USUARIO_ID);
 
@@ -72,7 +72,7 @@ class ItinerarioCuotaServiceTest {
         PreferenciasViaje preferencias = preferencias();
         preferencias.setItinerarioGeneracionContador(5);
         preferencias.setItinerarioGeneracionVentanaInicio(Instant.now().minus(2, ChronoUnit.HOURS));
-        when(preferenciasViajeRepository.findByUsuario_Id(USUARIO_ID)).thenReturn(Optional.of(preferencias));
+        when(preferenciasViajeRepository.findWithLockByUsuario_Id(USUARIO_ID)).thenReturn(Optional.of(preferencias));
 
         service.reservarGeneracion(USUARIO_ID);
 
@@ -84,7 +84,7 @@ class ItinerarioCuotaServiceTest {
         PreferenciasViaje preferencias = preferencias();
         preferencias.setItinerarioGeneracionContador(5);
         preferencias.setItinerarioGeneracionVentanaInicio(Instant.now());
-        when(preferenciasViajeRepository.findByUsuario_Id(USUARIO_ID)).thenReturn(Optional.of(preferencias));
+        when(preferenciasViajeRepository.findWithLockByUsuario_Id(USUARIO_ID)).thenReturn(Optional.of(preferencias));
 
         assertThatThrownBy(() -> service.reservarGeneracion(USUARIO_ID))
                 .isInstanceOf(ApiException.class)

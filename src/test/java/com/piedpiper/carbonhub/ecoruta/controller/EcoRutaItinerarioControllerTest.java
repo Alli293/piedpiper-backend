@@ -161,6 +161,20 @@ class EcoRutaItinerarioControllerTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_USUARIO_INDIVIDUAL")
+    void getConItinerarioAjenoDevuelve403() throws Exception {
+        UUID itinerarioId = UUID.randomUUID();
+        UUID usuarioId = UUID.fromString(USUARIO_ID);
+        when(service.perteneceAlUsuario(eq(itinerarioId), eq(usuarioId))).thenReturn(false);
+
+        mockMvc.perform(get("/api/ecoruta/itinerarios/" + itinerarioId)
+                        .principal(authentication("ROLE_USUARIO_INDIVIDUAL")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message")
+                        .value("No tienes permiso para acceder a este itinerario."));
+    }
+
     private TestingAuthenticationToken authentication(String authority) {
         return new TestingAuthenticationToken(USUARIO_ID, "password", authority);
     }
