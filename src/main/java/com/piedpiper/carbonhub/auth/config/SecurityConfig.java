@@ -67,6 +67,8 @@ public class SecurityConfig {
                         // JSON-LD decodificado, sin firma.
                         .requestMatchers(HttpMethod.GET, "/api/certificaciones/*/verificacion.jwt")
                         .permitAll()
+                        // Perfil publico de una empresa: pagina publica sin sesion.
+                        // Rutas explicitas para que un endpoint nuevo no nazca publico sin revision.
                         // Verificacion publica de insignias empresariales (PP-61). El JSON-LD
                         // es legible para usuarios y el .jwt es el artefacto firmado que
                         // validadores OpenBadges 3.0 esperan recibir.
@@ -80,6 +82,8 @@ public class SecurityConfig {
                         // sin que alguien lo revise (mismo criterio que las rutas de
                         // certificaciones listadas arriba).
                         .requestMatchers(HttpMethod.GET,
+                                "/api/perfil-publico/buscar",
+                                "/api/perfil-publico/*",
                                 "/api/perfil-publico/*/certificaciones",
                                 "/api/perfil-publico/*/insignias").permitAll()
                         .anyRequest().authenticated())
