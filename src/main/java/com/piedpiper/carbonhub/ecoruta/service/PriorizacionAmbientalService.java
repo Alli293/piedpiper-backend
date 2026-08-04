@@ -125,7 +125,7 @@ public class PriorizacionAmbientalService {
         );
     }
 
-    Map<UUID, IndicadorAmbientalDTO> consultarIndicadoresSafe(List<UUID> empresaIds) {
+    private Map<UUID, IndicadorAmbientalDTO> consultarIndicadoresSafe(List<UUID> empresaIds) {
         try {
             return indicadorClient.consultarIndicadores(empresaIds);
         } catch (Exception e) {
@@ -134,7 +134,7 @@ public class PriorizacionAmbientalService {
         }
     }
 
-    Map<UUID, IMADTO> consultarImaSafe(List<UUID> empresaIds) {
+    private Map<UUID, IMADTO> consultarImaSafe(List<UUID> empresaIds) {
         try {
             return imaClient.consultarIma(empresaIds);
         } catch (Exception e) {
@@ -143,17 +143,13 @@ public class PriorizacionAmbientalService {
         }
     }
 
-    Map<UUID, BenchmarkDTO> consultarBenchmarkSafe(List<UUID> empresaIds) {
+    private Map<UUID, BenchmarkDTO> consultarBenchmarkSafe(List<UUID> empresaIds) {
         try {
             return benchmarkClient.consultarBenchmark(empresaIds);
         } catch (Exception e) {
             log.warn("Fallo en consulta de benchmarking. Continuando sin benchmark.", e);
             return Map.of();
         }
-    }
-
-    PuntuacionAmbientalCalculator getCalculator() {
-        return calculator;
     }
 
     private void persistirRegistroPonderacion(UUID itinerarioId, UUID usuarioId,

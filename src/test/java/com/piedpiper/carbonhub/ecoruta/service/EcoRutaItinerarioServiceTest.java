@@ -45,6 +45,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -78,11 +79,16 @@ class EcoRutaItinerarioServiceTest {
         service = new EcoRutaItinerarioService(
                 preferenciasViajeRepository, itinerarioRepository,
                 itinerarioIaClienteService, itinerarioCuotaService, eventoReconocimientoService,
-                priorizacionAmbientalService, empresaRepository, mapper);
+                priorizacionAmbientalService,
+                mock(IndicadorAmbientalClient.class),
+                mock(ImaClient.class),
+                mock(BenchmarkClient.class),
+                mock(PuntuacionAmbientalCalculator.class),
+                empresaRepository, mapper);
 
         // Stub default para empresaRepository usado en extraerEstablecimientosRankeados
-        lenient().when(empresaRepository.findByEstado(any(), any()))
-                .thenReturn(new org.springframework.data.domain.PageImpl<>(java.util.List.of()));
+        lenient().when(empresaRepository.findByEstado(any()))
+                .thenReturn(java.util.List.of());
     }
 
     private Usuario usuario() {

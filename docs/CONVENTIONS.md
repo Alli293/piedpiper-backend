@@ -122,6 +122,20 @@ public class EmisionConsultaController {
    });
    ```
    See `InvitacionService.enviarTrasCommit(...)` as the reference.
+
+   **When `afterCommit` is not enough.** The hook lives in memory: if the process restarts between
+   the commit and the side effect, the side effect is lost with no trace. That is acceptable when
+   losing it is harmless (a welcome email nobody is waiting for), and unacceptable when the outcome
+   itself is domain state that has to be auditable and recoverable.
+
+   In that second case, persist the pending state in the table and drive it from a scheduled sweep
+   instead. `PP-71` (`AlertaPendienteReintentoService`) is the reference: an alert stays `PENDIENTE`
+   with its own attempt counter, the sweep picks it up after a restart, and each transition is a
+   **conditional `UPDATE`** (`where ... and estado = :pendiente`) so the database — not the number of
+   threads or instances — decides who gets to act. Never use read-modify-write for that state.
+
+   This is a deliberate deviation from the `afterCommit` pattern, not an oversight. Pick between the
+   two by asking whether losing the side effect on a restart is acceptable.
 6. **Shared preconditions belong in a collaborator**, not duplicated per domain. E.g. the "user has a configured empresa" check uses `ApiException.empresaNoConfigurada()` uniformly.
 7. **Don't add defensive guards for cases an earlier layer already guarantees.** E.g. `ClimatiqClient.validarRespuesta()` guarantees `co2e()` is never null; re-checking downstream is dead code.
 

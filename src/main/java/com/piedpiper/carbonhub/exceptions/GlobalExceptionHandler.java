@@ -12,6 +12,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 import java.util.stream.Collectors;
@@ -48,6 +49,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorDTO> handleBadRequest(Exception ex) {
         return ResponseEntity.badRequest().body(ApiErrorDTO.of(HttpStatus.BAD_REQUEST.value(),
                 "La solicitud contiene datos inválidos o incompletos."));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiErrorDTO> handleUploadSize(MaxUploadSizeExceededException ex) {
+        ApiException error = ApiException.documentoRespaldoExcedeTamanio();
+        return ResponseEntity.status(error.getStatus())
+                .body(ApiErrorDTO.of(error.getStatus().value(), error.getMessage()));
     }
 
     @ExceptionHandler(Exception.class)

@@ -58,6 +58,10 @@ public class EcoRutaItinerarioService {
     private final ItinerarioCuotaService itinerarioCuotaService;
     private final EventoReconocimientoService eventoReconocimientoService;
     private final PriorizacionAmbientalService priorizacionAmbientalService;
+    private final IndicadorAmbientalClient indicadorClient;
+    private final ImaClient imaClient;
+    private final BenchmarkClient benchmarkClient;
+    private final PuntuacionAmbientalCalculator puntuacionCalculator;
     private final EmpresaRepository empresaRepository;
     private final ItinerarioMapper mapper;
 
@@ -67,6 +71,10 @@ public class EcoRutaItinerarioService {
                                     ItinerarioCuotaService itinerarioCuotaService,
                                     EventoReconocimientoService eventoReconocimientoService,
                                     PriorizacionAmbientalService priorizacionAmbientalService,
+                                    IndicadorAmbientalClient indicadorClient,
+                                    ImaClient imaClient,
+                                    BenchmarkClient benchmarkClient,
+                                    PuntuacionAmbientalCalculator puntuacionCalculator,
                                     EmpresaRepository empresaRepository,
                                     ItinerarioMapper mapper) {
         this.preferenciasViajeRepository = preferenciasViajeRepository;
@@ -75,6 +83,10 @@ public class EcoRutaItinerarioService {
         this.itinerarioCuotaService = itinerarioCuotaService;
         this.eventoReconocimientoService = eventoReconocimientoService;
         this.priorizacionAmbientalService = priorizacionAmbientalService;
+        this.indicadorClient = indicadorClient;
+        this.imaClient = imaClient;
+        this.benchmarkClient = benchmarkClient;
+        this.puntuacionCalculator = puntuacionCalculator;
         this.empresaRepository = empresaRepository;
         this.mapper = mapper;
     }
@@ -220,10 +232,9 @@ public class EcoRutaItinerarioService {
     private List<String> obtenerNombresEstablecimientosVerificados() {
         try {
             return empresaRepository.findByEstado(
-                    com.piedpiper.carbonhub.empresa.models.enums.EstadoEmpresa.ACTIVO,
-                    org.springframework.data.domain.PageRequest.of(0, 50))
-                    .getContent().stream()
+                    com.piedpiper.carbonhub.empresa.models.enums.EstadoEmpresa.ACTIVO).stream()
                     .map(com.piedpiper.carbonhub.empresa.models.entities.Empresa::getNombreEmpresa)
+                    .limit(50)
                     .toList();
         } catch (Exception e) {
             log.warn("No se pudieron cargar establecimientos verificados para el prompt.", e);
@@ -364,14 +375,12 @@ public class EcoRutaItinerarioService {
                 .sum();
 
         // Pre-cargar todas las empresas activas para matching por nombre
-        var paginaEmpresas = empresaRepository.findByEstado(
-                com.piedpiper.carbonhub.empresa.models.enums.EstadoEmpresa.ACTIVO,
-                org.springframework.data.domain.PageRequest.of(0, 100));
-        var empresasActivas = paginaEmpresas.getContent();
-        if (paginaEmpresas.getTotalElements() > 100) {
+        var empresasActivas = empresaRepository.findByEstado(
+                com.piedpiper.carbonhub.empresa.models.enums.EstadoEmpresa.ACTIVO);
+        if (empresasActivas.size() > 100) {
             log.warn("Catálogo de empresas activas ({}) supera el tope de matching (100). "
                     + "Establecimientos fuera del primer bloque no se vincularán con scores reales.",
-                    paginaEmpresas.getTotalElements());
+                    empresasActivas.size());
         }
 
         int posicion = 0;
@@ -472,9 +481,9 @@ public class EcoRutaItinerarioService {
         Map<UUID, IMADTO> imaMap;
         Map<UUID, BenchmarkDTO> benchmarkMap;
         try {
-            indicadores = priorizacionAmbientalService.consultarIndicadoresSafe(empresaIds);
-            imaMap = priorizacionAmbientalService.consultarImaSafe(empresaIds);
-            benchmarkMap = priorizacionAmbientalService.consultarBenchmarkSafe(empresaIds);
+            indicadores = indicadorClient.consultarIndicadores(empresaIds);
+            imaMap = imaClient.consultarIma(empresaIds);
+            benchmarkMap = benchmarkClient.consultarBenchmark(empresaIds);
         } catch (Exception e) {
             log.warn("No se pudieron calcular puntuaciones ambientales para la visualización.", e);
             return;
@@ -491,13 +500,12 @@ public class EcoRutaItinerarioService {
         }
 
         // Calcular puntuaciones sin persistir
-        PuntuacionAmbientalCalculator calculator = priorizacionAmbientalService.getCalculator();
         Map<String, PuntuacionAmbientalResponseDTO> puntuacionesPorEstablecimiento = new java.util.HashMap<>();
 
         for (EstablecimientoRankeado est : establecimientos) {
             UUID empresaId = est.getEmpresaId();
             Integer scoreIA = scoreEstimadoPorNombre.get(est.getNombreEstablecimiento());
-            PuntuacionAmbientalResponseDTO detalle = calculator.calcular(
+            PuntuacionAmbientalResponseDTO detalle = puntuacionCalculator.calcular(
                     indicadores.get(empresaId), imaMap.get(empresaId), benchmarkMap.get(empresaId), scoreIA);
             puntuacionesPorEstablecimiento.put(est.getNombreEstablecimiento(), detalle);
         }

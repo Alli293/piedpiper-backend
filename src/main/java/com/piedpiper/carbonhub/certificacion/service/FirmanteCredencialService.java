@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
@@ -84,7 +85,8 @@ public class FirmanteCredencialService {
             return null;
         }
         try {
-            String base64 = clavePrivadaPem
+            String pemNormalizado = normalizarPem(clavePrivadaPem);
+            String base64 = pemNormalizado
                     .replace("-----BEGIN PRIVATE KEY-----", "")
                     .replace("-----END PRIVATE KEY-----", "")
                     .replaceAll("\\s", "");
@@ -112,6 +114,43 @@ public class FirmanteCredencialService {
             log.error("La clave privada configurada para firmar certificaciones no es valida", e);
             return null;
         }
+    }
+
+    private static String normalizarPem(String valor) {
+        String normalizado = normalizarSaltosLinea(quitarComillasExteriores(valor.trim()));
+        if (normalizado.contains("-----BEGIN PRIVATE KEY-----")) {
+            return normalizado;
+        }
+        try {
+            String decodificado = new String(Base64.getDecoder().decode(
+                    normalizado.replaceAll("\\s", "")), StandardCharsets.UTF_8);
+            decodificado = normalizarSaltosLinea(quitarComillasExteriores(decodificado.trim()));
+            if (decodificado.contains("-----BEGIN PRIVATE KEY-----")) {
+                return decodificado;
+            }
+        } catch (IllegalArgumentException ignored) {
+            // Si no era un PEM completo codificado en base64, se tratara como DER/base64 directo.
+        }
+        return normalizado;
+    }
+
+    private static String normalizarSaltosLinea(String valor) {
+        return valor
+                .replace("\\r\\n", "\n")
+                .replace("\\n", "\n")
+                .replace("\\r", "\n");
+    }
+
+    private static String quitarComillasExteriores(String valor) {
+        if (valor.length() < 2) {
+            return valor;
+        }
+        boolean comillasDobles = valor.startsWith("\"") && valor.endsWith("\"");
+        boolean comillasSimples = valor.startsWith("'") && valor.endsWith("'");
+        if (comillasDobles || comillasSimples) {
+            return valor.substring(1, valor.length() - 1);
+        }
+        return valor;
     }
 
     public boolean claveConfigurada() {
