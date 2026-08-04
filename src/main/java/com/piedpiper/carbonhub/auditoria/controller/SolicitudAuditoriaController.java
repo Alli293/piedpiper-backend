@@ -2,7 +2,9 @@ package com.piedpiper.carbonhub.auditoria.controller;
 
 import com.piedpiper.carbonhub.auditoria.models.dtos.AsignarAuditorRequestDTO;
 import com.piedpiper.carbonhub.auditoria.models.dtos.CrearSolicitudAuditoriaRequestDTO;
+import com.piedpiper.carbonhub.auditoria.models.dtos.SolicitudAuditoriaDetalleResponseDTO;
 import com.piedpiper.carbonhub.auditoria.models.dtos.SolicitudAuditoriaResponseDTO;
+import com.piedpiper.carbonhub.auditoria.service.SolicitudAuditoriaDetalleService;
 import com.piedpiper.carbonhub.auditoria.service.SolicitudAuditoriaService;
 import com.piedpiper.carbonhub.common.Autenticaciones;
 
@@ -30,9 +32,12 @@ import java.util.UUID;
 public class SolicitudAuditoriaController {
 
     private final SolicitudAuditoriaService solicitudAuditoriaService;
+    private final SolicitudAuditoriaDetalleService solicitudAuditoriaDetalleService;
 
-    public SolicitudAuditoriaController(SolicitudAuditoriaService solicitudAuditoriaService) {
+    public SolicitudAuditoriaController(SolicitudAuditoriaService solicitudAuditoriaService,
+                                        SolicitudAuditoriaDetalleService solicitudAuditoriaDetalleService) {
         this.solicitudAuditoriaService = solicitudAuditoriaService;
+        this.solicitudAuditoriaDetalleService = solicitudAuditoriaDetalleService;
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -45,11 +50,18 @@ public class SolicitudAuditoriaController {
         return ResponseEntity.status(HttpStatus.CREATED).body(respuesta);
     }
 
+    /**
+     * El rol se amplia respecto del resto del controlador porque el detalle no es una gestion de la
+     * empresa sino una consulta de seguimiento: el auditor asignado tiene que poder verlo, y el
+     * administrador de plataforma tiene que poder auditarlo. Quien puede ver cual solicitud lo
+     * decide el servicio; el rol solo dice quien puede llegar a preguntar.
+     */
     @GetMapping("/{idSolicitud}")
-    public ResponseEntity<SolicitudAuditoriaResponseDTO> obtener(
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'AUDITOR_CERTIFICADO', 'ADMINISTRADOR_PLATAFORMA')")
+    public ResponseEntity<SolicitudAuditoriaDetalleResponseDTO> obtener(
             @PathVariable UUID idSolicitud,
             Authentication authentication) {
-        return ResponseEntity.ok(solicitudAuditoriaService.obtener(
+        return ResponseEntity.ok(solicitudAuditoriaDetalleService.obtenerDetalle(
                 idSolicitud, Autenticaciones.usuarioId(authentication)));
     }
 

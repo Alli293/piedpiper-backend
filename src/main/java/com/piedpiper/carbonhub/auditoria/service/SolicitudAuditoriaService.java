@@ -55,6 +55,7 @@ public class SolicitudAuditoriaService {
     private final ValidadorDocumentosPdf validadorDocumentosPdf;
     private final SolicitudAuditoriaMapper solicitudAuditoriaMapper;
     private final EnvioCorreoAsignacionAuditorService envioCorreoAsignacionAuditorService;
+    private final TransicionEstadoAuditoriaService transicionEstadoAuditoriaService;
 
     public SolicitudAuditoriaService(SolicitudAuditoriaRepository solicitudAuditoriaRepository,
                                      UsuarioRepository usuarioRepository,
@@ -62,7 +63,8 @@ public class SolicitudAuditoriaService {
                                      CertificacionActivaConsulta certificacionActivaConsulta,
                                      ValidadorDocumentosPdf validadorDocumentosPdf,
                                      SolicitudAuditoriaMapper solicitudAuditoriaMapper,
-                                     EnvioCorreoAsignacionAuditorService envioCorreoAsignacionAuditorService) {
+                                     EnvioCorreoAsignacionAuditorService envioCorreoAsignacionAuditorService,
+                                     TransicionEstadoAuditoriaService transicionEstadoAuditoriaService) {
         this.solicitudAuditoriaRepository = solicitudAuditoriaRepository;
         this.usuarioRepository = usuarioRepository;
         this.empresaRepository = empresaRepository;
@@ -70,13 +72,15 @@ public class SolicitudAuditoriaService {
         this.validadorDocumentosPdf = validadorDocumentosPdf;
         this.solicitudAuditoriaMapper = solicitudAuditoriaMapper;
         this.envioCorreoAsignacionAuditorService = envioCorreoAsignacionAuditorService;
+        this.transicionEstadoAuditoriaService = transicionEstadoAuditoriaService;
     }
 
     @Transactional
     public SolicitudAuditoriaResponseDTO crear(CrearSolicitudAuditoriaRequestDTO datos,
                                                List<MultipartFile> documentos,
                                                UUID usuarioId) {
-        Empresa empresa = empresaDe(usuarioId);
+        Usuario solicitante = usuarioDe(usuarioId);
+        Empresa empresa = empresaDe(solicitante);
 
         Optional<LocalDate> vencimiento =
                 certificacionActivaConsulta.fechaVencimientoCertificacionActiva(empresa.getId());
@@ -106,15 +110,10 @@ public class SolicitudAuditoriaService {
 
         documentos.forEach(documento -> solicitud.agregarDocumento(documentoRespaldoDe(documento, ahora)));
 
-        return solicitudAuditoriaMapper.toDto(solicitudAuditoriaRepository.save(solicitud));
-    }
+        SolicitudAuditoria guardada = solicitudAuditoriaRepository.save(solicitud);
+        transicionEstadoAuditoriaService.registrarCreacion(guardada, solicitante);
 
-    @Transactional(readOnly = true)
-    public SolicitudAuditoriaResponseDTO obtener(UUID solicitudId, UUID usuarioId) {
-        SolicitudAuditoria solicitud = solicitudAuditoriaRepository.findById(solicitudId)
-                .orElseThrow(ApiException::solicitudAuditoriaNoEncontrada);
-        validarPertenencia(solicitud, usuarioId);
-        return solicitudAuditoriaMapper.toDto(solicitud);
+        return solicitudAuditoriaMapper.toDto(guardada);
     }
 
     @Transactional
@@ -210,9 +209,12 @@ public class SolicitudAuditoriaService {
         }
     }
 
-    private Empresa empresaDe(UUID usuarioId) {
-        Usuario usuario = usuarioRepository.findById(usuarioId)
+    private Usuario usuarioDe(UUID usuarioId) {
+        return usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> ApiException.errorInterno("No se pudo identificar al usuario autenticado."));
+    }
+
+    private Empresa empresaDe(Usuario usuario) {
         if (usuario.getEmpresa() == null || usuario.getEmpresa().getId() == null) {
             throw ApiException.empresaNoConfigurada();
         }

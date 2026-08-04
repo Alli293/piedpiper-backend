@@ -355,6 +355,26 @@ public class ApiException extends RuntimeException {
                 "El origen de la asignación debe ser 'manual' o 'recomendacion_ia'.");
     }
 
+    public static ApiException transicionAuditoriaInvalida() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "Esta acción no es válida para el estado actual de la solicitud de auditoría.");
+    }
+
+    public static ApiException decisionAuditorInvalida() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "La decisión debe ser 'aceptada' o 'rechazada'.");
+    }
+
+    public static ApiException decisionAuditorNoDisponible() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Esta solicitud ya no está disponible para tu respuesta.");
+    }
+
+    public static ApiException decisionAuditorAjena() {
+        return new ApiException(HttpStatus.FORBIDDEN,
+                "No tienes permiso para responder a esta solicitud de auditoría.");
+    }
+
     public static ApiException resultadoAuditoriaNoAprobado() {
         return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
                 "Solo se emite una certificacion para auditorias con resultado 'aprobada'.");
