@@ -31,7 +31,7 @@ public class AsignacionAuditorExpiracionService {
         this.horasSinRespuesta = horasSinRespuesta;
     }
 
-    @Scheduled(fixedDelayString = "${auditoria.expiracion-intervalo-ms:3600000}")
+    @Scheduled(cron = "${auditoria.expiracion-cron:0 0 * * * *}", zone = "UTC")
     public void liberarAsignacionesSinRespuesta() {
         Instant limite = Instant.now().minus(horasSinRespuesta, ChronoUnit.HOURS);
         solicitudAuditoriaRepository

@@ -38,6 +38,15 @@ public class SolicitudAuditoriaDetalleResponseDTO {
     private AuditorAsignadoResponseDTO auditor;
     private OrigenAsignacion origenAsignacion;
     private Instant fechaAsignacion;
+    private Instant fechaAceptacion;
+
+    /**
+     * El motivo del ultimo rechazo sigue visible aunque la asignacion ya se haya liberado: es lo
+     * que le explica a la empresa por que su solicitud volvio a quedar sin auditor.
+     */
+    private String motivoRechazo;
+
+    private Instant fechaRechazo;
     private String nombreEmpresa;
     private List<TransicionEstadoAuditoriaResponseDTO> historial;
 }

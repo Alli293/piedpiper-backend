@@ -370,6 +370,11 @@ public class ApiException extends RuntimeException {
                 "Esta solicitud ya no está disponible para tu respuesta.");
     }
 
+    public static ApiException motivoRechazoRequerido() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "Indica el motivo del rechazo, entre 10 y 300 caracteres.");
+    }
+
     public static ApiException decisionAuditorAjena() {
         return new ApiException(HttpStatus.FORBIDDEN,
                 "No tienes permiso para responder a esta solicitud de auditoría.");

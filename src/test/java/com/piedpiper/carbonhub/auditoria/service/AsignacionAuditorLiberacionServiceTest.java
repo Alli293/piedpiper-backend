@@ -44,13 +44,17 @@ class AsignacionAuditorLiberacionServiceTest {
     private SolicitudAuditoriaRepository solicitudAuditoriaRepository;
     @Mock
     private EnvioCorreoAsignacionAuditorService envioCorreoAsignacionAuditorService;
+    @Mock
+    private TransicionEstadoAuditoriaService transicionEstadoAuditoriaService;
 
     private AsignacionAuditorLiberacionService service;
 
     @BeforeEach
     void configurar() {
         service = new AsignacionAuditorLiberacionService(
-                solicitudAuditoriaRepository, envioCorreoAsignacionAuditorService);
+                solicitudAuditoriaRepository,
+                envioCorreoAsignacionAuditorService,
+                transicionEstadoAuditoriaService);
     }
 
     @AfterEach
