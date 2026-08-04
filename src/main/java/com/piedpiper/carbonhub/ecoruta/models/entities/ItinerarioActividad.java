@@ -69,4 +69,7 @@ public class ItinerarioActividad {
 
     @Column(nullable = false)
     private Integer orden;
+
+    @Column(name = "puntuacion_ambiental_estimada")
+    private Integer puntuacionAmbientalEstimada;
 }

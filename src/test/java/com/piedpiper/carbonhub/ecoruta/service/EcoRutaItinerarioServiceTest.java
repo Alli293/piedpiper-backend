@@ -44,6 +44,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -63,6 +65,10 @@ class EcoRutaItinerarioServiceTest {
     private ItinerarioCuotaService itinerarioCuotaService;
     @Mock
     private EventoReconocimientoService eventoReconocimientoService;
+    @Mock
+    private PriorizacionAmbientalService priorizacionAmbientalService;
+    @Mock
+    private com.piedpiper.carbonhub.empresa.repository.EmpresaRepository empresaRepository;
 
     private ItinerarioMapper mapper;
     private EcoRutaItinerarioService service;
@@ -72,7 +78,17 @@ class EcoRutaItinerarioServiceTest {
         mapper = new ItinerarioMapperImpl();
         service = new EcoRutaItinerarioService(
                 preferenciasViajeRepository, itinerarioRepository,
-                itinerarioIaClienteService, itinerarioCuotaService, eventoReconocimientoService, mapper);
+                itinerarioIaClienteService, itinerarioCuotaService, eventoReconocimientoService,
+                priorizacionAmbientalService,
+                mock(IndicadorAmbientalClient.class),
+                mock(ImaClient.class),
+                mock(BenchmarkClient.class),
+                mock(PuntuacionAmbientalCalculator.class),
+                empresaRepository, mapper);
+
+        // Stub default para empresaRepository usado en extraerEstablecimientosRankeados
+        lenient().when(empresaRepository.findByEstado(any()))
+                .thenReturn(java.util.List.of());
     }
 
     private Usuario usuario() {
@@ -104,7 +120,7 @@ class EcoRutaItinerarioServiceTest {
     private ActividadIaDTO actividadValida() {
         return new ActividadIaDTO(
                 "Caminata por puentes colgantes", "Recorrido guiado", "09:00", 150,
-                new BigDecimal("13000"), "CRC", "Reserva Selvatura", "PUNTARENAS");
+                new BigDecimal("13000"), "CRC", "Reserva Selvatura", "PUNTARENAS", 80);
     }
 
     private ItinerarioIaResponseDTO respuestaValida(int dias) {
