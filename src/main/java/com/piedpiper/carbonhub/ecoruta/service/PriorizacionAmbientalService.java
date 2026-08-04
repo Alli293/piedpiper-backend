@@ -71,6 +71,8 @@ public class PriorizacionAmbientalService {
                                                      UUID usuarioId) {
         List<UUID> empresaIds = establecimientosBase.stream()
                 .map(EstablecimientoRankeado::getEmpresaId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
                 .toList();
 
         // Consultar cada fuente de datos de forma independiente (degradación graciosa)
@@ -103,8 +105,10 @@ public class PriorizacionAmbientalService {
                 BigDecimal puntuacionFinal = establecimiento.getPuntuacionTuristica().add(boost);
                 establecimiento.setPuntuacionFinal(puntuacionFinal);
 
-                // Persistir registro de auditoría
-                persistirRegistroPonderacion(itinerarioId, usuarioId, empresaId, detalle);
+                // Persistir registro de auditoría solo para empresas reales (no null)
+                if (empresaId != null) {
+                    persistirRegistroPonderacion(itinerarioId, usuarioId, empresaId, detalle);
+                }
             }
             // Si detalle es null (sin datos), el establecimiento mantiene puntuación turística base
         }

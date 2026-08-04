@@ -35,16 +35,8 @@ public class EcoRutaItinerarioController {
     @PostMapping("/generar")
     public ResponseEntity<ItinerarioResponseDTO> generar(Authentication authentication) {
         UUID usuarioId = Autenticaciones.usuarioId(authentication);
-        try {
-            ItinerarioResponseDTO response = service.generar(usuarioId);
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        } catch (ApiException e) {
-            throw e;
-        } catch (Exception e) {
-            log.error("Error no esperado al generar itinerario para usuario {}", usuarioId, e);
-            throw ApiException.errorInterno(
-                    "No se pudo generar tu itinerario. Intenta nuevamente.");
-        }
+        ItinerarioResponseDTO response = service.generar(usuarioId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping("/{id}")

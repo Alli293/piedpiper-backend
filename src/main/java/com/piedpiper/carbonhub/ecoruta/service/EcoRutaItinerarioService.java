@@ -129,8 +129,10 @@ public class EcoRutaItinerarioService {
     }
 
     /**
-     * Ambos casos (no existe / pertenece a otro usuario) devuelven el mismo 404 — nunca un 403
-     * distinto, para no revelar por enumeración de IDs que un itinerario ajeno existe.
+     * Devuelve un itinerario por ID si pertenece al usuario. El controlador valida la propiedad
+     * antes de llegar aquí (403 si el itinerario no es suyo); este método solo maneja el caso
+     * "no encontrado" con 404. Enriquece la respuesta con puntuaciones ambientales calculadas
+     * al vuelo (sin persistir registros de auditoría).
      */
     @Transactional(readOnly = true)
     public ItinerarioResponseDTO obtener(UUID itinerarioId, UUID usuarioId) {
@@ -455,6 +457,8 @@ public class EcoRutaItinerarioService {
 
         List<UUID> empresaIds = establecimientos.stream()
                 .map(EstablecimientoRankeado::getEmpresaId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
                 .toList();
 
         // Consultar indicadores (solo lectura, sin persistir)
