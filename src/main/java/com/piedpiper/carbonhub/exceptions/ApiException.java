@@ -266,12 +266,93 @@ public class ApiException extends RuntimeException {
                 "Conflicto al guardar tus preferencias. Intenta nuevamente.");
     }
 
+    public static ApiException itinerarioGeneracionTimeout() {
+        return new ApiException(HttpStatus.GATEWAY_TIMEOUT,
+                "Ocurrió un error al generar el itinerario. Intenta nuevamente más tarde.");
+    }
+
+    public static ApiException itinerarioRespuestaInvalida() {
+        return new ApiException(HttpStatus.BAD_GATEWAY,
+                "No fue posible generar una propuesta válida. Intenta nuevamente más tarde.");
+    }
+
+    public static ApiException itinerarioGeneracionesExcedidas() {
+        return new ApiException(HttpStatus.TOO_MANY_REQUESTS,
+                "Has alcanzado el límite de itinerarios generados. Intenta de nuevo en una hora.");
+    }
+
     public static ApiException periodoImaInvalido(String mensaje) {
         return new ApiException(HttpStatus.BAD_REQUEST, mensaje);
     }
 
     public static ApiException datosInvalidos(String mensaje) {
         return new ApiException(HttpStatus.BAD_REQUEST, mensaje);
+    }
+
+    public static ApiException periodoAuditoriaFuturo() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "El período a auditar no puede iniciar en una fecha futura.");
+    }
+
+    public static ApiException periodoAuditoriaFinInvalido() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "La fecha de fin del período debe ser posterior a la fecha de inicio.");
+    }
+
+    public static ApiException periodoAuditoriaExcedeDoceMeses() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "El período a auditar no puede exceder 12 meses.");
+    }
+
+    public static ApiException documentosRespaldoRequeridos() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Debes adjuntar al menos un documento de respaldo.");
+    }
+
+    public static ApiException documentosRespaldoExcedenMaximo() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Puedes adjuntar un máximo de 10 documentos.");
+    }
+
+    public static ApiException documentoRespaldoExcedeTamanio() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "El archivo no puede superar 15 MB.");
+    }
+
+    public static ApiException documentoRespaldoNoEsPdf() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Solo se aceptan archivos en formato PDF.");
+    }
+
+    public static ApiException solicitudAuditoriaTraslapada() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Ya existe una solicitud de auditoría en curso para un período que se traslapa "
+                        + "con el seleccionado.");
+    }
+
+    public static ApiException solicitudAuditoriaNoEncontrada() {
+        return new ApiException(HttpStatus.NOT_FOUND,
+                "Esta solicitud de auditoría no fue encontrada.");
+    }
+
+    public static ApiException solicitudAuditoriaAjena() {
+        return new ApiException(HttpStatus.FORBIDDEN,
+                "No tienes permiso para gestionar esta solicitud de auditoría.");
+    }
+
+    public static ApiException asignacionAuditorPendiente() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Ya existe una solicitud de revisión pendiente con otro auditor.");
+    }
+
+    public static ApiException auditorNoDisponible() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "Este auditor no está disponible actualmente.");
+    }
+
+    public static ApiException origenAsignacionInvalido() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "El origen de la asignación debe ser 'manual' o 'recomendacion_ia'.");
     }
 
     public static ApiException resultadoAuditoriaNoAprobado() {

@@ -95,6 +95,16 @@ public class PreferenciasViaje {
     @Column(name = "requiere_hospedaje", nullable = false)
     private boolean requiereHospedaje;
 
+    // Rate limiting de generación de itinerarios vive aquí (no en Usuario.java, como en PP-29)
+    // porque es un límite específico del dominio EcoRuta, no una propiedad general de la cuenta.
+    /** Contador del rate limit de generación de itinerarios (PP-85). Ventana fija de 1 hora. */
+    @Column(name = "itinerario_generacion_contador", nullable = false, columnDefinition = "integer default 0")
+    @Builder.Default
+    private int itinerarioGeneracionContador = 0;
+
+    @Column(name = "itinerario_generacion_ventana_inicio")
+    private Instant itinerarioGeneracionVentanaInicio;
+
     @Column(name = "creado_en", nullable = false, updatable = false)
     private Instant creadoEn;
 
