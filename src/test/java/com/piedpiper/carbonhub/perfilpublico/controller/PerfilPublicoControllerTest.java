@@ -185,12 +185,12 @@ class PerfilPublicoControllerTest {
     void obtener_empresaInactiva_retorna404ConMensajeDiferente() throws Exception {
         when(perfilPublicoConsultaService.obtenerPorSlug("empresa-suspendida"))
                 .thenThrow(new PerfilNoEncontradoException(
-                        "Este perfil no está disponible en este momento."));
+                        "El perfil que buscas no existe o ya no está disponible."));
 
         mockMvc.perform(get("/api/perfil-publico/{slug}", "empresa-suspendida"))
                 .andExpect(status().isNotFound())
                 .andExpect(content().contentTypeCompatibleWith("application/json"))
-                .andExpect(jsonPath("$.mensaje").value("Este perfil no está disponible en este momento."))
+                .andExpect(jsonPath("$.mensaje").value("El perfil que buscas no existe o ya no está disponible."))
                 .andExpect(jsonPath("$.status").doesNotExist());
     }
 

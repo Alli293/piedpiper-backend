@@ -67,13 +67,13 @@ public class SecurityConfig {
                         // JSON-LD decodificado, sin firma.
                         .requestMatchers(HttpMethod.GET, "/api/certificaciones/*/verificacion.jwt")
                         .permitAll()
-                        // Perfil publico de una empresa: pagina publica sin sesion, expone
-                        // solo certificaciones activas por slug. Ruta explicita, no comodin
-                        // "/**", para que un endpoint nuevo bajo este prefijo no nazca publico
-                        // sin que alguien lo revise (mismo criterio que las rutas de
-                        // certificaciones listadas arriba).
+                        // Perfil publico de una empresa: pagina publica sin sesion.
+                        // Rutas explicitas para que un endpoint nuevo no nazca publico sin revision.
                         .requestMatchers(HttpMethod.GET,
-                                "/api/perfil-publico/**").permitAll()
+                                "/api/perfil-publico/buscar",
+                                "/api/perfil-publico/*",
+                                "/api/perfil-publico/*/certificaciones",
+                                "/api/perfil-publico/*/insignias").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(e -> e.authenticationEntryPoint(
                         new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))

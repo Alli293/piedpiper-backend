@@ -5,6 +5,7 @@ import com.piedpiper.carbonhub.certificacion.repository.CertificacionRepository;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.empresa.models.enums.EstadoEmpresa;
 import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
+import com.piedpiper.carbonhub.insignia.repository.InsigniaEmpresaRepository;
 import com.piedpiper.carbonhub.perfilpublico.exceptions.PerfilNoEncontradoException;
 import com.piedpiper.carbonhub.perfilpublico.models.dtos.BusquedaPerfilPublicoDTO;
 import com.piedpiper.carbonhub.perfilpublico.models.dtos.PerfilPublicoResponseDTO;
@@ -25,11 +26,14 @@ public class PerfilPublicoConsultaService {
 
     private final EmpresaRepository empresaRepository;
     private final CertificacionRepository certificacionRepository;
+    private final InsigniaEmpresaRepository insigniaEmpresaRepository;
 
     public PerfilPublicoConsultaService(EmpresaRepository empresaRepository,
-                                        CertificacionRepository certificacionRepository) {
+                                        CertificacionRepository certificacionRepository,
+                                        InsigniaEmpresaRepository insigniaEmpresaRepository) {
         this.empresaRepository = empresaRepository;
         this.certificacionRepository = certificacionRepository;
+        this.insigniaEmpresaRepository = insigniaEmpresaRepository;
     }
 
     @Transactional(readOnly = true)
@@ -43,24 +47,19 @@ public class PerfilPublicoConsultaService {
                     "El perfil que buscas no existe o ya no está disponible.");
         }
 
-        // 3. Buscar empresa por slug
-        Empresa empresa = empresaRepository.findBySlug(slug)
+        // 3. Buscar empresa activa por slug (una sola consulta, no revela estado de inactivas)
+        Empresa empresa = empresaRepository.findBySlugAndEstado(slug, EstadoEmpresa.ACTIVO)
                 .orElseThrow(() -> new PerfilNoEncontradoException(
                         "El perfil que buscas no existe o ya no está disponible."));
 
-        // 4. Verificar estado ACTIVO
-        if (empresa.getEstado() != EstadoEmpresa.ACTIVO) {
-            throw new PerfilNoEncontradoException(
-                    "Este perfil no está disponible en este momento.");
-        }
-
-        // 5. Contar certificaciones vigentes (fecha expiración futura o null)
+        // 4. Contar certificaciones vigentes (fecha expiración futura o null)
         int certificacionesVigentes = contarCertificacionesVigentes(empresa);
 
-        // 6. Contar insignias activas — retorna 0 (PP-60 aún no implementado)
-        int insigniasActivas = 0;
+        // 5. Contar insignias activas
+        int insigniasActivas = insigniaEmpresaRepository
+                .findByEmpresaIdOrderByFechaObtencionDesc(empresa.getId()).size();
 
-        // 7. Ensamblar DTO
+        // 6. Ensamblar DTO
         String nivelEcologico = resolverNivelEcologico(empresa.getNivelEcologico());
 
         return new PerfilPublicoResponseDTO(
