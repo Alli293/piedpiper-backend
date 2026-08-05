@@ -48,10 +48,15 @@ public class DecisionAuditorService {
 
         Usuario auditor = validarAsignacionPendiente(solicitud, usuarioId);
 
+        // Un unico instante para toda la decision: con varios Instant.now() el plazo podia validarse
+        // contra un momento y la fecha guardarse con otro, y en el borde de las 120 horas eso decide
+        // si la respuesta pasa o no por milisegundos.
+        Instant ahora = Instant.now();
+
         if (decision == DecisionAuditor.ACEPTADA) {
-            aceptar(solicitud, auditor);
+            aceptar(solicitud, auditor, ahora);
         } else {
-            rechazar(solicitud, auditor, datos.getMotivoRechazo());
+            rechazar(solicitud, auditor, datos.getMotivoRechazo(), ahora);
         }
 
         guardar(solicitud);
@@ -63,15 +68,15 @@ public class DecisionAuditorService {
      * dos entradas del historial y no como una sola porque son dos hechos distintos, y la tabla de
      * transiciones no admite un salto directo de solicitud_enviada a en_revision.
      */
-    private void aceptar(SolicitudAuditoria solicitud, Usuario auditor) {
-        validarPlazo(solicitud);
+    private void aceptar(SolicitudAuditoria solicitud, Usuario auditor, Instant ahora) {
+        validarPlazo(solicitud, ahora);
 
         transicionEstadoAuditoriaService.aplicar(solicitud,
                 EventoTransicionAuditoria.AUDITOR_ACEPTA, ActorTransicionAuditoria.AUDITOR, auditor);
         transicionEstadoAuditoriaService.aplicar(solicitud,
                 EventoTransicionAuditoria.INICIO_REVISION, ActorTransicionAuditoria.AUDITOR, auditor);
 
-        solicitud.setFechaAceptacion(Instant.now());
+        solicitud.setFechaAceptacion(ahora);
     }
 
     /**
@@ -84,7 +89,7 @@ public class DecisionAuditorService {
      * como destinatario de la notificacion: es la confirmacion de que su respuesta quedo
      * registrada.</p>
      */
-    private void rechazar(SolicitudAuditoria solicitud, Usuario auditor, String motivo) {
+    private void rechazar(SolicitudAuditoria solicitud, Usuario auditor, String motivo, Instant ahora) {
         if (motivo == null || motivo.isBlank()) {
             throw ApiException.motivoRechazoRequerido();
         }
@@ -93,7 +98,7 @@ public class DecisionAuditorService {
                 EventoTransicionAuditoria.AUDITOR_RECHAZA, ActorTransicionAuditoria.AUDITOR, auditor);
 
         solicitud.setMotivoRechazo(motivo.trim());
-        solicitud.setFechaRechazo(Instant.now());
+        solicitud.setFechaRechazo(ahora);
         solicitud.setAuditor(null);
         solicitud.setOrigenAsignacion(null);
         solicitud.setFechaAsignacion(null);
@@ -120,10 +125,10 @@ public class DecisionAuditorService {
                 .orElseThrow(() -> ApiException.errorInterno("No se pudo identificar al usuario autenticado."));
     }
 
-    private void validarPlazo(SolicitudAuditoria solicitud) {
+    private void validarPlazo(SolicitudAuditoria solicitud, Instant ahora) {
         Instant asignacion = solicitud.getFechaAsignacion();
         if (asignacion == null
-                || Duration.between(asignacion, Instant.now()).toHours() >= horasParaResponder) {
+                || Duration.between(asignacion, ahora).toHours() >= horasParaResponder) {
             throw ApiException.decisionAuditorNoDisponible();
         }
     }

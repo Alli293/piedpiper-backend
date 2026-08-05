@@ -2,6 +2,8 @@ package com.piedpiper.carbonhub.auditoria.service;
 
 import com.piedpiper.carbonhub.auditoria.mappers.SolicitudAuditoriaMapper;
 import com.piedpiper.carbonhub.auditoria.models.dtos.SolicitudAuditoriaResumenResponseDTO;
+import com.piedpiper.carbonhub.auditoria.models.entities.SolicitudAuditoria;
+import com.piedpiper.carbonhub.auditoria.repository.DocumentoRespaldoRepository;
 import com.piedpiper.carbonhub.auditoria.repository.SolicitudAuditoriaRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
@@ -10,7 +12,9 @@ import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -26,13 +30,16 @@ public class SolicitudAuditoriaListadoService {
 
     private final SolicitudAuditoriaRepository solicitudAuditoriaRepository;
     private final UsuarioRepository usuarioRepository;
+    private final DocumentoRespaldoRepository documentoRespaldoRepository;
     private final SolicitudAuditoriaMapper solicitudAuditoriaMapper;
 
     public SolicitudAuditoriaListadoService(SolicitudAuditoriaRepository solicitudAuditoriaRepository,
                                             UsuarioRepository usuarioRepository,
+                                            DocumentoRespaldoRepository documentoRespaldoRepository,
                                             SolicitudAuditoriaMapper solicitudAuditoriaMapper) {
         this.solicitudAuditoriaRepository = solicitudAuditoriaRepository;
         this.usuarioRepository = usuarioRepository;
+        this.documentoRespaldoRepository = documentoRespaldoRepository;
         this.solicitudAuditoriaMapper = solicitudAuditoriaMapper;
     }
 
@@ -42,14 +49,34 @@ public class SolicitudAuditoriaListadoService {
         if (usuario.getEmpresa() == null || usuario.getEmpresa().getId() == null) {
             throw ApiException.empresaNoConfigurada();
         }
-        return solicitudAuditoriaMapper.toResumenDtos(
-                solicitudAuditoriaRepository.listarPorEmpresa(usuario.getEmpresa().getId()));
+        return aResumenes(solicitudAuditoriaRepository.listarPorEmpresa(usuario.getEmpresa().getId()));
     }
 
     @Transactional(readOnly = true)
     public List<SolicitudAuditoriaResumenResponseDTO> listarAsignadasA(UUID usuarioId) {
-        return solicitudAuditoriaMapper.toResumenDtos(
-                solicitudAuditoriaRepository.listarAsignadasA(usuarioId));
+        return aResumenes(solicitudAuditoriaRepository.listarAsignadasA(usuarioId));
+    }
+
+    /**
+     * El conteo de adjuntos sale de una consulta agregada y no de {@code solicitud.getDocumentos()}:
+     * esa coleccion es perezosa, asi que contarla por fila dispararia una consulta extra por
+     * solicitud que ademas trae el contenido binario completo de cada PDF.
+     */
+    private List<SolicitudAuditoriaResumenResponseDTO> aResumenes(List<SolicitudAuditoria> solicitudes) {
+        List<SolicitudAuditoriaResumenResponseDTO> resumenes =
+                solicitudAuditoriaMapper.toResumenDtos(solicitudes);
+        if (resumenes.isEmpty()) {
+            return resumenes;
+        }
+
+        Map<UUID, Integer> conteos = new HashMap<>();
+        documentoRespaldoRepository
+                .contarPorSolicitud(solicitudes.stream().map(SolicitudAuditoria::getId).toList())
+                .forEach(fila -> conteos.put((UUID) fila[0], ((Number) fila[1]).intValue()));
+
+        resumenes.forEach(resumen ->
+                resumen.setCantidadDocumentos(conteos.getOrDefault(resumen.getId(), 0)));
+        return resumenes;
     }
 
     private Usuario usuarioDe(UUID usuarioId) {

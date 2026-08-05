@@ -6,6 +6,7 @@ import com.piedpiper.carbonhub.auditoria.models.entities.DocumentoRespaldo;
 import com.piedpiper.carbonhub.auditoria.models.entities.SolicitudAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.EstadoSolicitudAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.TipoCertificacionSolicitud;
+import com.piedpiper.carbonhub.auditoria.repository.DocumentoRespaldoRepository;
 import com.piedpiper.carbonhub.auditoria.repository.SolicitudAuditoriaRepository;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.exceptions.ApiException;
@@ -24,12 +25,14 @@ import org.springframework.http.HttpStatus;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -45,13 +48,18 @@ class SolicitudAuditoriaListadoServiceTest {
     private SolicitudAuditoriaRepository solicitudAuditoriaRepository;
     @Mock
     private UsuarioRepository usuarioRepository;
+    @Mock
+    private DocumentoRespaldoRepository documentoRespaldoRepository;
 
     private SolicitudAuditoriaListadoService service;
 
     @BeforeEach
     void configurar() {
         service = new SolicitudAuditoriaListadoService(
-                solicitudAuditoriaRepository, usuarioRepository, new SolicitudAuditoriaMapperImpl());
+                solicitudAuditoriaRepository,
+                usuarioRepository,
+                documentoRespaldoRepository,
+                new SolicitudAuditoriaMapperImpl());
 
         when(usuarioRepository.findById(ADMIN_ID)).thenReturn(Optional.of(Usuario.builder()
                 .id(ADMIN_ID)
@@ -61,6 +69,15 @@ class SolicitudAuditoriaListadoServiceTest {
                 .thenReturn(List.of(conAuditor(), sinAuditor()));
         when(solicitudAuditoriaRepository.listarAsignadasA(AUDITOR_ID))
                 .thenReturn(List.of(conAuditor()));
+        when(documentoRespaldoRepository.contarPorSolicitud(anyCollection()))
+                .thenAnswer(invocacion -> {
+                    Collection<?> ids = invocacion.getArgument(0);
+                    // Solo la primera solicitud del listado tiene un adjunto.
+                    Object primero = ids.iterator().next();
+                    // List.<Object[]>of y no List.of: con un solo Object[] el varargs lo desarma
+                    // y devolveria una lista de dos elementos en vez de una con un arreglo.
+                    return List.<Object[]>of(new Object[] {primero, 1L});
+                });
     }
 
     @Test
@@ -113,6 +130,19 @@ class SolicitudAuditoriaListadoServiceTest {
         assertThat(listado).hasSize(1);
         assertThat(listado.get(0).getIdAuditor()).isEqualTo(AUDITOR_ID);
         verify(solicitudAuditoriaRepository).listarAsignadasA(AUDITOR_ID);
+    }
+
+    /**
+     * El conteo tiene que salir de la consulta agregada y no de la coleccion de la entidad: contar
+     * sobre la coleccion perezosa dispara una consulta por fila que trae el binario de cada PDF.
+     */
+    @Test
+    void elConteoDeAdjuntosSaleDeUnaConsultaAgregadaYNoDeLaColeccion() {
+        List<SolicitudAuditoriaResumenResponseDTO> listado = service.listarDeMiEmpresa(ADMIN_ID);
+
+        verify(documentoRespaldoRepository).contarPorSolicitud(anyCollection());
+        assertThat(listado.get(0).getCantidadDocumentos()).isEqualTo(1);
+        assertThat(listado.get(1).getCantidadDocumentos()).isZero();
     }
 
     @Test

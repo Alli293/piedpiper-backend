@@ -32,7 +32,7 @@ public interface SolicitudAuditoriaMapper {
     @Mapping(target = "nombreAuditor", source = "auditor", qualifiedByName = "nombreCompletoOpcional")
     @Mapping(target = "nombreEmpresa", source = "empresa.nombreEmpresa")
     @Mapping(target = "estadoDescripcion", source = "estado.descripcion")
-    @Mapping(target = "cantidadDocumentos", source = "documentos", qualifiedByName = "cantidad")
+    @Mapping(target = "cantidadDocumentos", ignore = true)
     SolicitudAuditoriaResumenResponseDTO toResumenDto(SolicitudAuditoria solicitud);
 
     List<SolicitudAuditoriaResumenResponseDTO> toResumenDtos(List<SolicitudAuditoria> solicitudes);
@@ -53,12 +53,4 @@ public interface SolicitudAuditoriaMapper {
         return auditor == null ? null : auditor.nombreCompleto();
     }
 
-    /**
-     * Solo la cantidad: el listado no necesita los adjuntos, y mapearlos traeria su contenido
-     * binario para cada fila.
-     */
-    @Named("cantidad")
-    default int cantidad(List<DocumentoRespaldo> documentos) {
-        return documentos == null ? 0 : documentos.size();
-    }
 }

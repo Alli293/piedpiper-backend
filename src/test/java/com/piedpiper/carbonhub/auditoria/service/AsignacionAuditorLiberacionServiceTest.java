@@ -1,6 +1,8 @@
 package com.piedpiper.carbonhub.auditoria.service;
 
 import com.piedpiper.carbonhub.auditoria.models.entities.SolicitudAuditoria;
+import com.piedpiper.carbonhub.auditoria.models.enums.ActorTransicionAuditoria;
+import com.piedpiper.carbonhub.auditoria.models.enums.EventoTransicionAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.EstadoSolicitudAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.OrigenAsignacion;
 import com.piedpiper.carbonhub.auditoria.models.enums.TipoCertificacionSolicitud;
@@ -28,6 +30,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -62,6 +66,24 @@ class AsignacionAuditorLiberacionServiceTest {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.clearSynchronization();
         }
+    }
+
+    /**
+     * El barrido tiene que dejar constancia de por que la solicitud se quedo sin auditor. Sin esta
+     * verificacion, quitar la llamada no rompe ningun test y el historial pierde el vencimiento.
+     */
+    @Test
+    void liberarRegistraLaTransicionDeVencimientoConActorSistema() {
+        when(solicitudAuditoriaRepository.findById(SOLICITUD_ID))
+                .thenReturn(Optional.of(solicitudAsignada()));
+
+        service.liberar(SOLICITUD_ID);
+
+        verify(transicionEstadoAuditoriaService).aplicar(
+                any(SolicitudAuditoria.class),
+                eq(EventoTransicionAuditoria.VENCIDA_POR_NO_RESPUESTA),
+                eq(ActorTransicionAuditoria.SISTEMA),
+                isNull());
     }
 
     @Test
