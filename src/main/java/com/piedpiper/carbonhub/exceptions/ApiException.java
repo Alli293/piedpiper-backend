@@ -355,6 +355,11 @@ public class ApiException extends RuntimeException {
                 "El origen de la asignación debe ser 'manual' o 'recomendacion_ia'.");
     }
 
+    public static ApiException documentoRespaldoNoEncontrado() {
+        return new ApiException(HttpStatus.NOT_FOUND,
+                "Este documento de respaldo no fue encontrado.");
+    }
+
     public static ApiException transicionAuditoriaInvalida() {
         return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
                 "Esta acción no es válida para el estado actual de la solicitud de auditoría.");
