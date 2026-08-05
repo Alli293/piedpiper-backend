@@ -46,13 +46,13 @@ public class NotificacionTransicionRegistroService {
                         EstadoSolicitudAuditoria estadoAnterior,
                         EstadoSolicitudAuditoria estadoNuevo,
                         EventoTransicionAuditoria evento) {
+        // Sin guard por empresa nula: la relacion es @ManyToOne(optional = false) con columna
+        // not null, asi que una solicitud persistida siempre la tiene.
         Empresa empresa = solicitud.getEmpresa();
-        String nombreEmpresa = empresa == null ? null : empresa.getNombreEmpresa();
+        String nombreEmpresa = empresa.getNombreEmpresa();
 
-        if (empresa != null) {
-            encolarDestinatario(solicitud, empresa.getCorreoCorporativo(), nombreEmpresa,
-                    nombreEmpresa, estadoAnterior, estadoNuevo, evento);
-        }
+        encolarDestinatario(solicitud, empresa.getCorreoCorporativo(), nombreEmpresa,
+                nombreEmpresa, estadoAnterior, estadoNuevo, evento);
 
         Usuario auditor = solicitud.getAuditor();
         if (auditor != null) {

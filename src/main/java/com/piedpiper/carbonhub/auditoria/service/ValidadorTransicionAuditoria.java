@@ -32,27 +32,34 @@ public class ValidadorTransicionAuditoria {
     private record Destino(EstadoSolicitudAuditoria estado, ActorTransicionAuditoria actor) {
     }
 
-    private static final Map<Clave, Destino> TABLA = Map.of(
-            new Clave(EstadoSolicitudAuditoria.SOLICITUD_ENVIADA, EventoTransicionAuditoria.AUDITOR_ACEPTA),
-            new Destino(EstadoSolicitudAuditoria.AUDITOR_ASIGNADO, ActorTransicionAuditoria.AUDITOR),
+    private static final Map<Clave, Destino> TABLA = Map.ofEntries(
+            Map.entry(
+                    new Clave(EstadoSolicitudAuditoria.SOLICITUD_ENVIADA, EventoTransicionAuditoria.AUDITOR_ACEPTA),
+                    new Destino(EstadoSolicitudAuditoria.AUDITOR_ASIGNADO, ActorTransicionAuditoria.AUDITOR)),
 
-            new Clave(EstadoSolicitudAuditoria.AUDITOR_ASIGNADO, EventoTransicionAuditoria.INICIO_REVISION),
-            new Destino(EstadoSolicitudAuditoria.EN_REVISION, ActorTransicionAuditoria.AUDITOR),
+            Map.entry(
+                    new Clave(EstadoSolicitudAuditoria.AUDITOR_ASIGNADO, EventoTransicionAuditoria.INICIO_REVISION),
+                    new Destino(EstadoSolicitudAuditoria.EN_REVISION, ActorTransicionAuditoria.AUDITOR)),
 
-            new Clave(EstadoSolicitudAuditoria.EN_REVISION, EventoTransicionAuditoria.REPORTE_CARGADO),
-            new Destino(EstadoSolicitudAuditoria.REPORTE_CARGADO, ActorTransicionAuditoria.AUDITOR),
+            Map.entry(
+                    new Clave(EstadoSolicitudAuditoria.EN_REVISION, EventoTransicionAuditoria.REPORTE_CARGADO),
+                    new Destino(EstadoSolicitudAuditoria.REPORTE_CARGADO, ActorTransicionAuditoria.AUDITOR)),
 
-            new Clave(EstadoSolicitudAuditoria.REPORTE_CARGADO, EventoTransicionAuditoria.RESULTADO_APROBADA),
-            new Destino(EstadoSolicitudAuditoria.CERTIFICACION_EMITIDA, ActorTransicionAuditoria.AUDITOR),
+            Map.entry(
+                    new Clave(EstadoSolicitudAuditoria.REPORTE_CARGADO, EventoTransicionAuditoria.RESULTADO_APROBADA),
+                    new Destino(EstadoSolicitudAuditoria.CERTIFICACION_EMITIDA, ActorTransicionAuditoria.AUDITOR)),
 
-            new Clave(EstadoSolicitudAuditoria.REPORTE_CARGADO, EventoTransicionAuditoria.RESULTADO_OBSERVACIONES),
-            new Destino(EstadoSolicitudAuditoria.OBSERVACIONES_PENDIENTES, ActorTransicionAuditoria.AUDITOR),
+            Map.entry(
+                    new Clave(EstadoSolicitudAuditoria.REPORTE_CARGADO, EventoTransicionAuditoria.RESULTADO_OBSERVACIONES),
+                    new Destino(EstadoSolicitudAuditoria.OBSERVACIONES_PENDIENTES, ActorTransicionAuditoria.AUDITOR)),
 
-            new Clave(EstadoSolicitudAuditoria.SOLICITUD_ENVIADA, EventoTransicionAuditoria.AUDITOR_RECHAZA),
-            new Destino(EstadoSolicitudAuditoria.SOLICITUD_ENVIADA, ActorTransicionAuditoria.AUDITOR),
+            Map.entry(
+                    new Clave(EstadoSolicitudAuditoria.SOLICITUD_ENVIADA, EventoTransicionAuditoria.AUDITOR_RECHAZA),
+                    new Destino(EstadoSolicitudAuditoria.SOLICITUD_ENVIADA, ActorTransicionAuditoria.AUDITOR)),
 
-            new Clave(EstadoSolicitudAuditoria.SOLICITUD_ENVIADA, EventoTransicionAuditoria.VENCIDA_POR_NO_RESPUESTA),
-            new Destino(EstadoSolicitudAuditoria.SOLICITUD_ENVIADA, ActorTransicionAuditoria.SISTEMA));
+            Map.entry(
+                    new Clave(EstadoSolicitudAuditoria.SOLICITUD_ENVIADA, EventoTransicionAuditoria.VENCIDA_POR_NO_RESPUESTA),
+                    new Destino(EstadoSolicitudAuditoria.SOLICITUD_ENVIADA, ActorTransicionAuditoria.SISTEMA)));
 
     /**
      * Devuelve el estado destino de una transicion valida, o lanza 422 si la combinacion no existe

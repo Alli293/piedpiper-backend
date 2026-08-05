@@ -98,4 +98,19 @@ class ValidadorTransicionAuditoriaTest {
                     .isEmpty();
         }
     }
+
+    /**
+     * Es a proposito, no un hueco de la tabla: cuando el auditor deja observaciones, la solicitud
+     * queda cerrada y la empresa tiene que abrir una nueva con la documentacion corregida. No hay
+     * camino de vuelta a revision sobre la misma solicitud, porque el periodo auditado y los
+     * documentos ya no serian los que se revisaron.
+     */
+    @Test
+    void observacionesPendientesEsUnEstadoFinalParaTodoEvento() {
+        for (EventoTransicionAuditoria evento : EventoTransicionAuditoria.values()) {
+            assertThat(validador.destinoPermitido(EstadoSolicitudAuditoria.OBSERVACIONES_PENDIENTES, evento))
+                    .as("una solicitud con observaciones no deberia admitir el evento %s", evento)
+                    .isEmpty();
+        }
+    }
 }

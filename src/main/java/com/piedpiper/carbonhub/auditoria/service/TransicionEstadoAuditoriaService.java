@@ -22,10 +22,10 @@ import java.time.Instant;
  * servicio nuevo invente una transicion que la tabla no contempla, ni que aplique el cambio sin
  * dejar rastro.</p>
  *
- * <p>Sin transaccion propia a proposito: corre dentro de la del servicio que la invoca para que el
- * cambio de estado y su registro en el historial sean atomicos. Si se le pusiera
- * {@code REQUIRES_NEW}, el historial podria quedar registrando una transicion que despues se
- * revierte.</p>
+ * <p>Sin {@code REQUIRES_NEW} a proposito: los metodos llevan {@code @Transactional} con la
+ * propagacion por defecto, asi que se suman a la transaccion del servicio que los invoca y el
+ * cambio de estado y su registro en el historial quedan atomicos. Con una transaccion propia, el
+ * historial podria quedar registrando una transicion que despues se revierte.</p>
  */
 @Service
 public class TransicionEstadoAuditoriaService {
