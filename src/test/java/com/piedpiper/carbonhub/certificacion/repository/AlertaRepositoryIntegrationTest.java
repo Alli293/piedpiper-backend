@@ -187,6 +187,8 @@ class AlertaRepositoryIntegrationTest {
                 .estado(EstadoCertificacion.ACTIVA)
                 .credencialJwt("jwt-de-prueba")
                 .indiceEstado(INDICE.getAndIncrement())
+                .codigoVerificacion("CH-2026-" + UUID.randomUUID().toString()
+                        .substring(0, 8).toUpperCase())
                 .build());
     }
 }
