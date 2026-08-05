@@ -18,6 +18,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import lombok.AllArgsConstructor;
@@ -98,6 +99,15 @@ public class SolicitudAuditoria {
     @Column(name = "fecha_rechazo")
     private Instant fechaRechazo;
 
+    @Column(name = "fecha_auditoria_realizada")
+    private LocalDate fechaAuditoriaRealizada;
+
+    @Column(name = "fecha_carga_reporte")
+    private Instant fechaCargaReporte;
+
+    @OneToOne(mappedBy = "solicitud", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private ReporteAuditoria reporteAuditoria;
+
     @OneToMany(mappedBy = "solicitud", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<DocumentoRespaldo> documentos = new ArrayList<>();
@@ -112,5 +122,13 @@ public class SolicitudAuditoria {
     public void agregarDocumento(DocumentoRespaldo documento) {
         documento.setSolicitud(this);
         documentos.add(documento);
+    }
+
+    public void reemplazarReporteAuditoria(ReporteAuditoria reporte) {
+        if (reporteAuditoria != null) {
+            reporteAuditoria.setSolicitud(null);
+        }
+        reporte.setSolicitud(this);
+        reporteAuditoria = reporte;
     }
 }
