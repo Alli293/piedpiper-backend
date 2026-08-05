@@ -1,19 +1,23 @@
 package com.piedpiper.carbonhub.auditoria.controller;
 
 import com.piedpiper.carbonhub.auditoria.models.dtos.DecisionAuditorRequestDTO;
+import com.piedpiper.carbonhub.auditoria.models.dtos.SolicitudAuditoriaResumenResponseDTO;
 import com.piedpiper.carbonhub.auditoria.service.DecisionAuditorService;
+import com.piedpiper.carbonhub.auditoria.service.SolicitudAuditoriaListadoService;
 import com.piedpiper.carbonhub.common.Autenticaciones;
 
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -28,9 +32,23 @@ import java.util.UUID;
 public class DecisionAuditorController {
 
     private final DecisionAuditorService decisionAuditorService;
+    private final SolicitudAuditoriaListadoService solicitudAuditoriaListadoService;
 
-    public DecisionAuditorController(DecisionAuditorService decisionAuditorService) {
+    public DecisionAuditorController(DecisionAuditorService decisionAuditorService,
+                                     SolicitudAuditoriaListadoService solicitudAuditoriaListadoService) {
         this.decisionAuditorService = decisionAuditorService;
+        this.solicitudAuditoriaListadoService = solicitudAuditoriaListadoService;
+    }
+
+    /**
+     * Solicitudes asignadas al auditor autenticado. Es la unica puerta de entrada que tiene para
+     * enterarse de que hay algo esperando su respuesta.
+     */
+    @GetMapping("/asignadas")
+    public ResponseEntity<List<SolicitudAuditoriaResumenResponseDTO>> listarAsignadas(
+            Authentication authentication) {
+        return ResponseEntity.ok(solicitudAuditoriaListadoService.listarAsignadasA(
+                Autenticaciones.usuarioId(authentication)));
     }
 
     @PostMapping("/{idSolicitud}/decision")

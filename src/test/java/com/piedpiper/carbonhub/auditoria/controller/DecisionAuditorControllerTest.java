@@ -1,5 +1,6 @@
 package com.piedpiper.carbonhub.auditoria.controller;
 
+import com.piedpiper.carbonhub.auditoria.service.SolicitudAuditoriaListadoService;
 import com.piedpiper.carbonhub.auditoria.service.DecisionAuditorService;
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
 import com.piedpiper.carbonhub.auth.service.JwtService;
@@ -55,6 +56,8 @@ class DecisionAuditorControllerTest {
 
     @MockitoBean
     private DecisionAuditorService decisionAuditorService;
+    @MockitoBean
+    private SolicitudAuditoriaListadoService solicitudAuditoriaListadoService;
     @MockitoBean
     private JwtService jwtService;
     @MockitoBean

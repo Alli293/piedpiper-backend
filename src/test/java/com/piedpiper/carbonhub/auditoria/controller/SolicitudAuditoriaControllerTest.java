@@ -8,6 +8,7 @@ import com.piedpiper.carbonhub.auditoria.models.dtos.TransicionEstadoAuditoriaRe
 import com.piedpiper.carbonhub.auditoria.models.enums.ActorTransicionAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.EstadoSolicitudAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.EventoTransicionAuditoria;
+import com.piedpiper.carbonhub.auditoria.service.SolicitudAuditoriaListadoService;
 import com.piedpiper.carbonhub.auditoria.service.SolicitudAuditoriaDetalleService;
 import com.piedpiper.carbonhub.auditoria.models.enums.OrigenAsignacion;
 import com.piedpiper.carbonhub.auditoria.models.enums.TipoCertificacionSolicitud;
@@ -78,6 +79,8 @@ class SolicitudAuditoriaControllerTest {
     private SolicitudAuditoriaService solicitudAuditoriaService;
     @MockitoBean
     private SolicitudAuditoriaDetalleService solicitudAuditoriaDetalleService;
+    @MockitoBean
+    private SolicitudAuditoriaListadoService solicitudAuditoriaListadoService;
     @MockitoBean
     private JwtService jwtService;
     @MockitoBean
