@@ -1,8 +1,11 @@
 package com.piedpiper.carbonhub.auditoria.controller;
 
 import com.piedpiper.carbonhub.auditoria.models.dtos.DecisionAuditorRequestDTO;
+import com.piedpiper.carbonhub.auditoria.models.dtos.ResultadoAuditoriaRequestDTO;
+import com.piedpiper.carbonhub.auditoria.models.dtos.SolicitudAuditoriaDetalleResponseDTO;
 import com.piedpiper.carbonhub.auditoria.models.dtos.SolicitudAuditoriaResumenResponseDTO;
 import com.piedpiper.carbonhub.auditoria.service.DecisionAuditorService;
+import com.piedpiper.carbonhub.auditoria.service.ResultadoAuditoriaService;
 import com.piedpiper.carbonhub.auditoria.service.SolicitudAuditoriaListadoService;
 import com.piedpiper.carbonhub.common.Autenticaciones;
 
@@ -33,11 +36,14 @@ public class DecisionAuditorController {
 
     private final DecisionAuditorService decisionAuditorService;
     private final SolicitudAuditoriaListadoService solicitudAuditoriaListadoService;
+    private final ResultadoAuditoriaService resultadoAuditoriaService;
 
     public DecisionAuditorController(DecisionAuditorService decisionAuditorService,
-                                     SolicitudAuditoriaListadoService solicitudAuditoriaListadoService) {
+                                     SolicitudAuditoriaListadoService solicitudAuditoriaListadoService,
+                                     ResultadoAuditoriaService resultadoAuditoriaService) {
         this.decisionAuditorService = decisionAuditorService;
         this.solicitudAuditoriaListadoService = solicitudAuditoriaListadoService;
+        this.resultadoAuditoriaService = resultadoAuditoriaService;
     }
 
     /**
@@ -57,5 +63,14 @@ public class DecisionAuditorController {
                                           Authentication authentication) {
         decisionAuditorService.responder(idSolicitud, datos, Autenticaciones.usuarioId(authentication));
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{idSolicitud}/resultado")
+    public ResponseEntity<SolicitudAuditoriaDetalleResponseDTO> emitirResultado(
+            @PathVariable UUID idSolicitud,
+            @Valid @RequestBody ResultadoAuditoriaRequestDTO datos,
+            Authentication authentication) {
+        return ResponseEntity.ok(resultadoAuditoriaService.emitir(
+                idSolicitud, datos, Autenticaciones.usuarioId(authentication)));
     }
 }

@@ -395,6 +395,21 @@ public class ApiException extends RuntimeException {
                 "Esta acción no es válida para el estado actual de la solicitud de auditoría.");
     }
 
+    public static ApiException resultadoAuditoriaInvalido() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "El resultado debe ser 'aprobada' u 'observaciones'.");
+    }
+
+    public static ApiException resultadoAuditoriaNoDisponible() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "No es posible emitir el resultado en el estado actual de la solicitud.");
+    }
+
+    public static ApiException resultadoAuditoriaAjena() {
+        return new ApiException(HttpStatus.FORBIDDEN,
+                "No tienes permiso para emitir el resultado de esta solicitud de auditorÃ­a.");
+    }
+
     public static ApiException decisionAuditorInvalida() {
         return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
                 "La decisión debe ser 'aceptada' o 'rechazada'.");

@@ -2,6 +2,7 @@ package com.piedpiper.carbonhub.auditoria.controller;
 
 import com.piedpiper.carbonhub.auditoria.service.SolicitudAuditoriaListadoService;
 import com.piedpiper.carbonhub.auditoria.service.DecisionAuditorService;
+import com.piedpiper.carbonhub.auditoria.service.ResultadoAuditoriaService;
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
 import com.piedpiper.carbonhub.auth.service.JwtService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
@@ -58,6 +59,8 @@ class DecisionAuditorControllerTest {
     private DecisionAuditorService decisionAuditorService;
     @MockitoBean
     private SolicitudAuditoriaListadoService solicitudAuditoriaListadoService;
+    @MockitoBean
+    private ResultadoAuditoriaService resultadoAuditoriaService;
     @MockitoBean
     private JwtService jwtService;
     @MockitoBean
@@ -147,6 +150,19 @@ class DecisionAuditorControllerTest {
                 .andExpect(status().isForbidden());
 
         verify(decisionAuditorService, never()).responder(any(), any(), any());
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
+    void resultadoValidoDevuelve200() throws Exception {
+        mockMvc.perform(post("/api/auditorias/{idSolicitud}/resultado", SOLICITUD_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"resultado":"aprobada"}""")
+                        .principal(principal()))
+                .andExpect(status().isOk());
+
+        verify(resultadoAuditoriaService).emitir(any(), any(), any());
     }
 
     private static org.springframework.test.web.servlet.RequestBuilder peticion(String cuerpo) {

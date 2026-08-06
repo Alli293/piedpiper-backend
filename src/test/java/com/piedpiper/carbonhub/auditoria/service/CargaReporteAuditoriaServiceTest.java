@@ -202,6 +202,18 @@ class CargaReporteAuditoriaServiceTest {
         verify(solicitudAuditoriaRepository, never()).saveAndFlush(any());
     }
 
+    @Test
+    void aceptaFechaDeAceptacionSegunZonaHorariaDeNegocio() {
+        SolicitudAuditoria solicitud = solicitud();
+        solicitud.setFechaAceptacion(Instant.parse("2026-08-06T04:04:00Z"));
+        when(solicitudAuditoriaRepository.findById(SOLICITUD_ID)).thenReturn(Optional.of(solicitud));
+
+        service.cargar(SOLICITUD_ID, reportePdf(), LocalDate.of(2026, 8, 5), AUDITOR_ID);
+
+        assertThat(capturarGuardada().getFechaAuditoriaRealizada())
+                .isEqualTo(LocalDate.of(2026, 8, 5));
+    }
+
     private SolicitudAuditoria capturarGuardada() {
         ArgumentCaptor<SolicitudAuditoria> captor = ArgumentCaptor.forClass(SolicitudAuditoria.class);
         verify(solicitudAuditoriaRepository).saveAndFlush(captor.capture());

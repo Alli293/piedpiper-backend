@@ -2,123 +2,114 @@ package com.piedpiper.carbonhub.auditoria.service;
 
 import com.piedpiper.carbonhub.auditoria.mappers.SolicitudAuditoriaMapper;
 import com.piedpiper.carbonhub.auditoria.mappers.TransicionEstadoAuditoriaMapper;
+import com.piedpiper.carbonhub.auditoria.models.dtos.ResultadoAuditoriaRequestDTO;
 import com.piedpiper.carbonhub.auditoria.models.dtos.SolicitudAuditoriaDetalleResponseDTO;
-import com.piedpiper.carbonhub.auditoria.models.entities.ReporteAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.entities.SolicitudAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.ActorTransicionAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.EstadoSolicitudAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.EventoTransicionAuditoria;
+import com.piedpiper.carbonhub.auditoria.models.enums.ResultadoAuditoria;
 import com.piedpiper.carbonhub.auditoria.repository.SolicitudAuditoriaRepository;
 import com.piedpiper.carbonhub.auditoria.repository.TransicionEstadoAuditoriaRepository;
+import com.piedpiper.carbonhub.certificacion.models.dtos.EmitirCertificacionRequestDTO;
+import com.piedpiper.carbonhub.certificacion.models.enums.TipoCertificacion;
+import com.piedpiper.carbonhub.certificacion.service.EmisionCertificacionPort;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.UUID;
 
 @Service
-public class CargaReporteAuditoriaService {
-
-    private static final ZoneId ZONA_HORARIA_NEGOCIO = ZoneId.of("America/Costa_Rica");
+public class ResultadoAuditoriaService {
 
     private final SolicitudAuditoriaRepository solicitudAuditoriaRepository;
     private final TransicionEstadoAuditoriaRepository transicionEstadoAuditoriaRepository;
-    private final ValidadorReporteAuditoriaPdf validadorReporteAuditoriaPdf;
-    private final ReporteAuditoriaFactory reporteAuditoriaFactory;
     private final TransicionEstadoAuditoriaService transicionEstadoAuditoriaService;
+    private final EmisionCertificacionPort emisionCertificacionPort;
     private final SolicitudAuditoriaMapper solicitudAuditoriaMapper;
     private final TransicionEstadoAuditoriaMapper transicionEstadoAuditoriaMapper;
 
-    public CargaReporteAuditoriaService(
+    public ResultadoAuditoriaService(
             SolicitudAuditoriaRepository solicitudAuditoriaRepository,
             TransicionEstadoAuditoriaRepository transicionEstadoAuditoriaRepository,
-            ValidadorReporteAuditoriaPdf validadorReporteAuditoriaPdf,
-            ReporteAuditoriaFactory reporteAuditoriaFactory,
             TransicionEstadoAuditoriaService transicionEstadoAuditoriaService,
+            EmisionCertificacionPort emisionCertificacionPort,
             SolicitudAuditoriaMapper solicitudAuditoriaMapper,
             TransicionEstadoAuditoriaMapper transicionEstadoAuditoriaMapper) {
         this.solicitudAuditoriaRepository = solicitudAuditoriaRepository;
         this.transicionEstadoAuditoriaRepository = transicionEstadoAuditoriaRepository;
-        this.validadorReporteAuditoriaPdf = validadorReporteAuditoriaPdf;
-        this.reporteAuditoriaFactory = reporteAuditoriaFactory;
         this.transicionEstadoAuditoriaService = transicionEstadoAuditoriaService;
+        this.emisionCertificacionPort = emisionCertificacionPort;
         this.solicitudAuditoriaMapper = solicitudAuditoriaMapper;
         this.transicionEstadoAuditoriaMapper = transicionEstadoAuditoriaMapper;
     }
 
     @Transactional
-    public SolicitudAuditoriaDetalleResponseDTO cargar(UUID solicitudId,
-                                                       MultipartFile reporteAuditoria,
-                                                       LocalDate fechaAuditoriaRealizada,
+    public SolicitudAuditoriaDetalleResponseDTO emitir(UUID solicitudId,
+                                                       ResultadoAuditoriaRequestDTO datos,
                                                        UUID usuarioId) {
         SolicitudAuditoria solicitud = solicitudAuditoriaRepository.findById(solicitudId)
                 .orElseThrow(ApiException::solicitudAuditoriaNoEncontrada);
-
         Usuario auditor = validarAuditorAsignado(solicitud, usuarioId);
-        boolean transiciona = validarEstadoPermiteCarga(solicitud);
-        byte[] contenido = validadorReporteAuditoriaPdf.validar(reporteAuditoria);
-        validarFechaAuditoria(solicitud, fechaAuditoriaRealizada);
+        validarEstadoPermiteResultado(solicitud);
 
-        Instant ahora = Instant.now();
-        ReporteAuditoria reporte = reporteAuditoriaFactory.crear(reporteAuditoria, contenido, ahora);
-        solicitud.reemplazarReporteAuditoria(reporte);
-        solicitud.setFechaAuditoriaRealizada(fechaAuditoriaRealizada);
-        solicitud.setFechaCargaReporte(ahora);
+        ResultadoAuditoria resultado = ResultadoAuditoria.desde(datos.getResultado())
+                .orElseThrow(ApiException::resultadoAuditoriaInvalido);
 
-        if (transiciona) {
-            transicionEstadoAuditoriaService.aplicar(solicitud,
-                    EventoTransicionAuditoria.REPORTE_CARGADO,
-                    ActorTransicionAuditoria.AUDITOR,
-                    auditor);
+        if (resultado == ResultadoAuditoria.APROBADA) {
+            aplicar(solicitud, EventoTransicionAuditoria.RESULTADO_APROBADA, auditor);
+            SolicitudAuditoria guardada = guardar(solicitud);
+            emisionCertificacionPort.emitirPorAuditoriaAprobada(comandoEmision(guardada, auditor));
+            return detalleDe(guardada);
         }
 
+        aplicar(solicitud, EventoTransicionAuditoria.RESULTADO_OBSERVACIONES, auditor);
         return detalleDe(guardar(solicitud));
     }
 
     private Usuario validarAuditorAsignado(SolicitudAuditoria solicitud, UUID usuarioId) {
         Usuario auditor = solicitud.getAuditor();
         if (auditor == null || !auditor.getId().equals(usuarioId)) {
-            throw ApiException.cargaReporteAuditoriaAjena();
+            throw ApiException.resultadoAuditoriaAjena();
         }
         return auditor;
     }
 
-    private boolean validarEstadoPermiteCarga(SolicitudAuditoria solicitud) {
-        if (solicitud.getEstado() == EstadoSolicitudAuditoria.EN_REVISION) {
-            return true;
+    private void validarEstadoPermiteResultado(SolicitudAuditoria solicitud) {
+        if (solicitud.getEstado() != EstadoSolicitudAuditoria.REPORTE_CARGADO
+                || solicitud.getReporteAuditoria() == null
+                || solicitud.getFechaAuditoriaRealizada() == null) {
+            throw ApiException.resultadoAuditoriaNoDisponible();
         }
-        if (solicitud.getEstado() == EstadoSolicitudAuditoria.REPORTE_CARGADO) {
-            return false;
-        }
-        throw ApiException.cargaReporteAuditoriaNoDisponible();
     }
 
-    private void validarFechaAuditoria(SolicitudAuditoria solicitud, LocalDate fechaAuditoriaRealizada) {
-        if (fechaAuditoriaRealizada == null || solicitud.getFechaAceptacion() == null) {
-            throw ApiException.fechaAuditoriaRealizadaInvalida();
-        }
-        LocalDate fechaAceptacion = solicitud.getFechaAceptacion()
-                .atZone(ZONA_HORARIA_NEGOCIO)
-                .toLocalDate();
-        LocalDate hoyServidor = LocalDate.now(ZONA_HORARIA_NEGOCIO);
-        if (fechaAuditoriaRealizada.isBefore(fechaAceptacion)
-                || fechaAuditoriaRealizada.isAfter(hoyServidor)) {
-            throw ApiException.fechaAuditoriaRealizadaInvalida();
-        }
+    private void aplicar(SolicitudAuditoria solicitud,
+                         EventoTransicionAuditoria evento,
+                         Usuario auditor) {
+        transicionEstadoAuditoriaService.aplicar(
+                solicitud, evento, ActorTransicionAuditoria.AUDITOR, auditor);
+    }
+
+    private EmitirCertificacionRequestDTO comandoEmision(SolicitudAuditoria solicitud, Usuario auditor) {
+        return new EmitirCertificacionRequestDTO(
+                solicitud.getId(),
+                solicitud.getEmpresa().getId(),
+                auditor.getId(),
+                ResultadoAuditoria.APROBADA.getCodigo(),
+                solicitud.getFechaAuditoriaRealizada(),
+                TipoCertificacion.INVENTARIO_GEI,
+                null);
     }
 
     private SolicitudAuditoria guardar(SolicitudAuditoria solicitud) {
         try {
             return solicitudAuditoriaRepository.saveAndFlush(solicitud);
         } catch (ObjectOptimisticLockingFailureException e) {
-            throw ApiException.cargaReporteAuditoriaNoDisponible();
+            throw ApiException.resultadoAuditoriaNoDisponible();
         }
     }
 
