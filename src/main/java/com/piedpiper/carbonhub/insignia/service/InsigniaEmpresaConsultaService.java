@@ -54,6 +54,14 @@ public class InsigniaEmpresaConsultaService {
         return listarPorEmpresa(empresaId);
     }
 
+    /**
+     * Lista todas las insignias otorgadas a la empresa del slug. "Otorgada"
+     * es sinonimo de "activa" en este dominio: a diferencia de las
+     * certificaciones, las insignias empresariales (PP-60) son logros
+     * permanentes una vez otorgados — no existe vencimiento ni revocacion en
+     * el modelo actual (ver {@link InsigniaEmpresa}). Si ese concepto se
+     * agrega en el futuro, este metodo es el punto para filtrar por estado.
+     */
     @Transactional(readOnly = true)
     public List<InsigniaEmpresaResponseDTO> listarPorSlug(String slug) {
         Empresa empresa = slugResolver.resolver(slug);

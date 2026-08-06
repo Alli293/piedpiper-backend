@@ -139,6 +139,15 @@ class PerfilPublicoControllerTest {
                 .andExpect(jsonPath("$[0].nombre").value("Carbono Neutral"));
     }
 
+    @Test
+    void insigniasRetorna404CuandoElSlugNoExiste() throws Exception {
+        when(insigniaEmpresaConsultaService.listarPorSlug(SLUG))
+                .thenThrow(ApiException.recursoNoEncontrado("La empresa no existe."));
+
+        mockMvc.perform(get("/api/perfil-publico/{slug}/insignias", SLUG))
+                .andExpect(status().isNotFound());
+    }
+
     // ========================================================================
     // Task 3.6 — Unit tests del controlador (MockMvc)
     // ========================================================================
