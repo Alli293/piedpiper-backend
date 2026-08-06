@@ -193,8 +193,12 @@ class CargaReporteAuditoriaServiceTest {
 
     @Test
     void fechaAnteriorAAceptacionDevuelve422() {
+        SolicitudAuditoria solicitud = solicitud();
+        solicitud.setFechaAceptacion(Instant.parse("2026-08-06T04:04:00Z"));
+        when(solicitudAuditoriaRepository.findById(SOLICITUD_ID)).thenReturn(Optional.of(solicitud));
+
         assertThatThrownBy(() -> service.cargar(
-                SOLICITUD_ID, reportePdf(), LocalDate.now().minusDays(6), AUDITOR_ID))
+                SOLICITUD_ID, reportePdf(), LocalDate.of(2026, 8, 4), AUDITOR_ID))
                 .isInstanceOf(ApiException.class)
                 .extracting(error -> ((ApiException) error).getStatus())
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
