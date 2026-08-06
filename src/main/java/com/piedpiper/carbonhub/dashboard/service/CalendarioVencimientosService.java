@@ -1,9 +1,6 @@
 package com.piedpiper.carbonhub.dashboard.service;
 
-import com.piedpiper.carbonhub.certificacion.config.CatalogoTiposCertificacion;
-import com.piedpiper.carbonhub.certificacion.config.DefinicionCertificacion;
 import com.piedpiper.carbonhub.certificacion.models.entities.Certificacion;
-import com.piedpiper.carbonhub.certificacion.models.enums.TipoAlerta;
 import com.piedpiper.carbonhub.certificacion.repository.CertificacionRepository;
 import com.piedpiper.carbonhub.common.ZonasHorarias;
 import com.piedpiper.carbonhub.dashboard.models.dtos.CalendarioVencimientosResponseDTO;
@@ -17,8 +14,6 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
-import java.util.Arrays;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -33,19 +28,17 @@ import java.util.stream.Collectors;
 @Service
 public class CalendarioVencimientosService {
 
-    private static final String URGENCIA_VENCIDA = "vencida";
-
     private final EmisionEmpresaService emisionEmpresaService;
     private final CertificacionRepository certificacionRepository;
-    private final CatalogoTiposCertificacion catalogoTiposCertificacion;
+    private final VencimientoPresentacionService vencimientoPresentacionService;
 
     public CalendarioVencimientosService(
             EmisionEmpresaService emisionEmpresaService,
             CertificacionRepository certificacionRepository,
-            CatalogoTiposCertificacion catalogoTiposCertificacion) {
+            VencimientoPresentacionService vencimientoPresentacionService) {
         this.emisionEmpresaService = emisionEmpresaService;
         this.certificacionRepository = certificacionRepository;
-        this.catalogoTiposCertificacion = catalogoTiposCertificacion;
+        this.vencimientoPresentacionService = vencimientoPresentacionService;
     }
 
     @Transactional(readOnly = true)
@@ -72,39 +65,8 @@ public class CalendarioVencimientosService {
 
         return new CertificacionVencimientoDTO(
                 certificacion.getId(),
-                nombreLegible(certificacion),
-                urgenciaPara(diasRestantes));
-    }
-
-    /**
-     * El nombre legible vive en {@link CatalogoTiposCertificacion} — es el
-     * mismo que ya usan la credencial OpenBadges y los correos de vencimiento
-     * de PP-71. No se duplica acá para no arriesgar que las dos copias
-     * diverjan (ya paso una vez en este mismo cambio).
-     */
-    private String nombreLegible(Certificacion certificacion) {
-        return catalogoTiposCertificacion.buscar(certificacion.getTipo())
-                .map(DefinicionCertificacion::nombre)
-                .orElseGet(certificacion.getTipo()::getCodigo);
-    }
-
-    /**
-     * "vencida" es un valor propio del calendario, no de {@link TipoAlerta}:
-     * una certificacion con {@code diasRestantes <= 0} ya paso su fecha de
-     * vencimiento, lo cual es un estado distinto de "esta por vencer en los
-     * proximos 7/30/90 dias". Separarlo evita que el front tenga que
-     * re-derivar "ya vencio" comparando la fecha (llave del mapa) contra hoy.
-     */
-    private String urgenciaPara(long diasRestantes) {
-        if (diasRestantes <= 0) {
-            return URGENCIA_VENCIDA;
-        }
-
-        return Arrays.stream(TipoAlerta.values())
-                .filter(tipo -> diasRestantes <= tipo.getDias())
-                .min(Comparator.comparingInt(TipoAlerta::getDias))
-                .map(TipoAlerta::getCodigo)
-                .orElse(TipoAlerta.DIAS_90.getCodigo());
+                vencimientoPresentacionService.nombreLegible(certificacion),
+                vencimientoPresentacionService.urgenciaPara(diasRestantes));
     }
 
     private YearMonth parsearMes(String mesSolicitado) {

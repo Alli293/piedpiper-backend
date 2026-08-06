@@ -13,10 +13,10 @@ import com.piedpiper.carbonhub.dashboard.models.dtos.CertificacionVencimientoDTO
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.emision.service.EmisionEmpresaService;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -44,12 +44,18 @@ class CalendarioVencimientosServiceTest {
     @Mock
     private CatalogoTiposCertificacion catalogoTiposCertificacion;
 
-    @InjectMocks
     private CalendarioVencimientosService service;
 
     private static final UUID USUARIO_ID = UUID.randomUUID();
     private static final UUID EMPRESA_ID = UUID.randomUUID();
     private static final LocalDate HOY = LocalDate.now(ZonasHorarias.COSTA_RICA);
+
+    @BeforeEach
+    void setUp() {
+        service = new CalendarioVencimientosService(
+                emisionEmpresaService, certificacionRepository,
+                new VencimientoPresentacionService(catalogoTiposCertificacion));
+    }
 
     @Test
     void agrupaCertificacionesPorFechaDeVencimiento() {

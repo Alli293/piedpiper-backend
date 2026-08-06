@@ -1,0 +1,83 @@
+package com.piedpiper.carbonhub.dashboard.service;
+
+import com.piedpiper.carbonhub.certificacion.models.entities.Certificacion;
+import com.piedpiper.carbonhub.certificacion.models.enums.EstadoCertificacion;
+import com.piedpiper.carbonhub.certificacion.repository.CertificacionRepository;
+import com.piedpiper.carbonhub.common.ZonasHorarias;
+import com.piedpiper.carbonhub.dashboard.models.dtos.AlertaVencimientoDTO;
+import com.piedpiper.carbonhub.emision.service.EmisionEmpresaService;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.util.Comparator;
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+/**
+ * Panel "Alertas activas" del dashboard (PP-76): certificaciones de la
+ * empresa autenticada que ya vencieron o estan dentro de alguno de los
+ * umbrales de alerta (90/30/7 dias, PP-70), ordenadas de mas a menos
+ * urgente.
+ *
+ * <p>Deliberadamente NO lee la tabla {@code alertas}: esa tabla registra el
+ * envio de correo (PP-71) — su {@code estado} es PENDIENTE/ENVIADA/FALLIDA,
+ * sobre el correo, no sobre si la certificacion sigue vencida — y una vez
+ * generada una fila para un umbral, esa fila no desaparece aunque la
+ * empresa renueve la certificacion despues. Igual que
+ * {@link CalendarioVencimientosService}, este panel recalcula
+ * {@code diasRestantes} contra {@code fechaVencimiento} en cada consulta:
+ * si la certificacion se renueva (la fecha de vencimiento se mueve mas
+ * alla de 90 dias), deja de listarse sola, sin depender de que nadie borre
+ * o actualice una fila de {@code alertas}. El filtro por
+ * {@code estado = ACTIVA} cubre el caso de una certificacion revocada
+ * (activa = no revocada; vigente = no vencida, ver
+ * {@code CertificacionRepository}).</p>
+ */
+@Service
+public class DashboardAlertasService {
+
+    private static final int UMBRAL_MAXIMO_DIAS = 90;
+
+    private final EmisionEmpresaService emisionEmpresaService;
+    private final CertificacionRepository certificacionRepository;
+    private final VencimientoPresentacionService vencimientoPresentacionService;
+
+    public DashboardAlertasService(
+            EmisionEmpresaService emisionEmpresaService,
+            CertificacionRepository certificacionRepository,
+            VencimientoPresentacionService vencimientoPresentacionService) {
+        this.emisionEmpresaService = emisionEmpresaService;
+        this.certificacionRepository = certificacionRepository;
+        this.vencimientoPresentacionService = vencimientoPresentacionService;
+    }
+
+    @Transactional(readOnly = true)
+    public List<AlertaVencimientoDTO> obtenerAlertas(UUID usuarioId) {
+        UUID empresaId = emisionEmpresaService.empresaId(usuarioId);
+        LocalDate hoy = LocalDate.now(ZonasHorarias.COSTA_RICA);
+
+        List<Certificacion> certificaciones = certificacionRepository
+                .findByEmpresaIdAndEstadoOrderByFechaVencimientoAsc(empresaId, EstadoCertificacion.ACTIVA);
+
+        return certificaciones.stream()
+                .map(certificacion -> aDto(certificacion, hoy))
+                .filter(alerta -> alerta.getDiasRestantes() <= UMBRAL_MAXIMO_DIAS)
+                .sorted(Comparator.comparingLong(AlertaVencimientoDTO::getDiasRestantes))
+                .collect(Collectors.toList());
+    }
+
+    private AlertaVencimientoDTO aDto(Certificacion certificacion, LocalDate hoy) {
+        long diasRestantes = ChronoUnit.DAYS.between(hoy, certificacion.getFechaVencimiento());
+
+        return new AlertaVencimientoDTO(
+                certificacion.getId(),
+                vencimientoPresentacionService.nombreLegible(certificacion),
+                certificacion.getFechaVencimiento(),
+                diasRestantes,
+                vencimientoPresentacionService.urgenciaPara(diasRestantes));
+    }
+}
