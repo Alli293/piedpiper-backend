@@ -10,6 +10,7 @@ import com.piedpiper.carbonhub.auth.config.SecurityConfig;
 import com.piedpiper.carbonhub.auth.service.JwtService;
 import com.piedpiper.carbonhub.insignia.models.dtos.InsigniaEmpresaResponseDTO;
 import com.piedpiper.carbonhub.insignia.service.InsigniaEmpresaConsultaService;
+import com.piedpiper.carbonhub.perfilpublico.service.EnlacePerfilService;
 import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoCertificacionesService;
 import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoConsultaService;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
@@ -37,6 +38,8 @@ class PerfilPublicoControllerSecurityTest {
     private PerfilPublicoConsultaService perfilPublicoConsultaService;
     @MockitoBean
     private InsigniaEmpresaConsultaService insigniaEmpresaConsultaService;
+    @MockitoBean
+    private EnlacePerfilService enlacePerfilService;
     @MockitoBean
     private JwtService jwtService;
     @MockitoBean
