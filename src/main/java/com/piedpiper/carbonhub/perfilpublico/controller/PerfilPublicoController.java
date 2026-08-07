@@ -4,7 +4,9 @@ import com.piedpiper.carbonhub.certificacion.models.dtos.CertificacionPublicaRes
 import com.piedpiper.carbonhub.insignia.models.dtos.InsigniaEmpresaResponseDTO;
 import com.piedpiper.carbonhub.insignia.service.InsigniaEmpresaConsultaService;
 import com.piedpiper.carbonhub.perfilpublico.models.dtos.BusquedaPerfilPublicoDTO;
+import com.piedpiper.carbonhub.perfilpublico.models.dtos.EnlacePerfilDTO;
 import com.piedpiper.carbonhub.perfilpublico.models.dtos.PerfilPublicoResponseDTO;
+import com.piedpiper.carbonhub.perfilpublico.service.EnlacePerfilService;
 import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoCertificacionesService;
 import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoConsultaService;
 
@@ -31,14 +33,17 @@ public class PerfilPublicoController {
     private final PerfilPublicoConsultaService service;
     private final PerfilPublicoCertificacionesService perfilPublicoCertificacionesService;
     private final InsigniaEmpresaConsultaService insigniaEmpresaConsultaService;
+    private final EnlacePerfilService enlacePerfilService;
 
     public PerfilPublicoController(
             PerfilPublicoConsultaService service,
             PerfilPublicoCertificacionesService perfilPublicoCertificacionesService,
-            InsigniaEmpresaConsultaService insigniaEmpresaConsultaService) {
+            InsigniaEmpresaConsultaService insigniaEmpresaConsultaService,
+            EnlacePerfilService enlacePerfilService) {
         this.service = service;
         this.perfilPublicoCertificacionesService = perfilPublicoCertificacionesService;
         this.insigniaEmpresaConsultaService = insigniaEmpresaConsultaService;
+        this.enlacePerfilService = enlacePerfilService;
     }
 
     @GetMapping("/{slug}")
@@ -63,5 +68,11 @@ public class PerfilPublicoController {
     @GetMapping("/{slug}/insignias")
     public ResponseEntity<List<InsigniaEmpresaResponseDTO>> insignias(@PathVariable String slug) {
         return ResponseEntity.ok(insigniaEmpresaConsultaService.listarPorSlug(slug));
+    }
+
+    @GetMapping("/{slug}/compartir")
+    public ResponseEntity<EnlacePerfilDTO> compartir(@PathVariable String slug) {
+        EnlacePerfilDTO enlace = enlacePerfilService.obtenerEnlacePerfil(slug);
+        return ResponseEntity.ok(enlace);
     }
 }

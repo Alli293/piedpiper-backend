@@ -85,7 +85,8 @@ public class SecurityConfig {
                                 "/api/perfil-publico/buscar",
                                 "/api/perfil-publico/*",
                                 "/api/perfil-publico/*/certificaciones",
-                                "/api/perfil-publico/*/insignias").permitAll()
+                                "/api/perfil-publico/*/insignias",
+                                "/api/perfil-publico/*/compartir").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(e -> e.authenticationEntryPoint(
                         new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
