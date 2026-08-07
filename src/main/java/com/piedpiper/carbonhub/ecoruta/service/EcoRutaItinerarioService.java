@@ -18,6 +18,7 @@ import com.piedpiper.carbonhub.ecoruta.models.entities.ItinerarioActividad;
 import com.piedpiper.carbonhub.ecoruta.models.entities.ItinerarioDia;
 import com.piedpiper.carbonhub.ecoruta.models.entities.PreferenciasViaje;
 import com.piedpiper.carbonhub.ecoruta.models.enums.EstadoItinerario;
+import com.piedpiper.carbonhub.ecoruta.models.enums.InteresTuristico;
 import com.piedpiper.carbonhub.ecoruta.models.enums.Moneda;
 import com.piedpiper.carbonhub.ecoruta.models.enums.Provincia;
 import com.piedpiper.carbonhub.ecoruta.models.enums.ResultadoValidacionItinerario;
@@ -308,6 +309,9 @@ public class EcoRutaItinerarioService {
                 .provincia(provincia)
                 .orden(orden)
                 .puntuacionAmbientalEstimada(actividadIa.getPuntuacionAmbientalEstimada())
+                .categoriaTuristica(actividadIa.getCategoriaTuristica() != null
+                        ? Catalogos.desde(InteresTuristico.class, actividadIa.getCategoriaTuristica()).orElse(null)
+                        : null)
                 .build();
     }
 
