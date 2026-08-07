@@ -21,4 +21,8 @@ public class SustitucionRequestDTO {
     private String establecimientoRecomendado;
     @NotNull
     private Integer ecoScore;
+    @NotBlank
+    private String categoriaTuristica;
+    @NotBlank
+    private String provincia;
 }

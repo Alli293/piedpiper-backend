@@ -141,6 +141,8 @@ public class ComparacionAlternativasService {
                 .orElseThrow(() -> ApiException.accesoDenegado(
                         "No tienes permiso para acceder a este itinerario."));
 
+        validarEquivalencia(actividad, request);
+
         actividad.setNombre(request.getNombre());
         actividad.setDescripcion(request.getDescripcion());
         actividad.setCostoAproximado(request.getCostoAproximado());
@@ -157,5 +159,18 @@ public class ComparacionAlternativasService {
         itinerarioActividadRepository.save(actividad);
 
         return mapper.toDto(itinerario);
+    }
+
+    private void validarEquivalencia(ItinerarioActividad actividad, SustitucionRequestDTO request) {
+        boolean categoriaCoincide = actividad.getCategoriaTuristica() != null
+                && actividad.getCategoriaTuristica().name().equalsIgnoreCase(request.getCategoriaTuristica());
+
+        boolean provinciaCoincide = actividad.getProvincia() != null
+                && actividad.getProvincia().name().equalsIgnoreCase(request.getProvincia());
+
+        if (!categoriaCoincide || !provinciaCoincide) {
+            throw ApiException.datosInvalidos(
+                    "La alternativa seleccionada no es equivalente a la actividad original.");
+        }
     }
 }
