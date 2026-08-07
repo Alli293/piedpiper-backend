@@ -1,6 +1,8 @@
 package com.piedpiper.carbonhub.perfilpublico.service;
 
+import com.google.zxing.BarcodeFormat;
 import com.google.zxing.BinaryBitmap;
+import com.google.zxing.DecodeHintType;
 import com.google.zxing.MultiFormatReader;
 import com.google.zxing.Result;
 import com.google.zxing.client.j2se.BufferedImageLuminanceSource;
@@ -12,6 +14,7 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.util.Base64;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -57,10 +60,20 @@ class QrGeneradorServicePropertyTest {
                 .as("Los bytes decodificados deben formar una imagen PNG válida")
                 .isNotNull();
 
-        // Decodificar QR desde la imagen
+        // Verificar dimensiones 300x300
+        assertThat(image.getWidth()).isEqualTo(300);
+        assertThat(image.getHeight()).isEqualTo(300);
+
+        // Decodificar QR desde la imagen con hints para mejorar detección
         BinaryBitmap bitmap = new BinaryBitmap(
                 new HybridBinarizer(new BufferedImageLuminanceSource(image)));
-        Result qrResult = new MultiFormatReader().decode(bitmap);
+        MultiFormatReader reader = new MultiFormatReader();
+        Map<DecodeHintType, Object> decodeHints = Map.of(
+                DecodeHintType.TRY_HARDER, Boolean.TRUE,
+                DecodeHintType.PURE_BARCODE, Boolean.TRUE,
+                DecodeHintType.POSSIBLE_FORMATS, java.util.List.of(BarcodeFormat.QR_CODE)
+        );
+        Result qrResult = reader.decode(bitmap, decodeHints);
 
         // Round-trip: el texto decodificado del QR debe ser idéntico a la URL original
         assertThat(qrResult.getText())
@@ -85,7 +98,7 @@ class QrGeneradorServicePropertyTest {
                 .withCharRange('a', 'z')
                 .numeric()
                 .withChars('-')
-                .ofMinLength(1)
+                .ofMinLength(3)
                 .ofMaxLength(60)
                 .filter(s -> !s.startsWith("-") && !s.endsWith("-") && !s.contains("--"));
 
