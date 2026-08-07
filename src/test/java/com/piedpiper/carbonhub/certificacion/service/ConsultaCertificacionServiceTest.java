@@ -35,11 +35,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 /**
- * Cubre {@code listarActivasPublicasPorEmpresa} (el metodo por el que
+ * Cubre {@code listarPublicasPorEmpresa} (el metodo por el que
  * {@code perfilpublico} consulta certificaciones sin depender directamente
- * del repositorio ni del mapper de este dominio) y el calculo de
+ * del repositorio ni del mapper de este dominio), el calculo de
  * {@code vigente}, que no se persiste y se recalcula en cada consulta
- * comparando {@code fechaVencimiento} contra hoy.
+ * comparando {@code fechaVencimiento} contra hoy, y el estado publico
+ * derivado (ACTIVA/VENCIDA/REVOCADA).
  */
 @ExtendWith(MockitoExtension.class)
 class ConsultaCertificacionServiceTest {
@@ -87,40 +88,61 @@ class ConsultaCertificacionServiceTest {
     }
 
     @Test
-    void listarActivasPublicasPorEmpresaConsultaSoloCertificacionesActivasYVigentesDeEsaEmpresa() {
+    void listarPublicasPorEmpresaConsultaTodasLasCertificacionesDeEsaEmpresa() {
         Certificacion certificacion = certificacion(LocalDate.of(2027, 1, 15));
-        when(certificacionRepository
-                .findByEmpresaIdAndEstadoAndFechaVencimientoGreaterThanOrderByFechaEmisionDesc(
-                        ID_EMPRESA, EstadoCertificacion.ACTIVA, LocalDate.now()))
+        when(certificacionRepository.findByEmpresaIdOrderByFechaEmisionDesc(ID_EMPRESA))
                 .thenReturn(List.of(certificacion));
         CertificacionPublicaResponseDTO dtoMapeado = new CertificacionPublicaResponseDTO();
         dtoMapeado.setId(certificacion.getId());
         dtoMapeado.setTipo("CARBONO_NEUTRAL");
         dtoMapeado.setFechaEmision(certificacion.getFechaEmision());
         dtoMapeado.setFechaVencimiento(certificacion.getFechaVencimiento());
-        dtoMapeado.setEstado("ACTIVA");
         when(certificacionMapper.toPublicaDto(certificacion)).thenReturn(dtoMapeado);
 
         List<CertificacionPublicaResponseDTO> resultado =
-                service.listarActivasPublicasPorEmpresa(ID_EMPRESA);
+                service.listarPublicasPorEmpresa(ID_EMPRESA);
 
         assertThat(resultado).hasSize(1);
         CertificacionPublicaResponseDTO dto = resultado.get(0);
         assertThat(dto.getId()).isEqualTo(certificacion.getId());
         assertThat(dto.getNombreCertificacion()).isEqualTo("Carbono Neutral");
+        assertThat(dto.getEstado()).isEqualTo("ACTIVA");
     }
 
     @Test
-    void listarActivasPublicasPorEmpresaRetornaListaVaciaSinCertificacionesActivasYVigentes() {
-        when(certificacionRepository
-                .findByEmpresaIdAndEstadoAndFechaVencimientoGreaterThanOrderByFechaEmisionDesc(
-                        any(), any(), any()))
+    void listarPublicasPorEmpresaRetornaListaVaciaSinCertificaciones() {
+        when(certificacionRepository.findByEmpresaIdOrderByFechaEmisionDesc(any()))
                 .thenReturn(List.of());
 
         List<CertificacionPublicaResponseDTO> resultado =
-                service.listarActivasPublicasPorEmpresa(ID_EMPRESA);
+                service.listarPublicasPorEmpresa(ID_EMPRESA);
 
         assertThat(resultado).isEmpty();
+    }
+
+    @Test
+    void listarPublicasPorEmpresaMarcaVencidaCuandoActivaYaPasoFechaVencimiento() {
+        Certificacion vencida = certificacion(LocalDate.now().minusDays(1));
+        when(certificacionRepository.findByEmpresaIdOrderByFechaEmisionDesc(ID_EMPRESA))
+                .thenReturn(List.of(vencida));
+        when(certificacionMapper.toPublicaDto(vencida)).thenReturn(new CertificacionPublicaResponseDTO());
+
+        List<CertificacionPublicaResponseDTO> resultado = service.listarPublicasPorEmpresa(ID_EMPRESA);
+
+        assertThat(resultado.get(0).getEstado()).isEqualTo("VENCIDA");
+    }
+
+    @Test
+    void listarPublicasPorEmpresaMarcaRevocadaSinImportarFechaVencimiento() {
+        Certificacion revocada = certificacion(LocalDate.now().plusDays(1));
+        revocada.setEstado(EstadoCertificacion.REVOCADA);
+        when(certificacionRepository.findByEmpresaIdOrderByFechaEmisionDesc(ID_EMPRESA))
+                .thenReturn(List.of(revocada));
+        when(certificacionMapper.toPublicaDto(revocada)).thenReturn(new CertificacionPublicaResponseDTO());
+
+        List<CertificacionPublicaResponseDTO> resultado = service.listarPublicasPorEmpresa(ID_EMPRESA);
+
+        assertThat(resultado.get(0).getEstado()).isEqualTo("REVOCADA");
     }
 
     @Test

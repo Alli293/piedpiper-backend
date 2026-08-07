@@ -21,6 +21,7 @@ public interface CertificacionMapper {
 
     @Mapping(target = "nombreCertificacion", ignore = true)
     @Mapping(target = "nombreAuditor", ignore = true)
+    @Mapping(target = "estado", ignore = true)
     CertificacionPublicaResponseDTO toPublicaDto(Certificacion certificacion);
 
     @Mapping(source = "empresa.id", target = "idEmpresa")

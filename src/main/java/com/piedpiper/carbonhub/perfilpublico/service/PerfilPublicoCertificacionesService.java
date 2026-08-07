@@ -11,9 +11,9 @@ import java.util.List;
 
 /**
  * Perfil publico de una empresa: expone solo lo que un visitante sin sesion
- * puede ver. Hoy unicamente la lista de certificaciones activas; otros datos
- * del perfil (nombre, logo, etc.) se agregaran a este mismo dominio mas
- * adelante.
+ * puede ver. Hoy unicamente el historial de certificaciones (con su estado
+ * real: activa, vencida o revocada); otros datos del perfil (nombre, logo,
+ * etc.) se agregaran a este mismo dominio mas adelante.
  *
  * <p>Habla con {@link ConsultaCertificacionService}, no con el repositorio ni
  * el mapper de certificaciones directamente: ese dominio es dueno de como se
@@ -35,6 +35,6 @@ public class PerfilPublicoCertificacionesService {
     @Transactional(readOnly = true)
     public List<CertificacionPublicaResponseDTO> listarPorSlug(String slug) {
         Empresa empresa = slugResolver.resolver(slug);
-        return consultaCertificacionService.listarActivasPublicasPorEmpresa(empresa.getId());
+        return consultaCertificacionService.listarPublicasPorEmpresa(empresa.getId());
     }
 }
