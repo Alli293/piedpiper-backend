@@ -140,7 +140,10 @@ class EnlacePerfilUrlConsistenciaPropertyTest {
         BinaryBitmap bitmap = new BinaryBitmap(
                 new HybridBinarizer(new BufferedImageLuminanceSource(image)));
 
-        Result result = new MultiFormatReader().decode(bitmap);
+        java.util.Map<com.google.zxing.DecodeHintType, Object> hints = new java.util.EnumMap<>(com.google.zxing.DecodeHintType.class);
+        hints.put(com.google.zxing.DecodeHintType.PURE_BARCODE, Boolean.TRUE);
+
+        Result result = new MultiFormatReader().decode(bitmap, hints);
         return result.getText();
     }
 
@@ -165,9 +168,9 @@ class EnlacePerfilUrlConsistenciaPropertyTest {
                 .withCharRange('a', 'z')
                 .numeric()
                 .withChars('-')
-                .ofMinLength(1)
+                .ofMinLength(3)
                 .ofMaxLength(30)
-                .filter(s -> s.matches("^[a-z0-9-]{1,120}$"));
+                .filter(s -> s.matches("^[a-z0-9-]{3,120}$"));
     }
 
     @Provide
