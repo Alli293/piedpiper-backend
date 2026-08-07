@@ -38,6 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -283,6 +284,45 @@ class EmisionCertificacionServiceTest {
                 service().emitirPorAuditoriaAprobada(comando(TipoCertificacion.CARBONO_NEUTRAL));
 
         assertThat(response.isRecienEmitida()).isFalse();
+        verify(notificacionPanelRepository, never()).save(any());
+    }
+
+    @Test
+    void anteColisionDeCodigoVerificacionReintentaConUnoNuevo() {
+        mockearEntidadesResueltas();
+        mockearIndiceEstado();
+        when(generadorCodigoVerificacionService.generar())
+                .thenReturn("CH-2026-COLISION1", "CH-2026-COLISION2");
+        when(generadorCredencialOpenBadges.generar(any(), any())).thenReturn("jwt.firmado.aqui");
+        when(certificacionPersistenciaService.guardar(any(Certificacion.class)))
+                .thenThrow(new DataIntegrityViolationException("codigo_verificacion duplicado"))
+                .thenAnswer(i -> i.getArgument(0));
+        mockearMapperComoIdentidad();
+
+        CertificacionResponseDTO response =
+                service().emitirPorAuditoriaAprobada(comando(TipoCertificacion.CARBONO_NEUTRAL));
+
+        assertThat(response.isRecienEmitida()).isTrue();
+        ArgumentCaptor<Certificacion> captor = ArgumentCaptor.forClass(Certificacion.class);
+        verify(certificacionPersistenciaService, times(2)).guardar(captor.capture());
+        assertThat(captor.getValue().getCodigoVerificacion()).isEqualTo("CH-2026-COLISION2");
+    }
+
+    @Test
+    void agotaLosReintentosDeCodigoVerificacionYPropagaLaExcepcion() {
+        mockearEntidadesResueltas();
+        mockearIndiceEstado();
+        when(generadorCodigoVerificacionService.generar())
+                .thenReturn("CH-2026-A", "CH-2026-B", "CH-2026-C");
+        when(generadorCredencialOpenBadges.generar(any(), any())).thenReturn("jwt.firmado.aqui");
+        when(certificacionPersistenciaService.guardar(any(Certificacion.class)))
+                .thenThrow(new DataIntegrityViolationException("codigo_verificacion duplicado"));
+
+        assertThatThrownBy(() -> service()
+                .emitirPorAuditoriaAprobada(comando(TipoCertificacion.CARBONO_NEUTRAL)))
+                .isInstanceOf(DataIntegrityViolationException.class);
+
+        verify(certificacionPersistenciaService, times(3)).guardar(any(Certificacion.class));
         verify(notificacionPanelRepository, never()).save(any());
     }
 

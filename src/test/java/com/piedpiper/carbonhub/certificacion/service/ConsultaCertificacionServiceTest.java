@@ -296,6 +296,19 @@ class ConsultaCertificacionServiceTest {
     }
 
     @Test
+    void verificarPorCodigoEnMinusculaLoNormalizaYEncuentraLaCertificacion() {
+        String codigoAlmacenado = "CH-2026-8F4A19KD";
+        when(certificacionRepository.findByCodigoVerificacion(codigoAlmacenado)).thenReturn(
+                Optional.of(certificacionConCodigo(codigoAlmacenado, EstadoCertificacion.ACTIVA,
+                        LocalDate.now().plusDays(1), EstadoEmpresa.ACTIVO)));
+        when(generadorCredencialOpenBadges.emisorNombre()).thenReturn("CarbonHub");
+
+        VerificacionCredencialDTO resultado = service.verificarPorCodigo("ch-2026-8f4a19kd");
+
+        assertThat(resultado.getEstado()).isEqualTo("valida_vigente");
+    }
+
+    @Test
     void verificarPorCodigoInexistenteLanzaRecursoNoEncontrado() {
         String codigo = "CH-2026-8F4A19KD";
         when(certificacionRepository.findByCodigoVerificacion(codigo)).thenReturn(Optional.empty());

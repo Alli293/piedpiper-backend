@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -114,11 +115,15 @@ public class ConsultaCertificacionService {
      */
     @Transactional(readOnly = true)
     public VerificacionCredencialDTO verificarPorCodigo(String codigo) {
-        if (!GeneradorCodigoVerificacionService.formatoValido(codigo)) {
+        // El codigo se genera siempre en mayuscula (GeneradorCodigoVerificacionService);
+        // se normaliza aca porque el enlace publico se puede transcribir a mano.
+        String codigoNormalizado = codigo == null ? null : codigo.toUpperCase(Locale.ROOT);
+        if (!GeneradorCodigoVerificacionService.formatoValido(codigoNormalizado)) {
             throw ApiException.recursoNoEncontrado("Credencial no encontrada.");
         }
 
-        Certificacion certificacion = certificacionRepository.findByCodigoVerificacion(codigo)
+        Certificacion certificacion = certificacionRepository
+                .findByCodigoVerificacion(codigoNormalizado)
                 .orElseThrow(() -> ApiException.recursoNoEncontrado("Credencial no encontrada."));
 
         if (certificacion.getEmpresa().getEstado() != EstadoEmpresa.ACTIVO) {

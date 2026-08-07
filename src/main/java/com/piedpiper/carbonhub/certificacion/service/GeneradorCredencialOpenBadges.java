@@ -200,12 +200,6 @@ public class GeneradorCredencialOpenBadges {
     }
 
     /**
-     * Publico porque {@link ListaEstadoCredencialesService} firma su VC-JWT con
-     * esta misma URL como {@code iss}: el emisor debe ser identico en toda
-     * credencial que este backend firme, sea una certificacion individual o la
-     * lista de estado que las respalda.
-     */
-    /**
      * Nombre legible del emisor (CarbonHub): es la entidad certificadora que
      * respalda toda certificacion, ya que hoy no existe una entidad
      * "entidad certificadora" propia distinta de CarbonHub.
@@ -214,6 +208,12 @@ public class GeneradorCredencialOpenBadges {
         return emisorNombre;
     }
 
+    /**
+     * Publico porque {@link ListaEstadoCredencialesService} firma su VC-JWT con
+     * esta misma URL como {@code iss}: el emisor debe ser identico en toda
+     * credencial que este backend firme, sea una certificacion individual o la
+     * lista de estado que las respalda.
+     */
     public String urlEmisor() {
         return urlBase + "/api/certificaciones/emisor";
     }

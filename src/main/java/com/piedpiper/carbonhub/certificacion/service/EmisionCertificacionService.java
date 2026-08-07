@@ -52,6 +52,16 @@ public class EmisionCertificacionService implements EmisionCertificacionPort {
     private static final Logger log = LoggerFactory.getLogger(EmisionCertificacionService.class);
     private static final String RESULTADO_APROBADA = "aprobada";
 
+    /**
+     * Intentos ante una colision de {@code codigoVerificacion} al guardar (dos
+     * emisiones concurrentes pueden generar el mismo codigo porque {@code
+     * existsByCodigoVerificacion} se chequea antes de persistir, no de forma
+     * atomica). No cubre la colision de {@code idAuditoria}, que ya se maneja
+     * aparte porque esa si es esperable (reintento de webhook) y no debe
+     * generar un codigo nuevo.
+     */
+    private static final int REINTENTOS_CODIGO_VERIFICACION = 3;
+
     private final CertificacionRepository certificacionRepository;
     private final NotificacionPanelRepository notificacionPanelRepository;
     private final IndiceEstadoCertificacionRepository indiceEstadoCertificacionRepository;
@@ -169,16 +179,33 @@ public class EmisionCertificacionService implements EmisionCertificacionPort {
         certificacion.setCredencialJwt(
                 generadorCredencialOpenBadges.generar(certificacion, definicion));
 
-        try {
-            certificacion = certificacionPersistenciaService.guardar(certificacion);
-        } catch (DataIntegrityViolationException e) {
-            // Dos aprobaciones simultaneas de la misma auditoria: la restriccion de
-            // unicidad sobre id_auditoria es la que garantiza que no haya duplicados.
-            log.info("Emision concurrente detectada para la auditoria {}; se reutiliza la "
-                    + "certificacion existente.", comando.getIdAuditoria());
-            return certificacionRepository.findByIdAuditoria(comando.getIdAuditoria())
-                    .map(existentePorCarrera -> aDto(existentePorCarrera, false))
-                    .orElseThrow(() -> e);
+        for (int intento = 1;; intento++) {
+            try {
+                certificacion = certificacionPersistenciaService.guardar(certificacion);
+                break;
+            } catch (DataIntegrityViolationException e) {
+                Optional<Certificacion> existentePorCarrera =
+                        certificacionRepository.findByIdAuditoria(comando.getIdAuditoria());
+                if (existentePorCarrera.isPresent()) {
+                    // Dos aprobaciones simultaneas de la misma auditoria: la restriccion de
+                    // unicidad sobre id_auditoria es la que garantiza que no haya duplicados.
+                    log.info("Emision concurrente detectada para la auditoria {}; se reutiliza la "
+                            + "certificacion existente.", comando.getIdAuditoria());
+                    return aDto(existentePorCarrera.get(), false);
+                }
+
+                if (intento >= REINTENTOS_CODIGO_VERIFICACION) {
+                    throw e;
+                }
+                // No fue la auditoria: la colision es en codigoVerificacion (dos emisiones
+                // generaron el mismo codigo antes de que ninguna lo persistiera). Se genera
+                // uno nuevo y se reintenta; la credencial firmada no lo referencia, asi que
+                // no hace falta volver a firmar.
+                log.warn("Colision de codigoVerificacion al emitir la auditoria {} (intento {} de "
+                        + "{}); se genera uno nuevo.", comando.getIdAuditoria(), intento,
+                        REINTENTOS_CODIGO_VERIFICACION);
+                certificacion.setCodigoVerificacion(generadorCodigoVerificacionService.generar());
+            }
         }
 
         notificacionPanelRepository.save(NotificacionPanel.builder()

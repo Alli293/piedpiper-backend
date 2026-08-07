@@ -102,8 +102,15 @@ public class Certificacion {
      * emitir (ver {@code GeneradorCodigoVerificacionService}) y nunca se deriva
      * de {@code id} ni de datos secuenciales, para no permitir enumerar
      * certificaciones ajenas.
+     *
+     * <p>{@code nullable = true} a proposito aunque el generador siempre lo
+     * llena: con {@code ddl-auto=update} y sin migraciones, un {@code NOT NULL}
+     * sobre una tabla que ya tiene filas hace fallar el {@code ALTER TABLE} en
+     * Postgres, y Hibernate sigue arrancando igual, solo que sin la columna.
+     * {@code unique = true} sigue siendo valido con NULL (Postgres permite
+     * varios).
      */
-    @Column(name = "codigo_verificacion", nullable = false, unique = true, length = 20)
+    @Column(name = "codigo_verificacion", unique = true, length = 20)
     private String codigoVerificacion;
 
     /**
