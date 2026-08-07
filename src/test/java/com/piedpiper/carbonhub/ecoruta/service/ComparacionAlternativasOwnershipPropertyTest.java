@@ -239,14 +239,24 @@ class ComparacionAlternativasOwnershipPropertyTest {
 
         Arbitrary<Integer> ecoScores = Arbitraries.integers().between(0, 100);
 
-        return Combinators.combine(nombres, descripciones, costos, monedas, ecoScores)
-                .as((nombre, descripcion, costo, moneda, ecoScore) -> {
+        Arbitrary<String> categorias = Arbitraries.of(
+                com.piedpiper.carbonhub.ecoruta.models.enums.InteresTuristico.values())
+                .map(Enum::name);
+
+        Arbitrary<String> provincias = Arbitraries.of(
+                com.piedpiper.carbonhub.ecoruta.models.enums.Provincia.values())
+                .map(Enum::name);
+
+        return Combinators.combine(nombres, descripciones, costos, monedas, ecoScores, categorias, provincias)
+                .as((nombre, descripcion, costo, moneda, ecoScore, categoria, provincia) -> {
                     SustitucionRequestDTO dto = new SustitucionRequestDTO();
                     dto.setNombre(nombre);
                     dto.setDescripcion(descripcion);
                     dto.setCostoAproximado(costo);
                     dto.setMoneda(moneda);
                     dto.setEcoScore(ecoScore);
+                    dto.setCategoriaTuristica(categoria);
+                    dto.setProvincia(provincia);
                     return dto;
                 });
     }
