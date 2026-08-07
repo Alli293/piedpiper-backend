@@ -59,7 +59,7 @@ class ItinerarioIaClienteServiceTest {
     private ItinerarioIaResponseDTO respuestaValida() {
         ActividadIaDTO actividad = new ActividadIaDTO(
                 "Caminata", "Recorrido guiado", "09:00", 120,
-                new BigDecimal("10000"), "CRC", "Reserva Selvatura", "PUNTARENAS", 75);
+                new BigDecimal("10000"), "CRC", "Reserva Selvatura", "PUNTARENAS", 75, "NATURALEZA");
         DiaIaDTO dia = new DiaIaDTO(1, "2026-08-01", List.of(actividad));
         return new ItinerarioIaResponseDTO(List.of(dia), 82);
     }

@@ -1,5 +1,6 @@
 package com.piedpiper.carbonhub.ecoruta.models.entities;
 
+import com.piedpiper.carbonhub.ecoruta.models.enums.InteresTuristico;
 import com.piedpiper.carbonhub.ecoruta.models.enums.Moneda;
 import com.piedpiper.carbonhub.ecoruta.models.enums.Provincia;
 
@@ -66,6 +67,10 @@ public class ItinerarioActividad {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private Provincia provincia;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "categoria_turistica", length = 30)
+    private InteresTuristico categoriaTuristica;
 
     @Column(nullable = false)
     private Integer orden;

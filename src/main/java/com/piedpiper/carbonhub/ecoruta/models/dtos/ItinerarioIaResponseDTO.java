@@ -45,5 +45,6 @@ public class ItinerarioIaResponseDTO {
         private String provincia;
         /** Score ambiental estimado por la IA (0-100), null si no pudo estimar. */
         private Integer puntuacionAmbientalEstimada;
+        private String categoriaTuristica;
     }
 }
