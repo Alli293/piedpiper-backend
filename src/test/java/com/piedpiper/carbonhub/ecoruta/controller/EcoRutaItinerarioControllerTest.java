@@ -146,7 +146,7 @@ class EcoRutaItinerarioControllerTest {
         UUID usuarioId = UUID.fromString(USUARIO_ID);
         when(service.perteneceAlUsuario(eq(itinerarioId), eq(usuarioId))).thenReturn(true);
         when(service.obtener(eq(itinerarioId), eq(usuarioId)))
-                .thenThrow(ApiException.recursoNoEncontrado("Itinerario no encontrado."));
+                .thenThrow(ApiException.recursoNoEncontrado("No fue posible encontrar el itinerario solicitado."));
 
         mockMvc.perform(get("/api/ecoruta/itinerarios/" + itinerarioId)
                         .principal(authentication("ROLE_USUARIO_INDIVIDUAL")))
