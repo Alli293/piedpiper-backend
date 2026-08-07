@@ -86,6 +86,228 @@ class EnlacePerfilServicePropertyTest {
     }
 
     // ========================================================================
+    // Property 5: Formato de ogDescripcion
+    // ========================================================================
+
+    /**
+     * Validates: Requirements 4.2
+     *
+     * For any active company with nivelEcologico (including null) and nombreEmpresa,
+     * the ogDescripcion field SHALL be exactly:
+     * "Nivel ecológico: {nivelEcologico}. Consulta el desempeño ambiental verificado de {nombreEmpresa}."
+     * When nivelEcologico is null or blank, it displays "Sin nivel".
+     */
+    @Property(tries = 100)
+    @Tag("Feature: PP-69-enlace-comparticion-perfil, Property 5: Formato de ogDescripcion")
+    void ogDescripcion_sigueFormatoExacto(
+            @ForAll("nombreEmpresaArbitrario") String nombreEmpresa,
+            @ForAll("slugValido") String slug,
+            @ForAll("nivelEcologicoArbitrario") String nivelEcologico) {
+
+        // Arrange
+        EmpresaRepository empresaRepository = mock(EmpresaRepository.class);
+        SlugHistoricoRepository slugHistoricoRepository = mock(SlugHistoricoRepository.class);
+        QrGeneradorService qrGeneradorService = mock(QrGeneradorService.class);
+
+        EnlacePerfilService service = new EnlacePerfilService(
+                empresaRepository,
+                slugHistoricoRepository,
+                qrGeneradorService,
+                BASE_URL,
+                OG_IMAGEN_FALLBACK
+        );
+
+        Empresa empresa = Empresa.builder()
+                .id(UUID.randomUUID())
+                .slug(slug)
+                .nombreEmpresa(nombreEmpresa)
+                .cedulaJuridica("3101000001")
+                .sectorIndustrial(SectorIndustrial.MANUFACTURA)
+                .pais("Costa Rica")
+                .cantidadEmpleados(50)
+                .correoCorporativo("info@test.com")
+                .logoUrl("https://example.com/logo.png")
+                .nivelEcologico(nivelEcologico)
+                .estado(EstadoEmpresa.ACTIVO)
+                .fechaRegistro(Instant.now())
+                .build();
+
+        when(empresaRepository.findBySlugAndEstado(slug, EstadoEmpresa.ACTIVO))
+                .thenReturn(Optional.of(empresa));
+        when(qrGeneradorService.generarQrBase64(any())).thenReturn("data:image/png;base64,test");
+
+        // Act
+        EnlacePerfilDTO dto = service.obtenerEnlacePerfil(slug);
+
+        // Assert — determine expected nivel display
+        String nivelEsperado = (nivelEcologico == null || nivelEcologico.isBlank())
+                ? "Sin nivel"
+                : nivelEcologico;
+
+        String expectedOgDescripcion = "Nivel ecológico: " + nivelEsperado
+                + ". Consulta el desempeño ambiental verificado de " + nombreEmpresa + ".";
+
+        assertThat(dto.getOgDescripcion())
+                .as("ogDescripcion for empresa '%s' with nivel '%s' should follow exact format",
+                        nombreEmpresa, nivelEcologico)
+                .isEqualTo(expectedOgDescripcion);
+    }
+
+    // ========================================================================
+    // Property 6: Resolución de ogImagen según logoUrl
+    // ========================================================================
+
+    /**
+     * Validates: Requirements 4.3, 4.4
+     *
+     * For any active company, if logoUrl is not null and not blank then ogImagen
+     * SHALL equal logoUrl; if logoUrl is null or blank then ogImagen SHALL equal
+     * the configured ogImagenFallback.
+     */
+    @Property(tries = 100)
+    @Tag("Feature: PP-69-enlace-comparticion-perfil, Property 6: Resolución de ogImagen según logoUrl")
+    void ogImagen_resuelveSeguLogoUrl(
+            @ForAll("slugValido") String slug,
+            @ForAll("nombreEmpresaArbitrario") String nombreEmpresa,
+            @ForAll("logoUrlArbitrario") String logoUrl) {
+
+        // Arrange
+        EmpresaRepository empresaRepository = mock(EmpresaRepository.class);
+        SlugHistoricoRepository slugHistoricoRepository = mock(SlugHistoricoRepository.class);
+        QrGeneradorService qrGeneradorService = mock(QrGeneradorService.class);
+
+        EnlacePerfilService service = new EnlacePerfilService(
+                empresaRepository,
+                slugHistoricoRepository,
+                qrGeneradorService,
+                BASE_URL,
+                OG_IMAGEN_FALLBACK
+        );
+
+        Empresa empresa = Empresa.builder()
+                .id(UUID.randomUUID())
+                .slug(slug)
+                .nombreEmpresa(nombreEmpresa)
+                .cedulaJuridica("3101000001")
+                .sectorIndustrial(SectorIndustrial.MANUFACTURA)
+                .pais("Costa Rica")
+                .cantidadEmpleados(50)
+                .correoCorporativo("info@test.com")
+                .logoUrl(logoUrl)
+                .nivelEcologico("PLATA")
+                .estado(EstadoEmpresa.ACTIVO)
+                .fechaRegistro(Instant.now())
+                .build();
+
+        when(empresaRepository.findBySlugAndEstado(slug, EstadoEmpresa.ACTIVO))
+                .thenReturn(Optional.of(empresa));
+        when(qrGeneradorService.generarQrBase64(any())).thenReturn("data:image/png;base64,test");
+
+        // Act
+        EnlacePerfilDTO dto = service.obtenerEnlacePerfil(slug);
+
+        // Assert
+        if (logoUrl != null && !logoUrl.isBlank()) {
+            assertThat(dto.getOgImagen())
+                    .as("ogImagen should be logoUrl when logoUrl is present: '%s'", logoUrl)
+                    .isEqualTo(logoUrl);
+        } else {
+            assertThat(dto.getOgImagen())
+                    .as("ogImagen should be fallback when logoUrl is null or blank")
+                    .isEqualTo(OG_IMAGEN_FALLBACK);
+        }
+    }
+
+    // ========================================================================
+    // Property 7: Estructura del fragmento HTML incrustable
+    // ========================================================================
+
+    /**
+     * Validates: Requirements 5.1, 5.2, 5.3
+     *
+     * For any active company, the codigoIncrustar field SHALL contain:
+     * (a) an <a> element whose href points to the canonical URL,
+     * (b) visible text including nombreEmpresa and "Perfil verificado en CarbonHub",
+     * (c) style= attributes for inline CSS, and
+     * (d) SHALL NOT contain <script> elements, document.cookie references,
+     *     nor external dependencies.
+     */
+    @Property(tries = 100)
+    @Tag("Feature: PP-69-enlace-comparticion-perfil, Property 7: Estructura del fragmento HTML incrustable")
+    void codigoIncrustar_tieneEstructuraHTMLCorrecta(
+            @ForAll("nombreEmpresaArbitrario") String nombreEmpresa,
+            @ForAll("slugValido") String slug) {
+
+        // Arrange
+        EmpresaRepository empresaRepository = mock(EmpresaRepository.class);
+        SlugHistoricoRepository slugHistoricoRepository = mock(SlugHistoricoRepository.class);
+        QrGeneradorService qrGeneradorService = mock(QrGeneradorService.class);
+
+        EnlacePerfilService service = new EnlacePerfilService(
+                empresaRepository,
+                slugHistoricoRepository,
+                qrGeneradorService,
+                BASE_URL,
+                OG_IMAGEN_FALLBACK
+        );
+
+        Empresa empresa = Empresa.builder()
+                .id(UUID.randomUUID())
+                .slug(slug)
+                .nombreEmpresa(nombreEmpresa)
+                .cedulaJuridica("3101000001")
+                .sectorIndustrial(SectorIndustrial.MANUFACTURA)
+                .pais("Costa Rica")
+                .cantidadEmpleados(50)
+                .correoCorporativo("info@test.com")
+                .logoUrl("https://example.com/logo.png")
+                .nivelEcologico("PLATA")
+                .estado(EstadoEmpresa.ACTIVO)
+                .fechaRegistro(Instant.now())
+                .build();
+
+        when(empresaRepository.findBySlugAndEstado(slug, EstadoEmpresa.ACTIVO))
+                .thenReturn(Optional.of(empresa));
+        when(qrGeneradorService.generarQrBase64(any())).thenReturn("data:image/png;base64,test");
+
+        // Act
+        EnlacePerfilDTO dto = service.obtenerEnlacePerfil(slug);
+        String codigo = dto.getCodigoIncrustar();
+
+        // Assert
+        String urlCanonica = BASE_URL + "/empresa/" + slug + "/reputacion";
+
+        // (a) Contains <a> tag with correct href pointing to urlCanonica
+        assertThat(codigo)
+                .as("codigoIncrustar should contain an <a element")
+                .contains("<a ");
+        assertThat(codigo)
+                .as("codigoIncrustar href should point to the canonical URL")
+                .contains("href=\"" + urlCanonica + "\"");
+
+        // (b) Contains nombreEmpresa and "Perfil verificado en CarbonHub"
+        assertThat(codigo)
+                .as("codigoIncrustar should contain the company name")
+                .contains(nombreEmpresa);
+        assertThat(codigo)
+                .as("codigoIncrustar should contain 'Perfil verificado en CarbonHub'")
+                .contains("Perfil verificado en CarbonHub");
+
+        // (c) Contains style= for inline CSS
+        assertThat(codigo)
+                .as("codigoIncrustar should have inline CSS via style attribute")
+                .contains("style=");
+
+        // (d) Does NOT contain <script> or document.cookie
+        assertThat(codigo)
+                .as("codigoIncrustar must not contain <script> elements")
+                .doesNotContainIgnoringCase("<script");
+        assertThat(codigo)
+                .as("codigoIncrustar must not contain document.cookie references")
+                .doesNotContain("document.cookie");
+    }
+
+    // ========================================================================
     // Arbitraries
     // ========================================================================
 
@@ -110,5 +332,29 @@ class EnlacePerfilServicePropertyTest {
                 .ofMinLength(1)
                 .ofMaxLength(30)
                 .filter(s -> s.matches("^[a-z0-9-]{1,30}$"));
+    }
+
+    @Provide
+    Arbitrary<String> nivelEcologicoArbitrario() {
+        return Arbitraries.oneOf(
+                Arbitraries.of("BRONCE", "PLATA", "ORO", "PLATINO", "SIN_NIVEL"),
+                Arbitraries.just(null),
+                Arbitraries.just(""),
+                Arbitraries.just("   ")
+        );
+    }
+
+    @Provide
+    Arbitrary<String> logoUrlArbitrario() {
+        Arbitrary<String> validUrls = Arbitraries.of(
+                "https://example.com/logo.png",
+                "https://cdn.carbonhub.app/logos/empresa-123.png",
+                "https://storage.googleapis.com/bucket/logo.jpg",
+                "https://my-company.com/assets/brand/logo-wide.png"
+        );
+        Arbitrary<String> nullValue = Arbitraries.just(null);
+        Arbitrary<String> emptyStrings = Arbitraries.of("", "   ", "\t", "\n");
+
+        return Arbitraries.oneOf(validUrls, nullValue, emptyStrings);
     }
 }
