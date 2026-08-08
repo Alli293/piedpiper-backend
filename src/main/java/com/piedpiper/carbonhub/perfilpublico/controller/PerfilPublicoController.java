@@ -5,10 +5,12 @@ import com.piedpiper.carbonhub.insignia.models.dtos.InsigniaEmpresaResponseDTO;
 import com.piedpiper.carbonhub.insignia.service.InsigniaEmpresaConsultaService;
 import com.piedpiper.carbonhub.perfilpublico.models.dtos.BusquedaPerfilPublicoDTO;
 import com.piedpiper.carbonhub.perfilpublico.models.dtos.EnlacePerfilDTO;
+import com.piedpiper.carbonhub.perfilpublico.models.dtos.EvolucionHuellaPublicaDTO;
 import com.piedpiper.carbonhub.perfilpublico.models.dtos.PerfilPublicoResponseDTO;
 import com.piedpiper.carbonhub.perfilpublico.service.EnlacePerfilService;
 import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoCertificacionesService;
 import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoConsultaService;
+import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoEvolucionService;
 
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
@@ -34,16 +36,19 @@ public class PerfilPublicoController {
     private final PerfilPublicoCertificacionesService perfilPublicoCertificacionesService;
     private final InsigniaEmpresaConsultaService insigniaEmpresaConsultaService;
     private final EnlacePerfilService enlacePerfilService;
+    private final PerfilPublicoEvolucionService evolucionService;
 
     public PerfilPublicoController(
             PerfilPublicoConsultaService service,
             PerfilPublicoCertificacionesService perfilPublicoCertificacionesService,
             InsigniaEmpresaConsultaService insigniaEmpresaConsultaService,
-            EnlacePerfilService enlacePerfilService) {
+            EnlacePerfilService enlacePerfilService,
+            PerfilPublicoEvolucionService evolucionService) {
         this.service = service;
         this.perfilPublicoCertificacionesService = perfilPublicoCertificacionesService;
         this.insigniaEmpresaConsultaService = insigniaEmpresaConsultaService;
         this.enlacePerfilService = enlacePerfilService;
+        this.evolucionService = evolucionService;
     }
 
     @GetMapping("/{slug}")
@@ -74,5 +79,10 @@ public class PerfilPublicoController {
     public ResponseEntity<EnlacePerfilDTO> compartir(@PathVariable String slug) {
         EnlacePerfilDTO enlace = enlacePerfilService.obtenerEnlacePerfil(slug);
         return ResponseEntity.ok(enlace);
+    }
+
+    @GetMapping("/{slug}/evolucion-huella")
+    public ResponseEntity<EvolucionHuellaPublicaDTO> evolucionHuella(@PathVariable String slug) {
+        return ResponseEntity.ok(evolucionService.obtenerEvolucionPorSlug(slug));
     }
 }
