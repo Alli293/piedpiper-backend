@@ -219,6 +219,7 @@ public class ConsultaCertificacionService {
         CertificacionPublicaResponseDTO dto = certificacionMapper.toPublicaDto(certificacion);
         catalogoTiposCertificacion.buscar(certificacion.getTipo())
                 .ifPresent(definicion -> dto.setNombreCertificacion(definicion.nombre()));
+        dto.setNombreAuditor(certificacion.getAuditor().nombreCompleto());
         return dto;
     }
 }
