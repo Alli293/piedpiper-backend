@@ -8,6 +8,7 @@ import com.piedpiper.carbonhub.perfilpublico.models.dtos.EnlacePerfilDTO;
 import com.piedpiper.carbonhub.perfilpublico.repository.SlugHistoricoRepository;
 
 import net.jqwik.api.*;
+import org.springframework.web.util.HtmlUtils;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -285,10 +286,10 @@ class EnlacePerfilServicePropertyTest {
                 .as("codigoIncrustar href should point to the canonical URL")
                 .contains("href=\"" + urlCanonica + "\"");
 
-        // (b) Contains nombreEmpresa and "Perfil verificado en CarbonHub"
+        // (b) Contains nombreEmpresa (HTML-escaped) and "Perfil verificado en CarbonHub"
         assertThat(codigo)
-                .as("codigoIncrustar should contain the company name")
-                .contains(nombreEmpresa);
+                .as("codigoIncrustar should contain the company name (HTML-escaped)")
+                .contains(HtmlUtils.htmlEscape(nombreEmpresa));
         assertThat(codigo)
                 .as("codigoIncrustar should contain 'Perfil verificado en CarbonHub'")
                 .contains("Perfil verificado en CarbonHub");
