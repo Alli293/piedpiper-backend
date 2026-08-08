@@ -2,6 +2,7 @@ package com.piedpiper.carbonhub.dashboard.service;
 
 import com.piedpiper.carbonhub.dashboard.models.dtos.CertAlertaDTO;
 import com.piedpiper.carbonhub.dashboard.models.dtos.RecomendacionIaTexto;
+import com.piedpiper.carbonhub.common.IaRateLimitService;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,6 +20,7 @@ import java.util.concurrent.TimeoutException;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -33,6 +35,8 @@ class RecomendacionRenovacionIaServiceTest {
     private ChatClient.ChatClientRequestSpec requestSpec;
     @Mock
     private ChatClient.CallResponseSpec callResponseSpec;
+    @Mock
+    private IaRateLimitService iaRateLimitService;
 
     private RecomendacionRenovacionIaService service;
 
@@ -43,7 +47,9 @@ class RecomendacionRenovacionIaServiceTest {
     @BeforeEach
     void setUp() {
         when(chatClientBuilder.build()).thenReturn(chatClient);
-        service = new RecomendacionRenovacionIaService(chatClientBuilder, "test-gemini-api-key");
+        lenient().when(iaRateLimitService.reservar(any(UUID.class))).thenReturn(true);
+        service = new RecomendacionRenovacionIaService(
+                chatClientBuilder, iaRateLimitService, "test-gemini-api-key");
     }
 
     @Test
@@ -90,7 +96,7 @@ class RecomendacionRenovacionIaServiceTest {
     @Test
     void apiKeyAusenteNoIntentaLaLlamada() {
         RecomendacionRenovacionIaService sinKey =
-                new RecomendacionRenovacionIaService(chatClientBuilder, "");
+                new RecomendacionRenovacionIaService(chatClientBuilder, iaRateLimitService, "");
 
         Optional<RecomendacionIaTexto> generado = sinKey.generar(PRIORITARIA);
 

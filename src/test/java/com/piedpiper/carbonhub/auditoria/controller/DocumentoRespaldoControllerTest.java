@@ -66,7 +66,7 @@ class DocumentoRespaldoControllerTest {
 
     @Test
     @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
-    void devuelveElPdfEnLineaParaPrevisualizarlo() throws Exception {
+    void devuelveElPdfComoAdjuntoParaEvitarContenidoActivoEnElNavegador() throws Exception {
         when(documentoRespaldoDescargaService.obtener(any(), any(), any()))
                 .thenReturn(documento("inventario-2025.pdf"));
 
@@ -74,7 +74,7 @@ class DocumentoRespaldoControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_PDF))
                 .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION,
-                        org.hamcrest.Matchers.containsString("inline")))
+                        org.hamcrest.Matchers.containsString("attachment")))
                 .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION,
                         org.hamcrest.Matchers.containsString("inventario-2025.pdf")));
     }

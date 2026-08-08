@@ -4,6 +4,7 @@ import com.piedpiper.carbonhub.ima.models.dtos.InterpretacionIma;
 import com.piedpiper.carbonhub.ima.models.entities.AgregadoSectorial;
 import com.piedpiper.carbonhub.ima.models.entities.ImaSnapshot;
 import com.piedpiper.carbonhub.ima.repository.ImaSnapshotRepository;
+import com.piedpiper.carbonhub.common.IaRateLimitService;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,6 +45,8 @@ class ImaInterpretacionServiceTest {
     private ChatClient.CallResponseSpec callResponseSpec;
     @Mock
     private ImaSnapshotRepository imaSnapshotRepository;
+    @Mock
+    private IaRateLimitService iaRateLimitService;
 
     private ImaInterpretacionService service;
 
@@ -53,10 +56,12 @@ class ImaInterpretacionServiceTest {
     @BeforeEach
     void setUp() {
         when(chatClientBuilder.build()).thenReturn(chatClient);
+        lenient().when(iaRateLimitService.reservar(any(UUID.class))).thenReturn(true);
 
         service = new ImaInterpretacionService(
                 chatClientBuilder,
                 imaSnapshotRepository,
+                iaRateLimitService,
                 "test-gemini-api-key"
         );
     }
@@ -219,6 +224,7 @@ class ImaInterpretacionServiceTest {
         ImaInterpretacionService serviceNoKey = new ImaInterpretacionService(
                 chatClientBuilder,
                 imaSnapshotRepository,
+                iaRateLimitService,
                 ""
         );
         when(imaSnapshotRepository.save(any(ImaSnapshot.class))).thenAnswer(i -> i.getArgument(0));

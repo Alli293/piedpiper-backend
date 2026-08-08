@@ -3,6 +3,7 @@ package com.piedpiper.carbonhub.ima.service;
 import com.piedpiper.carbonhub.ima.models.entities.AgregadoSectorial;
 import com.piedpiper.carbonhub.ima.models.entities.ImaSnapshot;
 import com.piedpiper.carbonhub.ima.repository.ImaSnapshotRepository;
+import com.piedpiper.carbonhub.common.IaRateLimitService;
 
 import net.jqwik.api.*;
 import net.jqwik.api.constraints.*;
@@ -32,6 +33,7 @@ class ImaInterpretacionServicePropertyTest {
     private ChatClient.CallResponseSpec callResponseSpec;
     private ImaSnapshotRepository imaSnapshotRepository;
     private ImaInterpretacionService service;
+    private IaRateLimitService iaRateLimitService;
 
     @BeforeTry
     void setUp() {
@@ -40,6 +42,8 @@ class ImaInterpretacionServicePropertyTest {
         requestSpec = mock(ChatClient.ChatClientRequestSpec.class);
         callResponseSpec = mock(ChatClient.CallResponseSpec.class);
         imaSnapshotRepository = mock(ImaSnapshotRepository.class);
+        iaRateLimitService = mock(IaRateLimitService.class);
+        when(iaRateLimitService.reservar(any(UUID.class))).thenReturn(true);
 
         when(chatClientBuilder.build()).thenReturn(chatClient);
         when(chatClient.prompt()).thenReturn(requestSpec);
@@ -52,6 +56,7 @@ class ImaInterpretacionServicePropertyTest {
         service = new ImaInterpretacionService(
                 chatClientBuilder,
                 imaSnapshotRepository,
+                iaRateLimitService,
                 "test-api-key"
         );
     }

@@ -107,20 +107,19 @@ class PerfilPublicoRateLimitFilterTest {
     }
 
     @Test
-    void xForwardedForEsRespetadoParaResolucionDeIP() throws ServletException, IOException {
-        String realIp = "203.0.113.50";
+    void xForwardedForFalsificadoNoPermiteEvadirElLimite() throws ServletException, IOException {
 
         // Agotar el límite usando X-Forwarded-For
         for (int i = 0; i < 60; i++) {
             MockHttpServletRequest req = createRequest("/api/perfil-publico/empresa-verde", "127.0.0.1");
-            req.addHeader("X-Forwarded-For", realIp + ", 10.0.0.1");
+            req.addHeader("X-Forwarded-For", "203.0.113." + i);
             MockHttpServletResponse resp = new MockHttpServletResponse();
             filter.doFilterInternal(req, resp, filterChain);
         }
 
         // Petición 61 desde la misma IP real (via X-Forwarded-For) → 429
         MockHttpServletRequest blockedReq = createRequest("/api/perfil-publico/empresa-verde", "127.0.0.1");
-        blockedReq.addHeader("X-Forwarded-For", realIp + ", 10.0.0.1");
+        blockedReq.addHeader("X-Forwarded-For", "198.51.100.250");
         MockHttpServletResponse blockedResp = new MockHttpServletResponse();
         filter.doFilterInternal(blockedReq, blockedResp, filterChain);
 

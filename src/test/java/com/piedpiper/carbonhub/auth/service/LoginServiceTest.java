@@ -57,7 +57,7 @@ class LoginServiceTest {
     void loginCorreoExitosoEmiteTokenYReseteaIntentos() {
         Usuario usuario = usuarioCorreo();
         usuario.setIntentosFallidos(3);
-        when(usuarioRepository.findByEmailIgnoreCase("ana@gmail.com")).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByEmailIgnoreCaseForUpdate("ana@gmail.com")).thenReturn(Optional.of(usuario));
         when(passwordEncoder.matches("secreta", "hash")).thenReturn(true);
         when(jwtService.generar(usuario)).thenReturn("jwt-app");
 
@@ -71,7 +71,7 @@ class LoginServiceTest {
     @Test
     void credencialesIncorrectasLanza401Uniforme() {
         Usuario usuario = usuarioCorreo();
-        when(usuarioRepository.findByEmailIgnoreCase("ana@gmail.com")).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByEmailIgnoreCaseForUpdate("ana@gmail.com")).thenReturn(Optional.of(usuario));
         when(passwordEncoder.matches("mala", "hash")).thenReturn(false);
 
         var loginRequest = new LoginRequestDTO(MetodoAuth.CORREO, null, "ana@gmail.com", "mala");
@@ -85,7 +85,7 @@ class LoginServiceTest {
     void quintoIntentoFallidoBloqueaCuenta() {
         Usuario usuario = usuarioCorreo();
         usuario.setIntentosFallidos(4);
-        when(usuarioRepository.findByEmailIgnoreCase("ana@gmail.com")).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByEmailIgnoreCaseForUpdate("ana@gmail.com")).thenReturn(Optional.of(usuario));
         when(passwordEncoder.matches("mala", "hash")).thenReturn(false);
 
         var loginRequest = new LoginRequestDTO(MetodoAuth.CORREO, null, "ana@gmail.com", "mala");
@@ -103,7 +103,7 @@ class LoginServiceTest {
         Usuario usuario = usuarioCorreo();
         usuario.setIntentosFallidos(5);
         usuario.setBloqueadoHasta(Instant.now().plusSeconds(600));
-        when(usuarioRepository.findByEmailIgnoreCase("ana@gmail.com")).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByEmailIgnoreCaseForUpdate("ana@gmail.com")).thenReturn(Optional.of(usuario));
 
         var loginRequest = new LoginRequestDTO(MetodoAuth.CORREO, null, "ana@gmail.com", "secreta");
         assertThatThrownBy(() -> service.login(loginRequest))
@@ -113,7 +113,7 @@ class LoginServiceTest {
     }
 
     @Test
-    void googleSinCuentaLanza404() {
+    void googleSinCuentaLanza401Uniforme() {
         when(googleTokenVerifier.verificar("token"))
                 .thenReturn(new GoogleClaims("sub-x", "nuevo@gmail.com", true, "Nuevo", "Nuevo", "Perez"));
         when(usuarioRepository.findByGoogleSub("sub-x")).thenReturn(Optional.empty());
@@ -122,14 +122,14 @@ class LoginServiceTest {
         assertThatThrownBy(() -> service.login(loginRequest))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
-                .isEqualTo(HttpStatus.NOT_FOUND);
+                .isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 
     @Test
     void cuentaDeshabilitadaLanza403() {
         Usuario usuario = usuarioCorreo();
         usuario.setEstado(EstadoUsuario.DESHABILITADO);
-        when(usuarioRepository.findByEmailIgnoreCase("ana@gmail.com")).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByEmailIgnoreCaseForUpdate("ana@gmail.com")).thenReturn(Optional.of(usuario));
         when(passwordEncoder.matches("secreta", "hash")).thenReturn(true);
 
         var loginRequest = new LoginRequestDTO(MetodoAuth.CORREO, null, "ana@gmail.com", "secreta");

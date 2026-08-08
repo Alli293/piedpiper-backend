@@ -329,6 +329,6 @@ class SolicitudAuditoriaServiceTest {
 
     private static MockMultipartFile pdf(String nombre) {
         return new MockMultipartFile("documentos", nombre, "application/pdf",
-                "%PDF-1.7 contenido de prueba".getBytes(StandardCharsets.US_ASCII));
+                ValidadorDocumentosPdfTest.contenidoPdf());
     }
 }
