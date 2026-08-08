@@ -6,12 +6,14 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalTime;
+import java.util.UUID;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class ItinerarioActividadResponseDTO {
 
+    private UUID id;
     private String nombre;
     private String descripcion;
     private LocalTime horario;
