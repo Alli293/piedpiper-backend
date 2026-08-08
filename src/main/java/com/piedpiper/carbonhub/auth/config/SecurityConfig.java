@@ -87,8 +87,7 @@ public class SecurityConfig {
                                 "/api/perfil-publico/*/certificaciones",
                                 "/api/perfil-publico/*/insignias",
                                 "/api/perfil-publico/*/compartir",
-                                "/api/perfil-publico/*/evolucion-huella",
-                                "/api/perfil-publico/*/huella").permitAll()
+                                "/api/perfil-publico/*/evolucion-huella").permitAll()
                         // Verificacion publica por codigo corto (PP-68): mismo criterio que
                         // la verificacion por id de arriba, ahora bajo su propio prefijo.
                         .requestMatchers(HttpMethod.GET, "/api/verificar/*").permitAll()

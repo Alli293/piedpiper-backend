@@ -16,7 +16,6 @@ import com.piedpiper.carbonhub.perfilpublico.models.dtos.PuntoHuellaDTO;
 import com.piedpiper.carbonhub.perfilpublico.service.EnlacePerfilService;
 import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoCertificacionesService;
 import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoConsultaService;
-import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoEvolucionService;
 import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoHuellaService;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
@@ -74,8 +73,6 @@ class PerfilPublicoControllerTest {
     private InsigniaEmpresaConsultaService insigniaEmpresaConsultaService;
     @MockitoBean
     private EnlacePerfilService enlacePerfilService;
-    @MockitoBean
-    private PerfilPublicoEvolucionService evolucionService;
     @MockitoBean
     private PerfilPublicoHuellaService perfilPublicoHuellaService;
     @MockitoBean
@@ -152,6 +149,7 @@ class PerfilPublicoControllerTest {
 
         mockMvc.perform(get("/api/perfil-publico/{slug}/insignias", SLUG))
     void huellaRetorna200ConLaSerieYTendencia() throws Exception {
+    void evolucionHuellaRetorna200ConLaSerieYTendencia() throws Exception {
         EvolucionHuellaDTO dto = new EvolucionHuellaDTO(
                 "ultimos_3_anios",
                 "reduccion",
@@ -162,7 +160,7 @@ class PerfilPublicoControllerTest {
         );
         when(perfilPublicoHuellaService.obtener(SLUG, "ultimos_3_anios")).thenReturn(dto);
 
-        mockMvc.perform(get("/api/perfil-publico/{slug}/huella", SLUG)
+        mockMvc.perform(get("/api/perfil-publico/{slug}/evolucion-huella", SLUG)
                         .param("rango", "ultimos_3_anios"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.rangoPeriodo").value("ultimos_3_anios"))
@@ -174,23 +172,23 @@ class PerfilPublicoControllerTest {
     }
 
     @Test
-    void huellaConRangoFueraDeCatalogoRetornaRangoPorDefecto() throws Exception {
+    void evolucionHuellaConRangoFueraDeCatalogoRetornaRangoPorDefecto() throws Exception {
         when(perfilPublicoHuellaService.obtener(SLUG, "otro"))
                 .thenReturn(new EvolucionHuellaDTO("ultimos_3_anios", "sin_cambio", List.of()));
 
-        mockMvc.perform(get("/api/perfil-publico/{slug}/huella", SLUG)
+        mockMvc.perform(get("/api/perfil-publico/{slug}/evolucion-huella", SLUG)
                         .param("rango", "otro"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.rangoPeriodo").value("ultimos_3_anios"));
     }
 
     @Test
-    void huellaRetorna404CuandoElSlugNoExiste() throws Exception {
+    void evolucionHuellaRetorna404CuandoElSlugNoExiste() throws Exception {
         when(perfilPublicoHuellaService.obtener("empresa-fantasma", "historico"))
                 .thenThrow(new PerfilNoEncontradoException(
                         "El perfil que buscas no existe o ya no estÃ¡ disponible."));
 
-        mockMvc.perform(get("/api/perfil-publico/{slug}/huella", "empresa-fantasma")
+        mockMvc.perform(get("/api/perfil-publico/{slug}/evolucion-huella", "empresa-fantasma")
                         .param("rango", "historico"))
                 .andExpect(status().isNotFound());
     }
