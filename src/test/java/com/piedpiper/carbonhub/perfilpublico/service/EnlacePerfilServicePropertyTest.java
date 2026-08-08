@@ -3,15 +3,12 @@ package com.piedpiper.carbonhub.perfilpublico.service;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.empresa.models.enums.EstadoEmpresa;
 import com.piedpiper.carbonhub.empresa.models.enums.SectorIndustrial;
-import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 import com.piedpiper.carbonhub.perfilpublico.models.dtos.EnlacePerfilDTO;
-import com.piedpiper.carbonhub.perfilpublico.repository.SlugHistoricoRepository;
 
 import net.jqwik.api.*;
 import org.springframework.web.util.HtmlUtils;
 
 import java.time.Instant;
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -45,13 +42,11 @@ class EnlacePerfilServicePropertyTest {
             @ForAll("slugValido") String slug) {
 
         // Arrange
-        EmpresaRepository empresaRepository = mock(EmpresaRepository.class);
-        SlugHistoricoRepository slugHistoricoRepository = mock(SlugHistoricoRepository.class);
+        SlugResolverService slugResolver = mock(SlugResolverService.class);
         QrGeneradorService qrGeneradorService = mock(QrGeneradorService.class);
 
         EnlacePerfilService service = new EnlacePerfilService(
-                empresaRepository,
-                slugHistoricoRepository,
+                slugResolver,
                 qrGeneradorService,
                 BASE_URL,
                 OG_IMAGEN_FALLBACK
@@ -72,8 +67,7 @@ class EnlacePerfilServicePropertyTest {
                 .fechaRegistro(Instant.now())
                 .build();
 
-        when(empresaRepository.findBySlugAndEstado(slug, EstadoEmpresa.ACTIVO))
-                .thenReturn(Optional.of(empresa));
+        when(slugResolver.resolver(slug)).thenReturn(empresa);
         when(qrGeneradorService.generarQrBase64(any())).thenReturn("data:image/png;base64,test");
 
         // Act
@@ -106,13 +100,11 @@ class EnlacePerfilServicePropertyTest {
             @ForAll("nivelEcologicoArbitrario") String nivelEcologico) {
 
         // Arrange
-        EmpresaRepository empresaRepository = mock(EmpresaRepository.class);
-        SlugHistoricoRepository slugHistoricoRepository = mock(SlugHistoricoRepository.class);
+        SlugResolverService slugResolver = mock(SlugResolverService.class);
         QrGeneradorService qrGeneradorService = mock(QrGeneradorService.class);
 
         EnlacePerfilService service = new EnlacePerfilService(
-                empresaRepository,
-                slugHistoricoRepository,
+                slugResolver,
                 qrGeneradorService,
                 BASE_URL,
                 OG_IMAGEN_FALLBACK
@@ -133,8 +125,7 @@ class EnlacePerfilServicePropertyTest {
                 .fechaRegistro(Instant.now())
                 .build();
 
-        when(empresaRepository.findBySlugAndEstado(slug, EstadoEmpresa.ACTIVO))
-                .thenReturn(Optional.of(empresa));
+        when(slugResolver.resolver(slug)).thenReturn(empresa);
         when(qrGeneradorService.generarQrBase64(any())).thenReturn("data:image/png;base64,test");
 
         // Act
@@ -173,13 +164,11 @@ class EnlacePerfilServicePropertyTest {
             @ForAll("logoUrlArbitrario") String logoUrl) {
 
         // Arrange
-        EmpresaRepository empresaRepository = mock(EmpresaRepository.class);
-        SlugHistoricoRepository slugHistoricoRepository = mock(SlugHistoricoRepository.class);
+        SlugResolverService slugResolver = mock(SlugResolverService.class);
         QrGeneradorService qrGeneradorService = mock(QrGeneradorService.class);
 
         EnlacePerfilService service = new EnlacePerfilService(
-                empresaRepository,
-                slugHistoricoRepository,
+                slugResolver,
                 qrGeneradorService,
                 BASE_URL,
                 OG_IMAGEN_FALLBACK
@@ -200,8 +189,7 @@ class EnlacePerfilServicePropertyTest {
                 .fechaRegistro(Instant.now())
                 .build();
 
-        when(empresaRepository.findBySlugAndEstado(slug, EstadoEmpresa.ACTIVO))
-                .thenReturn(Optional.of(empresa));
+        when(slugResolver.resolver(slug)).thenReturn(empresa);
         when(qrGeneradorService.generarQrBase64(any())).thenReturn("data:image/png;base64,test");
 
         // Act
@@ -240,13 +228,11 @@ class EnlacePerfilServicePropertyTest {
             @ForAll("slugValido") String slug) {
 
         // Arrange
-        EmpresaRepository empresaRepository = mock(EmpresaRepository.class);
-        SlugHistoricoRepository slugHistoricoRepository = mock(SlugHistoricoRepository.class);
+        SlugResolverService slugResolver = mock(SlugResolverService.class);
         QrGeneradorService qrGeneradorService = mock(QrGeneradorService.class);
 
         EnlacePerfilService service = new EnlacePerfilService(
-                empresaRepository,
-                slugHistoricoRepository,
+                slugResolver,
                 qrGeneradorService,
                 BASE_URL,
                 OG_IMAGEN_FALLBACK
@@ -267,8 +253,7 @@ class EnlacePerfilServicePropertyTest {
                 .fechaRegistro(Instant.now())
                 .build();
 
-        when(empresaRepository.findBySlugAndEstado(slug, EstadoEmpresa.ACTIVO))
-                .thenReturn(Optional.of(empresa));
+        when(slugResolver.resolver(slug)).thenReturn(empresa);
         when(qrGeneradorService.generarQrBase64(any())).thenReturn("data:image/png;base64,test");
 
         // Act
