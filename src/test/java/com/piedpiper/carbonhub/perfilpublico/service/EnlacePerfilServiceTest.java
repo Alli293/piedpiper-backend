@@ -3,12 +3,9 @@ package com.piedpiper.carbonhub.perfilpublico.service;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.empresa.models.enums.EstadoEmpresa;
 import com.piedpiper.carbonhub.empresa.models.enums.SectorIndustrial;
-import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 import com.piedpiper.carbonhub.perfilpublico.exceptions.PerfilNoEncontradoException;
 import com.piedpiper.carbonhub.perfilpublico.exceptions.SlugCambiadoException;
 import com.piedpiper.carbonhub.perfilpublico.models.dtos.EnlacePerfilDTO;
-import com.piedpiper.carbonhub.perfilpublico.models.entities.SlugHistorico;
-import com.piedpiper.carbonhub.perfilpublico.repository.SlugHistoricoRepository;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -19,7 +16,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -38,10 +34,7 @@ class EnlacePerfilServiceTest {
     private static final String OG_IMAGEN_FALLBACK = "https://carbonhub.app/images/og-default.png";
 
     @Mock
-    private EmpresaRepository empresaRepository;
-
-    @Mock
-    private SlugHistoricoRepository slugHistoricoRepository;
+    private SlugResolverService slugResolver;
 
     @Mock
     private QrGeneradorService qrGeneradorService;
@@ -51,8 +44,7 @@ class EnlacePerfilServiceTest {
     @BeforeEach
     void setUp() {
         service = new EnlacePerfilService(
-                empresaRepository,
-                slugHistoricoRepository,
+                slugResolver,
                 qrGeneradorService,
                 BASE_URL,
                 OG_IMAGEN_FALLBACK
@@ -71,8 +63,7 @@ class EnlacePerfilServiceTest {
         @DisplayName("URL canónica sigue patrón {baseUrl}/empresa/{slug}/reputacion")
         void construyeUrlCanonica_patronCorrecto() {
             Empresa empresa = buildEmpresaActiva("eco-verde", "EcoVerde S.A.", "ORO", "https://logo.png");
-            when(empresaRepository.findBySlugAndEstado("eco-verde", EstadoEmpresa.ACTIVO))
-                    .thenReturn(Optional.of(empresa));
+            when(slugResolver.resolver("eco-verde")).thenReturn(empresa);
             when(qrGeneradorService.generarQrBase64(any())).thenReturn("data:image/png;base64,abc123");
 
             EnlacePerfilDTO dto = service.obtenerEnlacePerfil("eco-verde");
@@ -84,8 +75,7 @@ class EnlacePerfilServiceTest {
         @DisplayName("URL canónica con baseUrl sin trailing slash y slug con guiones")
         void construyeUrlCanonica_slugConGuiones() {
             Empresa empresa = buildEmpresaActiva("mi-empresa-verde-123", "Mi Empresa Verde", "PLATA", null);
-            when(empresaRepository.findBySlugAndEstado("mi-empresa-verde-123", EstadoEmpresa.ACTIVO))
-                    .thenReturn(Optional.of(empresa));
+            when(slugResolver.resolver("mi-empresa-verde-123")).thenReturn(empresa);
             when(qrGeneradorService.generarQrBase64(any())).thenReturn("data:image/png;base64,xyz");
 
             EnlacePerfilDTO dto = service.obtenerEnlacePerfil("mi-empresa-verde-123");
@@ -97,8 +87,7 @@ class EnlacePerfilServiceTest {
         @DisplayName("ogUrl es idéntico a urlCanonica")
         void ogUrl_igualAUrlCanonica() {
             Empresa empresa = buildEmpresaActiva("test-slug", "Test S.A.", "BRONCE", "https://logo.png");
-            when(empresaRepository.findBySlugAndEstado("test-slug", EstadoEmpresa.ACTIVO))
-                    .thenReturn(Optional.of(empresa));
+            when(slugResolver.resolver("test-slug")).thenReturn(empresa);
             when(qrGeneradorService.generarQrBase64(any())).thenReturn("data:image/png;base64,qr");
 
             EnlacePerfilDTO dto = service.obtenerEnlacePerfil("test-slug");
@@ -110,13 +99,12 @@ class EnlacePerfilServiceTest {
         @DisplayName("URL canónica con baseUrl diferente (entorno local)")
         void construyeUrlCanonica_baseUrlLocal() {
             EnlacePerfilService serviceLocal = new EnlacePerfilService(
-                    empresaRepository, slugHistoricoRepository, qrGeneradorService,
+                    slugResolver, qrGeneradorService,
                     "http://localhost:4200", OG_IMAGEN_FALLBACK
             );
 
             Empresa empresa = buildEmpresaActiva("local-slug", "Local Corp", "ORO", null);
-            when(empresaRepository.findBySlugAndEstado("local-slug", EstadoEmpresa.ACTIVO))
-                    .thenReturn(Optional.of(empresa));
+            when(slugResolver.resolver("local-slug")).thenReturn(empresa);
             when(qrGeneradorService.generarQrBase64(any())).thenReturn("data:image/png;base64,local");
 
             EnlacePerfilDTO dto = serviceLocal.obtenerEnlacePerfil("local-slug");
@@ -137,8 +125,7 @@ class EnlacePerfilServiceTest {
         @DisplayName("ogTitulo sigue formato: {nombreEmpresa} — Perfil de Reputación Ecológica | CarbonHub")
         void ogTitulo_formatoCorrecto() {
             Empresa empresa = buildEmpresaActiva("verde-corp", "Verde Corp S.A.", "PLATINO", "https://logo.png");
-            when(empresaRepository.findBySlugAndEstado("verde-corp", EstadoEmpresa.ACTIVO))
-                    .thenReturn(Optional.of(empresa));
+            when(slugResolver.resolver("verde-corp")).thenReturn(empresa);
             when(qrGeneradorService.generarQrBase64(any())).thenReturn("data:image/png;base64,x");
 
             EnlacePerfilDTO dto = service.obtenerEnlacePerfil("verde-corp");
@@ -151,8 +138,7 @@ class EnlacePerfilServiceTest {
         @DisplayName("ogDescripcion sigue formato con nivel ecológico y nombre de empresa")
         void ogDescripcion_formatoCorrecto() {
             Empresa empresa = buildEmpresaActiva("bio-tech", "BioTech Solutions", "ORO", "https://logo.png");
-            when(empresaRepository.findBySlugAndEstado("bio-tech", EstadoEmpresa.ACTIVO))
-                    .thenReturn(Optional.of(empresa));
+            when(slugResolver.resolver("bio-tech")).thenReturn(empresa);
             when(qrGeneradorService.generarQrBase64(any())).thenReturn("data:image/png;base64,x");
 
             EnlacePerfilDTO dto = service.obtenerEnlacePerfil("bio-tech");
@@ -165,8 +151,7 @@ class EnlacePerfilServiceTest {
         @DisplayName("ogImagen usa logoUrl de la empresa cuando tiene logoUrl")
         void ogImagen_conLogoUrl() {
             Empresa empresa = buildEmpresaActiva("con-logo", "Empresa Logo", "PLATA", "https://cdn.example.com/mi-logo.png");
-            when(empresaRepository.findBySlugAndEstado("con-logo", EstadoEmpresa.ACTIVO))
-                    .thenReturn(Optional.of(empresa));
+            when(slugResolver.resolver("con-logo")).thenReturn(empresa);
             when(qrGeneradorService.generarQrBase64(any())).thenReturn("data:image/png;base64,x");
 
             EnlacePerfilDTO dto = service.obtenerEnlacePerfil("con-logo");
@@ -178,8 +163,7 @@ class EnlacePerfilServiceTest {
         @DisplayName("ogImagen usa fallback cuando logoUrl es null")
         void ogImagen_sinLogoUrl_usaFallback() {
             Empresa empresa = buildEmpresaActiva("sin-logo", "Empresa Sin Logo", "BRONCE", null);
-            when(empresaRepository.findBySlugAndEstado("sin-logo", EstadoEmpresa.ACTIVO))
-                    .thenReturn(Optional.of(empresa));
+            when(slugResolver.resolver("sin-logo")).thenReturn(empresa);
             when(qrGeneradorService.generarQrBase64(any())).thenReturn("data:image/png;base64,x");
 
             EnlacePerfilDTO dto = service.obtenerEnlacePerfil("sin-logo");
@@ -191,8 +175,7 @@ class EnlacePerfilServiceTest {
         @DisplayName("ogImagen usa fallback cuando logoUrl es cadena vacía")
         void ogImagen_logoUrlVacio_usaFallback() {
             Empresa empresa = buildEmpresaActiva("logo-vacio", "Empresa Logo Vacío", "ORO", "");
-            when(empresaRepository.findBySlugAndEstado("logo-vacio", EstadoEmpresa.ACTIVO))
-                    .thenReturn(Optional.of(empresa));
+            when(slugResolver.resolver("logo-vacio")).thenReturn(empresa);
             when(qrGeneradorService.generarQrBase64(any())).thenReturn("data:image/png;base64,x");
 
             EnlacePerfilDTO dto = service.obtenerEnlacePerfil("logo-vacio");
@@ -204,8 +187,7 @@ class EnlacePerfilServiceTest {
         @DisplayName("ogDescripcion muestra 'Sin nivel' cuando nivelEcologico es null")
         void ogDescripcion_nivelNull_muestraSinNivel() {
             Empresa empresa = buildEmpresaActiva("sin-nivel", "Empresa Sin Nivel", null, "https://logo.png");
-            when(empresaRepository.findBySlugAndEstado("sin-nivel", EstadoEmpresa.ACTIVO))
-                    .thenReturn(Optional.of(empresa));
+            when(slugResolver.resolver("sin-nivel")).thenReturn(empresa);
             when(qrGeneradorService.generarQrBase64(any())).thenReturn("data:image/png;base64,x");
 
             EnlacePerfilDTO dto = service.obtenerEnlacePerfil("sin-nivel");
@@ -227,8 +209,7 @@ class EnlacePerfilServiceTest {
         @DisplayName("codigoIncrustar contiene enlace <a> con href a URL canónica")
         void codigoIncrustar_contieneEnlaceConUrlCanonica() {
             Empresa empresa = buildEmpresaActiva("sello-test", "Sello Corp", "PLATA", "https://logo.png");
-            when(empresaRepository.findBySlugAndEstado("sello-test", EstadoEmpresa.ACTIVO))
-                    .thenReturn(Optional.of(empresa));
+            when(slugResolver.resolver("sello-test")).thenReturn(empresa);
             when(qrGeneradorService.generarQrBase64(any())).thenReturn("data:image/png;base64,x");
 
             EnlacePerfilDTO dto = service.obtenerEnlacePerfil("sello-test");
@@ -241,8 +222,7 @@ class EnlacePerfilServiceTest {
         @DisplayName("codigoIncrustar contiene nombre de empresa y mención CarbonHub")
         void codigoIncrustar_contieneNombreYMencion() {
             Empresa empresa = buildEmpresaActiva("nombre-test", "Mi Empresa Verde", "ORO", null);
-            when(empresaRepository.findBySlugAndEstado("nombre-test", EstadoEmpresa.ACTIVO))
-                    .thenReturn(Optional.of(empresa));
+            when(slugResolver.resolver("nombre-test")).thenReturn(empresa);
             when(qrGeneradorService.generarQrBase64(any())).thenReturn("data:image/png;base64,x");
 
             EnlacePerfilDTO dto = service.obtenerEnlacePerfil("nombre-test");
@@ -256,8 +236,7 @@ class EnlacePerfilServiceTest {
         @DisplayName("codigoIncrustar incluye estilos CSS inline")
         void codigoIncrustar_conEstilosInline() {
             Empresa empresa = buildEmpresaActiva("estilo-test", "Estilo Corp", "BRONCE", null);
-            when(empresaRepository.findBySlugAndEstado("estilo-test", EstadoEmpresa.ACTIVO))
-                    .thenReturn(Optional.of(empresa));
+            when(slugResolver.resolver("estilo-test")).thenReturn(empresa);
             when(qrGeneradorService.generarQrBase64(any())).thenReturn("data:image/png;base64,x");
 
             EnlacePerfilDTO dto = service.obtenerEnlacePerfil("estilo-test");
@@ -269,8 +248,7 @@ class EnlacePerfilServiceTest {
         @DisplayName("codigoIncrustar NO contiene scripts ni dependencias externas")
         void codigoIncrustar_sinScriptsNiDependencias() {
             Empresa empresa = buildEmpresaActiva("seguro-test", "Seguro Corp", "PLATINO", null);
-            when(empresaRepository.findBySlugAndEstado("seguro-test", EstadoEmpresa.ACTIVO))
-                    .thenReturn(Optional.of(empresa));
+            when(slugResolver.resolver("seguro-test")).thenReturn(empresa);
             when(qrGeneradorService.generarQrBase64(any())).thenReturn("data:image/png;base64,x");
 
             EnlacePerfilDTO dto = service.obtenerEnlacePerfil("seguro-test");
@@ -285,8 +263,7 @@ class EnlacePerfilServiceTest {
         void codigoIncrustar_escapaNombreConHtmlMalicioso() {
             String nombreMalicioso = "<img src=x onerror=alert(1)>";
             Empresa empresa = buildEmpresaActiva("xss-test", nombreMalicioso, "ORO", null);
-            when(empresaRepository.findBySlugAndEstado("xss-test", EstadoEmpresa.ACTIVO))
-                    .thenReturn(Optional.of(empresa));
+            when(slugResolver.resolver("xss-test")).thenReturn(empresa);
             when(qrGeneradorService.generarQrBase64(any())).thenReturn("data:image/png;base64,x");
 
             EnlacePerfilDTO dto = service.obtenerEnlacePerfil("xss-test");
@@ -311,8 +288,7 @@ class EnlacePerfilServiceTest {
         @DisplayName("qrBase64 vacío cuando QrGeneradorService falla (retorna cadena vacía)")
         void qrBase64_vacioSiQrFalla() {
             Empresa empresa = buildEmpresaActiva("qr-falla", "QR Corp", "ORO", "https://logo.png");
-            when(empresaRepository.findBySlugAndEstado("qr-falla", EstadoEmpresa.ACTIVO))
-                    .thenReturn(Optional.of(empresa));
+            when(slugResolver.resolver("qr-falla")).thenReturn(empresa);
             when(qrGeneradorService.generarQrBase64(any())).thenReturn("");
 
             EnlacePerfilDTO dto = service.obtenerEnlacePerfil("qr-falla");
@@ -331,8 +307,7 @@ class EnlacePerfilServiceTest {
         @DisplayName("qrBase64 contiene valor retornado por QrGeneradorService cuando es exitoso")
         void qrBase64_conValorSiQrExitoso() {
             Empresa empresa = buildEmpresaActiva("qr-ok", "QR Ok Corp", "PLATA", null);
-            when(empresaRepository.findBySlugAndEstado("qr-ok", EstadoEmpresa.ACTIVO))
-                    .thenReturn(Optional.of(empresa));
+            when(slugResolver.resolver("qr-ok")).thenReturn(empresa);
             when(qrGeneradorService.generarQrBase64("https://carbonhub.app/empresa/qr-ok/reputacion"))
                     .thenReturn("data:image/png;base64,encodedQrData");
 
@@ -353,22 +328,8 @@ class EnlacePerfilServiceTest {
         @Test
         @DisplayName("Lanza SlugCambiadoException cuando slug existe en historial y empresa está activa")
         void slugEnHistorial_empresaActiva_lanzaExcepcion() {
-            UUID empresaId = UUID.randomUUID();
-            when(empresaRepository.findBySlugAndEstado("slug-antiguo", EstadoEmpresa.ACTIVO))
-                    .thenReturn(Optional.empty());
-
-            SlugHistorico historico = SlugHistorico.builder()
-                    .id(UUID.randomUUID())
-                    .empresaId(empresaId)
-                    .slugAnterior("slug-antiguo")
-                    .fechaCambio(Instant.now())
-                    .build();
-            when(slugHistoricoRepository.findBySlugAnterior("slug-antiguo"))
-                    .thenReturn(Optional.of(historico));
-
-            Empresa empresaVigente = buildEmpresaActiva("slug-nuevo", "Empresa Renombrada", "ORO", null);
-            empresaVigente.setId(empresaId);
-            when(empresaRepository.findById(empresaId)).thenReturn(Optional.of(empresaVigente));
+            when(slugResolver.resolver("slug-antiguo"))
+                    .thenThrow(new SlugCambiadoException("slug-nuevo"));
 
             assertThatThrownBy(() -> service.obtenerEnlacePerfil("slug-antiguo"))
                     .isInstanceOf(SlugCambiadoException.class)
@@ -379,23 +340,8 @@ class EnlacePerfilServiceTest {
         @Test
         @DisplayName("No lanza SlugCambiadoException cuando empresa en historial está inactiva → lanza PerfilNoEncontradoException")
         void slugEnHistorial_empresaInactiva_lanzaPerfilNoEncontrado() {
-            UUID empresaId = UUID.randomUUID();
-            when(empresaRepository.findBySlugAndEstado("slug-viejo", EstadoEmpresa.ACTIVO))
-                    .thenReturn(Optional.empty());
-
-            SlugHistorico historico = SlugHistorico.builder()
-                    .id(UUID.randomUUID())
-                    .empresaId(empresaId)
-                    .slugAnterior("slug-viejo")
-                    .fechaCambio(Instant.now())
-                    .build();
-            when(slugHistoricoRepository.findBySlugAnterior("slug-viejo"))
-                    .thenReturn(Optional.of(historico));
-
-            Empresa empresaInactiva = buildEmpresaActiva("slug-actual", "Empresa Inactiva", "PLATA", null);
-            empresaInactiva.setId(empresaId);
-            empresaInactiva.setEstado(EstadoEmpresa.INACTIVO);
-            when(empresaRepository.findById(empresaId)).thenReturn(Optional.of(empresaInactiva));
+            when(slugResolver.resolver("slug-viejo"))
+                    .thenThrow(new PerfilNoEncontradoException("El perfil que buscas no existe o ya no está disponible."));
 
             assertThatThrownBy(() -> service.obtenerEnlacePerfil("slug-viejo"))
                     .isInstanceOf(PerfilNoEncontradoException.class)
@@ -414,10 +360,8 @@ class EnlacePerfilServiceTest {
         @Test
         @DisplayName("Lanza excepción cuando empresa no existe (slug no encontrado en activas ni en historial)")
         void empresaNoExiste_lanzaExcepcion() {
-            when(empresaRepository.findBySlugAndEstado("inexistente", EstadoEmpresa.ACTIVO))
-                    .thenReturn(Optional.empty());
-            when(slugHistoricoRepository.findBySlugAnterior("inexistente"))
-                    .thenReturn(Optional.empty());
+            when(slugResolver.resolver("inexistente"))
+                    .thenThrow(new PerfilNoEncontradoException("El perfil que buscas no existe o ya no está disponible."));
 
             assertThatThrownBy(() -> service.obtenerEnlacePerfil("inexistente"))
                     .isInstanceOf(PerfilNoEncontradoException.class)
@@ -427,10 +371,8 @@ class EnlacePerfilServiceTest {
         @Test
         @DisplayName("Lanza excepción cuando empresa está inactiva (findBySlugAndEstado no la encuentra)")
         void empresaInactiva_lanzaExcepcion() {
-            when(empresaRepository.findBySlugAndEstado("empresa-inactiva", EstadoEmpresa.ACTIVO))
-                    .thenReturn(Optional.empty());
-            when(slugHistoricoRepository.findBySlugAnterior("empresa-inactiva"))
-                    .thenReturn(Optional.empty());
+            when(slugResolver.resolver("empresa-inactiva"))
+                    .thenThrow(new PerfilNoEncontradoException("El perfil que buscas no existe o ya no está disponible."));
 
             assertThatThrownBy(() -> service.obtenerEnlacePerfil("empresa-inactiva"))
                     .isInstanceOf(PerfilNoEncontradoException.class)
@@ -450,8 +392,7 @@ class EnlacePerfilServiceTest {
         @DisplayName("Slug con mayúsculas se normaliza y funciona si empresa existe")
         void slugConMayusculas_seNormalizaYFunciona() {
             Empresa empresa = buildEmpresaActiva("eco-verde", "EcoVerde S.A.", "ORO", null);
-            when(empresaRepository.findBySlugAndEstado("eco-verde", EstadoEmpresa.ACTIVO))
-                    .thenReturn(Optional.of(empresa));
+            when(slugResolver.resolver("ECO-VERDE")).thenReturn(empresa);
             when(qrGeneradorService.generarQrBase64(any())).thenReturn("data:image/png;base64,x");
 
             EnlacePerfilDTO dto = service.obtenerEnlacePerfil("ECO-VERDE");
@@ -462,32 +403,40 @@ class EnlacePerfilServiceTest {
         @Test
         @DisplayName("Slug con caracteres especiales → PerfilNoEncontradoException sin consulta a BD")
         void slugConCaracteresEspeciales_rechaza() {
+            when(slugResolver.resolver("empresa@#$%"))
+                    .thenThrow(new PerfilNoEncontradoException("El perfil que buscas no existe o ya no está disponible."));
+
             assertThatThrownBy(() -> service.obtenerEnlacePerfil("empresa@#$%"))
                     .isInstanceOf(PerfilNoEncontradoException.class)
                     .hasMessage("El perfil que buscas no existe o ya no está disponible.");
 
-            verify(empresaRepository, never()).findBySlugAndEstado(any(), any());
-            verify(slugHistoricoRepository, never()).findBySlugAnterior(any());
+            verify(slugResolver).resolver("empresa@#$%");
         }
 
         @Test
         @DisplayName("Slug con espacios → PerfilNoEncontradoException sin consulta a BD")
         void slugConEspacios_rechaza() {
+            when(slugResolver.resolver("mi empresa"))
+                    .thenThrow(new PerfilNoEncontradoException("El perfil que buscas no existe o ya no está disponible."));
+
             assertThatThrownBy(() -> service.obtenerEnlacePerfil("mi empresa"))
                     .isInstanceOf(PerfilNoEncontradoException.class)
                     .hasMessage("El perfil que buscas no existe o ya no está disponible.");
 
-            verify(empresaRepository, never()).findBySlugAndEstado(any(), any());
+            verify(slugResolver).resolver("mi empresa");
         }
 
         @Test
         @DisplayName("Slug vacío → PerfilNoEncontradoException sin consulta a BD")
         void slugVacio_rechaza() {
+            when(slugResolver.resolver(""))
+                    .thenThrow(new PerfilNoEncontradoException("El perfil que buscas no existe o ya no está disponible."));
+
             assertThatThrownBy(() -> service.obtenerEnlacePerfil(""))
                     .isInstanceOf(PerfilNoEncontradoException.class)
                     .hasMessage("El perfil que buscas no existe o ya no está disponible.");
 
-            verify(empresaRepository, never()).findBySlugAndEstado(any(), any());
+            verify(slugResolver).resolver("");
         }
 
         @Test
@@ -495,21 +444,27 @@ class EnlacePerfilServiceTest {
         void slugMuyLargo_rechaza() {
             String slugLargo = "a".repeat(121);
 
+            when(slugResolver.resolver(slugLargo))
+                    .thenThrow(new PerfilNoEncontradoException("El perfil que buscas no existe o ya no está disponible."));
+
             assertThatThrownBy(() -> service.obtenerEnlacePerfil(slugLargo))
                     .isInstanceOf(PerfilNoEncontradoException.class)
                     .hasMessage("El perfil que buscas no existe o ya no está disponible.");
 
-            verify(empresaRepository, never()).findBySlugAndEstado(any(), any());
+            verify(slugResolver).resolver(slugLargo);
         }
 
         @Test
         @DisplayName("Slug null → PerfilNoEncontradoException sin consulta a BD")
         void slugNull_rechaza() {
+            when(slugResolver.resolver(null))
+                    .thenThrow(new PerfilNoEncontradoException("El perfil que buscas no existe o ya no está disponible."));
+
             assertThatThrownBy(() -> service.obtenerEnlacePerfil(null))
                     .isInstanceOf(PerfilNoEncontradoException.class)
                     .hasMessage("El perfil que buscas no existe o ya no está disponible.");
 
-            verify(empresaRepository, never()).findBySlugAndEstado(any(), any());
+            verify(slugResolver).resolver(null);
         }
     }
 

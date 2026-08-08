@@ -1,8 +1,6 @@
 package com.piedpiper.carbonhub.perfilpublico.service;
 
-import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 import com.piedpiper.carbonhub.perfilpublico.exceptions.PerfilNoEncontradoException;
-import com.piedpiper.carbonhub.perfilpublico.repository.SlugHistoricoRepository;
 
 import net.jqwik.api.*;
 
@@ -42,13 +40,15 @@ class EnlacePerfilSlugValidationPropertyTest {
             @ForAll("slugConCaracteresInvalidos") String slugInvalido) {
 
         // Arrange
-        EmpresaRepository empresaRepository = mock(EmpresaRepository.class);
-        SlugHistoricoRepository slugHistoricoRepository = mock(SlugHistoricoRepository.class);
+        SlugResolverService slugResolver = mock(SlugResolverService.class);
         QrGeneradorService qrGeneradorService = mock(QrGeneradorService.class);
 
+        // Configure slugResolver to throw PerfilNoEncontradoException for invalid slugs
+        when(slugResolver.resolver(slugInvalido)).thenThrow(
+                new PerfilNoEncontradoException("El perfil que buscas no existe o ya no está disponible."));
+
         EnlacePerfilService service = new EnlacePerfilService(
-                empresaRepository,
-                slugHistoricoRepository,
+                slugResolver,
                 qrGeneradorService,
                 BASE_URL,
                 OG_IMAGEN_FALLBACK
@@ -63,9 +63,8 @@ class EnlacePerfilSlugValidationPropertyTest {
                 .isInstanceOf(PerfilNoEncontradoException.class)
                 .hasMessage("El perfil que buscas no existe o ya no está disponible.");
 
-        // Verify: NO repository calls were made
-        verifyNoInteractions(empresaRepository);
-        verifyNoInteractions(slugHistoricoRepository);
+        // Verify: slugResolver was called (validation now lives in SlugResolverService)
+        verify(slugResolver).resolver(slugInvalido);
     }
 
     /**
@@ -80,13 +79,14 @@ class EnlacePerfilSlugValidationPropertyTest {
             @ForAll("slugDemasiadoLargo") String slugLargo) {
 
         // Arrange
-        EmpresaRepository empresaRepository = mock(EmpresaRepository.class);
-        SlugHistoricoRepository slugHistoricoRepository = mock(SlugHistoricoRepository.class);
+        SlugResolverService slugResolver = mock(SlugResolverService.class);
         QrGeneradorService qrGeneradorService = mock(QrGeneradorService.class);
 
+        when(slugResolver.resolver(slugLargo)).thenThrow(
+                new PerfilNoEncontradoException("El perfil que buscas no existe o ya no está disponible."));
+
         EnlacePerfilService service = new EnlacePerfilService(
-                empresaRepository,
-                slugHistoricoRepository,
+                slugResolver,
                 qrGeneradorService,
                 BASE_URL,
                 OG_IMAGEN_FALLBACK
@@ -97,9 +97,7 @@ class EnlacePerfilSlugValidationPropertyTest {
                 .isInstanceOf(PerfilNoEncontradoException.class)
                 .hasMessage("El perfil que buscas no existe o ya no está disponible.");
 
-        // Verify: NO repository calls were made
-        verifyNoInteractions(empresaRepository);
-        verifyNoInteractions(slugHistoricoRepository);
+        verify(slugResolver).resolver(slugLargo);
     }
 
     /**
@@ -114,13 +112,14 @@ class EnlacePerfilSlugValidationPropertyTest {
             @ForAll("slugVacioONull") String slugVacio) {
 
         // Arrange
-        EmpresaRepository empresaRepository = mock(EmpresaRepository.class);
-        SlugHistoricoRepository slugHistoricoRepository = mock(SlugHistoricoRepository.class);
+        SlugResolverService slugResolver = mock(SlugResolverService.class);
         QrGeneradorService qrGeneradorService = mock(QrGeneradorService.class);
 
+        when(slugResolver.resolver(slugVacio)).thenThrow(
+                new PerfilNoEncontradoException("El perfil que buscas no existe o ya no está disponible."));
+
         EnlacePerfilService service = new EnlacePerfilService(
-                empresaRepository,
-                slugHistoricoRepository,
+                slugResolver,
                 qrGeneradorService,
                 BASE_URL,
                 OG_IMAGEN_FALLBACK
@@ -131,9 +130,7 @@ class EnlacePerfilSlugValidationPropertyTest {
                 .isInstanceOf(PerfilNoEncontradoException.class)
                 .hasMessage("El perfil que buscas no existe o ya no está disponible.");
 
-        // Verify: NO repository calls were made
-        verifyNoInteractions(empresaRepository);
-        verifyNoInteractions(slugHistoricoRepository);
+        verify(slugResolver).resolver(slugVacio);
     }
 
     // ========================================================================

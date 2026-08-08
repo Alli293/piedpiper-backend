@@ -8,9 +8,7 @@ import com.google.zxing.common.HybridBinarizer;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.empresa.models.enums.EstadoEmpresa;
 import com.piedpiper.carbonhub.empresa.models.enums.SectorIndustrial;
-import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 import com.piedpiper.carbonhub.perfilpublico.models.dtos.EnlacePerfilDTO;
-import com.piedpiper.carbonhub.perfilpublico.repository.SlugHistoricoRepository;
 
 import net.jqwik.api.*;
 
@@ -19,13 +17,11 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.time.Instant;
 import java.util.Base64;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -63,9 +59,8 @@ class EnlacePerfilUrlConsistenciaPropertyTest {
             @ForAll("nivelEcologico") String nivelEcologico,
             @ForAll("logoUrl") String logoUrl) throws Exception {
 
-        // Arrange: mock repos, use real QrGeneradorService
-        EmpresaRepository empresaRepository = mock(EmpresaRepository.class);
-        SlugHistoricoRepository slugHistoricoRepository = mock(SlugHistoricoRepository.class);
+        // Arrange: mock slugResolver, use real QrGeneradorService
+        SlugResolverService slugResolver = mock(SlugResolverService.class);
 
         Empresa empresa = Empresa.builder()
                 .id(UUID.randomUUID())
@@ -82,12 +77,10 @@ class EnlacePerfilUrlConsistenciaPropertyTest {
                 .fechaRegistro(Instant.now())
                 .build();
 
-        when(empresaRepository.findBySlugAndEstado(eq(slug), eq(EstadoEmpresa.ACTIVO)))
-                .thenReturn(Optional.of(empresa));
+        when(slugResolver.resolver(eq(slug))).thenReturn(empresa);
 
         EnlacePerfilService service = new EnlacePerfilService(
-                empresaRepository,
-                slugHistoricoRepository,
+                slugResolver,
                 realQrService,
                 BASE_URL,
                 OG_IMAGEN_FALLBACK
