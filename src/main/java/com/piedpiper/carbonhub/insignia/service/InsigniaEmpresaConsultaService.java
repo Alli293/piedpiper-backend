@@ -1,9 +1,7 @@
 package com.piedpiper.carbonhub.insignia.service;
 
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
-import com.piedpiper.carbonhub.empresa.models.enums.EstadoEmpresa;
 import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
-import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.insignia.mappers.InsigniaEmpresaMapper;
 import com.piedpiper.carbonhub.insignia.models.dtos.InsigniaEmpresaResponseDTO;
 import com.piedpiper.carbonhub.insignia.models.entities.CatalogoInsignia;
@@ -11,6 +9,7 @@ import com.piedpiper.carbonhub.insignia.models.entities.InsigniaEmpresa;
 import com.piedpiper.carbonhub.insignia.repository.CatalogoInsigniaRepository;
 import com.piedpiper.carbonhub.insignia.repository.InsigniaEmpresaRepository;
 import com.piedpiper.carbonhub.emision.service.EmisionEmpresaService;
+import com.piedpiper.carbonhub.perfilpublico.service.SlugResolverService;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +29,7 @@ public class InsigniaEmpresaConsultaService {
     private final EmisionEmpresaService emisionEmpresaService;
     private final InsigniaEmpresaMapper insigniaEmpresaMapper;
     private final InsigniaEmpresaOpenBadgesService insigniaEmpresaOpenBadgesService;
+    private final SlugResolverService slugResolver;
 
     public InsigniaEmpresaConsultaService(InsigniaEmpresaRepository insigniaEmpresaRepository,
                                           CatalogoInsigniaRepository catalogoInsigniaRepository,
@@ -37,13 +37,15 @@ public class InsigniaEmpresaConsultaService {
                                           EmisionEmpresaService emisionEmpresaService,
                                           InsigniaEmpresaMapper insigniaEmpresaMapper,
                                           InsigniaEmpresaOpenBadgesService
-                                                  insigniaEmpresaOpenBadgesService) {
+                                                  insigniaEmpresaOpenBadgesService,
+                                          SlugResolverService slugResolver) {
         this.insigniaEmpresaRepository = insigniaEmpresaRepository;
         this.catalogoInsigniaRepository = catalogoInsigniaRepository;
         this.empresaRepository = empresaRepository;
         this.emisionEmpresaService = emisionEmpresaService;
         this.insigniaEmpresaMapper = insigniaEmpresaMapper;
         this.insigniaEmpresaOpenBadgesService = insigniaEmpresaOpenBadgesService;
+        this.slugResolver = slugResolver;
     }
 
     @Transactional(readOnly = true)
@@ -54,10 +56,8 @@ public class InsigniaEmpresaConsultaService {
 
     @Transactional(readOnly = true)
     public List<InsigniaEmpresaResponseDTO> listarPorSlug(String slug) {
-        UUID empresaId = empresaRepository.findBySlugAndEstado(slug, EstadoEmpresa.ACTIVO)
-                .map(Empresa::getId)
-                .orElseThrow(() -> ApiException.recursoNoEncontrado("La empresa no existe."));
-        return listarPorEmpresa(empresaId);
+        Empresa empresa = slugResolver.resolver(slug);
+        return listarPorEmpresa(empresa.getId());
     }
 
     private List<InsigniaEmpresaResponseDTO> listarPorEmpresa(UUID empresaId) {

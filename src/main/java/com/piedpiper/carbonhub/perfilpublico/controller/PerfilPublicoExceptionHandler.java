@@ -1,12 +1,15 @@
 package com.piedpiper.carbonhub.perfilpublico.controller;
 
 import com.piedpiper.carbonhub.perfilpublico.exceptions.PerfilNoEncontradoException;
+import com.piedpiper.carbonhub.perfilpublico.exceptions.SlugCambiadoException;
 import com.piedpiper.carbonhub.perfilpublico.models.dtos.PerfilPublicoErrorDTO;
 
+import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.Order;
 import org.springframework.dao.DataAccessException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -25,6 +28,18 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class PerfilPublicoExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(PerfilPublicoExceptionHandler.class);
+
+    @ExceptionHandler(SlugCambiadoException.class)
+    public ResponseEntity<Void> handleSlugCambiado(SlugCambiadoException ex,
+                                                   HttpServletRequest request) {
+        String uri = request.getRequestURI();
+        // Reemplazar el slug antiguo en el path con el slug vigente
+        String nuevaUrl = uri.replaceFirst(
+                "(/api/perfil-publico/)[^/]+", "$1" + ex.getSlugVigente());
+        return ResponseEntity.status(HttpStatus.MOVED_PERMANENTLY)
+                .header(HttpHeaders.LOCATION, nuevaUrl)
+                .build();
+    }
 
     @ExceptionHandler(PerfilNoEncontradoException.class)
     public ResponseEntity<PerfilPublicoErrorDTO> handleNoEncontrado(PerfilNoEncontradoException ex) {

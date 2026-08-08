@@ -116,6 +116,15 @@ public interface EmisionRepository extends JpaRepository<Emision, UUID> {
                                        @Param("anio") int anio);
 
     @Query("""
+            select year(e.fechaActividad), sum(e.carbonKg)
+            from Emision e
+            where e.empresaId = :empresaId
+            group by year(e.fechaActividad)
+            order by year(e.fechaActividad) asc
+            """)
+    List<Object[]> sumarCarbonKgPorAnio(@Param("empresaId") UUID empresaId);
+
+    @Query("""
             select count(distinct type(e))
             from Emision e
             where e.empresaId = :empresaId

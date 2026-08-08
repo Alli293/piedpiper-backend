@@ -7,10 +7,14 @@ import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.insignia.models.dtos.InsigniaEmpresaResponseDTO;
 import com.piedpiper.carbonhub.insignia.service.InsigniaEmpresaConsultaService;
 import com.piedpiper.carbonhub.perfilpublico.exceptions.PerfilNoEncontradoException;
+import com.piedpiper.carbonhub.perfilpublico.exceptions.SlugCambiadoException;
 import com.piedpiper.carbonhub.perfilpublico.models.dtos.BusquedaPerfilPublicoDTO;
+import com.piedpiper.carbonhub.perfilpublico.models.dtos.EnlacePerfilDTO;
 import com.piedpiper.carbonhub.perfilpublico.models.dtos.PerfilPublicoResponseDTO;
+import com.piedpiper.carbonhub.perfilpublico.service.EnlacePerfilService;
 import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoCertificacionesService;
 import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoConsultaService;
+import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoEvolucionService;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.junit.jupiter.api.DisplayName;
@@ -64,6 +68,10 @@ class PerfilPublicoControllerTest {
     private PerfilPublicoConsultaService perfilPublicoConsultaService;
     @MockitoBean
     private InsigniaEmpresaConsultaService insigniaEmpresaConsultaService;
+    @MockitoBean
+    private EnlacePerfilService enlacePerfilService;
+    @MockitoBean
+    private PerfilPublicoEvolucionService evolucionService;
     @MockitoBean
     private JwtService jwtService;
     @MockitoBean
@@ -267,5 +275,89 @@ class PerfilPublicoControllerTest {
                 .andExpect(content().contentTypeCompatibleWith("application/json"))
                 .andExpect(jsonPath("$.content").isArray())
                 .andExpect(jsonPath("$.content.length()").value(0));
+    }
+
+    // ========================================================================
+    // Task 5.3 — Unit tests del endpoint /compartir (MockMvc)
+    // Validates: Requirements 11.2
+    // ========================================================================
+
+    @Test
+    @DisplayName("GET /{slug}/compartir con slug válido → 200 con EnlacePerfilDTO completo")
+    void compartir_slugValido_retorna200ConDtoCompleto() throws Exception {
+        EnlacePerfilDTO dto = new EnlacePerfilDTO(
+                "https://carbonhub.app/empresa/empresa-verde/reputacion",
+                "<a href=\"https://carbonhub.app/empresa/empresa-verde/reputacion\" target=\"_blank\" "
+                        + "rel=\"noopener\" style=\"display:inline-block;padding:12px 20px;"
+                        + "background:#1a5c3a;color:#fff;font-family:system-ui,sans-serif;"
+                        + "font-size:14px;border-radius:8px;text-decoration:none;\">"
+                        + "EcoVerde S.A. — Perfil verificado en CarbonHub</a>",
+                "data:image/png;base64,iVBORw0KGgo=",
+                "EcoVerde S.A. — Perfil de Reputación Ecológica | CarbonHub",
+                "Nivel ecológico: Oro. Consulta el desempeño ambiental verificado de EcoVerde S.A.",
+                "https://cdn.example.com/logo.png",
+                "https://carbonhub.app/empresa/empresa-verde/reputacion"
+        );
+        when(enlacePerfilService.obtenerEnlacePerfil(SLUG)).thenReturn(dto);
+
+        mockMvc.perform(get("/api/perfil-publico/{slug}/compartir", SLUG))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith("application/json"))
+                .andExpect(jsonPath("$.urlCanonica").value(dto.getUrlCanonica()))
+                .andExpect(jsonPath("$.codigoIncrustar").isNotEmpty())
+                .andExpect(jsonPath("$.qrBase64").value(dto.getQrBase64()))
+                .andExpect(jsonPath("$.ogTitulo").value(dto.getOgTitulo()))
+                .andExpect(jsonPath("$.ogDescripcion").value(dto.getOgDescripcion()))
+                .andExpect(jsonPath("$.ogImagen").value(dto.getOgImagen()))
+                .andExpect(jsonPath("$.ogUrl").value(dto.getOgUrl()));
+    }
+
+    @Test
+    @DisplayName("GET /{slug}/compartir con slug inexistente → 404 con mensaje correcto")
+    void compartir_slugInexistente_retorna404ConMensaje() throws Exception {
+        when(enlacePerfilService.obtenerEnlacePerfil("empresa-fantasma"))
+                .thenThrow(new PerfilNoEncontradoException(
+                        "El perfil que buscas no existe o ya no está disponible."));
+
+        mockMvc.perform(get("/api/perfil-publico/{slug}/compartir", "empresa-fantasma"))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith("application/json"))
+                .andExpect(jsonPath("$.mensaje").value(
+                        "El perfil que buscas no existe o ya no está disponible."))
+                .andExpect(jsonPath("$.status").doesNotExist())
+                .andExpect(jsonPath("$.timestamp").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("GET /{slug}/compartir con slug histórico → 301 con header Location correcto")
+    void compartir_slugHistorico_retorna301ConLocationHeader() throws Exception {
+        when(enlacePerfilService.obtenerEnlacePerfil("slug-antiguo"))
+                .thenThrow(new SlugCambiadoException("slug-nuevo"));
+
+        mockMvc.perform(get("/api/perfil-publico/{slug}/compartir", "slug-antiguo"))
+                .andExpect(status().isMovedPermanently())
+                .andExpect(header().string("Location",
+                        "/api/perfil-publico/slug-nuevo/compartir"));
+    }
+
+    @Test
+    @DisplayName("GET /{slug}/compartir es accesible sin autenticación (acceso público)")
+    void compartir_sinAutenticacion_retorna200() throws Exception {
+        EnlacePerfilDTO dto = new EnlacePerfilDTO(
+                "https://carbonhub.app/empresa/empresa-verde/reputacion",
+                "<a href=\"https://carbonhub.app/empresa/empresa-verde/reputacion\">sello</a>",
+                "data:image/png;base64,abc123",
+                "EcoVerde S.A. — Perfil de Reputación Ecológica | CarbonHub",
+                "Nivel ecológico: Oro. Consulta el desempeño ambiental verificado de EcoVerde S.A.",
+                "https://cdn.example.com/logo.png",
+                "https://carbonhub.app/empresa/empresa-verde/reputacion"
+        );
+        when(enlacePerfilService.obtenerEnlacePerfil(SLUG)).thenReturn(dto);
+
+        // No se envía token, header de autorización ni credenciales
+        mockMvc.perform(get("/api/perfil-publico/{slug}/compartir", SLUG))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith("application/json"))
+                .andExpect(jsonPath("$.urlCanonica").exists());
     }
 }

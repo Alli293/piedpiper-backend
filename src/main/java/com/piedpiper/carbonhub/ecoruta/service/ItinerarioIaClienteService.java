@@ -45,7 +45,10 @@ public class ItinerarioIaClienteService {
             + "- puntuacionAmbientalEstimada (por actividad): un entero entre 0 y 100 estimando "
             + "qué tan sostenible es la actividad/establecimiento. Considera: si es naturaleza/parque "
             + "nacional (alto), si usa recursos naturales de forma responsable (medio-alto), si es "
-            + "transporte motorizado o alta huella (bajo). Siempre incluir este campo.";
+            + "transporte motorizado o alta huella (bajo). Siempre incluir este campo.\n"
+            + "- categoriaTuristica (por actividad): exactamente uno de estos valores: "
+            + "NATURALEZA, VIDA_SILVESTRE, AVENTURA, GASTRONOMIA_LOCAL, CULTURA, PLAYAS, BIENESTAR, "
+            + "DEPORTES_EXTREMOS, HISTORIA. Asignar según la naturaleza de la actividad.";
 
     private final ChatClient chatClient;
     private final ItinerarioValidador validador;

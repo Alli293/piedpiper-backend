@@ -120,7 +120,7 @@ class EcoRutaItinerarioServiceTest {
     private ActividadIaDTO actividadValida() {
         return new ActividadIaDTO(
                 "Caminata por puentes colgantes", "Recorrido guiado", "09:00", 150,
-                new BigDecimal("13000"), "CRC", "Reserva Selvatura", "PUNTARENAS", 80);
+                new BigDecimal("13000"), "CRC", "Reserva Selvatura", "PUNTARENAS", 80, "NATURALEZA");
     }
 
     private ItinerarioIaResponseDTO respuestaValida(int dias) {
