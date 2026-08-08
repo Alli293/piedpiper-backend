@@ -150,7 +150,7 @@ public class EcoRutaItinerarioService {
     @Transactional(readOnly = true)
     public ItinerarioResponseDTO obtener(UUID itinerarioId, UUID usuarioId) {
         Itinerario itinerario = itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, usuarioId)
-                .orElseThrow(() -> ApiException.recursoNoEncontrado("Itinerario no encontrado."));
+                .orElseThrow(() -> ApiException.recursoNoEncontrado("No fue posible encontrar el itinerario solicitado."));
         ItinerarioResponseDTO responseDTO = mapper.toDto(itinerario);
 
         // Enriquecer con puntuaciones ambientales calculadas al vuelo (sin persistir)
