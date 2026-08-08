@@ -3,7 +3,9 @@ package com.piedpiper.carbonhub.ecoruta.controller;
 import com.piedpiper.carbonhub.auth.config.CorsConfig;
 import com.piedpiper.carbonhub.auth.config.JwtAuthenticationFilter;
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.EstablecimientoEcoScoreResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioResponseDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.PuntuacionAmbientalResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.service.EcoRutaItinerarioService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.exceptions.GlobalExceptionHandler;
@@ -61,9 +63,17 @@ class EcoRutaItinerarioControllerTest {
         response.setEstado("GENERADO");
         response.setVersion(1);
         response.setPuntuacionAmbientalPreliminar(new BigDecimal("82"));
+        response.setEcoScore(new BigDecimal("68.0"));
+        response.setClasificacionAmbiental("BUENA");
+        response.setEcoScoreParcial(false);
+        response.setEcoScoreCalculadoEn(Instant.now());
         response.setFechaGeneracion(Instant.now());
         response.setGeneradoParcial(false);
         response.setDias(List.of());
+        response.setEstablecimientosEvaluados(List.of(new EstablecimientoEcoScoreResponseDTO(
+                "Reserva Selvatura",
+                new PuntuacionAmbientalResponseDTO(new BigDecimal("68.0"), new BigDecimal("30"),
+                        new BigDecimal("24"), new BigDecimal("14"), 3))));
         return response;
     }
 
@@ -136,7 +146,12 @@ class EcoRutaItinerarioControllerTest {
         mockMvc.perform(get("/api/ecoruta/itinerarios/" + itinerarioId)
                         .principal(authentication("ROLE_USUARIO_INDIVIDUAL")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(itinerarioId.toString()));
+                .andExpect(jsonPath("$.id").value(itinerarioId.toString()))
+                .andExpect(jsonPath("$.ecoScore").value(68.0))
+                .andExpect(jsonPath("$.clasificacionAmbiental").value("BUENA"))
+                .andExpect(jsonPath("$.ecoScoreParcial").value(false))
+                .andExpect(jsonPath("$.establecimientosEvaluados[0].nombreEstablecimiento")
+                        .value("Reserva Selvatura"));
     }
 
     @Test

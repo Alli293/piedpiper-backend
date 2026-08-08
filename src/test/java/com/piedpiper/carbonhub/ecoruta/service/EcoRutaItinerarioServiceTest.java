@@ -2,12 +2,15 @@ package com.piedpiper.carbonhub.ecoruta.service;
 
 import com.piedpiper.carbonhub.ecoruta.mappers.ItinerarioMapper;
 import com.piedpiper.carbonhub.ecoruta.mappers.ItinerarioMapperImpl;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.EcoScoreResultado;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO.ActividadIaDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO.DiaIaDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioResponseDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.ResultadoPriorizacion;
 import com.piedpiper.carbonhub.ecoruta.models.entities.Itinerario;
 import com.piedpiper.carbonhub.ecoruta.models.entities.PreferenciasViaje;
+import com.piedpiper.carbonhub.ecoruta.models.enums.ClasificacionAmbiental;
 import com.piedpiper.carbonhub.ecoruta.models.enums.InteresTuristico;
 import com.piedpiper.carbonhub.ecoruta.models.enums.ResultadoValidacionItinerario;
 import com.piedpiper.carbonhub.ecoruta.models.enums.TipoViaje;
@@ -68,6 +71,8 @@ class EcoRutaItinerarioServiceTest {
     @Mock
     private PriorizacionAmbientalService priorizacionAmbientalService;
     @Mock
+    private EcoScoreService ecoScoreService;
+    @Mock
     private com.piedpiper.carbonhub.empresa.repository.EmpresaRepository empresaRepository;
 
     private ItinerarioMapper mapper;
@@ -80,6 +85,7 @@ class EcoRutaItinerarioServiceTest {
                 preferenciasViajeRepository, itinerarioRepository,
                 itinerarioIaClienteService, itinerarioCuotaService, eventoReconocimientoService,
                 priorizacionAmbientalService,
+                ecoScoreService,
                 mock(IndicadorAmbientalClient.class),
                 mock(ImaClient.class),
                 mock(BenchmarkClient.class),
@@ -173,6 +179,50 @@ class EcoRutaItinerarioServiceTest {
         assertThat(response.getDias()).hasSize(2);
         assertThat(response.getDias().get(0).getActividades()).hasSize(1);
         assertThat(response.getDias().get(0).getActividades().get(0).getProvincia()).isEqualTo("PUNTARENAS");
+        // priorizacionAmbientalService no fue stubbeado (devuelve null): la enriquecida debe
+        // degradar a lista vacía, nunca null, o el frontend revienta al leer .length.
+        assertThat(response.getEstablecimientosEvaluados()).isNotNull().isEmpty();
+    }
+
+    @Test
+    void ecoScoreCalculadoSePersisteYSeIncluyeEnLaRespuesta() {
+        PreferenciasViaje preferencias = preferencias();
+        when(preferenciasViajeRepository.findByUsuario_Id(USUARIO_ID)).thenReturn(Optional.of(preferencias));
+        when(itinerarioIaClienteService.generar(any(), eq(2))).thenReturn(
+                new ResultadoGeneracionIA(respuestaValida(2), ResultadoValidacionItinerario.VALIDO_COMPLETO));
+        when(itinerarioRepository.saveAndFlush(any(Itinerario.class))).thenAnswer(i -> i.getArgument(0));
+        when(itinerarioRepository.countByUsuario_Id(USUARIO_ID)).thenReturn(1L);
+        when(priorizacionAmbientalService.aplicarPriorizacion(any(), any(), any()))
+                .thenAnswer(i -> new ResultadoPriorizacion(i.getArgument(0), 1, 0));
+        when(ecoScoreService.calcular(any(), any()))
+                .thenReturn(new EcoScoreResultado(new BigDecimal("68.0"), ClasificacionAmbiental.BUENA, false));
+
+        ItinerarioResponseDTO response = service.generar(USUARIO_ID);
+
+        assertThat(response.getEcoScore()).isEqualByComparingTo(new BigDecimal("68.0"));
+        assertThat(response.getClasificacionAmbiental()).isEqualTo("BUENA");
+        assertThat(response.isEcoScoreParcial()).isFalse();
+        assertThat(response.getEcoScoreCalculadoEn()).isNotNull();
+        verify(itinerarioRepository).save(any(Itinerario.class));
+    }
+
+    @Test
+    void sinDatosParaEcoScoreDejaLosCamposEnNullYNoLosPersiste() {
+        PreferenciasViaje preferencias = preferencias();
+        when(preferenciasViajeRepository.findByUsuario_Id(USUARIO_ID)).thenReturn(Optional.of(preferencias));
+        when(itinerarioIaClienteService.generar(any(), eq(2))).thenReturn(
+                new ResultadoGeneracionIA(respuestaValida(2), ResultadoValidacionItinerario.VALIDO_COMPLETO));
+        when(itinerarioRepository.saveAndFlush(any(Itinerario.class))).thenAnswer(i -> i.getArgument(0));
+        when(itinerarioRepository.countByUsuario_Id(USUARIO_ID)).thenReturn(1L);
+        // priorizacionAmbientalService.aplicarPriorizacion no se stubbea: devuelve null por defecto,
+        // por lo que calcularYPersistirEcoScore no llega a invocar a ecoScoreService (mismo camino
+        // de degradación graciosa que enriquecerConPuntuacionAmbiental).
+
+        ItinerarioResponseDTO response = service.generar(USUARIO_ID);
+
+        assertThat(response.getEcoScore()).isNull();
+        assertThat(response.getEcoScoreCalculadoEn()).isNull();
+        verify(itinerarioRepository, never()).save(any());
     }
 
     @Test
@@ -308,6 +358,36 @@ class EcoRutaItinerarioServiceTest {
         ItinerarioResponseDTO response = service.obtener(itinerarioId, USUARIO_ID);
 
         assertThat(response.getId()).isEqualTo(itinerarioId);
+        // Sin actividades no hay establecimientos que evaluar: debe ser lista vacía, nunca null.
+        assertThat(response.getEstablecimientosEvaluados()).isNotNull().isEmpty();
+    }
+
+    @Test
+    void obtenerDevuelveElEcoScorePersistidoSinRecalcular() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = Itinerario.builder()
+                .id(itinerarioId)
+                .usuario(usuario())
+                .cantidadDias(2)
+                .fechaInicio(LocalDate.now().plusDays(10))
+                .tipoViaje(TipoViaje.INDIVIDUAL)
+                .estado(com.piedpiper.carbonhub.ecoruta.models.enums.EstadoItinerario.GENERADO)
+                .version(1)
+                .fechaGeneracion(Instant.now())
+                .ecoScore(new BigDecimal("68.0"))
+                .clasificacionAmbiental(ClasificacionAmbiental.BUENA)
+                .ecoScoreParcial(false)
+                .ecoScoreCalculadoEn(Instant.now())
+                .dias(List.of())
+                .build();
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+
+        ItinerarioResponseDTO response = service.obtener(itinerarioId, USUARIO_ID);
+
+        assertThat(response.getEcoScore()).isEqualByComparingTo(new BigDecimal("68.0"));
+        assertThat(response.getClasificacionAmbiental()).isEqualTo("BUENA");
+        verify(ecoScoreService, never()).calcular(any(), any());
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.piedpiper.carbonhub.ecoruta.models.entities;
 
+import com.piedpiper.carbonhub.ecoruta.models.enums.ClasificacionAmbiental;
 import com.piedpiper.carbonhub.ecoruta.models.enums.EstadoItinerario;
 import com.piedpiper.carbonhub.ecoruta.models.enums.TipoViaje;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
@@ -71,6 +72,21 @@ public class Itinerario {
 
     @Column(name = "puntuacion_ambiental_preliminar", precision = 5, scale = 2)
     private BigDecimal puntuacionAmbientalPreliminar;
+
+    /** EcoScore del itinerario (PP-91): promedio ponderado IMA/indicadores/factor_actividad. */
+    @Column(name = "eco_score", precision = 5, scale = 1)
+    private BigDecimal ecoScore;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "clasificacion_ambiental", length = 20)
+    private ClasificacionAmbiental clasificacionAmbiental;
+
+    @Column(name = "eco_score_parcial", nullable = false)
+    @Builder.Default
+    private boolean ecoScoreParcial = false;
+
+    @Column(name = "eco_score_calculado_en")
+    private Instant ecoScoreCalculadoEn;
 
     @Column(name = "generado_parcial", nullable = false)
     private boolean generadoParcial;

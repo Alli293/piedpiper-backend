@@ -15,6 +15,10 @@ public interface ItinerarioMapper {
 
     @Mapping(target = "tipoViaje", expression = "java(entidad.getTipoViaje().name())")
     @Mapping(target = "estado", expression = "java(entidad.getEstado().name())")
+    @Mapping(target = "clasificacionAmbiental",
+            expression = "java(entidad.getClasificacionAmbiental() != null "
+                    + "? entidad.getClasificacionAmbiental().name() : null)")
+    @Mapping(target = "establecimientosEvaluados", ignore = true)
     ItinerarioResponseDTO toDto(Itinerario entidad);
 
     ItinerarioDiaResponseDTO toDto(ItinerarioDia entidad);
