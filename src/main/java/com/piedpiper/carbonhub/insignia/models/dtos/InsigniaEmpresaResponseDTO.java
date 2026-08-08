@@ -24,6 +24,7 @@ public class InsigniaEmpresaResponseDTO {
     private String urlVerificacionPublica;
     private String urlVerificacionJwt;
     private String urlLinkedIn;
+    private String codigoVerificacion;
 
     public InsigniaEmpresaResponseDTO(Long idInsignia,
                                       String nivelInsignia,

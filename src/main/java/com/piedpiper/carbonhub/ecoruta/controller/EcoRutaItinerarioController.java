@@ -54,6 +54,7 @@ public class EcoRutaItinerarioController {
      */
     private void verificarPropiedadItinerario(UUID itinerarioId, UUID usuarioId) {
         if (!service.perteneceAlUsuario(itinerarioId, usuarioId)) {
+            log.warn("Acceso denegado a itinerario {} por usuario {}: no es el propietario", itinerarioId, usuarioId);
             throw ApiException.accesoDenegado("No tienes permiso para acceder a este itinerario.");
         }
     }

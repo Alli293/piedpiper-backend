@@ -47,6 +47,9 @@ public class SolicitudAuditoriaDetalleResponseDTO {
     private String motivoRechazo;
 
     private Instant fechaRechazo;
+    private ReporteAuditoriaResponseDTO reporteAuditoria;
+    private LocalDate fechaAuditoriaRealizada;
+    private Instant fechaCargaReporte;
     private String nombreEmpresa;
     private List<TransicionEstadoAuditoriaResponseDTO> historial;
 }

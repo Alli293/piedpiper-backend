@@ -324,6 +324,36 @@ public class ApiException extends RuntimeException {
                 "Solo se aceptan archivos en formato PDF.");
     }
 
+    public static ApiException reporteAuditoriaNoEsPdf() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "Solo se aceptan archivos en formato PDF.");
+    }
+
+    public static ApiException reporteAuditoriaExcedeTamanio() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "El archivo no puede superar 25 MB.");
+    }
+
+    public static ApiException reporteAuditoriaNoProcesable() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "El archivo no pudo ser procesado. Verifica que no esté dañado y vuelve a intentarlo.");
+    }
+
+    public static ApiException fechaAuditoriaRealizadaInvalida() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "La fecha de la auditoría debe estar entre la fecha de aceptación y la fecha actual.");
+    }
+
+    public static ApiException cargaReporteAuditoriaNoDisponible() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "No es posible cargar el reporte en el estado actual de la solicitud.");
+    }
+
+    public static ApiException cargaReporteAuditoriaAjena() {
+        return new ApiException(HttpStatus.FORBIDDEN,
+                "No tienes permiso para cargar el reporte de esta solicitud de auditoría.");
+    }
+
     public static ApiException solicitudAuditoriaTraslapada() {
         return new ApiException(HttpStatus.CONFLICT,
                 "Ya existe una solicitud de auditoría en curso para un período que se traslapa "
@@ -363,6 +393,21 @@ public class ApiException extends RuntimeException {
     public static ApiException transicionAuditoriaInvalida() {
         return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
                 "Esta acción no es válida para el estado actual de la solicitud de auditoría.");
+    }
+
+    public static ApiException resultadoAuditoriaInvalido() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "El resultado debe ser 'aprobada' u 'observaciones'.");
+    }
+
+    public static ApiException resultadoAuditoriaNoDisponible() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "No es posible emitir el resultado en el estado actual de la solicitud.");
+    }
+
+    public static ApiException resultadoAuditoriaAjena() {
+        return new ApiException(HttpStatus.FORBIDDEN,
+                "No tienes permiso para emitir el resultado de esta solicitud de auditor\u00eda.");
     }
 
     public static ApiException decisionAuditorInvalida() {

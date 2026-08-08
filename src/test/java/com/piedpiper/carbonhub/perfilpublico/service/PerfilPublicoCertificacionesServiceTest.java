@@ -57,14 +57,14 @@ class PerfilPublicoCertificacionesServiceTest {
         Empresa empresa = Empresa.builder().id(ID_EMPRESA).build();
         when(slugResolver.resolver(SLUG)).thenReturn(empresa);
         CertificacionPublicaResponseDTO dto = certificacionPublica();
-        when(consultaCertificacionService.listarActivasPublicasPorEmpresa(ID_EMPRESA))
+        when(consultaCertificacionService.listarPublicasPorEmpresa(ID_EMPRESA))
                 .thenReturn(List.of(dto));
 
         List<CertificacionPublicaResponseDTO> resultado = service.listarPorSlug(SLUG);
 
         assertThat(resultado).containsExactly(dto);
         verify(slugResolver).resolver(SLUG);
-        verify(consultaCertificacionService).listarActivasPublicasPorEmpresa(ID_EMPRESA);
+        verify(consultaCertificacionService).listarPublicasPorEmpresa(ID_EMPRESA);
     }
 
     @Test
@@ -97,7 +97,7 @@ class PerfilPublicoCertificacionesServiceTest {
     void listarPorSlugRetornaListaVaciaCuandoLaEmpresaNoTieneCertificacionesActivas() {
         Empresa empresa = Empresa.builder().id(ID_EMPRESA).build();
         when(slugResolver.resolver(SLUG)).thenReturn(empresa);
-        when(consultaCertificacionService.listarActivasPublicasPorEmpresa(ID_EMPRESA))
+        when(consultaCertificacionService.listarPublicasPorEmpresa(ID_EMPRESA))
                 .thenReturn(List.of());
 
         List<CertificacionPublicaResponseDTO> resultado = service.listarPorSlug(SLUG);

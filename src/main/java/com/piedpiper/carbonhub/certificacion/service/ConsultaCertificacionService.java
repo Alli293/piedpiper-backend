@@ -132,6 +132,7 @@ public class ConsultaCertificacionService {
 
         VerificacionCredencialDTO dto = new VerificacionCredencialDTO();
         dto.setEstado(resolverEstadoVerificacion(certificacion).getCodigo());
+        dto.setCategoria("CERTIFICACION");
         dto.setTipo(certificacion.getTipo().name());
         catalogoTiposCertificacion.buscar(certificacion.getTipo())
                 .ifPresent(definicion -> dto.setNombreCertificacion(definicion.nombre()));
@@ -157,22 +158,18 @@ public class ConsultaCertificacionService {
     }
 
     /**
-     * Certificaciones activas y vigentes (no vencidas) de una empresa, para el
-     * perfil publico. Sin resolucion de usuario ni auth a proposito: lo llama
-     * {@code perfilpublico}, que ya resolvio el {@code empresaId} a partir de
-     * un slug sin sesion. Vive aqui y no en {@code perfilpublico} para que ese
+     * Historial completo de certificaciones de una empresa para el perfil
+     * publico, con su estado real (ver {@link #estadoPublico}). Sin
+     * resolucion de usuario ni auth a proposito: lo llama {@code
+     * perfilpublico}, que ya resolvio el {@code empresaId} a partir de un
+     * slug sin sesion. Vive aqui y no en {@code perfilpublico} para que ese
      * dominio no dependa directamente de {@link CertificacionRepository} ni
      * de {@link CertificacionMapper}.
-     *
-     * <p>No hay un {@code estado} de "vencida": vencer no se persiste, se
-     * calcula comparando {@code fechaVencimiento} contra hoy en cada consulta,
-     * asi que no hace falta un job que mantenga ese estado sincronizado.
      */
     @Transactional(readOnly = true)
-    public List<CertificacionPublicaResponseDTO> listarActivasPublicasPorEmpresa(UUID empresaId) {
+    public List<CertificacionPublicaResponseDTO> listarPublicasPorEmpresa(UUID empresaId) {
         return certificacionRepository
-                .findByEmpresaIdAndEstadoAndFechaVencimientoGreaterThanOrderByFechaEmisionDesc(
-                        empresaId, EstadoCertificacion.ACTIVA, LocalDate.now())
+                .findByEmpresaIdOrderByFechaEmisionDesc(empresaId)
                 .stream()
                 .map(this::aPublicaDto)
                 .toList();
@@ -217,9 +214,23 @@ public class ConsultaCertificacionService {
 
     private CertificacionPublicaResponseDTO aPublicaDto(Certificacion certificacion) {
         CertificacionPublicaResponseDTO dto = certificacionMapper.toPublicaDto(certificacion);
+        dto.setEstado(estadoPublico(certificacion));
         catalogoTiposCertificacion.buscar(certificacion.getTipo())
                 .ifPresent(definicion -> dto.setNombreCertificacion(definicion.nombre()));
         dto.setNombreAuditor(certificacion.getAuditor().nombreCompleto());
         return dto;
+    }
+
+    /**
+     * Estado que se muestra en el perfil publico: REVOCADA si fue revocada;
+     * si no, ACTIVA o VENCIDA segun {@link #esVigente}. "Vencida" no se
+     * persiste (ver esVigente), asi que se deriva aqui en cada consulta en
+     * vez de venir directo del campo {@code estado} de la entidad.
+     */
+    private static String estadoPublico(Certificacion certificacion) {
+        if (certificacion.getEstado() == EstadoCertificacion.REVOCADA) {
+            return EstadoCertificacion.REVOCADA.name();
+        }
+        return esVigente(certificacion) ? EstadoCertificacion.ACTIVA.name() : "VENCIDA";
     }
 }

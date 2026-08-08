@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
 import java.time.Year;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
 /**
@@ -40,15 +41,26 @@ public class GeneradorCodigoVerificacionService {
     }
 
     public String generar() {
+        return generar(certificacionRepository::existsByCodigoVerificacion);
+    }
+
+    /**
+     * Igual que {@link #generar()} pero contra la unicidad de otro tipo de
+     * credencial (p. ej. insignias, ver {@code InsigniaEmpresaConsultaService}):
+     * el formato y el algoritmo de generacion son el mismo para toda
+     * credencial verificable por codigo corto, solo cambia contra que
+     * repositorio se comprueba la colision.
+     */
+    public String generar(Predicate<String> existeCodigo) {
         for (int intento = 0; intento < INTENTOS_MAXIMOS; intento++) {
             String candidato = "CH-" + Year.now() + "-" + sufijoAleatorio();
-            if (!certificacionRepository.existsByCodigoVerificacion(candidato)) {
+            if (!existeCodigo.test(candidato)) {
                 return candidato;
             }
         }
         log.error("No fue posible generar un codigo de verificacion unico tras {} intentos.",
                 INTENTOS_MAXIMOS);
-        throw ApiException.errorInterno("No se pudo emitir la certificacion. Intenta nuevamente.");
+        throw ApiException.errorInterno("No se pudo generar el codigo de verificacion. Intenta nuevamente.");
     }
 
     public static boolean formatoValido(String codigo) {

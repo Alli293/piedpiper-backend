@@ -2,6 +2,7 @@ package com.piedpiper.carbonhub.insignia.service;
 
 import com.piedpiper.carbonhub.certificacion.models.enums.EstadoCertificacion;
 import com.piedpiper.carbonhub.certificacion.repository.CertificacionRepository;
+import com.piedpiper.carbonhub.certificacion.service.GeneradorCodigoVerificacionService;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 import com.piedpiper.carbonhub.insignia.models.entities.CatalogoInsignia;
@@ -29,18 +30,22 @@ public class InsigniaEmpresaEvaluacionService {
     private final CertificacionRepository certificacionRepository;
     private final EmpresaRepository empresaRepository;
     private final InsigniaEmpresaRegistroService insigniaEmpresaRegistroService;
+    private final GeneradorCodigoVerificacionService generadorCodigoVerificacionService;
 
     public InsigniaEmpresaEvaluacionService(CatalogoInsigniaRepository catalogoInsigniaRepository,
                                             InsigniaEmpresaRepository insigniaEmpresaRepository,
                                             CertificacionRepository certificacionRepository,
                                             EmpresaRepository empresaRepository,
                                             InsigniaEmpresaRegistroService
-                                                    insigniaEmpresaRegistroService) {
+                                                    insigniaEmpresaRegistroService,
+                                            GeneradorCodigoVerificacionService
+                                                    generadorCodigoVerificacionService) {
         this.catalogoInsigniaRepository = catalogoInsigniaRepository;
         this.insigniaEmpresaRepository = insigniaEmpresaRepository;
         this.certificacionRepository = certificacionRepository;
         this.empresaRepository = empresaRepository;
         this.insigniaEmpresaRegistroService = insigniaEmpresaRegistroService;
+        this.generadorCodigoVerificacionService = generadorCodigoVerificacionService;
     }
 
     public void evaluarPorNuevaCertificacion(UUID empresaId) {
@@ -125,6 +130,8 @@ public class InsigniaEmpresaEvaluacionService {
                 .idInsignia(insignia.getIdInsignia())
                 .nivelInsignia(nivel.getCodigo())
                 .fechaObtencion(Instant.now())
+                .codigoVerificacion(generadorCodigoVerificacionService.generar(
+                        insigniaEmpresaRepository::existsByCodigoVerificacion))
                 .build());
         log.info("Insignia empresarial {} nivel {} otorgada a la empresa {}.",
                 insignia.getIdInsignia(), nivel.getCodigo(), empresaId);

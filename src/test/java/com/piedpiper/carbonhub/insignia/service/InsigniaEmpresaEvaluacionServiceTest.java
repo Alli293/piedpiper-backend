@@ -3,6 +3,7 @@ package com.piedpiper.carbonhub.insignia.service;
 import com.piedpiper.carbonhub.certificacion.models.enums.EstadoCertificacion;
 import com.piedpiper.carbonhub.certificacion.models.enums.TipoCertificacion;
 import com.piedpiper.carbonhub.certificacion.repository.CertificacionRepository;
+import com.piedpiper.carbonhub.certificacion.service.GeneradorCodigoVerificacionService;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 import com.piedpiper.carbonhub.insignia.models.entities.CatalogoInsignia;
@@ -46,6 +47,8 @@ class InsigniaEmpresaEvaluacionServiceTest {
     private EmpresaRepository empresaRepository;
     @Mock
     private InsigniaEmpresaRegistroService insigniaEmpresaRegistroService;
+    @Mock
+    private GeneradorCodigoVerificacionService generadorCodigoVerificacionService;
 
     private InsigniaEmpresaEvaluacionService service;
 
@@ -56,7 +59,8 @@ class InsigniaEmpresaEvaluacionServiceTest {
                 insigniaEmpresaRepository,
                 certificacionRepository,
                 empresaRepository,
-                insigniaEmpresaRegistroService);
+                insigniaEmpresaRegistroService,
+                generadorCodigoVerificacionService);
     }
 
     @Test
@@ -76,6 +80,7 @@ class InsigniaEmpresaEvaluacionServiceTest {
                 .thenReturn(1L);
         when(empresaRepository.findById(ID_EMPRESA))
                 .thenReturn(Optional.of(Empresa.builder().id(ID_EMPRESA).build()));
+        when(generadorCodigoVerificacionService.generar(any())).thenReturn("CH-2026-TESTCODE1");
 
         service.evaluarPorNuevaCertificacion(ID_EMPRESA);
 
@@ -85,6 +90,7 @@ class InsigniaEmpresaEvaluacionServiceTest {
         assertThat(captor.getValue().getIdInsignia()).isEqualTo(1L);
         assertThat(captor.getValue().getNivelInsignia()).isEqualTo("bronce");
         assertThat(captor.getValue().getFechaObtencion()).isNotNull();
+        assertThat(captor.getValue().getCodigoVerificacion()).isEqualTo("CH-2026-TESTCODE1");
     }
 
     @Test

@@ -2,10 +2,12 @@ package com.piedpiper.carbonhub.auditoria.mappers;
 
 import com.piedpiper.carbonhub.auditoria.models.dtos.AuditorAsignadoResponseDTO;
 import com.piedpiper.carbonhub.auditoria.models.dtos.DocumentoRespaldoResponseDTO;
+import com.piedpiper.carbonhub.auditoria.models.dtos.ReporteAuditoriaResponseDTO;
 import com.piedpiper.carbonhub.auditoria.models.dtos.SolicitudAuditoriaDetalleResponseDTO;
 import com.piedpiper.carbonhub.auditoria.models.dtos.SolicitudAuditoriaResponseDTO;
 import com.piedpiper.carbonhub.auditoria.models.dtos.SolicitudAuditoriaResumenResponseDTO;
 import com.piedpiper.carbonhub.auditoria.models.entities.DocumentoRespaldo;
+import com.piedpiper.carbonhub.auditoria.models.entities.ReporteAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.entities.SolicitudAuditoria;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 
@@ -38,6 +40,8 @@ public interface SolicitudAuditoriaMapper {
     List<SolicitudAuditoriaResumenResponseDTO> toResumenDtos(List<SolicitudAuditoria> solicitudes);
 
     DocumentoRespaldoResponseDTO toDto(DocumentoRespaldo documento);
+
+    ReporteAuditoriaResponseDTO toDto(ReporteAuditoria reporte);
 
     @Mapping(target = "nombre", source = "auditor", qualifiedByName = "nombreCompleto")
     AuditorAsignadoResponseDTO toDto(Usuario auditor);

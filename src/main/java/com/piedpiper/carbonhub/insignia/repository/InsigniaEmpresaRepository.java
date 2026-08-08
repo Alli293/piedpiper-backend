@@ -5,6 +5,7 @@ import com.piedpiper.carbonhub.insignia.models.entities.InsigniaEmpresa;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface InsigniaEmpresaRepository extends JpaRepository<InsigniaEmpresa, UUID> {
@@ -13,4 +14,8 @@ public interface InsigniaEmpresaRepository extends JpaRepository<InsigniaEmpresa
             UUID empresaId, Long idInsignia, String nivelInsignia);
 
     List<InsigniaEmpresa> findByEmpresaIdOrderByFechaObtencionDesc(UUID empresaId);
+
+    Optional<InsigniaEmpresa> findByCodigoVerificacion(String codigoVerificacion);
+
+    boolean existsByCodigoVerificacion(String codigoVerificacion);
 }
