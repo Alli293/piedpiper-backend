@@ -1,11 +1,8 @@
 package com.piedpiper.carbonhub.auditoria.service;
 
-import com.piedpiper.carbonhub.auditoria.mappers.SolicitudAuditoriaMapper;
-import com.piedpiper.carbonhub.auditoria.mappers.TransicionEstadoAuditoriaMapper;
-import com.piedpiper.carbonhub.auditoria.models.dtos.SolicitudAuditoriaDetalleResponseDTO;
+import com.piedpiper.carbonhub.auditoria.models.entities.DocumentoRespaldo;
 import com.piedpiper.carbonhub.auditoria.models.entities.SolicitudAuditoria;
 import com.piedpiper.carbonhub.auditoria.repository.SolicitudAuditoriaRepository;
-import com.piedpiper.carbonhub.auditoria.repository.TransicionEstadoAuditoriaRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
@@ -15,33 +12,31 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
+/**
+ * Entrega el contenido de un documento de respaldo para previsualizarlo.
+ *
+ * <p>Reusa exactamente la misma regla de acceso que el detalle: los documentos son parte de la
+ * solicitud, asi que quien puede ver el detalle puede abrirlos, y nadie mas. Tener dos reglas
+ * distintas para el mismo recurso es como se filtra un documento sin que nadie lo note.</p>
+ */
 @Service
-public class SolicitudAuditoriaDetalleService {
+public class DocumentoRespaldoDescargaService {
 
     private final SolicitudAuditoriaRepository solicitudAuditoriaRepository;
-    private final TransicionEstadoAuditoriaRepository transicionEstadoAuditoriaRepository;
     private final UsuarioRepository usuarioRepository;
-    private final SolicitudAuditoriaMapper solicitudAuditoriaMapper;
-    private final TransicionEstadoAuditoriaMapper transicionEstadoAuditoriaMapper;
     private final AccesoSolicitudAuditoria accesoSolicitudAuditoria;
 
-    public SolicitudAuditoriaDetalleService(
+    public DocumentoRespaldoDescargaService(
             SolicitudAuditoriaRepository solicitudAuditoriaRepository,
-            TransicionEstadoAuditoriaRepository transicionEstadoAuditoriaRepository,
             UsuarioRepository usuarioRepository,
-            SolicitudAuditoriaMapper solicitudAuditoriaMapper,
-            TransicionEstadoAuditoriaMapper transicionEstadoAuditoriaMapper,
             AccesoSolicitudAuditoria accesoSolicitudAuditoria) {
         this.solicitudAuditoriaRepository = solicitudAuditoriaRepository;
-        this.transicionEstadoAuditoriaRepository = transicionEstadoAuditoriaRepository;
         this.usuarioRepository = usuarioRepository;
-        this.solicitudAuditoriaMapper = solicitudAuditoriaMapper;
-        this.transicionEstadoAuditoriaMapper = transicionEstadoAuditoriaMapper;
         this.accesoSolicitudAuditoria = accesoSolicitudAuditoria;
     }
 
     @Transactional(readOnly = true)
-    public SolicitudAuditoriaDetalleResponseDTO obtenerDetalle(UUID solicitudId, UUID usuarioId) {
+    public DocumentoRespaldo obtener(UUID solicitudId, UUID documentoId, UUID usuarioId) {
         SolicitudAuditoria solicitud = solicitudAuditoriaRepository.findById(solicitudId)
                 .orElseThrow(ApiException::solicitudAuditoriaNoEncontrada);
 
@@ -52,9 +47,9 @@ public class SolicitudAuditoriaDetalleService {
             throw ApiException.solicitudAuditoriaAjena();
         }
 
-        SolicitudAuditoriaDetalleResponseDTO detalle = solicitudAuditoriaMapper.toDetalleDto(solicitud);
-        detalle.setHistorial(transicionEstadoAuditoriaMapper.toDtos(
-                transicionEstadoAuditoriaRepository.findBySolicitudIdOrderByFechaAsc(solicitudId)));
-        return detalle;
+        return solicitud.getDocumentos().stream()
+                .filter(documento -> documento.getId().equals(documentoId))
+                .findFirst()
+                .orElseThrow(ApiException::documentoRespaldoNoEncontrado);
     }
 }

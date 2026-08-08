@@ -66,7 +66,8 @@ class SolicitudAuditoriaDetalleServiceTest {
                 transicionEstadoAuditoriaRepository,
                 usuarioRepository,
                 new SolicitudAuditoriaMapperImpl(),
-                new TransicionEstadoAuditoriaMapperImpl());
+                new TransicionEstadoAuditoriaMapperImpl(),
+                new AccesoSolicitudAuditoria(transicionEstadoAuditoriaRepository));
 
         when(solicitudAuditoriaRepository.findById(SOLICITUD_ID))
                 .thenReturn(Optional.of(solicitud(EMPRESA_ID, auditorActual())));
