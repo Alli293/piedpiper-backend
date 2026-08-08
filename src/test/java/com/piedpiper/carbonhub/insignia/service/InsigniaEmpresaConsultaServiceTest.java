@@ -12,6 +12,8 @@ import com.piedpiper.carbonhub.insignia.models.entities.CatalogoInsignia;
 import com.piedpiper.carbonhub.insignia.models.entities.InsigniaEmpresa;
 import com.piedpiper.carbonhub.insignia.repository.CatalogoInsigniaRepository;
 import com.piedpiper.carbonhub.insignia.repository.InsigniaEmpresaRepository;
+import com.piedpiper.carbonhub.perfilpublico.exceptions.PerfilNoEncontradoException;
+import com.piedpiper.carbonhub.perfilpublico.service.SlugResolverService;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -52,6 +54,8 @@ class InsigniaEmpresaConsultaServiceTest {
     private InsigniaEmpresaMapper insigniaEmpresaMapper;
     @Mock
     private InsigniaEmpresaOpenBadgesService insigniaEmpresaOpenBadgesService;
+    @Mock
+    private SlugResolverService slugResolver;
 
     private InsigniaEmpresaConsultaService service;
 
@@ -63,7 +67,8 @@ class InsigniaEmpresaConsultaServiceTest {
                 empresaRepository,
                 emisionEmpresaService,
                 insigniaEmpresaMapper,
-                insigniaEmpresaOpenBadgesService);
+                insigniaEmpresaOpenBadgesService,
+                slugResolver);
     }
 
     private Empresa empresa(UUID id, String nombreEmpresa) {
@@ -99,8 +104,8 @@ class InsigniaEmpresaConsultaServiceTest {
 
     @Test
     void listarPorSlug_resuelveLaEmpresaPorSlugYConsultaSoloSusInsignias() {
-        when(empresaRepository.findBySlugAndEstado(SLUG, EstadoEmpresa.ACTIVO))
-                .thenReturn(Optional.of(empresa(EMPRESA_ID, "Café del Valle S.A.")));
+        when(slugResolver.resolver(SLUG))
+                .thenReturn(empresa(EMPRESA_ID, "Café del Valle S.A."));
         when(insigniaEmpresaRepository.findByEmpresaIdOrderByFechaObtencionDesc(EMPRESA_ID))
                 .thenReturn(List.of());
         when(catalogoInsigniaRepository.findByActivaTrue()).thenReturn(List.of());
@@ -117,8 +122,8 @@ class InsigniaEmpresaConsultaServiceTest {
         InsigniaEmpresa otorgada = insigniaEmpresa(EMPRESA_ID, 1L, "bronce");
         CatalogoInsignia catalogo = catalogo(1L, "bronce");
 
-        when(empresaRepository.findBySlugAndEstado(SLUG, EstadoEmpresa.ACTIVO))
-                .thenReturn(Optional.of(empresa(EMPRESA_ID, "Café del Valle S.A.")));
+        when(slugResolver.resolver(SLUG))
+                .thenReturn(empresa(EMPRESA_ID, "Café del Valle S.A."));
         when(insigniaEmpresaRepository.findByEmpresaIdOrderByFechaObtencionDesc(EMPRESA_ID))
                 .thenReturn(List.of(otorgada));
         when(catalogoInsigniaRepository.findByActivaTrue()).thenReturn(List.of(catalogo));
@@ -145,13 +150,12 @@ class InsigniaEmpresaConsultaServiceTest {
 
     @Test
     void listarPorSlug_lanza404CuandoLaEmpresaNoExisteOEstaInactiva() {
-        when(empresaRepository.findBySlugAndEstado(SLUG, EstadoEmpresa.ACTIVO))
-                .thenReturn(Optional.empty());
+        when(slugResolver.resolver(SLUG))
+                .thenThrow(new PerfilNoEncontradoException(
+                        "El perfil que buscas no existe o ya no está disponible."));
 
         assertThatThrownBy(() -> service.listarPorSlug(SLUG))
-                .isInstanceOf(ApiException.class)
-                .satisfies(ex -> assertThat(((ApiException) ex).getStatus())
-                        .isEqualTo(HttpStatus.NOT_FOUND));
+                .isInstanceOf(PerfilNoEncontradoException.class);
 
         verify(insigniaEmpresaRepository, never())
                 .findByEmpresaIdOrderByFechaObtencionDesc(any());

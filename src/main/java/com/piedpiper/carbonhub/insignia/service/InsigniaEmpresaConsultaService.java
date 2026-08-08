@@ -4,7 +4,9 @@ import com.piedpiper.carbonhub.certificacion.models.dtos.VerificacionCredencialD
 import com.piedpiper.carbonhub.certificacion.models.enums.EstadoVerificacion;
 import com.piedpiper.carbonhub.certificacion.service.GeneradorCodigoVerificacionService;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
+import com.piedpiper.carbonhub.empresa.models.enums.EstadoEmpresa;
 import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
+import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.insignia.mappers.InsigniaEmpresaMapper;
 import com.piedpiper.carbonhub.insignia.models.dtos.InsigniaEmpresaResponseDTO;
 import com.piedpiper.carbonhub.insignia.models.entities.CatalogoInsignia;
