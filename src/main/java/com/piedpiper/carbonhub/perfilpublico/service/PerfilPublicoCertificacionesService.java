@@ -3,15 +3,11 @@ package com.piedpiper.carbonhub.perfilpublico.service;
 import com.piedpiper.carbonhub.certificacion.models.dtos.CertificacionPublicaResponseDTO;
 import com.piedpiper.carbonhub.certificacion.service.ConsultaCertificacionService;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
-import com.piedpiper.carbonhub.empresa.models.enums.EstadoEmpresa;
-import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
-import com.piedpiper.carbonhub.exceptions.ApiException;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.UUID;
 
 /**
  * Perfil publico de una empresa: expone solo lo que un visitante sin sesion
@@ -27,20 +23,18 @@ import java.util.UUID;
 @Service
 public class PerfilPublicoCertificacionesService {
 
-    private final EmpresaRepository empresaRepository;
+    private final SlugResolverService slugResolver;
     private final ConsultaCertificacionService consultaCertificacionService;
 
-    public PerfilPublicoCertificacionesService(EmpresaRepository empresaRepository,
+    public PerfilPublicoCertificacionesService(SlugResolverService slugResolver,
                                                ConsultaCertificacionService consultaCertificacionService) {
-        this.empresaRepository = empresaRepository;
+        this.slugResolver = slugResolver;
         this.consultaCertificacionService = consultaCertificacionService;
     }
 
     @Transactional(readOnly = true)
     public List<CertificacionPublicaResponseDTO> listarPorSlug(String slug) {
-        UUID empresaId = empresaRepository.findBySlugAndEstado(slug, EstadoEmpresa.ACTIVO)
-                .map(Empresa::getId)
-                .orElseThrow(() -> ApiException.recursoNoEncontrado("La empresa no existe."));
-        return consultaCertificacionService.listarActivasPublicasPorEmpresa(empresaId);
+        Empresa empresa = slugResolver.resolver(slug);
+        return consultaCertificacionService.listarActivasPublicasPorEmpresa(empresa.getId());
     }
 }

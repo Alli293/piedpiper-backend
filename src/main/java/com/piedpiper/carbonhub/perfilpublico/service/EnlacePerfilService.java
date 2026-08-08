@@ -1,40 +1,26 @@
 package com.piedpiper.carbonhub.perfilpublico.service;
 
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
-import com.piedpiper.carbonhub.empresa.models.enums.EstadoEmpresa;
-import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
-import com.piedpiper.carbonhub.perfilpublico.exceptions.PerfilNoEncontradoException;
-import com.piedpiper.carbonhub.perfilpublico.exceptions.SlugCambiadoException;
 import com.piedpiper.carbonhub.perfilpublico.models.dtos.EnlacePerfilDTO;
-import com.piedpiper.carbonhub.perfilpublico.models.entities.SlugHistorico;
-import com.piedpiper.carbonhub.perfilpublico.repository.SlugHistoricoRepository;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.util.HtmlUtils;
 
-import java.util.Optional;
-import java.util.regex.Pattern;
-
 @Service
 public class EnlacePerfilService {
 
-    private static final Pattern SLUG_VALIDO = Pattern.compile("^[a-z0-9-]{1,120}$");
-
-    private final EmpresaRepository empresaRepository;
-    private final SlugHistoricoRepository slugHistoricoRepository;
+    private final SlugResolverService slugResolver;
     private final QrGeneradorService qrGeneradorService;
     private final String baseUrl;
     private final String ogImagenFallback;
 
-    public EnlacePerfilService(EmpresaRepository empresaRepository,
-                               SlugHistoricoRepository slugHistoricoRepository,
+    public EnlacePerfilService(SlugResolverService slugResolver,
                                QrGeneradorService qrGeneradorService,
                                @Value("${app.perfil-publico.base-url}") String baseUrl,
                                @Value("${app.perfil-publico.og-imagen-fallback}") String ogImagenFallback) {
-        this.empresaRepository = empresaRepository;
-        this.slugHistoricoRepository = slugHistoricoRepository;
+        this.slugResolver = slugResolver;
         this.qrGeneradorService = qrGeneradorService;
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
         this.ogImagenFallback = ogImagenFallback;
@@ -42,39 +28,7 @@ public class EnlacePerfilService {
 
     @Transactional(readOnly = true)
     public EnlacePerfilDTO obtenerEnlacePerfil(String slugOriginal) {
-        // 1. Normalizar slug a minúsculas
-        String slug = slugOriginal == null ? "" : slugOriginal.toLowerCase();
-
-        // 2. Validar formato con regex
-        if (!SLUG_VALIDO.matcher(slug).matches()) {
-            throw new PerfilNoEncontradoException(
-                    "El perfil que buscas no existe o ya no está disponible.");
-        }
-
-        // 3. Buscar empresa activa por slug
-        Optional<Empresa> empresaOpt = empresaRepository.findBySlugAndEstado(slug, EstadoEmpresa.ACTIVO);
-
-        if (empresaOpt.isEmpty()) {
-            // 4. Buscar en historial de slugs
-            Optional<SlugHistorico> historicoOpt = slugHistoricoRepository.findBySlugAnterior(slug);
-
-            if (historicoOpt.isPresent()) {
-                SlugHistorico historico = historicoOpt.get();
-                Optional<Empresa> empresaPorId = empresaRepository.findById(historico.getEmpresaId());
-
-                if (empresaPorId.isPresent()
-                        && empresaPorId.get().getEstado() == EstadoEmpresa.ACTIVO
-                        && !empresaPorId.get().getSlug().equals(slug)) {
-                    throw new SlugCambiadoException(empresaPorId.get().getSlug());
-                }
-            }
-
-            throw new PerfilNoEncontradoException(
-                    "El perfil que buscas no existe o ya no está disponible.");
-        }
-
-        // 5. Construir respuesta
-        Empresa empresa = empresaOpt.get();
+        Empresa empresa = slugResolver.resolver(slugOriginal);
 
         String urlCanonica = baseUrl + "/empresa/" + empresa.getSlug() + "/reputacion";
         String qrBase64 = qrGeneradorService.generarQrBase64(urlCanonica);
