@@ -33,7 +33,8 @@ import static org.mockito.Mockito.when;
 
 /**
  * Tests unitarios de EcoScoreService: cálculo del EcoScore de un itinerario (PP-91),
- * redistribución de pesos ante componentes ausentes y clasificación ambiental.
+ * redistribución de pesos ante componentes ausentes, descuento de peso por cobertura parcial
+ * dentro de un componente y clasificación ambiental.
  */
 @ExtendWith(MockitoExtension.class)
 class EcoScoreServiceTest {
@@ -157,6 +158,31 @@ class EcoScoreServiceTest {
             // IMA_prom = (10+20+20)/3 = 16.6666... → único componente disponible → EcoScore = 16.7
             assertThat(resultado.getEcoScore()).isEqualByComparingTo(new BigDecimal("16.7"));
             assertThat(resultado.getClasificacion()).isEqualTo(ClasificacionAmbiental.MEJORABLE);
+            assertThat(resultado.isParcial()).isTrue();
+        }
+
+        @Test
+        @DisplayName("IMA con dato de solo 1 de 2 establecimientos: su peso se descuenta por cobertura, no se aplica completo")
+        void componenteConCoberturaParcialDeEstablecimientos() {
+            UUID e1 = UUID.randomUUID();
+            UUID e2 = UUID.randomUUID();
+            List<EstablecimientoRankeado> establecimientos = List.of(rankeado(e1), rankeado(e2));
+
+            // Solo e1 tiene IMA (cobertura 1/2 = 0.5); ambos tienen indicadores (cobertura 2/2 = 1).
+            when(imaClient.consultarIma(anyList())).thenReturn(Map.of(e1, ima(e1, 80)));
+            when(indicadorClient.consultarIndicadores(anyList())).thenReturn(Map.of(
+                    e1, indicadorConCerts(e1, 3), e2, indicadorConCerts(e2, 3)));
+
+            Itinerario itinerario = itinerarioConActividades(50);
+
+            EcoScoreResultado resultado = ecoScoreService.calcular(establecimientos, itinerario);
+
+            // peso_ima = 0.50*0.5 = 0.25, peso_indicadores = 0.30*1 = 0.30, peso_actividad = 0.20*1 = 0.20
+            // EcoScore = (80*0.25 + 60*0.30 + 50*0.20) / 0.75 = (20 + 18 + 10) / 0.75 = 48 / 0.75 = 64.0
+            // (Sin el descuento por cobertura el resultado sería 68.0 y parcial=false: el dato de un
+            // solo establecimiento se habría tratado como representativo de los dos.)
+            assertThat(resultado.getEcoScore()).isEqualByComparingTo(new BigDecimal("64.0"));
+            assertThat(resultado.getClasificacion()).isEqualTo(ClasificacionAmbiental.BUENA);
             assertThat(resultado.isParcial()).isTrue();
         }
     }

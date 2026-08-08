@@ -5,6 +5,7 @@ import com.piedpiper.carbonhub.ecoruta.models.dtos.EstablecimientoRankeado;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.IMADTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.IndicadorAmbientalDTO;
 import com.piedpiper.carbonhub.ecoruta.models.entities.Itinerario;
+import com.piedpiper.carbonhub.ecoruta.models.entities.ItinerarioActividad;
 import com.piedpiper.carbonhub.ecoruta.models.enums.ClasificacionAmbiental;
 
 import org.slf4j.Logger;
@@ -23,8 +24,12 @@ import java.util.UUID;
  *
  * Fórmula: EcoScore = round(IMA_prom * 0.50 + indicadores_prom * 0.30 + factor_actividad * 0.20, 1)
  *
- * Si algún componente no está disponible, su peso se redistribuye proporcionalmente entre los
- * componentes restantes (equivalente a un promedio ponderado sobre los componentes disponibles).
+ * Cada componente se promedia solo sobre los elementos (establecimientos o actividades) que
+ * tienen dato, y ese promedio no representa por sí solo a los elementos sin dato. Por eso el
+ * peso del componente se descuenta por su cobertura (elementos con dato / elementos totales)
+ * antes de combinarlo con los demás: un componente disponible para 1 de 4 establecimientos pesa
+ * un cuarto de lo que pesaría si los 4 tuvieran dato. Un componente sin cobertura (0 elementos
+ * con dato) queda fuera y su peso se redistribuye entre los componentes restantes.
  * Si ningún componente está disponible, no es posible calcular el EcoScore.
  */
 @Service
@@ -49,6 +54,13 @@ public class EcoScoreService {
     }
 
     /**
+     * Promedio de un componente junto con su cobertura: la proporción de elementos
+     * (establecimientos o actividades) que efectivamente tenían dato disponible para calcularlo.
+     */
+    private record ComponenteDisponible(BigDecimal promedio, BigDecimal cobertura) {
+    }
+
+    /**
      * Calcula el EcoScore del itinerario a partir de los establecimientos ya vinculados a empresas
      * registradas y de las actividades del itinerario. Retorna {@code null} si no hay ningún
      * componente disponible (ni IMA, ni indicadores, ni estimación por actividad).
@@ -63,28 +75,35 @@ public class EcoScoreService {
         Map<UUID, IMADTO> imaMap = consultarImaSafe(empresaIds);
         Map<UUID, IndicadorAmbientalDTO> indicadorMap = consultarIndicadoresSafe(empresaIds);
 
-        BigDecimal imaProm = promedioIma(empresaIds, imaMap);
-        BigDecimal indicadoresProm = promedioIndicadores(empresaIds, indicadorMap);
-        BigDecimal factorActividad = promedioFactorActividad(itinerario);
+        ComponenteDisponible ima = promedioIma(empresaIds, imaMap);
+        ComponenteDisponible indicadores = promedioIndicadores(empresaIds, indicadorMap);
+        ComponenteDisponible actividad = promedioFactorActividad(itinerario);
 
         BigDecimal sumaPonderada = BigDecimal.ZERO;
         BigDecimal sumaPesos = BigDecimal.ZERO;
         int componentesDisponibles = 0;
+        boolean coberturaCompleta = true;
 
-        if (imaProm != null) {
-            sumaPonderada = sumaPonderada.add(imaProm.multiply(W_IMA));
-            sumaPesos = sumaPesos.add(W_IMA);
+        if (ima != null) {
+            BigDecimal peso = W_IMA.multiply(ima.cobertura());
+            sumaPonderada = sumaPonderada.add(ima.promedio().multiply(peso));
+            sumaPesos = sumaPesos.add(peso);
             componentesDisponibles++;
+            coberturaCompleta &= ima.cobertura().compareTo(BigDecimal.ONE) == 0;
         }
-        if (indicadoresProm != null) {
-            sumaPonderada = sumaPonderada.add(indicadoresProm.multiply(W_INDICADORES));
-            sumaPesos = sumaPesos.add(W_INDICADORES);
+        if (indicadores != null) {
+            BigDecimal peso = W_INDICADORES.multiply(indicadores.cobertura());
+            sumaPonderada = sumaPonderada.add(indicadores.promedio().multiply(peso));
+            sumaPesos = sumaPesos.add(peso);
             componentesDisponibles++;
+            coberturaCompleta &= indicadores.cobertura().compareTo(BigDecimal.ONE) == 0;
         }
-        if (factorActividad != null) {
-            sumaPonderada = sumaPonderada.add(factorActividad.multiply(W_ACTIVIDAD));
-            sumaPesos = sumaPesos.add(W_ACTIVIDAD);
+        if (actividad != null) {
+            BigDecimal peso = W_ACTIVIDAD.multiply(actividad.cobertura());
+            sumaPonderada = sumaPonderada.add(actividad.promedio().multiply(peso));
+            sumaPesos = sumaPesos.add(peso);
             componentesDisponibles++;
+            coberturaCompleta &= actividad.cobertura().compareTo(BigDecimal.ONE) == 0;
         }
 
         if (componentesDisponibles == 0) {
@@ -93,45 +112,55 @@ public class EcoScoreService {
 
         BigDecimal ecoScore = sumaPonderada.divide(sumaPesos, 1, RoundingMode.HALF_UP);
         ClasificacionAmbiental clasificacion = ClasificacionAmbiental.porPuntaje(ecoScore);
-        boolean parcial = componentesDisponibles < 3;
+        boolean parcial = componentesDisponibles < 3 || !coberturaCompleta;
 
         return new EcoScoreResultado(ecoScore, clasificacion, parcial);
     }
 
-    private BigDecimal promedioIma(List<UUID> empresaIds, Map<UUID, IMADTO> imaMap) {
+    private ComponenteDisponible promedioIma(List<UUID> empresaIds, Map<UUID, IMADTO> imaMap) {
         List<BigDecimal> scores = empresaIds.stream()
                 .map(imaMap::get)
                 .filter(java.util.Objects::nonNull)
                 .map(calculator::calcularScoreIma)
                 .toList();
-        return promedio(scores);
+        return componenteDisponible(scores, empresaIds.size());
     }
 
-    private BigDecimal promedioIndicadores(List<UUID> empresaIds, Map<UUID, IndicadorAmbientalDTO> indicadorMap) {
+    private ComponenteDisponible promedioIndicadores(List<UUID> empresaIds, Map<UUID, IndicadorAmbientalDTO> indicadorMap) {
         List<BigDecimal> scores = empresaIds.stream()
                 .map(indicadorMap::get)
                 .filter(java.util.Objects::nonNull)
                 .map(calculator::calcularScoreCertificaciones)
                 .toList();
-        return promedio(scores);
+        return componenteDisponible(scores, empresaIds.size());
     }
 
-    private BigDecimal promedioFactorActividad(Itinerario itinerario) {
-        List<BigDecimal> puntuaciones = itinerario.getDias().stream()
+    private ComponenteDisponible promedioFactorActividad(Itinerario itinerario) {
+        List<ItinerarioActividad> actividades = itinerario.getDias().stream()
                 .flatMap(dia -> dia.getActividades().stream())
-                .map(actividad -> actividad.getPuntuacionAmbientalEstimada())
+                .toList();
+        List<BigDecimal> puntuaciones = actividades.stream()
+                .map(ItinerarioActividad::getPuntuacionAmbientalEstimada)
                 .filter(java.util.Objects::nonNull)
                 .map(BigDecimal::valueOf)
                 .toList();
-        return promedio(puntuaciones);
+        return componenteDisponible(puntuaciones, actividades.size());
     }
 
-    private BigDecimal promedio(List<BigDecimal> valores) {
-        if (valores.isEmpty()) {
+    /**
+     * Empaqueta el promedio de {@code valores} junto con su cobertura sobre {@code total}
+     * elementos. Retorna {@code null} si no hay ningún valor disponible (cobertura 0 equivale a
+     * componente ausente).
+     */
+    private ComponenteDisponible componenteDisponible(List<BigDecimal> valores, int total) {
+        if (valores.isEmpty() || total == 0) {
             return null;
         }
         BigDecimal suma = valores.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
-        return suma.divide(BigDecimal.valueOf(valores.size()), 10, RoundingMode.HALF_UP);
+        BigDecimal promedio = suma.divide(BigDecimal.valueOf(valores.size()), 10, RoundingMode.HALF_UP);
+        BigDecimal cobertura = BigDecimal.valueOf(valores.size())
+                .divide(BigDecimal.valueOf(total), 10, RoundingMode.HALF_UP);
+        return new ComponenteDisponible(promedio, cobertura);
     }
 
     private Map<UUID, IMADTO> consultarImaSafe(List<UUID> empresaIds) {
