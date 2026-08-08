@@ -74,4 +74,14 @@ class GeneradorCodigoVerificacionServiceTest {
     void formatoValidoAceptaUnCodigoBienFormado() {
         assertThat(GeneradorCodigoVerificacionService.formatoValido("CH-2026-8F4A19KD")).isTrue();
     }
+
+    @Test
+    void generarConPredicadoPropioValidaLaColisionContraEsePredicadoYNoContraCertificaciones() {
+        prepararServicio();
+
+        String codigo = service.generar(candidato -> false);
+
+        assertThat(GeneradorCodigoVerificacionService.formatoValido(codigo)).isTrue();
+        org.mockito.Mockito.verifyNoInteractions(certificacionRepository);
+    }
 }

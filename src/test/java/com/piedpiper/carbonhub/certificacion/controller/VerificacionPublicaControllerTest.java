@@ -3,7 +3,7 @@ package com.piedpiper.carbonhub.certificacion.controller;
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
 import com.piedpiper.carbonhub.auth.service.JwtService;
 import com.piedpiper.carbonhub.certificacion.models.dtos.VerificacionCredencialDTO;
-import com.piedpiper.carbonhub.certificacion.service.ConsultaCertificacionService;
+import com.piedpiper.carbonhub.certificacion.service.VerificacionCredencialService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
@@ -42,7 +42,7 @@ class VerificacionPublicaControllerTest {
     private MockMvc mockMvc;
 
     @MockitoBean
-    private ConsultaCertificacionService consultaCertificacionService;
+    private VerificacionCredencialService verificacionCredencialService;
     @MockitoBean
     private JwtService jwtService;
     @MockitoBean
@@ -52,6 +52,7 @@ class VerificacionPublicaControllerTest {
     void unCodigoValidoEsAccesibleSinAutenticacionYDevuelveElResultado() throws Exception {
         VerificacionCredencialDTO dto = new VerificacionCredencialDTO();
         dto.setEstado("valida_vigente");
+        dto.setCategoria("CERTIFICACION");
         dto.setTipo("CARBONO_NEUTRAL");
         dto.setNombreCertificacion("Carbono Neutral");
         dto.setEmpresa("EcoCorp");
@@ -60,7 +61,7 @@ class VerificacionPublicaControllerTest {
         dto.setFechaEmision(Instant.parse("2026-01-15T00:00:00Z"));
         dto.setFechaVencimiento(LocalDate.of(2027, 1, 15));
         dto.setFechaConsulta(Instant.now());
-        when(consultaCertificacionService.verificarPorCodigo("CH-2026-8F4A19KD")).thenReturn(dto);
+        when(verificacionCredencialService.verificar("CH-2026-8F4A19KD")).thenReturn(dto);
 
         mockMvc.perform(get("/api/verificar/CH-2026-8F4A19KD"))
                 .andExpect(status().isOk())
@@ -71,7 +72,7 @@ class VerificacionPublicaControllerTest {
 
     @Test
     void unCodigoInexistenteOMalFormadoDevuelve404() throws Exception {
-        when(consultaCertificacionService.verificarPorCodigo("CH-2026-NOEXISTE"))
+        when(verificacionCredencialService.verificar("CH-2026-NOEXISTE"))
                 .thenThrow(ApiException.recursoNoEncontrado("Credencial no encontrada."));
 
         mockMvc.perform(get("/api/verificar/CH-2026-NOEXISTE"))
