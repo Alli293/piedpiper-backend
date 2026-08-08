@@ -44,10 +44,10 @@ ON CONFLICT ON CONSTRAINT uk_insignias_empresa_empresa_insignia_nivel DO NOTHING
 -- Simula que Cahuita antes se llamaba "parque-cahuita" y cambió su slug a "cahuita"
 -- Esto permite probar el redirect 301 al visitar /empresa/parque-cahuita/reputacion
 
-INSERT INTO slug_historico (id, empresa_id, slug_anterior, fecha_cambio)
+INSERT INTO slugs_historicos (id, empresa_id, slug_anterior, fecha_cambio)
 VALUES
 ('e7000001-0000-0000-0000-000000000001', 'a1000001-0000-0000-0000-000000000008', 'parque-cahuita', '2025-06-01 00:00:00+00')
-ON CONFLICT ON CONSTRAINT ukqhwipcawig3b0utt677j4hxdk DO NOTHING;
+ON CONFLICT ON CONSTRAINT slugs_historicos_slug_anterior_key DO NOTHING;
 
 -- ============ EMISIONES PARA CAHUITA ============
 -- Registros de electricidad para los últimos 3 años (evolución de huella)

@@ -36,7 +36,7 @@ public class EnlacePerfilService {
         this.empresaRepository = empresaRepository;
         this.slugHistoricoRepository = slugHistoricoRepository;
         this.qrGeneradorService = qrGeneradorService;
-        this.baseUrl = baseUrl;
+        this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
         this.ogImagenFallback = ogImagenFallback;
     }
 
