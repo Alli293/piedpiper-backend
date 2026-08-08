@@ -20,6 +20,8 @@ import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.UUID;
 
@@ -63,7 +65,7 @@ public class ResultadoAuditoriaService {
         if (resultado == ResultadoAuditoria.APROBADA) {
             aplicar(solicitud, EventoTransicionAuditoria.RESULTADO_APROBADA, auditor);
             SolicitudAuditoria guardada = guardar(solicitud);
-            emisionCertificacionPort.emitirPorAuditoriaAprobada(comandoEmision(guardada, auditor));
+            emitirCertificacionTrasCommit(comandoEmision(guardada, auditor));
             return detalleDe(guardada);
         }
 
@@ -103,6 +105,19 @@ public class ResultadoAuditoriaService {
                 solicitud.getFechaAuditoriaRealizada(),
                 TipoCertificacion.INVENTARIO_GEI,
                 null);
+    }
+
+    private void emitirCertificacionTrasCommit(EmitirCertificacionRequestDTO comando) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    emisionCertificacionPort.emitirPorAuditoriaAprobada(comando);
+                }
+            });
+        } else {
+            emisionCertificacionPort.emitirPorAuditoriaAprobada(comando);
+        }
     }
 
     private SolicitudAuditoria guardar(SolicitudAuditoria solicitud) {

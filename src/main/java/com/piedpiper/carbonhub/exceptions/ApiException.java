@@ -407,7 +407,7 @@ public class ApiException extends RuntimeException {
 
     public static ApiException resultadoAuditoriaAjena() {
         return new ApiException(HttpStatus.FORBIDDEN,
-                "No tienes permiso para emitir el resultado de esta solicitud de auditorÃ­a.");
+                "No tienes permiso para emitir el resultado de esta solicitud de auditor\u00eda.");
     }
 
     public static ApiException decisionAuditorInvalida() {

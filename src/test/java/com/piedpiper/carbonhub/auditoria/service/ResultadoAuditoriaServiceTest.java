@@ -18,6 +18,7 @@ import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,10 +29,13 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -65,6 +69,8 @@ class ResultadoAuditoriaServiceTest {
 
     @BeforeEach
     void configurar() {
+        limpiarSincronizacion();
+
         TransicionEstadoAuditoriaService transiciones = new TransicionEstadoAuditoriaService(
                 transicionEstadoAuditoriaRepository,
                 new ValidadorTransicionAuditoria(),
@@ -85,8 +91,15 @@ class ResultadoAuditoriaServiceTest {
                 .thenReturn(List.of());
     }
 
+    @AfterEach
+    void limpiar() {
+        limpiarSincronizacion();
+    }
+
     @Test
-    void aprobarTransicionaYEmiteCertificacion() {
+    void aprobarTransicionaYProgramaEmisionDespuesDelCommit() {
+        TransactionSynchronizationManager.initSynchronization();
+
         service.emitir(SOLICITUD_ID, datos("aprobada"), AUDITOR_ID);
 
         SolicitudAuditoria guardada = capturarGuardada();
@@ -94,6 +107,12 @@ class ResultadoAuditoriaServiceTest {
         assertThat(capturarTransiciones()).singleElement()
                 .satisfies(transicion -> assertThat(transicion.getEvento())
                         .isEqualTo(EventoTransicionAuditoria.RESULTADO_APROBADA));
+        verify(emisionCertificacionPort, never()).emitirPorAuditoriaAprobada(any());
+
+        List<TransactionSynchronization> sincronizaciones =
+                new ArrayList<>(TransactionSynchronizationManager.getSynchronizations());
+        assertThat(sincronizaciones).hasSize(1);
+        sincronizaciones.getFirst().afterCommit();
 
         ArgumentCaptor<EmitirCertificacionRequestDTO> captor =
                 ArgumentCaptor.forClass(EmitirCertificacionRequestDTO.class);
@@ -102,6 +121,13 @@ class ResultadoAuditoriaServiceTest {
         assertThat(captor.getValue().getIdEmpresa()).isEqualTo(EMPRESA_ID);
         assertThat(captor.getValue().getIdAuditor()).isEqualTo(AUDITOR_ID);
         assertThat(captor.getValue().getFechaAuditoria()).isEqualTo(LocalDate.of(2026, 8, 5));
+    }
+
+    @Test
+    void aprobarSinSincronizacionActivaEmiteInmediatamente() {
+        service.emitir(SOLICITUD_ID, datos("aprobada"), AUDITOR_ID);
+
+        verify(emisionCertificacionPort).emitirPorAuditoriaAprobada(any());
     }
 
     @Test
@@ -161,6 +187,12 @@ class ResultadoAuditoriaServiceTest {
 
     private static ResultadoAuditoriaRequestDTO datos(String resultado) {
         return new ResultadoAuditoriaRequestDTO(resultado);
+    }
+
+    private static void limpiarSincronizacion() {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 
     private static SolicitudAuditoria solicitud() {
