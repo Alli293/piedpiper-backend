@@ -35,6 +35,6 @@ public class CrearMetaRequestDTO {
     @DecimalMin(value = "0.0", inclusive = false, message = "Ingresa un valor numérico positivo.")
     private BigDecimal valorObjetivoHuellaT;
 
-    @NotNull(message = "La fecha límite debe ser una fecha futura.")
+    @NotNull(message = "La fecha límite es obligatoria.")
     private LocalDate fechaLimite;
 }

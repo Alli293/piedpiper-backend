@@ -4,7 +4,7 @@ import com.piedpiper.carbonhub.certificacion.models.entities.Certificacion;
 import com.piedpiper.carbonhub.certificacion.models.enums.EstadoCertificacion;
 import com.piedpiper.carbonhub.certificacion.repository.CertificacionRepository;
 import com.piedpiper.carbonhub.common.ZonasHorarias;
-import com.piedpiper.carbonhub.dashboard.models.dtos.AlertaVencimientoDTO;
+import com.piedpiper.carbonhub.dashboard.models.dtos.AlertaVencimientoResponseDTO;
 import com.piedpiper.carbonhub.emision.service.EmisionEmpresaService;
 
 import org.springframework.stereotype.Service;
@@ -45,8 +45,6 @@ import java.util.stream.Collectors;
 @Service
 public class DashboardAlertasService {
 
-    private static final int UMBRAL_MAXIMO_DIAS = 90;
-
     private final EmisionEmpresaService emisionEmpresaService;
     private final CertificacionRepository certificacionRepository;
     private final VencimientoPresentacionService vencimientoPresentacionService;
@@ -61,7 +59,7 @@ public class DashboardAlertasService {
     }
 
     @Transactional(readOnly = true)
-    public List<AlertaVencimientoDTO> obtenerAlertas(UUID usuarioId) {
+    public List<AlertaVencimientoResponseDTO> obtenerAlertas(UUID usuarioId) {
         UUID empresaId = emisionEmpresaService.empresaId(usuarioId);
         LocalDate hoy = LocalDate.now(ZonasHorarias.COSTA_RICA);
 
@@ -75,14 +73,14 @@ public class DashboardAlertasService {
         // hay que volver a ordenar explicitamente aca.
         return certificaciones.stream()
                 .map(certificacion -> aDto(certificacion, hoy))
-                .filter(alerta -> alerta.getDiasRestantes() <= UMBRAL_MAXIMO_DIAS)
+                .filter(alerta -> vencimientoPresentacionService.dentroDelUmbralMaximo(alerta.getDiasRestantes()))
                 .collect(Collectors.toList());
     }
 
-    private AlertaVencimientoDTO aDto(Certificacion certificacion, LocalDate hoy) {
+    private AlertaVencimientoResponseDTO aDto(Certificacion certificacion, LocalDate hoy) {
         long diasRestantes = ChronoUnit.DAYS.between(hoy, certificacion.getFechaVencimiento());
 
-        return new AlertaVencimientoDTO(
+        return new AlertaVencimientoResponseDTO(
                 certificacion.getId(),
                 vencimientoPresentacionService.nombreLegible(certificacion),
                 certificacion.getFechaVencimiento(),

@@ -1,14 +1,16 @@
 package com.piedpiper.carbonhub.dashboard.controller;
 
 import com.piedpiper.carbonhub.common.Autenticaciones;
-import com.piedpiper.carbonhub.dashboard.models.dtos.AlertaVencimientoDTO;
+import com.piedpiper.carbonhub.dashboard.models.dtos.AlertaVencimientoResponseDTO;
 import com.piedpiper.carbonhub.dashboard.models.dtos.CalendarioVencimientosResponseDTO;
+import com.piedpiper.carbonhub.dashboard.models.dtos.RecomendacionRenovacionResponseDTO;
 import com.piedpiper.carbonhub.dashboard.models.dtos.ResumenCertificacionesDashboardResponseDTO;
 import com.piedpiper.carbonhub.dashboard.models.dtos.ResumenHuellaDashboardResponseDTO;
 import com.piedpiper.carbonhub.dashboard.service.CalendarioVencimientosService;
 import com.piedpiper.carbonhub.dashboard.service.DashboardAlertasService;
 import com.piedpiper.carbonhub.dashboard.service.DashboardCertificacionesService;
 import com.piedpiper.carbonhub.dashboard.service.DashboardHuellaService;
+import com.piedpiper.carbonhub.dashboard.service.DashboardRecomendacionService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -28,16 +30,19 @@ public class DashboardController {
     private final DashboardCertificacionesService dashboardCertificacionesService;
     private final CalendarioVencimientosService calendarioVencimientosService;
     private final DashboardAlertasService dashboardAlertasService;
+    private final DashboardRecomendacionService dashboardRecomendacionService;
 
     public DashboardController(
             DashboardHuellaService dashboardHuellaService,
             DashboardCertificacionesService dashboardCertificacionesService,
             CalendarioVencimientosService calendarioVencimientosService,
-            DashboardAlertasService dashboardAlertasService) {
+            DashboardAlertasService dashboardAlertasService,
+            DashboardRecomendacionService dashboardRecomendacionService) {
         this.dashboardHuellaService = dashboardHuellaService;
         this.dashboardCertificacionesService = dashboardCertificacionesService;
         this.calendarioVencimientosService = calendarioVencimientosService;
         this.dashboardAlertasService = dashboardAlertasService;
+        this.dashboardRecomendacionService = dashboardRecomendacionService;
     }
 
     @GetMapping("/huella")
@@ -67,8 +72,17 @@ public class DashboardController {
     }
 
     @GetMapping("/alertas")
-    public ResponseEntity<List<AlertaVencimientoDTO>> obtenerAlertas(Authentication authentication) {
+    public ResponseEntity<List<AlertaVencimientoResponseDTO>> obtenerAlertas(Authentication authentication) {
         return ResponseEntity.ok(dashboardAlertasService.obtenerAlertas(
                 Autenticaciones.usuarioId(authentication)));
+    }
+
+    @GetMapping("/recomendacion")
+    public ResponseEntity<RecomendacionRenovacionResponseDTO> obtenerRecomendacion(
+            Authentication authentication) {
+        return dashboardRecomendacionService
+                .obtenerRecomendacion(Autenticaciones.usuarioId(authentication))
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
     }
 }

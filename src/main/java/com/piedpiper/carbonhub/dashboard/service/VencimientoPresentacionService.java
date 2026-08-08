@@ -13,14 +13,25 @@ import java.util.Comparator;
 /**
  * Nombre legible y urgencia de una certificacion respecto a su vencimiento.
  * Compartido entre los bloques del dashboard que necesitan presentar este
- * dato — el calendario de vencimientos (PP-77) y el panel de alertas
- * activas (PP-76) — para que las dos copias no diverjan (ya paso una vez
- * en PP-77, ver el historial de {@code CalendarioVencimientosService}).
+ * dato — el calendario de vencimientos (PP-77), el panel de alertas
+ * activas (PP-76) y la recomendacion de renovacion (PP-72) — para que las
+ * copias no diverjan (ya paso una vez en PP-77, ver el historial de
+ * {@code CalendarioVencimientosService}).
  */
 @Service
 public class VencimientoPresentacionService {
 
     private static final String URGENCIA_VENCIDA = "vencida";
+
+    /**
+     * Ventana de dias hacia adelante que cuenta como "alerta activa":
+     * compartida entre {@code DashboardAlertasService} (que lista todas
+     * las alertas) y {@code RecomendacionRenovacionConsultaService} (que
+     * elige la prioritaria de entre esas mismas alertas) — ambas necesitan
+     * exactamente el mismo umbral para que una certificacion no aparezca
+     * como prioritaria en una pantalla y no en la otra.
+     */
+    private static final int UMBRAL_MAXIMO_DIAS = 90;
 
     private final CatalogoTiposCertificacion catalogoTiposCertificacion;
 
@@ -55,5 +66,10 @@ public class VencimientoPresentacionService {
                 .min(Comparator.comparingInt(TipoAlerta::getDias))
                 .map(TipoAlerta::getCodigo)
                 .orElse(TipoAlerta.DIAS_90.getCodigo());
+    }
+
+    /** {@code true} si una certificacion con estos dias restantes cuenta como "alerta activa". */
+    public boolean dentroDelUmbralMaximo(long diasRestantes) {
+        return diasRestantes <= UMBRAL_MAXIMO_DIAS;
     }
 }
