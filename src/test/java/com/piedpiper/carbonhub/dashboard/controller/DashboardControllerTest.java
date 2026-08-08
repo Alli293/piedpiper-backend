@@ -5,13 +5,12 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.piedpiper.carbonhub.auth.config.JwtAuthenticationFilter;
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
-import com.piedpiper.carbonhub.dashboard.models.dtos.AlertaVencimientoDTO;
+import com.piedpiper.carbonhub.dashboard.models.dtos.AlertaVencimientoResponseDTO;
 import com.piedpiper.carbonhub.dashboard.models.dtos.CalendarioVencimientosResponseDTO;
 import com.piedpiper.carbonhub.dashboard.models.dtos.CertificacionVencimientoDTO;
 import com.piedpiper.carbonhub.dashboard.models.dtos.RecomendacionRenovacionResponseDTO;
@@ -222,10 +221,10 @@ class DashboardControllerTest {
     @Test
     @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
     void obtenerAlertasDevuelve200ConLaListaOrdenada() throws Exception {
-        AlertaVencimientoDTO vencida = new AlertaVencimientoDTO(
+        AlertaVencimientoResponseDTO vencida = new AlertaVencimientoResponseDTO(
                 UUID.fromString("11111111-1111-1111-1111-111111111111"), "Bandera Azul Ecológica 2025",
                 LocalDate.of(2026, 6, 4), -24, "vencida");
-        AlertaVencimientoDTO urgente = new AlertaVencimientoDTO(
+        AlertaVencimientoResponseDTO urgente = new AlertaVencimientoResponseDTO(
                 UUID.fromString("22222222-2222-2222-2222-222222222222"), "GHG Protocol — Corporate Standard",
                 LocalDate.of(2026, 7, 3), 5, "7_dias");
         when(dashboardAlertasService.obtenerAlertas(UUID.fromString(USUARIO_ID)))
@@ -271,14 +270,13 @@ class DashboardControllerTest {
 
     @Test
     @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
-    void obtenerRecomendacionDevuelve200ConCuerpoVacioSiNoHayAlertas() throws Exception {
+    void obtenerRecomendacionDevuelve204SiNoHayAlertas() throws Exception {
         when(dashboardRecomendacionService.obtenerRecomendacion(UUID.fromString(USUARIO_ID)))
                 .thenReturn(Optional.empty());
 
         mockMvc.perform(get("/api/dashboard/recomendacion")
                         .principal(principal("ROLE_ADMINISTRADOR_EMPRESA")))
-                .andExpect(status().isOk())
-                .andExpect(content().string(""));
+                .andExpect(status().isNoContent());
     }
 
     @Test

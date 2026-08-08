@@ -1,7 +1,7 @@
 package com.piedpiper.carbonhub.dashboard.controller;
 
 import com.piedpiper.carbonhub.common.Autenticaciones;
-import com.piedpiper.carbonhub.dashboard.models.dtos.AlertaVencimientoDTO;
+import com.piedpiper.carbonhub.dashboard.models.dtos.AlertaVencimientoResponseDTO;
 import com.piedpiper.carbonhub.dashboard.models.dtos.CalendarioVencimientosResponseDTO;
 import com.piedpiper.carbonhub.dashboard.models.dtos.RecomendacionRenovacionResponseDTO;
 import com.piedpiper.carbonhub.dashboard.models.dtos.ResumenCertificacionesDashboardResponseDTO;
@@ -72,7 +72,7 @@ public class DashboardController {
     }
 
     @GetMapping("/alertas")
-    public ResponseEntity<List<AlertaVencimientoDTO>> obtenerAlertas(Authentication authentication) {
+    public ResponseEntity<List<AlertaVencimientoResponseDTO>> obtenerAlertas(Authentication authentication) {
         return ResponseEntity.ok(dashboardAlertasService.obtenerAlertas(
                 Autenticaciones.usuarioId(authentication)));
     }
@@ -83,6 +83,6 @@ public class DashboardController {
         return dashboardRecomendacionService
                 .obtenerRecomendacion(Autenticaciones.usuarioId(authentication))
                 .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.ok(null));
+                .orElseGet(() -> ResponseEntity.noContent().build());
     }
 }

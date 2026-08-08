@@ -127,6 +127,19 @@ class MetaControllerTest {
     }
 
     @Test
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
+    void postConFechaLimiteAusenteDevuelve400ConMensajeDistintoAlDeFechaPasada() throws Exception {
+        String cuerpoSinFechaLimite = "{\"nombreMeta\":\"Reducir huella total\",\"valorObjetivoHuellaT\":50.0000}";
+
+        mockMvc.perform(post("/api/metas")
+                        .principal(principal("ROLE_ADMINISTRADOR_EMPRESA"))
+                        .contentType("application/json")
+                        .content(cuerpoSinFechaLimite))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("fechaLimite: La fecha límite es obligatoria."));
+    }
+
+    @Test
     @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
     void postRolNoAutorizadoDevuelve403() throws Exception {
         CrearMetaRequestDTO request = new CrearMetaRequestDTO(

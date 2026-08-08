@@ -8,7 +8,7 @@ import com.piedpiper.carbonhub.certificacion.models.enums.TipoCertificacion;
 import com.piedpiper.carbonhub.certificacion.models.enums.TipoLogroOpenBadges;
 import com.piedpiper.carbonhub.certificacion.repository.CertificacionRepository;
 import com.piedpiper.carbonhub.common.ZonasHorarias;
-import com.piedpiper.carbonhub.dashboard.models.dtos.AlertaVencimientoDTO;
+import com.piedpiper.carbonhub.dashboard.models.dtos.AlertaVencimientoResponseDTO;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.emision.service.EmisionEmpresaService;
 
@@ -64,9 +64,9 @@ class DashboardAlertasServiceTest {
                 EMPRESA_ID, EstadoCertificacion.ACTIVA))
                 .thenReturn(List.of(vencida, a7, a30, a90));
 
-        List<AlertaVencimientoDTO> resultado = service.obtenerAlertas(USUARIO_ID);
+        List<AlertaVencimientoResponseDTO> resultado = service.obtenerAlertas(USUARIO_ID);
 
-        assertThat(resultado).extracting(AlertaVencimientoDTO::getDiasRestantes)
+        assertThat(resultado).extracting(AlertaVencimientoResponseDTO::getDiasRestantes)
                 .containsExactly(-5L, 7L, 30L, 90L);
         assertThat(resultado.get(0).getUrgencia()).isEqualTo("vencida");
     }
@@ -77,7 +77,7 @@ class DashboardAlertasServiceTest {
                 EMPRESA_ID, EstadoCertificacion.ACTIVA))
                 .thenReturn(List.of());
 
-        List<AlertaVencimientoDTO> resultado = service.obtenerAlertas(USUARIO_ID);
+        List<AlertaVencimientoResponseDTO> resultado = service.obtenerAlertas(USUARIO_ID);
 
         assertThat(resultado).isEmpty();
     }
@@ -89,7 +89,31 @@ class DashboardAlertasServiceTest {
                 EMPRESA_ID, EstadoCertificacion.ACTIVA))
                 .thenReturn(List.of(lejana));
 
-        List<AlertaVencimientoDTO> resultado = service.obtenerAlertas(USUARIO_ID);
+        List<AlertaVencimientoResponseDTO> resultado = service.obtenerAlertas(USUARIO_ID);
+
+        assertThat(resultado).isEmpty();
+    }
+
+    @Test
+    void unaCertificacionAExactamente90DiasSeIncluye() {
+        Certificacion a90 = certificacion(HOY.plusDays(90), TipoCertificacion.CARBONO_NEUTRAL);
+        when(certificacionRepository.findByEmpresaIdAndEstadoOrderByFechaVencimientoAsc(
+                EMPRESA_ID, EstadoCertificacion.ACTIVA))
+                .thenReturn(List.of(a90));
+
+        List<AlertaVencimientoResponseDTO> resultado = service.obtenerAlertas(USUARIO_ID);
+
+        assertThat(resultado).hasSize(1);
+    }
+
+    @Test
+    void unaCertificacionA91DiasSeExcluye() {
+        Certificacion a91 = certificacion(HOY.plusDays(91), TipoCertificacion.CARBONO_NEUTRAL);
+        when(certificacionRepository.findByEmpresaIdAndEstadoOrderByFechaVencimientoAsc(
+                EMPRESA_ID, EstadoCertificacion.ACTIVA))
+                .thenReturn(List.of(a91));
+
+        List<AlertaVencimientoResponseDTO> resultado = service.obtenerAlertas(USUARIO_ID);
 
         assertThat(resultado).isEmpty();
     }
@@ -105,7 +129,7 @@ class DashboardAlertasServiceTest {
                 EMPRESA_ID, EstadoCertificacion.ACTIVA))
                 .thenReturn(List.of(renovada));
 
-        List<AlertaVencimientoDTO> resultado = service.obtenerAlertas(USUARIO_ID);
+        List<AlertaVencimientoResponseDTO> resultado = service.obtenerAlertas(USUARIO_ID);
 
         assertThat(resultado).isEmpty();
     }
@@ -129,7 +153,7 @@ class DashboardAlertasServiceTest {
                 EMPRESA_ID, EstadoCertificacion.ACTIVA))
                 .thenReturn(List.of(cert));
 
-        AlertaVencimientoDTO dto = service.obtenerAlertas(USUARIO_ID).get(0);
+        AlertaVencimientoResponseDTO dto = service.obtenerAlertas(USUARIO_ID).get(0);
 
         assertThat(dto.getIdCertificacion()).isEqualTo(cert.getId());
         assertThat(dto.getNombre()).isEqualTo("Carbono Neutral");

@@ -75,6 +75,21 @@ class VencimientoPresentacionServiceTest {
         assertThat(service.urgenciaPara(400)).isEqualTo("90_dias");
     }
 
+    @Test
+    void dentroDelUmbralMaximoIncluyeExactamente90Dias() {
+        assertThat(service.dentroDelUmbralMaximo(90)).isTrue();
+    }
+
+    @Test
+    void dentroDelUmbralMaximoExcluye91Dias() {
+        assertThat(service.dentroDelUmbralMaximo(91)).isFalse();
+    }
+
+    @Test
+    void dentroDelUmbralMaximoIncluyeVencidas() {
+        assertThat(service.dentroDelUmbralMaximo(-24)).isTrue();
+    }
+
     private static Certificacion certificacion(TipoCertificacion tipo) {
         Empresa empresa = Empresa.builder().id(UUID.randomUUID()).build();
         return Certificacion.builder()
