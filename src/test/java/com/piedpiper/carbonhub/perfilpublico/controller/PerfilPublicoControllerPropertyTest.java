@@ -85,7 +85,7 @@ class PerfilPublicoControllerPropertyTest {
         when(mockService.obtenerPorSlug(slug)).thenReturn(dto);
 
         MockMvc mockMvc = MockMvcBuilders
-                .standaloneSetup(new PerfilPublicoController(mockService, mockCertService, mockInsigniaService, mockEnlaceService))
+                .standaloneSetup(new PerfilPublicoController(mockService, mockCertService, mockInsigniaService, mockEnlaceService, null))
                 .setControllerAdvice(new PerfilPublicoExceptionHandler())
                 .build();
 
@@ -143,7 +143,7 @@ class PerfilPublicoControllerPropertyTest {
         }
 
         MockMvc mockMvc = MockMvcBuilders
-                .standaloneSetup(new PerfilPublicoController(mockService, mockCertService, mockInsigniaService, mockEnlaceService))
+                .standaloneSetup(new PerfilPublicoController(mockService, mockCertService, mockInsigniaService, mockEnlaceService, null))
                 .setControllerAdvice(new PerfilPublicoExceptionHandler())
                 .build();
 

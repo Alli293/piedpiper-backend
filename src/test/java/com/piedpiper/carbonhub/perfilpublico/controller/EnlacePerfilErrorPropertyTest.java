@@ -105,7 +105,7 @@ class EnlacePerfilErrorPropertyTest {
         MockMvc mockMvc = MockMvcBuilders
                 .standaloneSetup(new PerfilPublicoController(
                         mockConsultaService, mockCertService,
-                        mockInsigniaService, mockEnlaceService))
+                        mockInsigniaService, mockEnlaceService, null))
                 .setControllerAdvice(new PerfilPublicoExceptionHandler())
                 .build();
 
