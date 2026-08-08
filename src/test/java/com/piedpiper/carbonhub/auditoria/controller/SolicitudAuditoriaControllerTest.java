@@ -2,8 +2,13 @@ package com.piedpiper.carbonhub.auditoria.controller;
 
 import com.piedpiper.carbonhub.auditoria.models.dtos.AuditorAsignadoResponseDTO;
 import com.piedpiper.carbonhub.auditoria.models.dtos.DocumentoRespaldoResponseDTO;
+import com.piedpiper.carbonhub.auditoria.models.dtos.SolicitudAuditoriaDetalleResponseDTO;
 import com.piedpiper.carbonhub.auditoria.models.dtos.SolicitudAuditoriaResponseDTO;
+import com.piedpiper.carbonhub.auditoria.models.dtos.TransicionEstadoAuditoriaResponseDTO;
+import com.piedpiper.carbonhub.auditoria.models.enums.ActorTransicionAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.EstadoSolicitudAuditoria;
+import com.piedpiper.carbonhub.auditoria.models.enums.EventoTransicionAuditoria;
+import com.piedpiper.carbonhub.auditoria.service.SolicitudAuditoriaDetalleService;
 import com.piedpiper.carbonhub.auditoria.models.enums.OrigenAsignacion;
 import com.piedpiper.carbonhub.auditoria.models.enums.TipoCertificacionSolicitud;
 import com.piedpiper.carbonhub.auditoria.service.SolicitudAuditoriaService;
@@ -71,6 +76,8 @@ class SolicitudAuditoriaControllerTest {
 
     @MockitoBean
     private SolicitudAuditoriaService solicitudAuditoriaService;
+    @MockitoBean
+    private SolicitudAuditoriaDetalleService solicitudAuditoriaDetalleService;
     @MockitoBean
     private JwtService jwtService;
     @MockitoBean
@@ -234,32 +241,84 @@ class SolicitudAuditoriaControllerTest {
 
     @Test
     @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
-    void getDevuelve200ConLaSolicitudYSuAsignacion() throws Exception {
-        when(solicitudAuditoriaService.obtener(any(), any())).thenReturn(respuestaAsignada());
+    void getDevuelve200ConLaSolicitudSuAsignacionYElHistorial() throws Exception {
+        when(solicitudAuditoriaDetalleService.obtenerDetalle(any(), any())).thenReturn(detalleAsignado());
 
         mockMvc.perform(get("/api/auditorias/{idSolicitud}", SOLICITUD_ID)
                         .principal(principal()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.idAuditor").value(AUDITOR_ID))
-                .andExpect(jsonPath("$.origenAsignacion").value("MANUAL"));
+                .andExpect(jsonPath("$.origenAsignacion").value("MANUAL"))
+                .andExpect(jsonPath("$.historial[0].estadoNuevo").value("SOLICITUD_ENVIADA"))
+                .andExpect(jsonPath("$.historial[0].responsable").value("Marta Gerente"));
 
-        verify(solicitudAuditoriaService).obtener(any(), any());
+        verify(solicitudAuditoriaDetalleService).obtenerDetalle(any(), any());
     }
 
     @Test
     @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
+    void getConRolDeAuditorDevuelve200PorqueElAuditorHaceSeguimiento() throws Exception {
+        when(solicitudAuditoriaDetalleService.obtenerDetalle(any(), any())).thenReturn(detalleAsignado());
+
+        mockMvc.perform(get("/api/auditorias/{idSolicitud}", SOLICITUD_ID)
+                        .principal(principal()))
+                .andExpect(status().isOk());
+
+        verify(solicitudAuditoriaDetalleService).obtenerDetalle(any(), any());
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_PLATAFORMA")
+    void getConRolDePlataformaDevuelve200() throws Exception {
+        when(solicitudAuditoriaDetalleService.obtenerDetalle(any(), any())).thenReturn(detalleAsignado());
+
+        mockMvc.perform(get("/api/auditorias/{idSolicitud}", SOLICITUD_ID)
+                        .principal(principal()))
+                .andExpect(status().isOk());
+
+        verify(solicitudAuditoriaDetalleService).obtenerDetalle(any(), any());
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "USUARIO_GENERAL")
     void getConRolNoAutorizadoDevuelve403() throws Exception {
         mockMvc.perform(get("/api/auditorias/{idSolicitud}", SOLICITUD_ID)
                         .principal(principal()))
                 .andExpect(status().isForbidden());
 
-        verify(solicitudAuditoriaService, never()).obtener(any(), any());
+        verify(solicitudAuditoriaDetalleService, never()).obtenerDetalle(any(), any());
     }
 
     private static String cuerpoAsignacion(String origenAsignacion) {
         return """
                 {"idAuditor":"%s","origenAsignacion":"%s"}"""
                 .formatted(AUDITOR_ID, origenAsignacion);
+    }
+
+    private static SolicitudAuditoriaDetalleResponseDTO detalleAsignado() {
+        SolicitudAuditoriaResponseDTO base = respuestaAsignada();
+        SolicitudAuditoriaDetalleResponseDTO detalle = new SolicitudAuditoriaDetalleResponseDTO();
+        detalle.setId(base.getId());
+        detalle.setTipoCertificacion(base.getTipoCertificacion());
+        detalle.setPeriodoInicio(base.getPeriodoInicio());
+        detalle.setPeriodoFin(base.getPeriodoFin());
+        detalle.setEstado(base.getEstado());
+        detalle.setEstadoDescripcion(base.getEstado().getDescripcion());
+        detalle.setFechaCreacion(base.getFechaCreacion());
+        detalle.setDocumentos(base.getDocumentos());
+        detalle.setIdAuditor(base.getIdAuditor());
+        detalle.setAuditor(base.getAuditor());
+        detalle.setOrigenAsignacion(base.getOrigenAsignacion());
+        detalle.setFechaAsignacion(base.getFechaAsignacion());
+        detalle.setNombreEmpresa("Acme S.A.");
+        detalle.setHistorial(List.of(new TransicionEstadoAuditoriaResponseDTO(
+                EstadoSolicitudAuditoria.SOLICITUD_ENVIADA,
+                EstadoSolicitudAuditoria.SOLICITUD_ENVIADA,
+                EventoTransicionAuditoria.SOLICITUD_CREADA,
+                ActorTransicionAuditoria.EMPRESA,
+                "Marta Gerente",
+                Instant.parse("2026-07-27T18:00:00Z"))));
+        return detalle;
     }
 
     private static SolicitudAuditoriaResponseDTO respuestaAsignada() {
