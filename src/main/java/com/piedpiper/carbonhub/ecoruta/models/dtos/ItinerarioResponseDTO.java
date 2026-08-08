@@ -22,8 +22,13 @@ public class ItinerarioResponseDTO {
     private String estado;
     private Integer version;
     private BigDecimal puntuacionAmbientalPreliminar;
+    private BigDecimal ecoScore;
+    private String clasificacionAmbiental;
+    private boolean ecoScoreParcial;
+    private Instant ecoScoreCalculadoEn;
     private Instant fechaGeneracion;
     private boolean generadoParcial;
     private String mensajeParcial;
     private List<ItinerarioDiaResponseDTO> dias;
+    private List<EstablecimientoEcoScoreResponseDTO> establecimientosEvaluados;
 }

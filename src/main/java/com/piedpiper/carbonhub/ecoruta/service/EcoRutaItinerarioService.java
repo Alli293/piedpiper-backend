@@ -3,6 +3,8 @@ package com.piedpiper.carbonhub.ecoruta.service;
 import com.piedpiper.carbonhub.common.Catalogos;
 import com.piedpiper.carbonhub.ecoruta.mappers.ItinerarioMapper;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.BenchmarkDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.EcoScoreResultado;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.EstablecimientoEcoScoreResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.EstablecimientoRankeado;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.HistorialEcoRutaDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.IMADTO;
@@ -59,6 +61,7 @@ public class EcoRutaItinerarioService {
     private final ItinerarioCuotaService itinerarioCuotaService;
     private final EventoReconocimientoService eventoReconocimientoService;
     private final PriorizacionAmbientalService priorizacionAmbientalService;
+    private final EcoScoreService ecoScoreService;
     private final IndicadorAmbientalClient indicadorClient;
     private final ImaClient imaClient;
     private final BenchmarkClient benchmarkClient;
@@ -72,6 +75,7 @@ public class EcoRutaItinerarioService {
                                     ItinerarioCuotaService itinerarioCuotaService,
                                     EventoReconocimientoService eventoReconocimientoService,
                                     PriorizacionAmbientalService priorizacionAmbientalService,
+                                    EcoScoreService ecoScoreService,
                                     IndicadorAmbientalClient indicadorClient,
                                     ImaClient imaClient,
                                     BenchmarkClient benchmarkClient,
@@ -84,6 +88,7 @@ public class EcoRutaItinerarioService {
         this.itinerarioCuotaService = itinerarioCuotaService;
         this.eventoReconocimientoService = eventoReconocimientoService;
         this.priorizacionAmbientalService = priorizacionAmbientalService;
+        this.ecoScoreService = ecoScoreService;
         this.indicadorClient = indicadorClient;
         this.imaClient = imaClient;
         this.benchmarkClient = benchmarkClient;
@@ -131,9 +136,13 @@ public class EcoRutaItinerarioService {
         // dentro de la misma transacción (@Transactional)
         ResultadoPriorizacion resultadoPriorizacion = aplicarPriorizacionAmbiental(itinerario, usuarioId);
 
+        // Calcular y persistir el EcoScore del itinerario (Req PP-91)
+        calcularYPersistirEcoScore(itinerario, resultadoPriorizacion);
+
         registrarEventoDeReconocimientoTrasCommit(usuarioId);
 
         ItinerarioResponseDTO responseDTO = mapper.toDto(itinerario);
+        responseDTO.setEstablecimientosEvaluados(List.of());
 
         // Enriquecer la respuesta con puntuaciones ambientales por actividad/establecimiento
         enriquecerConPuntuacionAmbiental(responseDTO, resultadoPriorizacion);
@@ -152,6 +161,7 @@ public class EcoRutaItinerarioService {
         Itinerario itinerario = itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, usuarioId)
                 .orElseThrow(() -> ApiException.recursoNoEncontrado("Itinerario no encontrado."));
         ItinerarioResponseDTO responseDTO = mapper.toDto(itinerario);
+        responseDTO.setEstablecimientosEvaluados(List.of());
 
         // Enriquecer con puntuaciones ambientales calculadas al vuelo (sin persistir)
         enriquecerConPuntuacionesCalculadas(responseDTO, itinerario);
@@ -367,6 +377,36 @@ public class EcoRutaItinerarioService {
     }
 
     /**
+     * Calcula el EcoScore del itinerario (Req PP-91) y lo persiste sobre la entidad. No falla la
+     * generación si el cálculo no es posible: deja los campos de EcoScore en null, lo que el
+     * frontend interpreta como "no fue posible calcular el impacto ambiental del itinerario".
+     */
+    private void calcularYPersistirEcoScore(Itinerario itinerario, ResultadoPriorizacion resultadoPriorizacion) {
+        if (resultadoPriorizacion == null || resultadoPriorizacion.getEstablecimientosRankeados() == null) {
+            return;
+        }
+        List<EstablecimientoRankeado> establecimientos = resultadoPriorizacion.getEstablecimientosRankeados();
+        EcoScoreResultado resultado;
+        try {
+            resultado = ecoScoreService.calcular(establecimientos, itinerario);
+        } catch (Exception e) {
+            log.warn("Fallo al calcular el EcoScore del itinerario {}. Continuando sin EcoScore.",
+                    itinerario.getId(), e);
+            return;
+        }
+
+        if (resultado == null) {
+            return;
+        }
+
+        itinerario.setEcoScore(resultado.getEcoScore());
+        itinerario.setClasificacionAmbiental(resultado.getClasificacion());
+        itinerario.setEcoScoreParcial(resultado.isParcial());
+        itinerario.setEcoScoreCalculadoEn(Instant.now());
+        itinerarioRepository.save(itinerario);
+    }
+
+    /**
      * Construye la lista de {@link EstablecimientoRankeado} a partir de las actividades del
      * itinerario. Solo incluye establecimientos que coincidan con una empresa registrada en
      * CarbonHub (por nombre parcial, case-insensitive). Los que no matchean se omiten del
@@ -446,6 +486,8 @@ public class EcoRutaItinerarioService {
                                 (a, b) -> a // En caso de duplicados, conservar el primero
                         ));
 
+        responseDTO.setEstablecimientosEvaluados(construirEstablecimientosEvaluados(puntuacionesPorEstablecimiento));
+
         if (responseDTO.getDias() == null) {
             return;
         }
@@ -462,6 +504,18 @@ public class EcoRutaItinerarioService {
                 }
             }
         }
+    }
+
+    /**
+     * Convierte el mapa nombre → puntuación ambiental en el desglose por establecimiento expuesto
+     * en la respuesta del itinerario (Req PP-91), omitiendo establecimientos sin puntuación.
+     */
+    private List<EstablecimientoEcoScoreResponseDTO> construirEstablecimientosEvaluados(
+            Map<String, PuntuacionAmbientalResponseDTO> puntuacionesPorEstablecimiento) {
+        return puntuacionesPorEstablecimiento.entrySet().stream()
+                .filter(entry -> entry.getValue() != null)
+                .map(entry -> new EstablecimientoEcoScoreResponseDTO(entry.getKey(), entry.getValue()))
+                .toList();
     }
 
     /**
@@ -515,6 +569,8 @@ public class EcoRutaItinerarioService {
         }
 
         // Asignar al DTO de respuesta
+        responseDTO.setEstablecimientosEvaluados(construirEstablecimientosEvaluados(puntuacionesPorEstablecimiento));
+
         if (responseDTO.getDias() == null) return;
         for (var dia : responseDTO.getDias()) {
             if (dia.getActividades() == null) continue;
