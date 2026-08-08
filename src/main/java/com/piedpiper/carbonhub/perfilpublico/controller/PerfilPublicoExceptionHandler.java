@@ -4,6 +4,7 @@ import com.piedpiper.carbonhub.perfilpublico.exceptions.PerfilNoEncontradoExcept
 import com.piedpiper.carbonhub.perfilpublico.exceptions.SlugCambiadoException;
 import com.piedpiper.carbonhub.perfilpublico.models.dtos.PerfilPublicoErrorDTO;
 
+import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.Order;
@@ -29,8 +30,12 @@ public class PerfilPublicoExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(PerfilPublicoExceptionHandler.class);
 
     @ExceptionHandler(SlugCambiadoException.class)
-    public ResponseEntity<Void> handleSlugCambiado(SlugCambiadoException ex) {
-        String nuevaUrl = "/api/perfil-publico/" + ex.getSlugVigente() + "/compartir";
+    public ResponseEntity<Void> handleSlugCambiado(SlugCambiadoException ex,
+                                                   HttpServletRequest request) {
+        String uri = request.getRequestURI();
+        // Reemplazar el slug antiguo en el path con el slug vigente
+        String nuevaUrl = uri.replaceFirst(
+                "(/api/perfil-publico/)[^/]+", "$1" + ex.getSlugVigente());
         return ResponseEntity.status(HttpStatus.MOVED_PERMANENTLY)
                 .header(HttpHeaders.LOCATION, nuevaUrl)
                 .build();
