@@ -16,6 +16,7 @@ public class CertificacionPublicaResponseDTO {
     private UUID id;
     private String tipo;
     private String nombreCertificacion;
+    private String nombreAuditor;
     private Instant fechaEmision;
     private LocalDate fechaVencimiento;
     private String estado;

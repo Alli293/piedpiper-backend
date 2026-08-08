@@ -73,6 +73,7 @@ class ConsultaCertificacionServiceTest {
                 .fechaEmision(Instant.parse("2026-01-15T00:00:00Z"))
                 .fechaVencimiento(fechaVencimiento)
                 .estado(EstadoCertificacion.ACTIVA)
+                .auditor(Usuario.builder().id(UUID.randomUUID()).nombre("Ana").apellidos("Mora").email("ana@auditor.cr").build())
                 .build();
     }
 
