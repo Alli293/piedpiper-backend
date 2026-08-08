@@ -12,7 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
-import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -36,6 +35,12 @@ import java.util.stream.Collectors;
  * {@code estado = ACTIVA} cubre el caso de una certificacion revocada
  * (activa = no revocada; vigente = no vencida, ver
  * {@code CertificacionRepository}).</p>
+ *
+ * <p>Se traen todas las certificaciones activas de la empresa antes de
+ * filtrar el umbral de 90 dias en memoria (a la escala tipica de alertas
+ * por empresa esto es preferible a sumar un metodo de repositorio casi
+ * identico solo para mover el filtro a SQL; si el volumen crece, ese es
+ * el primer punto a optimizar).</p>
  */
 @Service
 public class DashboardAlertasService {
@@ -61,10 +66,14 @@ public class DashboardAlertasService {
         List<Certificacion> certificaciones = certificacionRepository
                 .findByEmpresaIdAndEstadoOrderByFechaVencimientoAsc(empresaId, EstadoCertificacion.ACTIVA);
 
+        // Sin .sorted(): el repositorio ya devuelve fechaVencimiento ascendente, y
+        // diasRestantes es monotono respecto a esa fecha (misma "hoy" para todas), asi
+        // que el orden ya queda correcto sin un paso extra. Si esto deja de ser cierto
+        // (p. ej. diasRestantes empieza a depender de algo mas que fechaVencimiento),
+        // hay que volver a ordenar explicitamente aca.
         return certificaciones.stream()
                 .map(certificacion -> aDto(certificacion, hoy))
                 .filter(alerta -> vencimientoPresentacionService.dentroDelUmbralMaximo(alerta.getDiasRestantes()))
-                .sorted(Comparator.comparingLong(AlertaVencimientoResponseDTO::getDiasRestantes))
                 .collect(Collectors.toList());
     }
 

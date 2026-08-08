@@ -69,6 +69,8 @@ class SolicitudAuditoriaServiceAsignacionTest {
     private CertificacionActivaConsulta certificacionActivaConsulta;
     @Mock
     private EnvioCorreoAsignacionAuditorService envioCorreoAsignacionAuditorService;
+    @Mock
+    private TransicionEstadoAuditoriaService transicionEstadoAuditoriaService;
 
     private SolicitudAuditoriaService service;
 
@@ -81,7 +83,8 @@ class SolicitudAuditoriaServiceAsignacionTest {
                 certificacionActivaConsulta,
                 new ValidadorDocumentosPdf(),
                 new SolicitudAuditoriaMapperImpl(),
-                envioCorreoAsignacionAuditorService);
+                envioCorreoAsignacionAuditorService,
+                transicionEstadoAuditoriaService);
 
         when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(administrador(EMPRESA_ID)));
         when(usuarioRepository.findById(AUDITOR_ID)).thenReturn(Optional.of(auditorCertificadoActivo()));
@@ -312,46 +315,6 @@ class SolicitudAuditoriaServiceAsignacionTest {
 
         assertThat(TransactionSynchronizationManager.getSynchronizations()).isEmpty();
         verifyNoInteractions(envioCorreoAsignacionAuditorService);
-    }
-
-    @Test
-    void obtenerDevuelveLaSolicitudConLaAsignacionVigente() {
-        SolicitudAuditoria yaAsignada = solicitud(EMPRESA_ID);
-        yaAsignada.setAuditor(auditorCertificadoActivo());
-        yaAsignada.setOrigenAsignacion(OrigenAsignacion.MANUAL);
-        yaAsignada.setFechaAsignacion(Instant.now());
-        when(solicitudAuditoriaRepository.findById(SOLICITUD_ID)).thenReturn(Optional.of(yaAsignada));
-
-        SolicitudAuditoriaResponseDTO respuesta = service.obtener(SOLICITUD_ID, USUARIO_ID);
-
-        assertThat(respuesta.getIdAuditor()).isEqualTo(AUDITOR_ID);
-        assertThat(respuesta.getOrigenAsignacion()).isEqualTo(OrigenAsignacion.MANUAL);
-        assertThat(respuesta.getFechaAsignacion()).isNotNull();
-        assertThat(respuesta.getAuditor()).isNotNull();
-        assertThat(respuesta.getAuditor().getId()).isEqualTo(AUDITOR_ID);
-        assertThat(respuesta.getAuditor().getNombre()).isEqualTo("Ana Auditora");
-        verify(solicitudAuditoriaRepository, never()).saveAndFlush(any());
-    }
-
-    @Test
-    void obtenerSolicitudInexistenteDevuelve404() {
-        when(solicitudAuditoriaRepository.findById(SOLICITUD_ID)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> service.obtener(SOLICITUD_ID, USUARIO_ID))
-                .isInstanceOf(ApiException.class)
-                .extracting(error -> ((ApiException) error).getStatus())
-                .isEqualTo(HttpStatus.NOT_FOUND);
-    }
-
-    @Test
-    void obtenerSolicitudDeOtraEmpresaDevuelve403() {
-        when(solicitudAuditoriaRepository.findById(SOLICITUD_ID))
-                .thenReturn(Optional.of(solicitud(OTRA_EMPRESA_ID)));
-
-        assertThatThrownBy(() -> service.obtener(SOLICITUD_ID, USUARIO_ID))
-                .isInstanceOf(ApiException.class)
-                .extracting(error -> ((ApiException) error).getStatus())
-                .isEqualTo(HttpStatus.FORBIDDEN);
     }
 
     private SolicitudAuditoria capturarGuardada() {

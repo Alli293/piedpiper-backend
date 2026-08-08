@@ -26,7 +26,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.Year;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -88,20 +87,25 @@ public class MetaService {
                 .nombreMeta(request.getNombreMeta())
                 .valorObjetivoHuellaT(request.getValorObjetivoHuellaT())
                 .fechaLimite(request.getFechaLimite())
-                .estado(EstadoMeta.ACTIVA)
                 .fechaCreacion(Instant.now())
                 .build();
 
         Meta guardada;
         try {
-            guardada = metaRepository.save(meta);
+            // saveAndFlush (no save): Meta.id usa GenerationType.UUID, asignado en memoria,
+            // asi que save() no dispara el INSERT real de inmediato -- Hibernate puede
+            // diferirlo hasta el flush/commit de la transaccion, que ocurre despues de que
+            // este metodo retorna. Sin el flush explicito aca, una violacion real de
+            // constraint escaparia de este catch y llegaria como excepcion no controlada al
+            // terminar la transaccion, sin pasar por el mensaje de error propio de abajo.
+            guardada = metaRepository.saveAndFlush(meta);
         } catch (DataAccessException e) {
             log.error("Error al guardar la meta '{}' para la empresa {}", request.getNombreMeta(), empresaId, e);
             throw ApiException.errorInterno("Ocurrió un error al guardar la meta. Por favor, intenta nuevamente.");
         }
 
         BigDecimal huellaActualT = huellaActualToneladas(
-                empresaId, PeriodoDashboard.POR_DEFECTO, Year.now(ZonasHorarias.COSTA_RICA).getValue(), hoy);
+                empresaId, PeriodoDashboard.POR_DEFECTO, hoy.getYear(), hoy);
         return aDto(guardada, huellaActualT, hoy);
     }
 
@@ -109,8 +113,9 @@ public class MetaService {
     public List<MetaResponseDTO> listar(UUID usuarioId, String periodo, Integer anio) {
         UUID empresaId = emisionEmpresaService.empresaId(usuarioId);
         PeriodoDashboard periodoNormalizado = PeriodoDashboard.desde(periodo).orElse(PeriodoDashboard.POR_DEFECTO);
-        int anioConsultar = anio == null ? Year.now(ZonasHorarias.COSTA_RICA).getValue() : anio;
         LocalDate hoy = LocalDate.now(ZonasHorarias.COSTA_RICA);
+        int anioConsultar = anio == null ? hoy.getYear() : anio;
+        RangosPeriodoDashboard.validarAnio(anioConsultar);
 
         List<Meta> metas = metaRepository.findByEmpresaIdAndEstadoOrderByFechaCreacionDesc(
                 empresaId, EstadoMeta.ACTIVA);

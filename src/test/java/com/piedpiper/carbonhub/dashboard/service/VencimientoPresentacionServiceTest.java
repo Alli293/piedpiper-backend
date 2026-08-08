@@ -8,9 +8,9 @@ import com.piedpiper.carbonhub.certificacion.models.enums.TipoCertificacion;
 import com.piedpiper.carbonhub.certificacion.models.enums.TipoLogroOpenBadges;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -28,8 +28,15 @@ class VencimientoPresentacionServiceTest {
     @Mock
     private CatalogoTiposCertificacion catalogoTiposCertificacion;
 
-    @InjectMocks
+    // Construccion manual (no @InjectMocks), mismo estilo que
+    // DashboardAlertasServiceTest y CalendarioVencimientosServiceTest, que
+    // tambien dependen de este colaborador.
     private VencimientoPresentacionService service;
+
+    @BeforeEach
+    void setUp() {
+        service = new VencimientoPresentacionService(catalogoTiposCertificacion);
+    }
 
     @Test
     void nombreLegibleSaleDelCatalogo() {

@@ -5,7 +5,10 @@ services:
     environment:
       SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
     ports:
-      - "9000:9000"
+      # Solo 127.0.0.1, mismo criterio que el compose de Postgres: SonarQube es
+      # una herramienta local y su UI trae admin/admin por defecto. Publicarla en
+      # 0.0.0.0 la deja alcanzable desde cualquier maquina de la red.
+      - "127.0.0.1:9000:9000"
     volumes:
       - sonarqube_data:/opt/sonarqube/data
       - sonarqube_extensions:/opt/sonarqube/extensions
