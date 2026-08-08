@@ -21,7 +21,7 @@ public class EmailInvitacionServiceStub implements EmailInvitacionService {
 
     @Override
     public void enviarCorreoInvitacion(String email, String nombreEmpresa, String token) {
-        String enlace = invitacionUrl + "?token=" + token;
-        logger.info("Correo de invitacion (stub) de {} para <{}>: {}", nombreEmpresa, email, enlace);
+        logger.info("Correo de invitacion simulado de {} para <{}>; token omitido por seguridad",
+                nombreEmpresa, email);
     }
 }

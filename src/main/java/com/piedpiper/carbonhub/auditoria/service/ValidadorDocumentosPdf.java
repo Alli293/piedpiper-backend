@@ -4,13 +4,12 @@ import com.piedpiper.carbonhub.exceptions.ApiException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.List;
 
 @Component
@@ -20,7 +19,6 @@ public class ValidadorDocumentosPdf {
     public static final long TAMANIO_MAXIMO_BYTES = 15L * 1024 * 1024;
 
     private static final String TIPO_CONTENIDO_PDF = "application/pdf";
-    private static final byte[] FIRMA_PDF = "%PDF-".getBytes(StandardCharsets.US_ASCII);
 
     private static final Logger log = LoggerFactory.getLogger(ValidadorDocumentosPdf.class);
 
@@ -41,11 +39,11 @@ public class ValidadorDocumentosPdf {
         if (documento.getSize() > TAMANIO_MAXIMO_BYTES) {
             throw ApiException.documentoRespaldoExcedeTamanio();
         }
-        // La regla es la firma binaria y no el content type: ese ultimo lo manda el cliente y se
-        // falsea trivialmente, asi que como defensa no aporta nada. Y exigirlo ademas de la firma
+        // La regla es la estructura parseable y no el content type: ese ultimo lo manda el cliente y se
+        // falsea trivialmente, asi que como defensa no aporta nada. Y exigirlo ademas de la estructura
         // rechazaba archivos legitimos: un PDF de verdad enviado como application/octet-stream, que
         // es lo que mandan varios clientes cuando no reconocen la extension, no pasaba.
-        if (!tieneFirmaPdf(documento)) {
+        if (!esPdfEstructuralmenteValido(documento)) {
             throw ApiException.documentoRespaldoNoEsPdf();
         }
         if (!TIPO_CONTENIDO_PDF.equalsIgnoreCase(documento.getContentType())) {
@@ -54,17 +52,13 @@ public class ValidadorDocumentosPdf {
         }
     }
 
-    private boolean tieneFirmaPdf(MultipartFile documento) {
-        byte[] encabezado = new byte[FIRMA_PDF.length];
-        try (InputStream entrada = documento.getInputStream()) {
-            int leidos = entrada.readNBytes(encabezado, 0, encabezado.length);
-            if (leidos < FIRMA_PDF.length) {
-                return false;
-            }
+    private boolean esPdfEstructuralmenteValido(MultipartFile documento) {
+        try (PDDocument pdf = Loader.loadPDF(documento.getBytes())) {
+            return !pdf.isEncrypted() && pdf.getNumberOfPages() > 0;
         } catch (IOException e) {
-            log.error("No se pudo leer el documento de respaldo {}", documento.getOriginalFilename(), e);
-            throw ApiException.errorInterno("No se pudo leer uno de los archivos adjuntos. Intenta nuevamente.");
+            log.warn("Documento de respaldo rechazado por estructura PDF invalida: {}",
+                    documento.getOriginalFilename());
+            return false;
         }
-        return Arrays.equals(encabezado, FIRMA_PDF);
     }
 }

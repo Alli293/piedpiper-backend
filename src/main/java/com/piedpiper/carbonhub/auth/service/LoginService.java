@@ -11,6 +11,7 @@ import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -36,6 +37,7 @@ public class LoginService {
         this.jwtService = jwtService;
     }
 
+    @Transactional
     public AuthResponseDTO login(LoginRequestDTO request) {
         if (request.getMetodo() == MetodoAuth.GOOGLE) {
             return loginGoogle(request);
@@ -46,8 +48,8 @@ public class LoginService {
     private AuthResponseDTO loginGoogle(LoginRequestDTO request) {
         GoogleClaims claims = googleTokenVerifier.verificar(request.getIdToken());
         Usuario usuario = usuarioRepository.findByGoogleSub(claims.getSub())
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND,
-                        "No encontramos una cuenta con este correo. ¿Deseas registrarte?"));
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED,
+                        "No fue posible iniciar sesion con las credenciales proporcionadas."));
         verificarHabilitada(usuario);
         return emitir(usuario);
     }
@@ -60,7 +62,7 @@ public class LoginService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Ingresa tu contraseña");
         }
 
-        Usuario usuario = usuarioRepository.findByEmailIgnoreCase(request.getEmail()).orElse(null);
+        Usuario usuario = usuarioRepository.findByEmailIgnoreCaseForUpdate(request.getEmail()).orElse(null);
         if (usuario == null || usuario.getMetodoAuth() != MetodoAuth.CORREO
                 || usuario.getPasswordHash() == null) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Correo o contraseña incorrectos.");

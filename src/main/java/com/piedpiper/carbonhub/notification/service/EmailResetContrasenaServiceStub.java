@@ -24,8 +24,8 @@ public class EmailResetContrasenaServiceStub implements EmailResetContrasenaServ
 
     @Override
     public void enviarResetContrasena(String nombreDestinatario, String email, String token) {
-        String enlace = resetContrasenaUrl + "?token=" + token;
-        logger.info("Correo de reset de contrasena (stub) para {} <{}>: {}", nombreDestinatario, email, enlace);
+        logger.info("Correo de reset de contrasena simulado para {} <{}>; token omitido por seguridad",
+                nombreDestinatario, email);
     }
 
     @Override

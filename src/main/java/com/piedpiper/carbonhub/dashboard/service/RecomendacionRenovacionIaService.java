@@ -2,6 +2,7 @@ package com.piedpiper.carbonhub.dashboard.service;
 
 import com.piedpiper.carbonhub.dashboard.models.dtos.CertAlertaDTO;
 import com.piedpiper.carbonhub.dashboard.models.dtos.RecomendacionIaTexto;
+import com.piedpiper.carbonhub.common.IaRateLimitService;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,17 +38,25 @@ public class RecomendacionRenovacionIaService {
 
     private final ChatClient chatClient;
     private final String geminiApiKey;
+    private final IaRateLimitService iaRateLimitService;
 
     public RecomendacionRenovacionIaService(
             ChatClient.Builder chatClientBuilder,
+            IaRateLimitService iaRateLimitService,
             @Value("${spring.ai.google.genai.api-key:}") String geminiApiKey) {
         this.chatClient = chatClientBuilder.build();
+        this.iaRateLimitService = iaRateLimitService;
         this.geminiApiKey = geminiApiKey;
     }
 
     public Optional<RecomendacionIaTexto> generar(CertAlertaDTO prioritaria) {
         if (geminiApiKey == null || geminiApiKey.isBlank()) {
             log.error("GEMINI_API_KEY no está configurada");
+            return Optional.empty();
+        }
+        if (!iaRateLimitService.reservar(prioritaria.getIdCertificacion())) {
+            log.warn("Cuota de IA excedida para la recomendacion de la certificacion {}",
+                    prioritaria.getIdCertificacion());
             return Optional.empty();
         }
 

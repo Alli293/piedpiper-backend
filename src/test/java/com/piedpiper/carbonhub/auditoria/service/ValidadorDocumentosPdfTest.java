@@ -1,6 +1,8 @@
 package com.piedpiper.carbonhub.auditoria.service;
 
 import com.piedpiper.carbonhub.exceptions.ApiException;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -8,6 +10,8 @@ import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
@@ -20,7 +24,7 @@ class ValidadorDocumentosPdfTest {
     private final ValidadorDocumentosPdf validador = new ValidadorDocumentosPdf();
 
     @Test
-    void aceptaArchivoConTipoPdfYFirmaBinariaValida() {
+    void aceptaArchivoConTipoPdfYEstructuraValida() {
         assertThatNoException().isThrownBy(() -> validador.validar(List.of(pdf("respaldo.pdf"))));
     }
 
@@ -110,6 +114,13 @@ class ValidadorDocumentosPdfTest {
     }
 
     static byte[] contenidoPdf() {
-        return "%PDF-1.7 contenido de prueba".getBytes(StandardCharsets.US_ASCII);
+        try (PDDocument documento = new PDDocument();
+             ByteArrayOutputStream salida = new ByteArrayOutputStream()) {
+            documento.addPage(new PDPage());
+            documento.save(salida);
+            return salida.toByteArray();
+        } catch (IOException e) {
+            throw new AssertionError(e);
+        }
     }
 }

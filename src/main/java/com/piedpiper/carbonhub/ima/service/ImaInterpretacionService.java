@@ -4,6 +4,7 @@ import com.piedpiper.carbonhub.ima.models.dtos.InterpretacionIma;
 import com.piedpiper.carbonhub.ima.models.entities.AgregadoSectorial;
 import com.piedpiper.carbonhub.ima.models.entities.ImaSnapshot;
 import com.piedpiper.carbonhub.ima.repository.ImaSnapshotRepository;
+import com.piedpiper.carbonhub.common.IaRateLimitService;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,12 +25,15 @@ public class ImaInterpretacionService {
     private final ChatClient chatClient;
     private final ImaSnapshotRepository imaSnapshotRepository;
     private final String geminiApiKey;
+    private final IaRateLimitService iaRateLimitService;
 
     public ImaInterpretacionService(ChatClient.Builder chatClientBuilder,
                                     ImaSnapshotRepository imaSnapshotRepository,
+                                    IaRateLimitService iaRateLimitService,
                                     @Value("${spring.ai.google.genai.api-key:}") String geminiApiKey) {
         this.chatClient = chatClientBuilder.build();
         this.imaSnapshotRepository = imaSnapshotRepository;
+        this.iaRateLimitService = iaRateLimitService;
         this.geminiApiKey = geminiApiKey;
     }
 
@@ -43,6 +47,11 @@ public class ImaInterpretacionService {
             // 1. Verificar API key configurada
             if (geminiApiKey == null || geminiApiKey.isBlank()) {
                 log.error("GEMINI_API_KEY no está configurada");
+                persistirNoDisponible(snapshot);
+                return;
+            }
+            if (!iaRateLimitService.reservar(snapshot.getEmpresaId())) {
+                log.warn("Cuota de IA excedida para la empresa del snapshot {}", snapshot.getId());
                 persistirNoDisponible(snapshot);
                 return;
             }

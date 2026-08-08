@@ -36,14 +36,13 @@ public class DocumentoRespaldoController {
     }
 
     /**
-     * Va {@code inline} y no {@code attachment} porque la historia pide previsualizar el documento
-     * en una pestana nueva, no descargarlo. El nombre del archivo se manda igual para que, si el
-     * navegador termina guardandolo, no quede con el identificador como nombre.
+     * Va como {@code attachment} para que contenido activo dentro de un PDF no se ejecute
+     * automaticamente en el contexto del navegador.
      *
      * <p>El tipo de contenido va fijo en {@code application/pdf} y no sale del {@code tipoContenido}
      * guardado a proposito: ese campo llega del cliente al subir el archivo y
      * {@code ValidadorDocumentosPdf} solo lo registra en el log cuando no coincide, no lo rechaza.
-     * Lo que si valida es la firma del archivo, asi que un PDF es lo unico que pudo almacenarse.
+     * Lo que si valida es la estructura completa con PDFBox.
      * Devolver el valor declarado por el cliente le dejaria decidir como interpreta el navegador un
      * contenido que ya sabemos que es un PDF.</p>
      */
@@ -56,7 +55,7 @@ public class DocumentoRespaldoController {
 
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_PDF)
-                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.inline()
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
                         .filename(nombreSeguro(documento.getNombreArchivo()), StandardCharsets.UTF_8)
                         .build()
                         .toString())

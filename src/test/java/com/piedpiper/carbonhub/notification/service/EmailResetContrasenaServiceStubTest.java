@@ -40,7 +40,7 @@ class EmailResetContrasenaServiceStubTest {
     }
 
     @Test
-    void enviarResetContrasena_registraElEnvioEnElLogConLaUrlCompleta() {
+    void enviarResetContrasena_noExponeElTokenEnLogs() {
         servicio.enviarResetContrasena("Ana Perez", "ana.perez@example.com", "token-123");
 
         assertThat(logAppender.list)
@@ -49,7 +49,8 @@ class EmailResetContrasenaServiceStubTest {
                     assertThat(evento.getFormattedMessage())
                             .contains("Ana Perez")
                             .contains("ana.perez@example.com")
-                            .contains("http://localhost:4200/reset-contrasena?token=token-123");
+                            .doesNotContain("token-123")
+                            .doesNotContain("?token=");
                 });
     }
 

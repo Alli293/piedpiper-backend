@@ -39,6 +39,8 @@ public class PerfilPublicoRateLimitFilter extends OncePerRequestFilter {
     private static final Logger log = LoggerFactory.getLogger(PerfilPublicoRateLimitFilter.class);
     private static final String PERFIL_PUBLICO_PATH_PREFIX = "/api/perfil-publico/";
     private static final String RATE_LIMIT_MESSAGE = "Demasiadas solicitudes. Intenta nuevamente en unos minutos.";
+    private static final int MAXIMO_IPS = 10_000;
+    private static final String CUBETA_EXCESO = "__overflow__";
 
     private final Map<String, Deque<Long>> requestCounts = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper;
@@ -69,37 +71,40 @@ public class PerfilPublicoRateLimitFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        String clientIp = resolveClientIp(request);
+        String remoteIp = resolveClientIp(request);
+        String clientIp = requestCounts.containsKey(remoteIp) || requestCounts.size() < MAXIMO_IPS
+                ? remoteIp : CUBETA_EXCESO;
         long now = System.currentTimeMillis();
 
         Deque<Long> timestamps = requestCounts.computeIfAbsent(clientIp, k -> new ConcurrentLinkedDeque<>());
 
-        // Limpiar timestamps fuera de la ventana
-        long windowStart = now - windowMs;
-        while (!timestamps.isEmpty() && timestamps.peekFirst() < windowStart) {
-            timestamps.pollFirst();
-        }
-
-        if (timestamps.size() >= maxRequests) {
+        boolean permitido = reservar(timestamps, now);
+        if (!permitido) {
             log.warn("Rate limit excedido para IP: {} en ruta: {}", clientIp, resolvePath(request));
             writeRateLimitResponse(response);
             return;
         }
 
-        timestamps.addLast(now);
         filterChain.doFilter(request, response);
     }
 
-    /**
-     * Resuelve la direccion IP del cliente considerando proxies (X-Forwarded-For).
-     */
-    private String resolveClientIp(HttpServletRequest request) {
-        String xForwardedFor = request.getHeader("X-Forwarded-For");
-        if (xForwardedFor != null && !xForwardedFor.isBlank()) {
-            // X-Forwarded-For puede contener multiples IPs separadas por coma;
-            // la primera es la IP original del cliente.
-            return xForwardedFor.split(",")[0].trim();
+    private boolean reservar(Deque<Long> timestamps, long now) {
+        synchronized (timestamps) {
+            long windowStart = now - windowMs;
+            while (!timestamps.isEmpty() && timestamps.peekFirst() < windowStart) {
+                timestamps.pollFirst();
+            }
+            if (timestamps.size() >= maxRequests) {
+                return false;
+            }
+            timestamps.addLast(now);
+            return true;
         }
+    }
+
+    private String resolveClientIp(HttpServletRequest request) {
+        // Nunca confiar directamente en X-Forwarded-For: es controlado por el cliente.
+        // Si existe un proxy confiable, debe normalizar la direccion antes de llegar a la app.
         return request.getRemoteAddr();
     }
 
