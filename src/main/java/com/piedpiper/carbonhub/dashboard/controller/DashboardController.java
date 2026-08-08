@@ -1,10 +1,12 @@
 package com.piedpiper.carbonhub.dashboard.controller;
 
 import com.piedpiper.carbonhub.common.Autenticaciones;
+import com.piedpiper.carbonhub.dashboard.models.dtos.AlertaVencimientoDTO;
 import com.piedpiper.carbonhub.dashboard.models.dtos.CalendarioVencimientosResponseDTO;
 import com.piedpiper.carbonhub.dashboard.models.dtos.ResumenCertificacionesDashboardResponseDTO;
 import com.piedpiper.carbonhub.dashboard.models.dtos.ResumenHuellaDashboardResponseDTO;
 import com.piedpiper.carbonhub.dashboard.service.CalendarioVencimientosService;
+import com.piedpiper.carbonhub.dashboard.service.DashboardAlertasService;
 import com.piedpiper.carbonhub.dashboard.service.DashboardCertificacionesService;
 import com.piedpiper.carbonhub.dashboard.service.DashboardHuellaService;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +17,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/dashboard")
 @PreAuthorize("hasRole('ADMINISTRADOR_EMPRESA')")
@@ -23,14 +27,17 @@ public class DashboardController {
     private final DashboardHuellaService dashboardHuellaService;
     private final DashboardCertificacionesService dashboardCertificacionesService;
     private final CalendarioVencimientosService calendarioVencimientosService;
+    private final DashboardAlertasService dashboardAlertasService;
 
     public DashboardController(
             DashboardHuellaService dashboardHuellaService,
             DashboardCertificacionesService dashboardCertificacionesService,
-            CalendarioVencimientosService calendarioVencimientosService) {
+            CalendarioVencimientosService calendarioVencimientosService,
+            DashboardAlertasService dashboardAlertasService) {
         this.dashboardHuellaService = dashboardHuellaService;
         this.dashboardCertificacionesService = dashboardCertificacionesService;
         this.calendarioVencimientosService = calendarioVencimientosService;
+        this.dashboardAlertasService = dashboardAlertasService;
     }
 
     @GetMapping("/huella")
@@ -57,5 +64,11 @@ public class DashboardController {
             @RequestParam(required = false) String mes) {
         return ResponseEntity.ok(calendarioVencimientosService.obtenerCalendario(
                 Autenticaciones.usuarioId(authentication), mes));
+    }
+
+    @GetMapping("/alertas")
+    public ResponseEntity<List<AlertaVencimientoDTO>> obtenerAlertas(Authentication authentication) {
+        return ResponseEntity.ok(dashboardAlertasService.obtenerAlertas(
+                Autenticaciones.usuarioId(authentication)));
     }
 }

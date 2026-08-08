@@ -59,4 +59,8 @@ public interface CertificacionRepository extends JpaRepository<Certificacion, UU
     /** Usada por el calendario de vencimientos del dashboard (PP-77). */
     List<Certificacion> findByEmpresaIdAndFechaVencimientoBetween(
             UUID empresaId, LocalDate desde, LocalDate hasta);
+
+    /** Usada por el panel de alertas activas del dashboard (PP-76). */
+    List<Certificacion> findByEmpresaIdAndEstadoOrderByFechaVencimientoAsc(
+            UUID empresaId, EstadoCertificacion estado);
 }
