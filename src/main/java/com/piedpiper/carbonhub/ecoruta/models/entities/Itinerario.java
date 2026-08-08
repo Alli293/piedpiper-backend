@@ -81,7 +81,7 @@ public class Itinerario {
     @Column(name = "clasificacion_ambiental", length = 20)
     private ClasificacionAmbiental clasificacionAmbiental;
 
-    @Column(name = "eco_score_parcial", nullable = false)
+    @Column(name = "eco_score_parcial", nullable = false, columnDefinition = "boolean default false")
     @Builder.Default
     private boolean ecoScoreParcial = false;
 
