@@ -94,4 +94,31 @@ public class Certificacion {
      */
     @Column(name = "indice_estado", nullable = false, unique = true)
     private Long indiceEstado;
+
+    /**
+     * Codigo publico corto (p. ej. {@code CH-2026-8F4A19KD}) para verificar la
+     * credencial sin conocer su {@code id} interno: es el que se comparte por
+     * enlace o se escribe a mano desde un certificado impreso. Se genera al
+     * emitir (ver {@code GeneradorCodigoVerificacionService}) y nunca se deriva
+     * de {@code id} ni de datos secuenciales, para no permitir enumerar
+     * certificaciones ajenas.
+     *
+     * <p>{@code nullable = true} a proposito aunque el generador siempre lo
+     * llena: con {@code ddl-auto=update} y sin migraciones, un {@code NOT NULL}
+     * sobre una tabla que ya tiene filas hace fallar el {@code ALTER TABLE} en
+     * Postgres, y Hibernate sigue arrancando igual, solo que sin la columna.
+     * {@code unique = true} sigue siendo valido con NULL (Postgres permite
+     * varios).
+     */
+    @Column(name = "codigo_verificacion", unique = true, length = 20)
+    private String codigoVerificacion;
+
+    /**
+     * Fecha de revocacion, solo presente cuando {@code estado} es
+     * {@code REVOCADA}. No existe todavia una accion que revoque una
+     * certificacion (ver {@code EstadoCertificacion}); el campo existe para que
+     * la verificacion publica pueda reportarla en cuanto esa accion se agregue.
+     */
+    @Column(name = "fecha_revocacion")
+    private Instant fechaRevocacion;
 }

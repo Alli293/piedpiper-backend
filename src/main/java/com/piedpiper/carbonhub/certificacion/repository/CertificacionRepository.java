@@ -18,6 +18,10 @@ public interface CertificacionRepository extends JpaRepository<Certificacion, UU
 
     Optional<Certificacion> findByIdAuditoria(UUID idAuditoria);
 
+    Optional<Certificacion> findByCodigoVerificacion(String codigoVerificacion);
+
+    boolean existsByCodigoVerificacion(String codigoVerificacion);
+
     /**
      * Usada por el proceso nocturno de alertas de vencimiento (PP-70): evalua
      * todas las certificaciones activas de todas las empresas, sin importar
@@ -59,4 +63,8 @@ public interface CertificacionRepository extends JpaRepository<Certificacion, UU
     /** Usada por el calendario de vencimientos del dashboard (PP-77). */
     List<Certificacion> findByEmpresaIdAndFechaVencimientoBetween(
             UUID empresaId, LocalDate desde, LocalDate hasta);
+
+    /** Usada por el panel de alertas activas del dashboard (PP-76). */
+    List<Certificacion> findByEmpresaIdAndEstadoOrderByFechaVencimientoAsc(
+            UUID empresaId, EstadoCertificacion estado);
 }

@@ -8,8 +8,10 @@ import com.piedpiper.carbonhub.auth.config.JwtAuthenticationFilter;
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
 import com.piedpiper.carbonhub.auth.service.JwtService;
 import com.piedpiper.carbonhub.dashboard.service.CalendarioVencimientosService;
+import com.piedpiper.carbonhub.dashboard.service.DashboardAlertasService;
 import com.piedpiper.carbonhub.dashboard.service.DashboardCertificacionesService;
 import com.piedpiper.carbonhub.dashboard.service.DashboardHuellaService;
+import com.piedpiper.carbonhub.dashboard.service.DashboardRecomendacionService;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,6 +34,10 @@ class DashboardControllerSecurityTest {
     @MockitoBean
     private CalendarioVencimientosService calendarioVencimientosService;
     @MockitoBean
+    private DashboardAlertasService dashboardAlertasService;
+    @MockitoBean
+    private DashboardRecomendacionService dashboardRecomendacionService;
+    @MockitoBean
     private JwtService jwtService;
     @MockitoBean
     private UsuarioRepository usuarioRepository;
@@ -52,6 +58,18 @@ class DashboardControllerSecurityTest {
     @Test
     void calendarioSinTokenDevuelve401() throws Exception {
         mockMvc.perform(get("/api/dashboard/calendario"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void alertasSinTokenDevuelve401() throws Exception {
+        mockMvc.perform(get("/api/dashboard/alertas"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void recomendacionSinTokenDevuelve401() throws Exception {
+        mockMvc.perform(get("/api/dashboard/recomendacion"))
                 .andExpect(status().isUnauthorized());
     }
 }

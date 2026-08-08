@@ -5,11 +5,13 @@ import com.piedpiper.carbonhub.certificacion.mappers.CertificacionMapper;
 import com.piedpiper.carbonhub.certificacion.models.dtos.CertificacionPublicaResponseDTO;
 import com.piedpiper.carbonhub.certificacion.models.dtos.CertificacionResponseDTO;
 import com.piedpiper.carbonhub.certificacion.models.dtos.CertificacionResumenResponseDTO;
+import com.piedpiper.carbonhub.certificacion.models.dtos.VerificacionCredencialDTO;
 import com.piedpiper.carbonhub.certificacion.models.entities.Certificacion;
 import com.piedpiper.carbonhub.certificacion.models.enums.EstadoCertificacion;
 import com.piedpiper.carbonhub.certificacion.models.enums.TipoCertificacion;
 import com.piedpiper.carbonhub.certificacion.repository.CertificacionRepository;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
+import com.piedpiper.carbonhub.empresa.models.enums.EstadoEmpresa;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
@@ -231,6 +233,111 @@ class ConsultaCertificacionServiceTest {
         when(certificacionRepository.findById(ID_CERTIFICACION)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.verificacionJwt(ID_CERTIFICACION))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(org.springframework.http.HttpStatus.NOT_FOUND);
+    }
+
+    private Certificacion certificacionConCodigo(String codigo, EstadoCertificacion estado,
+                                                 LocalDate fechaVencimiento, EstadoEmpresa estadoEmpresa) {
+        return Certificacion.builder()
+                .id(ID_CERTIFICACION)
+                .codigoVerificacion(codigo)
+                .tipo(TipoCertificacion.CARBONO_NEUTRAL)
+                .empresa(Empresa.builder().nombreEmpresa("EcoCorp").estado(estadoEmpresa).build())
+                .auditor(Usuario.builder().nombre("Ana Perez").build())
+                .fechaEmision(Instant.parse("2026-01-15T00:00:00Z"))
+                .fechaVencimiento(fechaVencimiento)
+                .estado(estado)
+                .build();
+    }
+
+    @Test
+    void verificarPorCodigoDeUnaCertificacionVigenteDevuelveValidaVigente() {
+        String codigo = "CH-2026-8F4A19KD";
+        when(certificacionRepository.findByCodigoVerificacion(codigo)).thenReturn(Optional.of(
+                certificacionConCodigo(codigo, EstadoCertificacion.ACTIVA,
+                        LocalDate.now().plusDays(1), EstadoEmpresa.ACTIVO)));
+        when(generadorCredencialOpenBadges.emisorNombre()).thenReturn("CarbonHub");
+
+        VerificacionCredencialDTO resultado = service.verificarPorCodigo(codigo);
+
+        assertThat(resultado.getEstado()).isEqualTo("valida_vigente");
+        assertThat(resultado.getEmpresa()).isEqualTo("EcoCorp");
+        assertThat(resultado.getAuditor()).isEqualTo("Ana Perez");
+        assertThat(resultado.getEntidadCertificadora()).isEqualTo("CarbonHub");
+        assertThat(resultado.getNombreCertificacion()).isEqualTo("Carbono Neutral");
+        assertThat(resultado.getFechaConsulta()).isNotNull();
+    }
+
+    @Test
+    void verificarPorCodigoDeUnaCertificacionVencidaDevuelveValidaVencida() {
+        String codigo = "CH-2026-8F4A19KD";
+        when(certificacionRepository.findByCodigoVerificacion(codigo)).thenReturn(Optional.of(
+                certificacionConCodigo(codigo, EstadoCertificacion.ACTIVA,
+                        LocalDate.now().minusDays(1), EstadoEmpresa.ACTIVO)));
+        when(generadorCredencialOpenBadges.emisorNombre()).thenReturn("CarbonHub");
+
+        VerificacionCredencialDTO resultado = service.verificarPorCodigo(codigo);
+
+        assertThat(resultado.getEstado()).isEqualTo("valida_vencida");
+    }
+
+    @Test
+    void verificarPorCodigoDeUnaCertificacionRevocadaDevuelveRevocada() {
+        String codigo = "CH-2026-8F4A19KD";
+        when(certificacionRepository.findByCodigoVerificacion(codigo)).thenReturn(Optional.of(
+                certificacionConCodigo(codigo, EstadoCertificacion.REVOCADA,
+                        LocalDate.now().plusDays(1), EstadoEmpresa.ACTIVO)));
+        when(generadorCredencialOpenBadges.emisorNombre()).thenReturn("CarbonHub");
+
+        VerificacionCredencialDTO resultado = service.verificarPorCodigo(codigo);
+
+        assertThat(resultado.getEstado()).isEqualTo("revocada");
+    }
+
+    @Test
+    void verificarPorCodigoEnMinusculaLoNormalizaYEncuentraLaCertificacion() {
+        String codigoAlmacenado = "CH-2026-8F4A19KD";
+        when(certificacionRepository.findByCodigoVerificacion(codigoAlmacenado)).thenReturn(
+                Optional.of(certificacionConCodigo(codigoAlmacenado, EstadoCertificacion.ACTIVA,
+                        LocalDate.now().plusDays(1), EstadoEmpresa.ACTIVO)));
+        when(generadorCredencialOpenBadges.emisorNombre()).thenReturn("CarbonHub");
+
+        VerificacionCredencialDTO resultado = service.verificarPorCodigo("ch-2026-8f4a19kd");
+
+        assertThat(resultado.getEstado()).isEqualTo("valida_vigente");
+    }
+
+    @Test
+    void verificarPorCodigoInexistenteLanzaRecursoNoEncontrado() {
+        String codigo = "CH-2026-8F4A19KD";
+        when(certificacionRepository.findByCodigoVerificacion(codigo)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.verificarPorCodigo(codigo))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(org.springframework.http.HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void verificarPorCodigoMalFormadoLanzaRecursoNoEncontradoSinConsultarElRepositorio() {
+        assertThatThrownBy(() -> service.verificarPorCodigo("no-es-un-codigo-valido"))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(org.springframework.http.HttpStatus.NOT_FOUND);
+
+        org.mockito.Mockito.verifyNoInteractions(certificacionRepository);
+    }
+
+    @Test
+    void verificarPorCodigoDeUnaEmpresaInactivaLanzaRecursoNoEncontrado() {
+        String codigo = "CH-2026-8F4A19KD";
+        when(certificacionRepository.findByCodigoVerificacion(codigo)).thenReturn(Optional.of(
+                certificacionConCodigo(codigo, EstadoCertificacion.ACTIVA,
+                        LocalDate.now().plusDays(1), EstadoEmpresa.INACTIVO)));
+
+        assertThatThrownBy(() -> service.verificarPorCodigo(codigo))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(org.springframework.http.HttpStatus.NOT_FOUND);

@@ -4,10 +4,14 @@ services:
     container_name: postgres_db
     environment:
       POSTGRES_USER: carbonhub
-      POSTGRES_PASSWORD: carbonhub
+      # Sale del .env y no va escrita aca: este archivo si esta en git.
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?falta DB_PASSWORD en el .env}
       POSTGRES_DB: carbonhub
     ports:
-      - "5432:5432"
+      # Solo 127.0.0.1: sin esto Postgres acepta conexiones de cualquier maquina
+      # de la red, y el rol carbonhub es superusuario. La app conecta por
+      # localhost, asi que no le cambia nada.
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 

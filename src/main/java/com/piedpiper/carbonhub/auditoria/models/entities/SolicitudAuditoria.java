@@ -42,6 +42,8 @@ import java.util.UUID;
 public class SolicitudAuditoria {
 
     public static final int DESCRIPCION_MAX = 500;
+    public static final int MOTIVO_RECHAZO_MIN = 10;
+    public static final int MOTIVO_RECHAZO_MAX = 300;
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -81,6 +83,20 @@ public class SolicitudAuditoria {
 
     @Column(name = "fecha_asignacion")
     private Instant fechaAsignacion;
+
+    @Column(name = "fecha_aceptacion")
+    private Instant fechaAceptacion;
+
+    /**
+     * Motivo y fecha del ultimo rechazo. Sobreviven a la liberacion de la asignacion a proposito:
+     * el auditor y su fecha se borran para que la solicitud vuelva a estar disponible, pero la
+     * empresa necesita seguir viendo por que le rechazaron la solicitud.
+     */
+    @Column(name = "motivo_rechazo", length = MOTIVO_RECHAZO_MAX)
+    private String motivoRechazo;
+
+    @Column(name = "fecha_rechazo")
+    private Instant fechaRechazo;
 
     @OneToMany(mappedBy = "solicitud", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

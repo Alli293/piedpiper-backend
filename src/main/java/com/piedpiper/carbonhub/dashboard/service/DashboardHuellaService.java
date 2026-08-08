@@ -1,16 +1,15 @@
 package com.piedpiper.carbonhub.dashboard.service;
 
 import com.piedpiper.carbonhub.common.HuellasCarbono;
+import com.piedpiper.carbonhub.common.RangosPeriodoDashboard;
 import com.piedpiper.carbonhub.dashboard.models.dtos.ResumenHuellaDashboardResponseDTO;
 import com.piedpiper.carbonhub.dashboard.models.enums.PeriodoDashboard;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
 import com.piedpiper.carbonhub.emision.service.EmisionEmpresaService;
-import com.piedpiper.carbonhub.exceptions.ApiException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.Year;
-import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.Optional;
 import java.util.UUID;
@@ -36,7 +35,7 @@ public class DashboardHuellaService {
         PeriodoDashboard periodoNormalizado = PeriodoDashboard.desde(periodo)
                 .orElse(PeriodoDashboard.POR_DEFECTO);
         int anioConsultar = anio == null ? Year.now(ZoneId.systemDefault()).getValue() : anio;
-        validarAnio(anioConsultar);
+        RangosPeriodoDashboard.validarAnio(anioConsultar);
         UUID empresaId = emisionEmpresaService.empresaId(usuarioId);
         RangoPeriodo rango = rangoActual(periodoNormalizado, anioConsultar, LocalDate.now(ZoneId.systemDefault()));
 
@@ -54,26 +53,9 @@ public class DashboardHuellaService {
         );
     }
 
-    private void validarAnio(Integer anio) {
-        int anioActual = Year.now(ZoneId.systemDefault()).getValue();
-        if (anio < 1900 || anio > anioActual + 1) {
-            throw ApiException.anioInvalido();
-        }
-    }
-
     private RangoPeriodo rangoActual(PeriodoDashboard periodo, Integer anio, LocalDate hoy) {
-        if (PeriodoDashboard.TRIMESTRE == periodo) {
-            int mesInicial = (((hoy.getMonthValue() - 1) / 3) * 3) + 1;
-            LocalDate inicio = LocalDate.of(anio, mesInicial, 1);
-            return new RangoPeriodo(inicio, inicio.plusMonths(3), periodo);
-        }
-        if (PeriodoDashboard.ANIO == periodo) {
-            LocalDate inicio = Year.of(anio).atDay(1);
-            return new RangoPeriodo(inicio, inicio.plusYears(1), periodo);
-        }
-
-        LocalDate inicio = YearMonth.of(anio, hoy.getMonth()).atDay(1);
-        return new RangoPeriodo(inicio, inicio.plusMonths(1), periodo);
+        RangosPeriodoDashboard.Rango rango = RangosPeriodoDashboard.actual(periodo, anio, hoy);
+        return new RangoPeriodo(rango.inicio(), rango.fin(), periodo);
     }
 
     private BigDecimal variacionPorcentual(UUID empresaId, RangoPeriodo rango, BigDecimal actualKg) {

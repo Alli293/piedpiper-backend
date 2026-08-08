@@ -20,4 +20,5 @@ public class CertificacionPublicaResponseDTO {
     private Instant fechaEmision;
     private LocalDate fechaVencimiento;
     private String estado;
+    private String codigoVerificacion;
 }
