@@ -1,5 +1,8 @@
 package com.piedpiper.carbonhub.insignia.service;
 
+import com.piedpiper.carbonhub.certificacion.models.dtos.VerificacionCredencialDTO;
+import com.piedpiper.carbonhub.certificacion.models.enums.EstadoVerificacion;
+import com.piedpiper.carbonhub.certificacion.service.GeneradorCodigoVerificacionService;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 import com.piedpiper.carbonhub.insignia.mappers.InsigniaEmpresaMapper;
@@ -14,7 +17,9 @@ import com.piedpiper.carbonhub.perfilpublico.service.SlugResolverService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.UUID;
@@ -66,6 +71,50 @@ public class InsigniaEmpresaConsultaService {
     public List<InsigniaEmpresaResponseDTO> listarPorSlug(String slug) {
         Empresa empresa = slugResolver.resolver(slug);
         return listarPorEmpresa(empresa.getId());
+    }
+
+    /**
+     * Verificacion publica por {@code codigoVerificacion}, contraparte de
+     * {@code ConsultaCertificacionService#verificarPorCodigo} para insignias
+     * (ver {@code VerificacionCredencialService}, que intenta primero
+     * certificacion y cae aqui si no encuentra). Mismo criterio de
+     * privacidad: un codigo mal formado y uno bien formado pero inexistente
+     * devuelven el mismo 404.
+     *
+     * <p>{@code estado} siempre es {@code valida_vigente}: las insignias
+     * empresariales no vencen ni se revocan en el modelo actual (ver
+     * {@link #listarPorSlug}).
+     */
+    @Transactional(readOnly = true)
+    public VerificacionCredencialDTO verificarPorCodigo(String codigo) {
+        String codigoNormalizado = codigo == null ? null : codigo.toUpperCase(Locale.ROOT);
+        if (!GeneradorCodigoVerificacionService.formatoValido(codigoNormalizado)) {
+            throw ApiException.recursoNoEncontrado("Credencial no encontrada.");
+        }
+
+        InsigniaEmpresa insigniaEmpresa = insigniaEmpresaRepository
+                .findByCodigoVerificacion(codigoNormalizado)
+                .orElseThrow(() -> ApiException.recursoNoEncontrado("Credencial no encontrada."));
+
+        if (insigniaEmpresa.getEmpresa().getEstado() != EstadoEmpresa.ACTIVO) {
+            throw ApiException.recursoNoEncontrado("Credencial no encontrada.");
+        }
+
+        CatalogoInsignia catalogo = catalogoInsigniaRepository
+                .findByIdInsigniaAndNivelInsigniaAndActivaTrue(
+                        insigniaEmpresa.getIdInsignia(), insigniaEmpresa.getNivelInsignia())
+                .orElse(null);
+
+        VerificacionCredencialDTO dto = new VerificacionCredencialDTO();
+        dto.setEstado(EstadoVerificacion.VALIDA_VIGENTE.getCodigo());
+        dto.setCategoria("INSIGNIA");
+        dto.setNombreCertificacion(catalogo != null ? catalogo.getNombre() : "Insignia");
+        dto.setNivelInsignia(insigniaEmpresa.getNivelInsignia());
+        dto.setEmpresa(insigniaEmpresa.getEmpresa().getNombreEmpresa());
+        dto.setEntidadCertificadora(insigniaEmpresaOpenBadgesService.emisorNombre());
+        dto.setFechaEmision(insigniaEmpresa.getFechaObtencion());
+        dto.setFechaConsulta(Instant.now());
+        return dto;
     }
 
     private List<InsigniaEmpresaResponseDTO> listarPorEmpresa(UUID empresaId) {

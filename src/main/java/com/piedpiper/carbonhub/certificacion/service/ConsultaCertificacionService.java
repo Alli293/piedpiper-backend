@@ -132,6 +132,7 @@ public class ConsultaCertificacionService {
 
         VerificacionCredencialDTO dto = new VerificacionCredencialDTO();
         dto.setEstado(resolverEstadoVerificacion(certificacion).getCodigo());
+        dto.setCategoria("CERTIFICACION");
         dto.setTipo(certificacion.getTipo().name());
         catalogoTiposCertificacion.buscar(certificacion.getTipo())
                 .ifPresent(definicion -> dto.setNombreCertificacion(definicion.nombre()));

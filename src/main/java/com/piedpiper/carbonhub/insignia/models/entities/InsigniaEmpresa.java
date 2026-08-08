@@ -49,4 +49,21 @@ public class InsigniaEmpresa {
 
     @Column(name = "fecha_obtencion", nullable = false)
     private Instant fechaObtencion;
+
+    /**
+     * Codigo publico corto (p. ej. {@code CH-2026-8F4A19KD}) para verificar la
+     * insignia sin conocer su {@code id} interno, igual que
+     * {@code Certificacion#codigoVerificacion}. Se genera al otorgar (ver
+     * {@code InsigniaEmpresaEvaluacionService}) usando el mismo
+     * {@code GeneradorCodigoVerificacionService}.
+     *
+     * <p>{@code nullable = true} a proposito, mismo motivo que en
+     * {@code Certificacion}: con {@code ddl-auto=update} y sin migraciones, un
+     * {@code NOT NULL} sobre una tabla que ya tiene filas hace fallar el
+     * {@code ALTER TABLE}. Las insignias otorgadas antes de este cambio quedan
+     * sin codigo — no se regeneran retroactivamente porque no existe todavia
+     * un proceso que las vuelva a otorgar.
+     */
+    @Column(name = "codigo_verificacion", unique = true, length = 20)
+    private String codigoVerificacion;
 }

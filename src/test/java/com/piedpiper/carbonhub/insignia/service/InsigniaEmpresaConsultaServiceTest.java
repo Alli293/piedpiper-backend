@@ -1,5 +1,6 @@
 package com.piedpiper.carbonhub.insignia.service;
 
+import com.piedpiper.carbonhub.certificacion.models.dtos.VerificacionCredencialDTO;
 import com.piedpiper.carbonhub.emision.service.EmisionEmpresaService;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.empresa.models.enums.EstadoEmpresa;
@@ -154,5 +155,70 @@ class InsigniaEmpresaConsultaServiceTest {
 
         verify(insigniaEmpresaRepository, never())
                 .findByEmpresaIdOrderByFechaObtencionDesc(any());
+    }
+
+    private InsigniaEmpresa insigniaEmpresaConCodigo(String codigo, EstadoEmpresa estadoEmpresa) {
+        return InsigniaEmpresa.builder()
+                .id(UUID.randomUUID())
+                .codigoVerificacion(codigo)
+                .empresa(Empresa.builder().nombreEmpresa("EcoCorp").estado(estadoEmpresa).build())
+                .idInsignia(1L)
+                .nivelInsignia("oro")
+                .fechaObtencion(Instant.parse("2026-01-15T00:00:00Z"))
+                .build();
+    }
+
+    @Test
+    void verificarPorCodigoDeUnaInsigniaVigenteDevuelveValidaVigente() {
+        String codigo = "CH-2026-8F4A19KD";
+        InsigniaEmpresa insigniaEmpresa = insigniaEmpresaConCodigo(codigo, EstadoEmpresa.ACTIVO);
+        when(insigniaEmpresaRepository.findByCodigoVerificacion(codigo))
+                .thenReturn(Optional.of(insigniaEmpresa));
+        when(catalogoInsigniaRepository.findByIdInsigniaAndNivelInsigniaAndActivaTrue(1L, "oro"))
+                .thenReturn(Optional.of(catalogo(1L, "oro")));
+        when(insigniaEmpresaOpenBadgesService.emisorNombre()).thenReturn("CarbonHub");
+
+        VerificacionCredencialDTO resultado = service.verificarPorCodigo(codigo);
+
+        assertThat(resultado.getEstado()).isEqualTo("valida_vigente");
+        assertThat(resultado.getCategoria()).isEqualTo("INSIGNIA");
+        assertThat(resultado.getNivelInsignia()).isEqualTo("oro");
+        assertThat(resultado.getNombreCertificacion()).isEqualTo("Carbono Neutral");
+        assertThat(resultado.getEmpresa()).isEqualTo("EcoCorp");
+        assertThat(resultado.getEntidadCertificadora()).isEqualTo("CarbonHub");
+        assertThat(resultado.getFechaConsulta()).isNotNull();
+    }
+
+    @Test
+    void verificarPorCodigoDeInsigniaInexistenteLanzaRecursoNoEncontrado() {
+        String codigo = "CH-2026-8F4A19KD";
+        when(insigniaEmpresaRepository.findByCodigoVerificacion(codigo)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.verificarPorCodigo(codigo))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> assertThat(((ApiException) ex).getStatus())
+                        .isEqualTo(HttpStatus.NOT_FOUND));
+    }
+
+    @Test
+    void verificarPorCodigoDeInsigniaMalFormadoLanzaRecursoNoEncontradoSinConsultarElRepositorio() {
+        assertThatThrownBy(() -> service.verificarPorCodigo("no-es-un-codigo-valido"))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> assertThat(((ApiException) ex).getStatus())
+                        .isEqualTo(HttpStatus.NOT_FOUND));
+
+        verify(insigniaEmpresaRepository, never()).findByCodigoVerificacion(any());
+    }
+
+    @Test
+    void verificarPorCodigoDeInsigniaDeEmpresaInactivaLanzaRecursoNoEncontrado() {
+        String codigo = "CH-2026-8F4A19KD";
+        when(insigniaEmpresaRepository.findByCodigoVerificacion(codigo))
+                .thenReturn(Optional.of(insigniaEmpresaConCodigo(codigo, EstadoEmpresa.INACTIVO)));
+
+        assertThatThrownBy(() -> service.verificarPorCodigo(codigo))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> assertThat(((ApiException) ex).getStatus())
+                        .isEqualTo(HttpStatus.NOT_FOUND));
     }
 }
