@@ -15,7 +15,6 @@ public class ProcesadorReportePdf {
     public boolean puedeProcesar(byte[] contenido) {
         String texto = new String(contenido, StandardCharsets.ISO_8859_1);
         return texto.contains("/Root")
-                && texto.contains("xref")
                 && texto.contains("startxref")
                 && texto.contains("%%EOF")
                 && cantidadDe(texto, " obj") == cantidadDe(texto, "endobj");

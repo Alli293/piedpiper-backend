@@ -9,6 +9,7 @@ import com.piedpiper.carbonhub.auditoria.models.entities.TransicionEstadoAuditor
 import com.piedpiper.carbonhub.auditoria.models.enums.EstadoSolicitudAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.EventoTransicionAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.OrigenAsignacion;
+import com.piedpiper.carbonhub.auditoria.repository.ContenidoReporteAuditoriaRepository;
 import com.piedpiper.carbonhub.auditoria.repository.SolicitudAuditoriaRepository;
 import com.piedpiper.carbonhub.auditoria.repository.TransicionEstadoAuditoriaRepository;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
@@ -38,7 +39,6 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -55,6 +55,8 @@ class CargaReporteAuditoriaServiceTest {
 
     @Mock
     private SolicitudAuditoriaRepository solicitudAuditoriaRepository;
+    @Mock
+    private ContenidoReporteAuditoriaRepository contenidoReporteAuditoriaRepository;
     @Mock
     private TransicionEstadoAuditoriaRepository transicionEstadoAuditoriaRepository;
     @Mock
@@ -75,6 +77,7 @@ class CargaReporteAuditoriaServiceTest {
 
         service = new CargaReporteAuditoriaService(
                 solicitudAuditoriaRepository,
+                contenidoReporteAuditoriaRepository,
                 transicionEstadoAuditoriaRepository,
                 validadorReporteAuditoriaPdf,
                 reporteAuditoriaFactory,
@@ -84,8 +87,8 @@ class CargaReporteAuditoriaServiceTest {
 
         when(solicitudAuditoriaRepository.findById(SOLICITUD_ID)).thenReturn(Optional.of(solicitud()));
         when(validadorReporteAuditoriaPdf.validar(any())).thenReturn(CONTENIDO);
-        when(reporteAuditoriaFactory.crear(any(), eq(CONTENIDO), any()))
-                .thenAnswer(invocacion -> reporte((Instant) invocacion.getArgument(2)));
+        when(reporteAuditoriaFactory.crear(any(), any()))
+                .thenAnswer(invocacion -> reporte((Instant) invocacion.getArgument(1)));
         when(solicitudAuditoriaRepository.saveAndFlush(any(SolicitudAuditoria.class)))
                 .thenAnswer(invocacion -> invocacion.getArgument(0));
         when(transicionEstadoAuditoriaRepository.findBySolicitudIdOrderByFechaAsc(SOLICITUD_ID))
@@ -103,6 +106,7 @@ class CargaReporteAuditoriaServiceTest {
         assertThat(guardada.getFechaCargaReporte()).isNotNull();
         assertThat(guardada.getReporteAuditoria().getSolicitud()).isSameAs(guardada);
         assertThat(respuesta.getReporteAuditoria().getNombreArchivo()).isEqualTo("reporte.pdf");
+        verify(contenidoReporteAuditoriaRepository).saveAndFlush(any());
 
         assertThat(capturarTransiciones()).singleElement()
                 .satisfies(transicion -> assertThat(transicion.getEvento())
@@ -137,7 +141,7 @@ class CargaReporteAuditoriaServiceTest {
         InOrder orden = inOrder(solicitudAuditoriaRepository, validadorReporteAuditoriaPdf);
         orden.verify(solicitudAuditoriaRepository).findById(SOLICITUD_ID);
         orden.verify(validadorReporteAuditoriaPdf).validar(any());
-        verify(reporteAuditoriaFactory, never()).crear(any(), any(), any());
+        verify(reporteAuditoriaFactory, never()).crear(any(), any());
         verify(solicitudAuditoriaRepository, never()).saveAndFlush(any());
     }
 
@@ -187,7 +191,7 @@ class CargaReporteAuditoriaServiceTest {
                 .extracting(error -> ((ApiException) error).getStatus())
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
 
-        verify(reporteAuditoriaFactory, never()).crear(any(), any(), any());
+        verify(reporteAuditoriaFactory, never()).crear(any(), any());
         verify(solicitudAuditoriaRepository, never()).saveAndFlush(any());
     }
 
@@ -252,7 +256,6 @@ class CargaReporteAuditoriaServiceTest {
                 .nombreArchivo("reporte.pdf")
                 .tipoContenido(MediaType.APPLICATION_PDF_VALUE)
                 .tamanioBytes(CONTENIDO.length)
-                .contenido(CONTENIDO)
                 .fechaCarga(fechaCarga)
                 .build();
     }

@@ -10,12 +10,11 @@ import java.time.Instant;
 @Component
 public class ReporteAuditoriaFactory {
 
-    public ReporteAuditoria crear(MultipartFile archivo, byte[] contenido, Instant fechaCarga) {
+    public ReporteAuditoria crear(MultipartFile archivo, Instant fechaCarga) {
         return ReporteAuditoria.builder()
                 .nombreArchivo(nombreArchivo(archivo))
                 .tipoContenido(archivo.getContentType())
                 .tamanioBytes(archivo.getSize())
-                .contenido(contenido)
                 .fechaCarga(fechaCarga)
                 .build();
     }

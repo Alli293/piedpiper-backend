@@ -3,11 +3,13 @@ package com.piedpiper.carbonhub.auditoria.service;
 import com.piedpiper.carbonhub.auditoria.mappers.SolicitudAuditoriaMapper;
 import com.piedpiper.carbonhub.auditoria.mappers.TransicionEstadoAuditoriaMapper;
 import com.piedpiper.carbonhub.auditoria.models.dtos.SolicitudAuditoriaDetalleResponseDTO;
+import com.piedpiper.carbonhub.auditoria.models.entities.ContenidoReporteAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.entities.ReporteAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.entities.SolicitudAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.ActorTransicionAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.EstadoSolicitudAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.EventoTransicionAuditoria;
+import com.piedpiper.carbonhub.auditoria.repository.ContenidoReporteAuditoriaRepository;
 import com.piedpiper.carbonhub.auditoria.repository.SolicitudAuditoriaRepository;
 import com.piedpiper.carbonhub.auditoria.repository.TransicionEstadoAuditoriaRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
@@ -29,6 +31,7 @@ public class CargaReporteAuditoriaService {
     private static final ZoneId ZONA_HORARIA_NEGOCIO = ZoneId.of("America/Costa_Rica");
 
     private final SolicitudAuditoriaRepository solicitudAuditoriaRepository;
+    private final ContenidoReporteAuditoriaRepository contenidoReporteAuditoriaRepository;
     private final TransicionEstadoAuditoriaRepository transicionEstadoAuditoriaRepository;
     private final ValidadorReporteAuditoriaPdf validadorReporteAuditoriaPdf;
     private final ReporteAuditoriaFactory reporteAuditoriaFactory;
@@ -38,6 +41,7 @@ public class CargaReporteAuditoriaService {
 
     public CargaReporteAuditoriaService(
             SolicitudAuditoriaRepository solicitudAuditoriaRepository,
+            ContenidoReporteAuditoriaRepository contenidoReporteAuditoriaRepository,
             TransicionEstadoAuditoriaRepository transicionEstadoAuditoriaRepository,
             ValidadorReporteAuditoriaPdf validadorReporteAuditoriaPdf,
             ReporteAuditoriaFactory reporteAuditoriaFactory,
@@ -45,6 +49,7 @@ public class CargaReporteAuditoriaService {
             SolicitudAuditoriaMapper solicitudAuditoriaMapper,
             TransicionEstadoAuditoriaMapper transicionEstadoAuditoriaMapper) {
         this.solicitudAuditoriaRepository = solicitudAuditoriaRepository;
+        this.contenidoReporteAuditoriaRepository = contenidoReporteAuditoriaRepository;
         this.transicionEstadoAuditoriaRepository = transicionEstadoAuditoriaRepository;
         this.validadorReporteAuditoriaPdf = validadorReporteAuditoriaPdf;
         this.reporteAuditoriaFactory = reporteAuditoriaFactory;
@@ -66,8 +71,13 @@ public class CargaReporteAuditoriaService {
         byte[] contenido = validadorReporteAuditoriaPdf.validar(reporteAuditoria);
         validarFechaAuditoria(solicitud, fechaAuditoriaRealizada);
 
+        UUID reporteAnteriorId = reporteAnteriorId(solicitud);
+        if (reporteAnteriorId != null) {
+            contenidoReporteAuditoriaRepository.deleteByReporteAuditoriaId(reporteAnteriorId);
+        }
+
         Instant ahora = Instant.now();
-        ReporteAuditoria reporte = reporteAuditoriaFactory.crear(reporteAuditoria, contenido, ahora);
+        ReporteAuditoria reporte = reporteAuditoriaFactory.crear(reporteAuditoria, ahora);
         solicitud.reemplazarReporteAuditoria(reporte);
         solicitud.setFechaAuditoriaRealizada(fechaAuditoriaRealizada);
         solicitud.setFechaCargaReporte(ahora);
@@ -79,7 +89,9 @@ public class CargaReporteAuditoriaService {
                     auditor);
         }
 
-        return detalleDe(guardar(solicitud));
+        SolicitudAuditoria guardada = guardar(solicitud);
+        guardarContenido(guardada.getReporteAuditoria(), contenido);
+        return detalleDe(guardada);
     }
 
     private Usuario validarAuditorAsignado(SolicitudAuditoria solicitud, UUID usuarioId) {
@@ -120,6 +132,17 @@ public class CargaReporteAuditoriaService {
         } catch (ObjectOptimisticLockingFailureException e) {
             throw ApiException.cargaReporteAuditoriaNoDisponible();
         }
+    }
+
+    private void guardarContenido(ReporteAuditoria reporte, byte[] contenido) {
+        contenidoReporteAuditoriaRepository.saveAndFlush(ContenidoReporteAuditoria.builder()
+                .reporteAuditoria(reporte)
+                .contenido(contenido)
+                .build());
+    }
+
+    private UUID reporteAnteriorId(SolicitudAuditoria solicitud) {
+        return solicitud.getReporteAuditoria() == null ? null : solicitud.getReporteAuditoria().getId();
     }
 
     private SolicitudAuditoriaDetalleResponseDTO detalleDe(SolicitudAuditoria solicitud) {

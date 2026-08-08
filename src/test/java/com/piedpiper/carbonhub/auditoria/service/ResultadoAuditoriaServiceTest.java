@@ -32,7 +32,6 @@ import org.springframework.http.MediaType;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -215,13 +214,13 @@ class ResultadoAuditoriaServiceTest {
                 .fechaAuditoriaRealizada(LocalDate.of(2026, 8, 5))
                 .fechaCargaReporte(Instant.parse("2026-08-05T18:00:00Z"))
                 .build();
-        solicitud.reemplazarReporteAuditoria(ReporteAuditoria.builder()
+        ReporteAuditoria reporte = ReporteAuditoria.builder()
                 .nombreArchivo("reporte.pdf")
                 .tipoContenido(MediaType.APPLICATION_PDF_VALUE)
                 .tamanioBytes(128)
-                .contenido("%PDF-1.7".getBytes(StandardCharsets.US_ASCII))
                 .fechaCarga(Instant.parse("2026-08-05T18:00:00Z"))
-                .build());
+                .build();
+        solicitud.reemplazarReporteAuditoria(reporte);
         return solicitud;
     }
 }

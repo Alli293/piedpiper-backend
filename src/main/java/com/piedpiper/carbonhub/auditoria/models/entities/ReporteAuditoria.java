@@ -9,8 +9,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -46,10 +44,6 @@ public class ReporteAuditoria {
 
     @Column(name = "tamanio_bytes", nullable = false)
     private long tamanioBytes;
-
-    @JdbcTypeCode(SqlTypes.VARBINARY)
-    @Column(name = "contenido", nullable = false, columnDefinition = "bytea")
-    private byte[] contenido;
 
     @Column(name = "fecha_carga", nullable = false)
     private Instant fechaCarga;

@@ -97,6 +97,8 @@ public class ResultadoAuditoriaService {
     }
 
     private EmitirCertificacionRequestDTO comandoEmision(SolicitudAuditoria solicitud, Usuario auditor) {
+        // La solicitud de auditoria guarda si el tramite es inicial o renovacion, no el producto
+        // certificable. Mientras PP-48 no capture ese dato, la aprobacion emite Inventario GEI.
         return new EmitirCertificacionRequestDTO(
                 solicitud.getId(),
                 solicitud.getEmpresa().getId(),
