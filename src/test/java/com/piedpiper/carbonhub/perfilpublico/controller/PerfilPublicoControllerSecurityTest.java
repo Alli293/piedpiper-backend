@@ -14,6 +14,7 @@ import com.piedpiper.carbonhub.perfilpublico.service.EnlacePerfilService;
 import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoCertificacionesService;
 import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoConsultaService;
 import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoEvolucionService;
+import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoHuellaService;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 import java.time.Instant;
 import java.util.List;
@@ -43,6 +44,8 @@ class PerfilPublicoControllerSecurityTest {
     private EnlacePerfilService enlacePerfilService;
     @MockitoBean
     private PerfilPublicoEvolucionService evolucionService;
+    @MockitoBean
+    private PerfilPublicoHuellaService perfilPublicoHuellaService;
     @MockitoBean
     private JwtService jwtService;
     @MockitoBean

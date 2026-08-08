@@ -6,6 +6,8 @@ import com.piedpiper.carbonhub.perfilpublico.service.EnlacePerfilService;
 import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoCertificacionesService;
 import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoConsultaService;
 import com.piedpiper.carbonhub.insignia.service.InsigniaEmpresaConsultaService;
+import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoHuellaService;
+import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoEvolucionService;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -77,6 +79,8 @@ class PerfilPublicoControllerPropertyTest {
         PerfilPublicoCertificacionesService mockCertService = mock(PerfilPublicoCertificacionesService.class);
         InsigniaEmpresaConsultaService mockInsigniaService = mock(InsigniaEmpresaConsultaService.class);
         EnlacePerfilService mockEnlaceService = mock(EnlacePerfilService.class);
+        PerfilPublicoEvolucionService mockEvolucionService = mock(PerfilPublicoEvolucionService.class);
+        PerfilPublicoHuellaService mockHuellaService = mock(PerfilPublicoHuellaService.class);
 
         PerfilPublicoResponseDTO dto = new PerfilPublicoResponseDTO(
                 nombre, "https://cdn.example.com/logo.png", sector, pais,
@@ -85,7 +89,9 @@ class PerfilPublicoControllerPropertyTest {
         when(mockService.obtenerPorSlug(slug)).thenReturn(dto);
 
         MockMvc mockMvc = MockMvcBuilders
-                .standaloneSetup(new PerfilPublicoController(mockService, mockCertService, mockInsigniaService, mockEnlaceService, null))
+                .standaloneSetup(new PerfilPublicoController(
+                        mockService, mockCertService, mockInsigniaService,
+                        mockEnlaceService, mockEvolucionService, mockHuellaService))
                 .setControllerAdvice(new PerfilPublicoExceptionHandler())
                 .build();
 
@@ -130,6 +136,8 @@ class PerfilPublicoControllerPropertyTest {
         PerfilPublicoCertificacionesService mockCertService = mock(PerfilPublicoCertificacionesService.class);
         InsigniaEmpresaConsultaService mockInsigniaService = mock(InsigniaEmpresaConsultaService.class);
         EnlacePerfilService mockEnlaceService = mock(EnlacePerfilService.class);
+        PerfilPublicoEvolucionService mockEvolucionService = mock(PerfilPublicoEvolucionService.class);
+        PerfilPublicoHuellaService mockHuellaService = mock(PerfilPublicoHuellaService.class);
 
         switch (condition.type) {
             case PERFIL_NO_ENCONTRADO:
@@ -143,7 +151,9 @@ class PerfilPublicoControllerPropertyTest {
         }
 
         MockMvc mockMvc = MockMvcBuilders
-                .standaloneSetup(new PerfilPublicoController(mockService, mockCertService, mockInsigniaService, mockEnlaceService, null))
+                .standaloneSetup(new PerfilPublicoController(
+                        mockService, mockCertService, mockInsigniaService,
+                        mockEnlaceService, mockEvolucionService, mockHuellaService))
                 .setControllerAdvice(new PerfilPublicoExceptionHandler())
                 .build();
 

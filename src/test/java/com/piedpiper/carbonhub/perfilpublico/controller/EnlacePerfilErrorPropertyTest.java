@@ -6,6 +6,8 @@ import com.piedpiper.carbonhub.perfilpublico.service.EnlacePerfilService;
 import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoCertificacionesService;
 import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoConsultaService;
 import com.piedpiper.carbonhub.insignia.service.InsigniaEmpresaConsultaService;
+import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoEvolucionService;
+import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoHuellaService;
 
 import net.jqwik.api.*;
 
@@ -89,6 +91,8 @@ class EnlacePerfilErrorPropertyTest {
         PerfilPublicoCertificacionesService mockCertService = mock(PerfilPublicoCertificacionesService.class);
         InsigniaEmpresaConsultaService mockInsigniaService = mock(InsigniaEmpresaConsultaService.class);
         EnlacePerfilService mockEnlaceService = mock(EnlacePerfilService.class);
+        PerfilPublicoEvolucionService mockEvolucionService = mock(PerfilPublicoEvolucionService.class);
+        PerfilPublicoHuellaService mockHuellaService = mock(PerfilPublicoHuellaService.class);
 
         // Configure mock to throw the appropriate exception
         switch (scenario.type) {
@@ -105,7 +109,8 @@ class EnlacePerfilErrorPropertyTest {
         MockMvc mockMvc = MockMvcBuilders
                 .standaloneSetup(new PerfilPublicoController(
                         mockConsultaService, mockCertService,
-                        mockInsigniaService, mockEnlaceService, null))
+                        mockInsigniaService, mockEnlaceService,
+                        mockEvolucionService, mockHuellaService))
                 .setControllerAdvice(new PerfilPublicoExceptionHandler())
                 .build();
 
