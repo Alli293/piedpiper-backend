@@ -12,6 +12,7 @@ import com.piedpiper.carbonhub.perfilpublico.repository.SlugHistoricoRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.util.HtmlUtils;
 
 import java.util.Optional;
 import java.util.regex.Pattern;
@@ -101,9 +102,10 @@ public class EnlacePerfilService {
     }
 
     private String generarCodigoIncrustar(String urlCanonica, String nombreEmpresa) {
+        String nombreEscapado = HtmlUtils.htmlEscape(nombreEmpresa);
         return "<a href=\"" + urlCanonica + "\" target=\"_blank\" rel=\"noopener\" "
                 + "style=\"display:inline-block;padding:12px 20px;background:#1a5c3a;color:#fff;"
                 + "font-family:system-ui,sans-serif;font-size:14px;border-radius:8px;text-decoration:none;\">"
-                + nombreEmpresa + " — Perfil verificado en CarbonHub</a>";
+                + nombreEscapado + " — Perfil verificado en CarbonHub</a>";
     }
 }
