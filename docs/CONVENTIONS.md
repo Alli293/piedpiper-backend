@@ -200,7 +200,7 @@ public class Invitacion {
    private String titulo;
    ```
 2. **Custom validators** live in `<domain>/validation/`, as an annotation + `ConstraintValidator` pair (see `@AnioLimiteValido` / `AnioLimiteValidoValidator`).
-3. **Validate in the service only when Bean Validation can't express it**, and document why on the DTO. Only current case: `PreferenciasUsuarioRequestDTO` takes `String` instead of enums on purpose, to return `422` rather than the `400` Jackson would produce on a deserialization failure.
+3. **Validate in the service only when Bean Validation can't express it**, and document why on the DTO. Current cases: `PreferenciasUsuarioRequestDTO` takes `String` instead of enums on purpose, to return `422` rather than the `400` Jackson would produce on a deserialization failure; `CrearMetaRequestDTO.fechaLimite` skips `@FutureOrPresent` for the same reason — `GlobalExceptionHandler` always maps Bean Validation failures to `400`, so the past-date check happens in `MetaService` to return `422` instead.
 
 ---
 

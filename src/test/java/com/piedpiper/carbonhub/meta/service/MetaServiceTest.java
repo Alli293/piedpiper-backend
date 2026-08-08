@@ -62,7 +62,7 @@ class MetaServiceTest {
         lenient().when(emisionEmpresaService.empresaId(USUARIO_ID)).thenReturn(EMPRESA_ID);
         lenient().when(empresaRepository.getReferenceById(EMPRESA_ID))
                 .thenReturn(Empresa.builder().id(EMPRESA_ID).build());
-        lenient().when(metaRepository.save(any(Meta.class))).thenAnswer(inv -> {
+        lenient().when(metaRepository.saveAndFlush(any(Meta.class))).thenAnswer(inv -> {
             Meta meta = inv.getArgument(0);
             meta.setId(UUID.randomUUID());
             return meta;
@@ -79,7 +79,7 @@ class MetaServiceTest {
         service.crear(USUARIO_ID, request);
 
         ArgumentCaptor<Meta> captor = ArgumentCaptor.forClass(Meta.class);
-        verify(metaRepository).save(captor.capture());
+        verify(metaRepository).saveAndFlush(captor.capture());
         Meta guardada = captor.getValue();
         assertThat(guardada.getEmpresa().getId()).isEqualTo(EMPRESA_ID);
         assertThat(guardada.getNombreMeta()).isEqualTo("Reducir huella total");
@@ -97,7 +97,7 @@ class MetaServiceTest {
         assertThatThrownBy(() -> service.crear(USUARIO_ID, request))
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY));
-        verify(metaRepository, never()).save(any());
+        verify(metaRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -108,14 +108,14 @@ class MetaServiceTest {
 
         service.crear(USUARIO_ID, request);
 
-        verify(metaRepository).save(any());
+        verify(metaRepository).saveAndFlush(any());
     }
 
     @Test
     void unErrorDeBaseDeDatosAlGuardarNoDejaRegistroParcialYMuestraMensajePropio() {
         CrearMetaRequestDTO request = new CrearMetaRequestDTO(
                 "Reducir huella total", new BigDecimal("50.0000"), HOY.plusMonths(6));
-        when(metaRepository.save(any(Meta.class)))
+        when(metaRepository.saveAndFlush(any(Meta.class)))
                 .thenThrow(new DataIntegrityViolationException("boom"));
 
         assertThatThrownBy(() -> service.crear(USUARIO_ID, request))
@@ -180,6 +180,15 @@ class MetaServiceTest {
 
         assertThat(resultado).isEmpty();
         verify(metaRepository).findByEmpresaIdAndEstadoOrderByFechaCreacionDesc(EMPRESA_ID, EstadoMeta.ACTIVA);
+    }
+
+    @Test
+    void unAnioInvalidoLanzaApiException400() {
+        int anioInvalido = HOY.getYear() + 5;
+
+        assertThatThrownBy(() -> service.listar(USUARIO_ID, "mes_actual", anioInvalido))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
     }
 
     private Meta metaActiva(BigDecimal valorObjetivoHuellaT, LocalDate fechaLimite) {

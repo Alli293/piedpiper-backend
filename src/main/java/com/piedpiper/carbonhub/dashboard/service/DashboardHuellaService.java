@@ -6,7 +6,6 @@ import com.piedpiper.carbonhub.dashboard.models.dtos.ResumenHuellaDashboardRespo
 import com.piedpiper.carbonhub.dashboard.models.enums.PeriodoDashboard;
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
 import com.piedpiper.carbonhub.emision.service.EmisionEmpresaService;
-import com.piedpiper.carbonhub.exceptions.ApiException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -36,7 +35,7 @@ public class DashboardHuellaService {
         PeriodoDashboard periodoNormalizado = PeriodoDashboard.desde(periodo)
                 .orElse(PeriodoDashboard.POR_DEFECTO);
         int anioConsultar = anio == null ? Year.now(ZoneId.systemDefault()).getValue() : anio;
-        validarAnio(anioConsultar);
+        RangosPeriodoDashboard.validarAnio(anioConsultar);
         UUID empresaId = emisionEmpresaService.empresaId(usuarioId);
         RangoPeriodo rango = rangoActual(periodoNormalizado, anioConsultar, LocalDate.now(ZoneId.systemDefault()));
 
@@ -52,13 +51,6 @@ public class DashboardHuellaService {
                 variacion,
                 actual.tieneDatos()
         );
-    }
-
-    private void validarAnio(Integer anio) {
-        int anioActual = Year.now(ZoneId.systemDefault()).getValue();
-        if (anio < 1900 || anio > anioActual + 1) {
-            throw ApiException.anioInvalido();
-        }
     }
 
     private RangoPeriodo rangoActual(PeriodoDashboard periodo, Integer anio, LocalDate hoy) {
