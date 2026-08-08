@@ -5,12 +5,14 @@ import com.piedpiper.carbonhub.auditoria.models.dtos.CrearSolicitudAuditoriaRequ
 import com.piedpiper.carbonhub.auditoria.models.dtos.SolicitudAuditoriaDetalleResponseDTO;
 import com.piedpiper.carbonhub.auditoria.models.dtos.SolicitudAuditoriaResponseDTO;
 import com.piedpiper.carbonhub.auditoria.models.dtos.SolicitudAuditoriaResumenResponseDTO;
+import com.piedpiper.carbonhub.auditoria.service.CargaReporteAuditoriaService;
 import com.piedpiper.carbonhub.auditoria.service.SolicitudAuditoriaDetalleService;
 import com.piedpiper.carbonhub.auditoria.service.SolicitudAuditoriaListadoService;
 import com.piedpiper.carbonhub.auditoria.service.SolicitudAuditoriaService;
 import com.piedpiper.carbonhub.common.Autenticaciones;
 
 import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -21,10 +23,12 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -36,13 +40,16 @@ public class SolicitudAuditoriaController {
     private final SolicitudAuditoriaService solicitudAuditoriaService;
     private final SolicitudAuditoriaDetalleService solicitudAuditoriaDetalleService;
     private final SolicitudAuditoriaListadoService solicitudAuditoriaListadoService;
+    private final CargaReporteAuditoriaService cargaReporteAuditoriaService;
 
     public SolicitudAuditoriaController(SolicitudAuditoriaService solicitudAuditoriaService,
                                         SolicitudAuditoriaDetalleService solicitudAuditoriaDetalleService,
-                                        SolicitudAuditoriaListadoService solicitudAuditoriaListadoService) {
+                                        SolicitudAuditoriaListadoService solicitudAuditoriaListadoService,
+                                        CargaReporteAuditoriaService cargaReporteAuditoriaService) {
         this.solicitudAuditoriaService = solicitudAuditoriaService;
         this.solicitudAuditoriaDetalleService = solicitudAuditoriaDetalleService;
         this.solicitudAuditoriaListadoService = solicitudAuditoriaListadoService;
+        this.cargaReporteAuditoriaService = cargaReporteAuditoriaService;
     }
 
     /**
@@ -87,5 +94,20 @@ public class SolicitudAuditoriaController {
             Authentication authentication) {
         return ResponseEntity.ok(solicitudAuditoriaService.asignarAuditor(
                 idSolicitud, datos, Autenticaciones.usuarioId(authentication)));
+    }
+
+    @PostMapping(value = "/{idSolicitud}/reporte", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('AUDITOR_CERTIFICADO')")
+    public ResponseEntity<SolicitudAuditoriaDetalleResponseDTO> cargarReporte(
+            @PathVariable UUID idSolicitud,
+            @RequestPart("reporteAuditoria") MultipartFile reporteAuditoria,
+            @RequestParam("fechaAuditoriaRealizada")
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaAuditoriaRealizada,
+            Authentication authentication) {
+        return ResponseEntity.ok(cargaReporteAuditoriaService.cargar(
+                idSolicitud,
+                reporteAuditoria,
+                fechaAuditoriaRealizada,
+                Autenticaciones.usuarioId(authentication)));
     }
 }

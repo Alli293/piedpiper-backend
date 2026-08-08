@@ -69,7 +69,7 @@ public class NotificacionTransicionRegistroService {
                                      EstadoSolicitudAuditoria estadoNuevo,
                                      EventoTransicionAuditoria evento) {
         if (email == null || !CORREO_VALIDO.matcher(email).matches()) {
-            log.error("No se encola la notificacion de la transicion {} de la solicitud {}: "
+            log.warn("No se encola la notificacion de la transicion {} de la solicitud {}: "
                             + "el correo del destinatario no tiene un formato valido",
                     evento, solicitud.getId());
             return;

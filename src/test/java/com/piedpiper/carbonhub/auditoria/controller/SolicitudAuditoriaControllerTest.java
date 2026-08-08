@@ -12,6 +12,7 @@ import com.piedpiper.carbonhub.auditoria.service.SolicitudAuditoriaListadoServic
 import com.piedpiper.carbonhub.auditoria.service.SolicitudAuditoriaDetalleService;
 import com.piedpiper.carbonhub.auditoria.models.enums.OrigenAsignacion;
 import com.piedpiper.carbonhub.auditoria.models.enums.TipoCertificacionSolicitud;
+import com.piedpiper.carbonhub.auditoria.service.CargaReporteAuditoriaService;
 import com.piedpiper.carbonhub.auditoria.service.SolicitudAuditoriaService;
 import com.piedpiper.carbonhub.auditoria.service.ValidadorDocumentosPdf;
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
@@ -81,6 +82,8 @@ class SolicitudAuditoriaControllerTest {
     private SolicitudAuditoriaDetalleService solicitudAuditoriaDetalleService;
     @MockitoBean
     private SolicitudAuditoriaListadoService solicitudAuditoriaListadoService;
+    @MockitoBean
+    private CargaReporteAuditoriaService cargaReporteAuditoriaService;
     @MockitoBean
     private JwtService jwtService;
     @MockitoBean
@@ -243,6 +246,79 @@ class SolicitudAuditoriaControllerTest {
     }
 
     @Test
+    @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
+    void postReporteValidoDevuelve200ConLaSolicitudActualizada() throws Exception {
+        when(cargaReporteAuditoriaService.cargar(any(), any(), any(), any()))
+                .thenReturn(detalleConReporte());
+
+        mockMvc.perform(multipart("/api/auditorias/{idSolicitud}/reporte", SOLICITUD_ID)
+                        .file(reportePdf())
+                        .param("fechaAuditoriaRealizada", "2026-07-28")
+                        .principal(principal()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("REPORTE_CARGADO"))
+                .andExpect(jsonPath("$.fechaAuditoriaRealizada").value("2026-07-28"))
+                .andExpect(jsonPath("$.fechaCargaReporte").exists())
+                .andExpect(jsonPath("$.reporteAuditoria.nombreArchivo").value("reporte.pdf"));
+
+        verify(cargaReporteAuditoriaService).cargar(any(), any(), any(), any());
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
+    void postReporteConMimeInvalidoDevuelve422() throws Exception {
+        when(cargaReporteAuditoriaService.cargar(any(), any(), any(), any()))
+                .thenThrow(ApiException.reporteAuditoriaNoEsPdf());
+
+        mockMvc.perform(multipart("/api/auditorias/{idSolicitud}/reporte", SOLICITUD_ID)
+                        .file(reportePdf())
+                        .param("fechaAuditoriaRealizada", "2026-07-28")
+                        .principal(principal()))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.message").value("Solo se aceptan archivos en formato PDF."));
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
+    void postReporteDeAuditorIncorrectoDevuelve403() throws Exception {
+        when(cargaReporteAuditoriaService.cargar(any(), any(), any(), any()))
+                .thenThrow(ApiException.cargaReporteAuditoriaAjena());
+
+        mockMvc.perform(multipart("/api/auditorias/{idSolicitud}/reporte", SOLICITUD_ID)
+                        .file(reportePdf())
+                        .param("fechaAuditoriaRealizada", "2026-07-28")
+                        .principal(principal()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
+    void postReporteEnEstadoInvalidoDevuelve409() throws Exception {
+        when(cargaReporteAuditoriaService.cargar(any(), any(), any(), any()))
+                .thenThrow(ApiException.cargaReporteAuditoriaNoDisponible());
+
+        mockMvc.perform(multipart("/api/auditorias/{idSolicitud}/reporte", SOLICITUD_ID)
+                        .file(reportePdf())
+                        .param("fechaAuditoriaRealizada", "2026-07-28")
+                        .principal(principal()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message")
+                        .value("No es posible cargar el reporte en el estado actual de la solicitud."));
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
+    void postReporteConRolNoAutorizadoDevuelve403() throws Exception {
+        mockMvc.perform(multipart("/api/auditorias/{idSolicitud}/reporte", SOLICITUD_ID)
+                        .file(reportePdf())
+                        .param("fechaAuditoriaRealizada", "2026-07-28")
+                        .principal(principal()))
+                .andExpect(status().isForbidden());
+
+        verify(cargaReporteAuditoriaService, never()).cargar(any(), any(), any(), any());
+    }
+
+    @Test
     @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
     void getDevuelve200ConLaSolicitudSuAsignacionYElHistorial() throws Exception {
         when(solicitudAuditoriaDetalleService.obtenerDetalle(any(), any())).thenReturn(detalleAsignado());
@@ -324,6 +400,16 @@ class SolicitudAuditoriaControllerTest {
         return detalle;
     }
 
+    private static SolicitudAuditoriaDetalleResponseDTO detalleConReporte() {
+        SolicitudAuditoriaDetalleResponseDTO detalle = detalleAsignado();
+        detalle.setEstado(EstadoSolicitudAuditoria.REPORTE_CARGADO);
+        detalle.setFechaAuditoriaRealizada(LocalDate.of(2026, 7, 28));
+        detalle.setFechaCargaReporte(Instant.parse("2026-07-28T18:00:00Z"));
+        detalle.setReporteAuditoria(new com.piedpiper.carbonhub.auditoria.models.dtos.ReporteAuditoriaResponseDTO(
+                UUID.randomUUID(), "reporte.pdf", 128L));
+        return detalle;
+    }
+
     private static SolicitudAuditoriaResponseDTO respuestaAsignada() {
         SolicitudAuditoriaResponseDTO respuesta = respuesta();
         respuesta.setIdAuditor(UUID.fromString(AUDITOR_ID));
@@ -344,6 +430,11 @@ class SolicitudAuditoriaControllerTest {
 
     private static MockMultipartFile documentoPdf() {
         return new MockMultipartFile("documentos", "respaldo.pdf", MediaType.APPLICATION_PDF_VALUE,
+                "%PDF-1.7 contenido de prueba".getBytes(StandardCharsets.US_ASCII));
+    }
+
+    private static MockMultipartFile reportePdf() {
+        return new MockMultipartFile("reporteAuditoria", "reporte.pdf", MediaType.APPLICATION_PDF_VALUE,
                 "%PDF-1.7 contenido de prueba".getBytes(StandardCharsets.US_ASCII));
     }
 
