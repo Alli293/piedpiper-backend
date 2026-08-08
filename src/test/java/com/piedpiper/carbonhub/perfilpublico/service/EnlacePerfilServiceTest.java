@@ -279,6 +279,24 @@ class EnlacePerfilServiceTest {
                     .doesNotContain("<script")
                     .doesNotContain("document.cookie");
         }
+
+        @Test
+        @DisplayName("codigoIncrustar escapa caracteres HTML en nombreEmpresa para evitar inyección")
+        void codigoIncrustar_escapaNombreConHtmlMalicioso() {
+            String nombreMalicioso = "<img src=x onerror=alert(1)>";
+            Empresa empresa = buildEmpresaActiva("xss-test", nombreMalicioso, "ORO", null);
+            when(empresaRepository.findBySlugAndEstado("xss-test", EstadoEmpresa.ACTIVO))
+                    .thenReturn(Optional.of(empresa));
+            when(qrGeneradorService.generarQrBase64(any())).thenReturn("data:image/png;base64,x");
+
+            EnlacePerfilDTO dto = service.obtenerEnlacePerfil("xss-test");
+
+            // Los < y > están escapados, así que el navegador renderiza texto, no un tag HTML
+            assertThat(dto.getCodigoIncrustar())
+                    .doesNotContain("<img")
+                    .doesNotContain("<script")
+                    .contains("&lt;img src=x onerror=alert(1)&gt;");
+        }
     }
 
     // ========================================================================
