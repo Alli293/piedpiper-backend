@@ -1,6 +1,8 @@
 package com.piedpiper.carbonhub.auditoria.service;
 
 import com.piedpiper.carbonhub.auditoria.models.entities.SolicitudAuditoria;
+import com.piedpiper.carbonhub.auditoria.models.enums.ActorTransicionAuditoria;
+import com.piedpiper.carbonhub.auditoria.models.enums.EventoTransicionAuditoria;
 import com.piedpiper.carbonhub.auditoria.repository.SolicitudAuditoriaRepository;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
@@ -22,12 +24,15 @@ public class AsignacionAuditorLiberacionService {
 
     private final SolicitudAuditoriaRepository solicitudAuditoriaRepository;
     private final EnvioCorreoAsignacionAuditorService envioCorreoAsignacionAuditorService;
+    private final TransicionEstadoAuditoriaService transicionEstadoAuditoriaService;
 
     public AsignacionAuditorLiberacionService(
             SolicitudAuditoriaRepository solicitudAuditoriaRepository,
-            EnvioCorreoAsignacionAuditorService envioCorreoAsignacionAuditorService) {
+            EnvioCorreoAsignacionAuditorService envioCorreoAsignacionAuditorService,
+            TransicionEstadoAuditoriaService transicionEstadoAuditoriaService) {
         this.solicitudAuditoriaRepository = solicitudAuditoriaRepository;
         this.envioCorreoAsignacionAuditorService = envioCorreoAsignacionAuditorService;
+        this.transicionEstadoAuditoriaService = transicionEstadoAuditoriaService;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -43,6 +48,13 @@ public class AsignacionAuditorLiberacionService {
         String nombreAuditor = auditor.nombreCompleto();
         String nombreEmpresa = empresa.getNombreEmpresa();
         String correoEmpresa = empresa.getCorreoCorporativo();
+
+        // Se registra antes de soltar la asignacion: despues, la solicitud ya no sabe quien era el
+        // auditor y la entrada del historial quedaria sin decir a quien se le vencio el plazo.
+        transicionEstadoAuditoriaService.aplicar(solicitud,
+                EventoTransicionAuditoria.VENCIDA_POR_NO_RESPUESTA,
+                ActorTransicionAuditoria.SISTEMA,
+                null);
 
         solicitud.setAuditor(null);
         solicitud.setOrigenAsignacion(null);

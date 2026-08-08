@@ -27,6 +27,28 @@ public interface SolicitudAuditoriaRepository extends JpaRepository<SolicitudAud
                                              @Param("periodoInicio") LocalDate periodoInicio,
                                              @Param("periodoFin") LocalDate periodoFin);
 
+    /**
+     * Trae empresa y auditor de una vez: el listado los muestra en cada fila y sin el fetch join
+     * cada solicitud dispararia dos consultas mas.
+     */
+    @Query("""
+            select distinct s from SolicitudAuditoria s
+            left join fetch s.empresa
+            left join fetch s.auditor
+            where s.empresa.id = :empresaId
+            order by s.fechaCreacion desc
+            """)
+    List<SolicitudAuditoria> listarPorEmpresa(@Param("empresaId") UUID empresaId);
+
+    @Query("""
+            select distinct s from SolicitudAuditoria s
+            left join fetch s.empresa
+            left join fetch s.auditor
+            where s.auditor.id = :auditorId
+            order by s.fechaAsignacion desc
+            """)
+    List<SolicitudAuditoria> listarAsignadasA(@Param("auditorId") UUID auditorId);
+
     @Query("""
             select s.id from SolicitudAuditoria s
             where s.auditor is not null

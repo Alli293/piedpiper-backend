@@ -19,9 +19,12 @@ public final class RedirectResolver {
         }
         return switch (usuario.getRol()) {
             case ADMINISTRADOR_EMPRESA -> "/empresa/panel";
+            // El auditor ya validado aterriza en sus solicitudes asignadas y no en un panel: es lo
+            // unico que tiene que hacer al entrar, y hasta ahora caia en una pantalla vacia desde
+            // la que no habia forma de llegar al listado.
             case AUDITOR_CERTIFICADO -> usuario.getEstado() == EstadoUsuario.PENDIENTE_VALIDACION
                     ? "/auditor/validacion-pendiente"
-                    : "/auditor/panel";
+                    : "/auditor/auditorias";
             case ADMINISTRADOR_PLATAFORMA -> "/admin/panel";
             case USUARIO_INDIVIDUAL -> "/ecoruta/preferencias";
             default -> "/panel";
