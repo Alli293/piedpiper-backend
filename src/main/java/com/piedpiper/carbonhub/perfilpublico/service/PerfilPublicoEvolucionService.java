@@ -2,9 +2,6 @@ package com.piedpiper.carbonhub.perfilpublico.service;
 
 import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
-import com.piedpiper.carbonhub.empresa.models.enums.EstadoEmpresa;
-import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
-import com.piedpiper.carbonhub.perfilpublico.exceptions.PerfilNoEncontradoException;
 import com.piedpiper.carbonhub.perfilpublico.models.dtos.EvolucionHuellaPublicaDTO;
 import com.piedpiper.carbonhub.perfilpublico.models.dtos.EvolucionHuellaPublicaDTO.PuntoAnual;
 
@@ -22,21 +19,19 @@ public class PerfilPublicoEvolucionService {
 
     private static final BigDecimal KG_A_TONELADAS = new BigDecimal("1000");
 
-    private final EmpresaRepository empresaRepository;
+    private final SlugResolverService slugResolver;
     private final EmisionRepository emisionRepository;
 
-    public PerfilPublicoEvolucionService(EmpresaRepository empresaRepository,
+    public PerfilPublicoEvolucionService(SlugResolverService slugResolver,
                                          EmisionRepository emisionRepository) {
-        this.empresaRepository = empresaRepository;
+        this.slugResolver = slugResolver;
         this.emisionRepository = emisionRepository;
     }
 
     @Transactional(readOnly = true)
-    public EvolucionHuellaPublicaDTO obtenerEvolucionPorSlug(String slug) {
-        UUID empresaId = empresaRepository.findBySlugAndEstado(slug, EstadoEmpresa.ACTIVO)
-                .map(Empresa::getId)
-                .orElseThrow(() -> new PerfilNoEncontradoException(
-                        "El perfil que buscas no existe o ya no está disponible."));
+    public EvolucionHuellaPublicaDTO obtenerEvolucionPorSlug(String slugOriginal) {
+        Empresa empresa = slugResolver.resolver(slugOriginal);
+        UUID empresaId = empresa.getId();
 
         List<Object[]> resultados = emisionRepository.sumarCarbonKgPorAnio(empresaId);
 

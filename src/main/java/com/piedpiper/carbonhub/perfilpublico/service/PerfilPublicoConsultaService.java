@@ -17,40 +17,28 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.util.regex.Pattern;
 
 @Service
 public class PerfilPublicoConsultaService {
 
-    private static final Pattern SLUG_VALIDO = Pattern.compile("^[a-z0-9-]{1,120}$");
-
     private final EmpresaRepository empresaRepository;
     private final CertificacionRepository certificacionRepository;
     private final InsigniaEmpresaRepository insigniaEmpresaRepository;
+    private final SlugResolverService slugResolver;
 
     public PerfilPublicoConsultaService(EmpresaRepository empresaRepository,
                                         CertificacionRepository certificacionRepository,
-                                        InsigniaEmpresaRepository insigniaEmpresaRepository) {
+                                        InsigniaEmpresaRepository insigniaEmpresaRepository,
+                                        SlugResolverService slugResolver) {
         this.empresaRepository = empresaRepository;
         this.certificacionRepository = certificacionRepository;
         this.insigniaEmpresaRepository = insigniaEmpresaRepository;
+        this.slugResolver = slugResolver;
     }
 
     @Transactional(readOnly = true)
     public PerfilPublicoResponseDTO obtenerPorSlug(String slugOriginal) {
-        // 1. Normalizar slug a minúsculas
-        String slug = slugOriginal == null ? "" : slugOriginal.toLowerCase();
-
-        // 2. Validar formato con regex
-        if (!SLUG_VALIDO.matcher(slug).matches()) {
-            throw new PerfilNoEncontradoException(
-                    "El perfil que buscas no existe o ya no está disponible.");
-        }
-
-        // 3. Buscar empresa activa por slug (una sola consulta, no revela estado de inactivas)
-        Empresa empresa = empresaRepository.findBySlugAndEstado(slug, EstadoEmpresa.ACTIVO)
-                .orElseThrow(() -> new PerfilNoEncontradoException(
-                        "El perfil que buscas no existe o ya no está disponible."));
+        Empresa empresa = slugResolver.resolver(slugOriginal);
 
         // 4. Contar certificaciones vigentes (fecha expiración futura o null)
         int certificacionesVigentes = contarCertificacionesVigentes(empresa);

@@ -10,6 +10,7 @@ import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 import com.piedpiper.carbonhub.insignia.repository.InsigniaEmpresaRepository;
 import com.piedpiper.carbonhub.perfilpublico.exceptions.PerfilNoEncontradoException;
 import com.piedpiper.carbonhub.perfilpublico.models.dtos.PerfilPublicoResponseDTO;
+import com.piedpiper.carbonhub.perfilpublico.service.SlugResolverService;
 
 import net.jqwik.api.*;
 import net.jqwik.api.constraints.IntRange;
@@ -51,6 +52,9 @@ class PerfilPublicoConsultaServiceTest {
     @Mock
     private InsigniaEmpresaRepository insigniaEmpresaRepository;
 
+    @Mock
+    private SlugResolverService slugResolver;
+
     @InjectMocks
     private PerfilPublicoConsultaService service;
 
@@ -69,7 +73,7 @@ class PerfilPublicoConsultaServiceTest {
     void obtenerPorSlug_empresaActiva_retornaDtoCorrecto() {
         // Arrange
         Empresa empresa = buildEmpresaActiva("eco-verde", "EcoVerde S.A.", "Oro");
-        when(empresaRepository.findBySlugAndEstado("eco-verde", EstadoEmpresa.ACTIVO)).thenReturn(Optional.of(empresa));
+        when(slugResolver.resolver("eco-verde")).thenReturn(empresa);
         when(certificacionRepository
                 .findByEmpresaIdAndEstadoAndFechaVencimientoGreaterThanOrderByFechaEmisionDesc(
                         eq(empresa.getId()), eq(EstadoCertificacion.ACTIVA), any(LocalDate.class)))
@@ -91,9 +95,8 @@ class PerfilPublicoConsultaServiceTest {
     @Test
     @DisplayName("Empresa inactiva → PerfilNoEncontradoException (mismo mensaje que inexistente)")
     void obtenerPorSlug_empresaInactiva_lanzaExcepcion() {
-        // findBySlugAndEstado no la encuentra porque filtra por ACTIVO
-        when(empresaRepository.findBySlugAndEstado("empresa-inactiva", EstadoEmpresa.ACTIVO))
-                .thenReturn(Optional.empty());
+        when(slugResolver.resolver("empresa-inactiva"))
+                .thenThrow(new PerfilNoEncontradoException("El perfil que buscas no existe o ya no está disponible."));
 
         assertThatThrownBy(() -> service.obtenerPorSlug("empresa-inactiva"))
                 .isInstanceOf(PerfilNoEncontradoException.class)
@@ -104,7 +107,8 @@ class PerfilPublicoConsultaServiceTest {
     @DisplayName("Empresa inexistente → PerfilNoEncontradoException con mensaje correcto")
     void obtenerPorSlug_empresaInexistente_lanzaExcepcion() {
         // Arrange
-        when(empresaRepository.findBySlugAndEstado("slug-inexistente", EstadoEmpresa.ACTIVO)).thenReturn(Optional.empty());
+        when(slugResolver.resolver("slug-inexistente"))
+                .thenThrow(new PerfilNoEncontradoException("El perfil que buscas no existe o ya no está disponible."));
 
         // Act & Assert
         assertThatThrownBy(() -> service.obtenerPorSlug("slug-inexistente"))
@@ -115,12 +119,13 @@ class PerfilPublicoConsultaServiceTest {
     @Test
     @DisplayName("Slug inválido (caracteres especiales) → PerfilNoEncontradoException")
     void obtenerPorSlug_slugInvalido_lanzaExcepcion() {
+        when(slugResolver.resolver("empresa@#$%"))
+                .thenThrow(new PerfilNoEncontradoException("El perfil que buscas no existe o ya no está disponible."));
+
         // Act & Assert
         assertThatThrownBy(() -> service.obtenerPorSlug("empresa@#$%"))
                 .isInstanceOf(PerfilNoEncontradoException.class)
                 .hasMessage("El perfil que buscas no existe o ya no está disponible.");
-
-        verify(empresaRepository, never()).findBySlugAndEstado(any(), any());
     }
 
     @Test
@@ -128,7 +133,7 @@ class PerfilPublicoConsultaServiceTest {
     void obtenerPorSlug_nivelEcologicoNull_retornaSinNivel() {
         // Arrange
         Empresa empresa = buildEmpresaActiva("empresa-sin-nivel", "Empresa Sin Nivel", null);
-        when(empresaRepository.findBySlugAndEstado("empresa-sin-nivel", EstadoEmpresa.ACTIVO)).thenReturn(Optional.of(empresa));
+        when(slugResolver.resolver("empresa-sin-nivel")).thenReturn(empresa);
         when(certificacionRepository
                 .findByEmpresaIdAndEstadoAndFechaVencimientoGreaterThanOrderByFechaEmisionDesc(
                         eq(empresa.getId()), eq(EstadoCertificacion.ACTIVA), any(LocalDate.class)))
@@ -156,10 +161,11 @@ class PerfilPublicoConsultaServiceTest {
         // Arrange
         EmpresaRepository mockRepo = mock(EmpresaRepository.class);
         CertificacionRepository mockCertRepo = mock(CertificacionRepository.class);
-        PerfilPublicoConsultaService svc = new PerfilPublicoConsultaService(mockRepo, mockCertRepo, mock(InsigniaEmpresaRepository.class));
+        SlugResolverService mockSlugResolver = mock(SlugResolverService.class);
+        PerfilPublicoConsultaService svc = new PerfilPublicoConsultaService(mockRepo, mockCertRepo, mock(InsigniaEmpresaRepository.class), mockSlugResolver);
 
         Empresa empresa = buildEmpresaActiva(slug, "Empresa Test", nivelEcologico);
-        when(mockRepo.findBySlugAndEstado(slug, EstadoEmpresa.ACTIVO)).thenReturn(Optional.of(empresa));
+        when(mockSlugResolver.resolver(slug)).thenReturn(empresa);
         when(mockCertRepo
                 .findByEmpresaIdAndEstadoAndFechaVencimientoGreaterThanOrderByFechaEmisionDesc(
                         eq(empresa.getId()), eq(EstadoCertificacion.ACTIVA), any(LocalDate.class)))
@@ -196,18 +202,20 @@ class PerfilPublicoConsultaServiceTest {
         // Arrange
         EmpresaRepository mockRepo = mock(EmpresaRepository.class);
         CertificacionRepository mockCertRepo = mock(CertificacionRepository.class);
-        PerfilPublicoConsultaService svc = new PerfilPublicoConsultaService(mockRepo, mockCertRepo, mock(InsigniaEmpresaRepository.class));
+        SlugResolverService mockSlugResolver = mock(SlugResolverService.class);
+        PerfilPublicoConsultaService svc = new PerfilPublicoConsultaService(mockRepo, mockCertRepo, mock(InsigniaEmpresaRepository.class), mockSlugResolver);
 
         String normalizedSlug = baseSlug.toLowerCase();
         Empresa empresa = buildEmpresaActiva(normalizedSlug, "Empresa Test", "Plata");
-        when(mockRepo.findBySlugAndEstado(normalizedSlug, EstadoEmpresa.ACTIVO)).thenReturn(Optional.of(empresa));
+
+        // Generate a random capitalization variant
+        String capitalizedSlug = randomizeCapitalization(baseSlug);
+
+        when(mockSlugResolver.resolver(capitalizedSlug)).thenReturn(empresa);
         when(mockCertRepo
                 .findByEmpresaIdAndEstadoAndFechaVencimientoGreaterThanOrderByFechaEmisionDesc(
                         eq(empresa.getId()), eq(EstadoCertificacion.ACTIVA), any(LocalDate.class)))
                 .thenReturn(Collections.emptyList());
-
-        // Generate a random capitalization variant
-        String capitalizedSlug = randomizeCapitalization(baseSlug);
 
         // Act
         PerfilPublicoResponseDTO dto = svc.obtenerPorSlug(capitalizedSlug);
@@ -242,7 +250,11 @@ class PerfilPublicoConsultaServiceTest {
         // Arrange
         EmpresaRepository mockRepo = mock(EmpresaRepository.class);
         CertificacionRepository mockCertRepo = mock(CertificacionRepository.class);
-        PerfilPublicoConsultaService svc = new PerfilPublicoConsultaService(mockRepo, mockCertRepo, mock(InsigniaEmpresaRepository.class));
+        SlugResolverService mockSlugResolver = mock(SlugResolverService.class);
+        PerfilPublicoConsultaService svc = new PerfilPublicoConsultaService(mockRepo, mockCertRepo, mock(InsigniaEmpresaRepository.class), mockSlugResolver);
+
+        when(mockSlugResolver.resolver(invalidSlug))
+                .thenThrow(new PerfilNoEncontradoException("El perfil que buscas no existe o ya no está disponible."));
 
         // Act & Assert
         assertThatThrownBy(() -> svc.obtenerPorSlug(invalidSlug))
@@ -284,7 +296,8 @@ class PerfilPublicoConsultaServiceTest {
         // Arrange
         EmpresaRepository mockRepo = mock(EmpresaRepository.class);
         CertificacionRepository mockCertRepo = mock(CertificacionRepository.class);
-        PerfilPublicoConsultaService svc = new PerfilPublicoConsultaService(mockRepo, mockCertRepo, mock(InsigniaEmpresaRepository.class));
+        SlugResolverService mockSlugResolver = mock(SlugResolverService.class);
+        PerfilPublicoConsultaService svc = new PerfilPublicoConsultaService(mockRepo, mockCertRepo, mock(InsigniaEmpresaRepository.class), mockSlugResolver);
 
         Empresa empresa = buildEmpresaActiva(slug, "Empresa Certs", "Bronce");
 
@@ -293,7 +306,7 @@ class PerfilPublicoConsultaServiceTest {
                 .mapToObj(i -> buildCertificacion(empresa, LocalDate.now().plusDays(i + 1)))
                 .collect(Collectors.toList());
 
-        when(mockRepo.findBySlugAndEstado(slug, EstadoEmpresa.ACTIVO)).thenReturn(Optional.of(empresa));
+        when(mockSlugResolver.resolver(slug)).thenReturn(empresa);
         // The repository method already filters by estado=ACTIVA and fechaVencimiento > now
         // So it only returns vigentes
         when(mockCertRepo
