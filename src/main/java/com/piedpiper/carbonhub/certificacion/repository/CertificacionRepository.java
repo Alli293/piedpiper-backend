@@ -18,6 +18,10 @@ public interface CertificacionRepository extends JpaRepository<Certificacion, UU
 
     Optional<Certificacion> findByIdAuditoria(UUID idAuditoria);
 
+    Optional<Certificacion> findByCodigoVerificacion(String codigoVerificacion);
+
+    boolean existsByCodigoVerificacion(String codigoVerificacion);
+
     /**
      * Usada por el proceso nocturno de alertas de vencimiento (PP-70): evalua
      * todas las certificaciones activas de todas las empresas, sin importar
