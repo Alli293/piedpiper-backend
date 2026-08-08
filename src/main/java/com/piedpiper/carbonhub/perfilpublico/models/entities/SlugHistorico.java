@@ -16,7 +16,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "slug_historico")
+@Table(name = "slugs_historicos")
 @Getter
 @Setter
 @Builder

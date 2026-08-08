@@ -13,16 +13,16 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class SustitucionRequestDTO {
 
-    @NotBlank
+    @NotBlank(message = "El nombre de la alternativa es obligatorio")
     private String nombre;
     private String descripcion;
     private BigDecimal costoAproximado;
     private String moneda;
     private String establecimientoRecomendado;
-    @NotNull
+    @NotNull(message = "El puntaje ecológico (ecoScore) es obligatorio")
     private Integer ecoScore;
-    @NotBlank
+    @NotBlank(message = "La categoría turística es obligatoria")
     private String categoriaTuristica;
-    @NotBlank
+    @NotBlank(message = "La provincia es obligatoria")
     private String provincia;
 }
