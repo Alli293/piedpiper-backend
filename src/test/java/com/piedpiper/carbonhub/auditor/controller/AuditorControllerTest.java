@@ -4,6 +4,7 @@ import com.piedpiper.carbonhub.auditor.models.dtos.AuditorResumenResponseDTO;
 import com.piedpiper.carbonhub.auditor.models.dtos.FiltrarAuditoresRequestDTO;
 import com.piedpiper.carbonhub.auditor.models.dtos.PaginaAuditoresResponseDTO;
 import com.piedpiper.carbonhub.auditor.service.AuditorDirectorioService;
+import com.piedpiper.carbonhub.auditor.service.PerfilPublicoAuditorService;
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
 import com.piedpiper.carbonhub.auth.service.JwtService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
@@ -58,6 +59,8 @@ class AuditorControllerTest {
 
     @MockitoBean
     private AuditorDirectorioService auditorDirectorioService;
+    @MockitoBean
+    private PerfilPublicoAuditorService perfilPublicoAuditorService;
     @MockitoBean
     private JwtService jwtService;
     @MockitoBean
