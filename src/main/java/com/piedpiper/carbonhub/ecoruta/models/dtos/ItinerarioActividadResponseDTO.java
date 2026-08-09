@@ -13,6 +13,8 @@ import java.util.UUID;
 @AllArgsConstructor
 public class ItinerarioActividadResponseDTO {
 
+    /** Identificador público de la actividad. Expuesto intencionalmente para que el
+     *  cliente pueda referenciarlo en PUT /itinerarios/{id}/actividades/{actividadId}/sustituir (PP-92). */
     private UUID id;
     private String nombre;
     private String descripcion;
