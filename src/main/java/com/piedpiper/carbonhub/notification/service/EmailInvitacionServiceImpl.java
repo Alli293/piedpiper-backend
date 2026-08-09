@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.util.HtmlUtils;
 
 import com.piedpiper.carbonhub.notification.EmailPlantillaHtml;
+import com.piedpiper.carbonhub.notification.EnlaceTokenCorreo;
 
 @Service
 @ConditionalOnProperty(name = "app.email.provider", havingValue = "gmail")
@@ -18,7 +19,8 @@ public class EmailInvitacionServiceImpl implements EmailInvitacionService {
     private static final String SALUDO = "Hola,";
     private static final String INTRO = "<strong>%s</strong> te invita a unirte a su cuenta en CarbonHub. "
             + "Para completar tu registro, haz clic en el siguiente botón:";
-    private static final String AVISO = "Si no esperabas esta invitación, puedes ignorar este correo.";
+    private static final String AVISO = "Este enlace es personal, expira en 7 dias y no debes compartirlo. "
+            + "Si no esperabas esta invitacion, puedes ignorar este correo.";
 
     private final JavaMailSender mailSender;
     private final String remitente;
@@ -34,7 +36,7 @@ public class EmailInvitacionServiceImpl implements EmailInvitacionService {
 
     @Override
     public void enviarCorreoInvitacion(String email, String nombreEmpresa, String token) {
-        String enlace = invitacionUrl + "?token=" + token;
+        String enlace = EnlaceTokenCorreo.construir(invitacionUrl, token);
         String html = construirHtml(nombreEmpresa, enlace);
 
         try {
@@ -42,7 +44,7 @@ public class EmailInvitacionServiceImpl implements EmailInvitacionService {
             MimeMessageHelper helper = new MimeMessageHelper(mensaje, false, "UTF-8");
             helper.setFrom(remitente);
             helper.setTo(email);
-            helper.setSubject("Invitación a CarbonHub de " + nombreEmpresa);
+            helper.setSubject("Invitacion para unirte a CarbonHub");
             helper.setText(html, true);
             mailSender.send(mensaje);
         } catch (MessagingException e) {

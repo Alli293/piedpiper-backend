@@ -1,6 +1,7 @@
 package com.piedpiper.carbonhub.invitacion.service;
 
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
+import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.invitacion.mappers.InvitacionMapperImpl;
 import com.piedpiper.carbonhub.invitacion.models.dtos.InvitacionPublicaResponseDTO;
@@ -13,6 +14,7 @@ import com.piedpiper.carbonhub.notification.TokenVerificacionGenerator;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.models.enums.Rol;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -32,6 +34,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -43,15 +46,26 @@ class InvitacionServiceTest {
     @Mock
     private UsuarioRepository usuarioRepository;
     @Mock
+    private EmpresaRepository empresaRepository;
+    @Mock
     private EnvioCorreoInvitacionService envioCorreoInvitacionService;
 
     private InvitacionService service() {
         return new InvitacionService(
-                invitacionRepository, usuarioRepository, envioCorreoInvitacionService, new InvitacionMapperImpl());
+                invitacionRepository, usuarioRepository, empresaRepository,
+                envioCorreoInvitacionService, new InvitacionMapperImpl(), 20);
     }
 
     private static final UUID ADMIN_ID = UUID.randomUUID();
     private static final UUID EMPRESA_ID = UUID.randomUUID();
+    private static final String TOKEN_VALIDO = "a".repeat(43);
+
+    @BeforeEach
+    void prepararLimiteDeInvitaciones() {
+        lenient().when(empresaRepository.bloquearPorId(EMPRESA_ID)).thenReturn(Optional.of(empresa()));
+        lenient().when(invitacionRepository.countByEmpresaIdAndFechaEmisionGreaterThanEqual(
+                eq(EMPRESA_ID), any())).thenReturn(0L);
+    }
 
     private Empresa empresa() {
         return Empresa.builder().id(EMPRESA_ID).nombreEmpresa("Acme S.A.").build();
@@ -146,6 +160,22 @@ class InvitacionServiceTest {
     }
 
     @Test
+    void emitirCuandoAlcanzaElLimitePorHoraLanza429YNoPersiste() {
+        when(usuarioRepository.findById(ADMIN_ID)).thenReturn(Optional.of(administrador()));
+        when(invitacionRepository.countByEmpresaIdAndFechaEmisionGreaterThanEqual(
+                eq(EMPRESA_ID), any())).thenReturn(20L);
+
+        InvitacionService servicio = service();
+
+        assertThatThrownBy(() -> servicio.emitir(
+                ADMIN_ID, new InvitacionRequestDTO("otra@correo.com")))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+        verify(invitacionRepository, never()).save(any());
+    }
+
+    @Test
     void emitirSinRolAdministradorLanza403() {
         Usuario general = Usuario.builder().id(ADMIN_ID).rol(Rol.USUARIO_GENERAL).empresa(empresa()).build();
         when(usuarioRepository.findById(ADMIN_ID)).thenReturn(Optional.of(general));
@@ -229,15 +259,15 @@ class InvitacionServiceTest {
     }
 
     @Test
-    void resolverTokenValidoDevuelveCorreoYEmpresa() {
-        String token = "token-plano";
+    void resolverTokenValidoDevuelveCorreoEnmascaradoYEmpresa() {
+        String token = TOKEN_VALIDO;
         Invitacion enviada = invitacion(EstadoInvitacion.ENVIADA, Instant.now().plus(1, ChronoUnit.DAYS));
         when(invitacionRepository.findByTokenHash(TokenVerificacionGenerator.hash(token)))
                 .thenReturn(Optional.of(enviada));
 
         InvitacionPublicaResponseDTO response = service().resolver(token);
 
-        assertThat(response.getEmail()).isEqualTo("colab@correo.com");
+        assertThat(response.getEmailEnmascarado()).isEqualTo("c***@correo.com");
         assertThat(response.getNombreEmpresa()).isEqualTo("Acme S.A.");
     }
 
@@ -246,7 +276,7 @@ class InvitacionServiceTest {
         when(invitacionRepository.findByTokenHash(any())).thenReturn(Optional.empty());
 
         InvitacionService servicio = service();
-        assertThatThrownBy(() -> servicio.resolver("token-falso"))
+        assertThatThrownBy(() -> servicio.resolver(TOKEN_VALIDO))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.NOT_FOUND);
@@ -258,7 +288,7 @@ class InvitacionServiceTest {
         when(invitacionRepository.findByTokenHash(any())).thenReturn(Optional.of(vencida));
 
         InvitacionService servicio = service();
-        assertThatThrownBy(() -> servicio.resolver("token-plano"))
+        assertThatThrownBy(() -> servicio.resolver(TOKEN_VALIDO))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.GONE);
@@ -272,7 +302,7 @@ class InvitacionServiceTest {
         when(invitacionRepository.findByTokenHash(any())).thenReturn(Optional.of(aceptada));
 
         InvitacionService servicio = service();
-        assertThatThrownBy(() -> servicio.resolver("token-plano"))
+        assertThatThrownBy(() -> servicio.resolver(TOKEN_VALIDO))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.CONFLICT);
@@ -285,7 +315,7 @@ class InvitacionServiceTest {
         when(invitacionRepository.findByTokenHash(any())).thenReturn(Optional.of(vencida));
 
         InvitacionService servicio = service();
-        assertThatThrownBy(() -> servicio.validarParaAceptar("token-plano"))
+        assertThatThrownBy(() -> servicio.validarParaAceptar(TOKEN_VALIDO))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.GONE);
@@ -335,7 +365,7 @@ class InvitacionServiceTest {
         when(invitacionRepository.findByTokenHash(any())).thenReturn(Optional.of(revocada));
 
         InvitacionService servicio = service();
-        assertThatThrownBy(() -> servicio.resolver("token-plano"))
+        assertThatThrownBy(() -> servicio.resolver(TOKEN_VALIDO))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.CONFLICT);
@@ -347,7 +377,7 @@ class InvitacionServiceTest {
         when(invitacionRepository.findByTokenHash(any())).thenReturn(Optional.of(expirada));
 
         InvitacionService servicio = service();
-        assertThatThrownBy(() -> servicio.resolver("token-plano"))
+        assertThatThrownBy(() -> servicio.resolver(TOKEN_VALIDO))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.GONE);
@@ -360,7 +390,7 @@ class InvitacionServiceTest {
         when(invitacionRepository.findByTokenHash(any())).thenReturn(Optional.of(expirada));
 
         InvitacionService servicio = service();
-        assertThatThrownBy(() -> servicio.validarParaAceptar("token-plano"))
+        assertThatThrownBy(() -> servicio.validarParaAceptar(TOKEN_VALIDO))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.GONE);

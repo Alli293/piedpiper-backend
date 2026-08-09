@@ -1,5 +1,6 @@
 package com.piedpiper.carbonhub.invitacion.service;
 
+import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.invitacion.mappers.InvitacionMapper;
 import com.piedpiper.carbonhub.invitacion.models.dtos.InvitacionPublicaResponseDTO;
@@ -12,6 +13,7 @@ import com.piedpiper.carbonhub.notification.TokenVerificacionGenerator;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.models.enums.Rol;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,20 +30,30 @@ import java.util.UUID;
 public class InvitacionService {
 
     private static final long DIAS_EXPIRACION = 7;
+    private static final long HORAS_VENTANA_EMISION = 1;
 
     private final InvitacionRepository invitacionRepository;
     private final UsuarioRepository usuarioRepository;
+    private final EmpresaRepository empresaRepository;
     private final EnvioCorreoInvitacionService envioCorreoInvitacionService;
     private final InvitacionMapper invitacionMapper;
+    private final int maxEmisionesPorHora;
 
     public InvitacionService(InvitacionRepository invitacionRepository,
                              UsuarioRepository usuarioRepository,
+                             EmpresaRepository empresaRepository,
                              EnvioCorreoInvitacionService envioCorreoInvitacionService,
-                             InvitacionMapper invitacionMapper) {
+                             InvitacionMapper invitacionMapper,
+                             @Value("${invitacion.max-emisiones-por-hora:20}") int maxEmisionesPorHora) {
+        if (maxEmisionesPorHora < 1) {
+            throw new IllegalArgumentException("invitacion.max-emisiones-por-hora debe ser mayor que cero.");
+        }
         this.invitacionRepository = invitacionRepository;
         this.usuarioRepository = usuarioRepository;
+        this.empresaRepository = empresaRepository;
         this.envioCorreoInvitacionService = envioCorreoInvitacionService;
         this.invitacionMapper = invitacionMapper;
+        this.maxEmisionesPorHora = maxEmisionesPorHora;
     }
 
     @Transactional
@@ -50,6 +62,14 @@ public class InvitacionService {
         UUID empresaId = administrador.getEmpresa().getId();
         String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
         Instant ahora = Instant.now();
+
+        empresaRepository.bloquearPorId(empresaId)
+                .orElseThrow(ApiException::invitacionSinEmpresa);
+        long emitidasEnVentana = invitacionRepository.countByEmpresaIdAndFechaEmisionGreaterThanEqual(
+                empresaId, ahora.minus(HORAS_VENTANA_EMISION, ChronoUnit.HOURS));
+        if (emitidasEnVentana >= maxEmisionesPorHora) {
+            throw ApiException.limiteInvitacionesExcedido();
+        }
 
         usuarioRepository.findByEmailIgnoreCase(email).ifPresent(usuario -> {
             if (usuario.getEmpresa() != null && empresaId.equals(usuario.getEmpresa().getId())) {
@@ -131,7 +151,7 @@ public class InvitacionService {
     public InvitacionPublicaResponseDTO resolver(String token) {
         Invitacion invitacion = validarParaAceptarInterno(token);
         return new InvitacionPublicaResponseDTO(
-                invitacion.getEmail(), invitacion.getEmpresa().getNombreEmpresa());
+                enmascararEmail(invitacion.getEmail()), invitacion.getEmpresa().getNombreEmpresa());
     }
 
     @Transactional(readOnly = true)
@@ -140,6 +160,9 @@ public class InvitacionService {
     }
 
     private Invitacion validarParaAceptarInterno(String token) {
+        if (!TokenVerificacionGenerator.formatoValido(token)) {
+            throw ApiException.invitacionInvalida();
+        }
         Invitacion invitacion = invitacionRepository
                 .findByTokenHash(TokenVerificacionGenerator.hash(token))
                 .orElseThrow(ApiException::invitacionInvalida);
@@ -188,5 +211,11 @@ public class InvitacionService {
         InvitacionResponseDTO dto = invitacionMapper.toDto(invitacion);
         dto.setEstado(invitacion.estadoEfectivo(ahora).name());
         return dto;
+    }
+
+    private String enmascararEmail(String email) {
+        int separador = email.indexOf('@');
+        String local = email.substring(0, separador);
+        return "%s***%s".formatted(local.substring(0, 1), email.substring(separador));
     }
 }

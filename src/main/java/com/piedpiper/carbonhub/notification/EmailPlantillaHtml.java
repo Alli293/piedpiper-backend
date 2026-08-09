@@ -1,5 +1,7 @@
 package com.piedpiper.carbonhub.notification;
 
+import org.springframework.web.util.HtmlUtils;
+
 public final class EmailPlantillaHtml {
 
     private static final String COLOR_BOTON_DEFECTO = "#1f8a5b";
@@ -89,11 +91,13 @@ public final class EmailPlantillaHtml {
     }
 
     public static String boton(String url, String texto, String color) {
-        return BOTON.formatted(color, url, texto);
+        return BOTON.formatted(color, HtmlUtils.htmlEscape(url), texto);
     }
 
     public static String cuerpoConBotonYAviso(String saludo, String introHtml, String botonHtml,
                                                String avisoHtml, String enlace) {
-        return CUERPO_CON_BOTON_Y_AVISO.formatted(saludo, introHtml, botonHtml, avisoHtml, enlace, enlace);
+        String enlaceEscapado = HtmlUtils.htmlEscape(enlace);
+        return CUERPO_CON_BOTON_Y_AVISO.formatted(
+                saludo, introHtml, botonHtml, avisoHtml, enlaceEscapado, enlaceEscapado);
     }
 }

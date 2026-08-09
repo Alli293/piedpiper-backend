@@ -175,6 +175,11 @@ public class ApiException extends RuntimeException {
                 "Esta invitación ya fue utilizada.");
     }
 
+    public static ApiException limiteInvitacionesExcedido() {
+        return new ApiException(HttpStatus.TOO_MANY_REQUESTS,
+                "Alcanzaste el límite de invitaciones por hora. Intenta nuevamente más tarde.");
+    }
+
     public static ApiException solicitudNoEncontrada() {
         return new ApiException(HttpStatus.NOT_FOUND,
                 "Esta solicitud no fue encontrada.");
