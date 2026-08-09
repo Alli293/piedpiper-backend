@@ -267,6 +267,11 @@ public class Invitacion {
 - [ ] Check local coverage if touching logic-heavy code: `./mvnw test` also generates a JaCoCo report at `target/site/jacoco/index.html`. There is no hard coverage gate yet; this is a self-check, not a blocker.
 - [ ] PR title and body **in Spanish**, following `.github/PULL_REQUEST_TEMPLATE.md`.
 - [ ] Touched an entity? Consider the schema impact: the project runs `ddl-auto=update` **with no migration tool**. Hibernate does not rename tables or columns — a rename creates a new structure and orphans the old data.
+- [ ] **New `nullable = false` column on a table that already has rows?** `@Builder.Default` (Lombok) only affects the Java-side default — it does not generate a SQL `DEFAULT`. With `ddl-auto=update`, Hibernate emits `ALTER TABLE ... ADD COLUMN ... NOT NULL` with no default, which Postgres rejects once the table has rows — and Hibernate only logs this as a warning and keeps starting, so the app comes up with the column missing and every later query against that table fails with a confusing "column does not exist" error. Always pair `nullable = false` with an explicit `columnDefinition` carrying a SQL default, e.g.:
+  ```java
+  @Column(name = "eco_score_parcial", nullable = false, columnDefinition = "boolean default false")
+  ```
+  See `Usuario.reenvioVerificacionContador` / `resetContrasenaContador` (`integer default 0`) for the same pattern. This has recurred three times (`catalogo_insignias`, `codigo_verificacion`, `eco_score_parcial`) — check it explicitly, don't rely on remembering it.
 
 ### Local SonarQube analysis (optional)
 
