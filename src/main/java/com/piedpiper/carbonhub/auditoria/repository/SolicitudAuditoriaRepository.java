@@ -1,5 +1,6 @@
 package com.piedpiper.carbonhub.auditoria.repository;
 
+import com.piedpiper.carbonhub.certificacion.models.enums.EstadoCertificacion;
 import com.piedpiper.carbonhub.auditoria.models.entities.SolicitudAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.EstadoSolicitudAuditoria;
 
@@ -57,4 +58,22 @@ public interface SolicitudAuditoriaRepository extends JpaRepository<SolicitudAud
             """)
     List<UUID> idsConAsignacionVencida(@Param("estadoSinRespuesta") EstadoSolicitudAuditoria estadoSinRespuesta,
                                        @Param("limite") Instant limite);
+
+    @Query("""
+            select s
+            from SolicitudAuditoria s
+            where s.empresa.id = :empresaId
+              and s.estado = :estadoVerificado
+              and exists (
+                  select 1
+                  from Certificacion c
+                  where c.idAuditoria = s.id
+                    and c.estado = :estadoCertificacion
+              )
+            order by s.periodoInicio asc, s.periodoFin asc
+            """)
+    List<SolicitudAuditoria> listarPeriodosVerificados(
+            @Param("empresaId") UUID empresaId,
+            @Param("estadoVerificado") EstadoSolicitudAuditoria estadoVerificado,
+            @Param("estadoCertificacion") EstadoCertificacion estadoCertificacion);
 }

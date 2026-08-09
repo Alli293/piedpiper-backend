@@ -10,11 +10,13 @@ import com.piedpiper.carbonhub.perfilpublico.exceptions.PerfilNoEncontradoExcept
 import com.piedpiper.carbonhub.perfilpublico.exceptions.SlugCambiadoException;
 import com.piedpiper.carbonhub.perfilpublico.models.dtos.BusquedaPerfilPublicoDTO;
 import com.piedpiper.carbonhub.perfilpublico.models.dtos.EnlacePerfilDTO;
+import com.piedpiper.carbonhub.perfilpublico.models.dtos.EvolucionHuellaDTO;
 import com.piedpiper.carbonhub.perfilpublico.models.dtos.PerfilPublicoResponseDTO;
+import com.piedpiper.carbonhub.perfilpublico.models.dtos.PuntoHuellaDTO;
 import com.piedpiper.carbonhub.perfilpublico.service.EnlacePerfilService;
 import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoCertificacionesService;
 import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoConsultaService;
-import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoEvolucionService;
+import com.piedpiper.carbonhub.perfilpublico.service.PerfilPublicoHuellaService;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.junit.jupiter.api.DisplayName;
@@ -32,6 +34,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -71,7 +74,7 @@ class PerfilPublicoControllerTest {
     @MockitoBean
     private EnlacePerfilService enlacePerfilService;
     @MockitoBean
-    private PerfilPublicoEvolucionService evolucionService;
+    private PerfilPublicoHuellaService perfilPublicoHuellaService;
     @MockitoBean
     private JwtService jwtService;
     @MockitoBean
@@ -145,6 +148,51 @@ class PerfilPublicoControllerTest {
                 .thenThrow(ApiException.recursoNoEncontrado("La empresa no existe."));
 
         mockMvc.perform(get("/api/perfil-publico/{slug}/insignias", SLUG))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void evolucionHuellaRetorna200ConLaSerieYTendencia() throws Exception {
+        EvolucionHuellaDTO dto = new EvolucionHuellaDTO(
+                "ultimos_3_anios",
+                "reduccion",
+                List.of(
+                        new PuntoHuellaDTO("2025", new BigDecimal("5.2360"), null),
+                        new PuntoHuellaDTO("2026", new BigDecimal("4.2000"), new BigDecimal("-19.8"))
+                )
+        );
+        when(perfilPublicoHuellaService.obtener(SLUG, "ultimos_3_anios")).thenReturn(dto);
+
+        mockMvc.perform(get("/api/perfil-publico/{slug}/evolucion-huella", SLUG)
+                        .param("rango", "ultimos_3_anios"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.rangoPeriodo").value("ultimos_3_anios"))
+                .andExpect(jsonPath("$.tendencia").value("reduccion"))
+                .andExpect(jsonPath("$.serie[0].periodo").value("2025"))
+                .andExpect(jsonPath("$.serie[0].huellaT").value(5.2360))
+                .andExpect(jsonPath("$.serie[0].variacionPorcentual").doesNotExist())
+                .andExpect(jsonPath("$.serie[1].variacionPorcentual").value(-19.8));
+    }
+
+    @Test
+    void evolucionHuellaConRangoFueraDeCatalogoRetornaRangoPorDefecto() throws Exception {
+        when(perfilPublicoHuellaService.obtener(SLUG, "otro"))
+                .thenReturn(new EvolucionHuellaDTO("ultimos_3_anios", "sin_cambio", List.of()));
+
+        mockMvc.perform(get("/api/perfil-publico/{slug}/evolucion-huella", SLUG)
+                        .param("rango", "otro"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.rangoPeriodo").value("ultimos_3_anios"));
+    }
+
+    @Test
+    void evolucionHuellaRetorna404CuandoElSlugNoExiste() throws Exception {
+        when(perfilPublicoHuellaService.obtener("empresa-fantasma", "historico"))
+                .thenThrow(new PerfilNoEncontradoException(
+                        "El perfil que buscas no existe o ya no estÃ¡ disponible."));
+
+        mockMvc.perform(get("/api/perfil-publico/{slug}/evolucion-huella", "empresa-fantasma")
+                        .param("rango", "historico"))
                 .andExpect(status().isNotFound());
     }
 
