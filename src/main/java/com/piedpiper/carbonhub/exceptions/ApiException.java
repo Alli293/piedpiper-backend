@@ -145,6 +145,11 @@ public class ApiException extends RuntimeException {
                 "Debes completar la configuración de tu empresa antes de invitar colaboradores.");
     }
 
+    public static ApiException empresaDeInvitacionNoEncontrada() {
+        return new ApiException(HttpStatus.NOT_FOUND,
+                "La empresa asociada a la invitación no existe.");
+    }
+
     public static ApiException invitacionNoEncontrada() {
         return new ApiException(HttpStatus.NOT_FOUND,
                 "La invitación no existe.");

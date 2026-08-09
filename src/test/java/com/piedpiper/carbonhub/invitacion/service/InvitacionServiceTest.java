@@ -176,6 +176,19 @@ class InvitacionServiceTest {
     }
 
     @Test
+    void emitirCuandoLaEmpresaDesapareceAntesDelBloqueoLanza404() {
+        when(usuarioRepository.findById(ADMIN_ID)).thenReturn(Optional.of(administrador()));
+        when(empresaRepository.bloquearPorId(EMPRESA_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service().emitir(
+                ADMIN_ID, new InvitacionRequestDTO("otra@correo.com")))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.NOT_FOUND);
+        verify(invitacionRepository, never()).save(any());
+    }
+
+    @Test
     void emitirSinRolAdministradorLanza403() {
         Usuario general = Usuario.builder().id(ADMIN_ID).rol(Rol.USUARIO_GENERAL).empresa(empresa()).build();
         when(usuarioRepository.findById(ADMIN_ID)).thenReturn(Optional.of(general));
@@ -269,6 +282,18 @@ class InvitacionServiceTest {
 
         assertThat(response.getEmailEnmascarado()).isEqualTo("c***@correo.com");
         assertThat(response.getNombreEmpresa()).isEqualTo("Acme S.A.");
+    }
+
+    @Test
+    void resolverNoFallaNiExponeDatosSiElCorreoPersistidoEsInvalido() {
+        Invitacion enviada = invitacion(EstadoInvitacion.ENVIADA, Instant.now().plus(1, ChronoUnit.DAYS));
+        enviada.setEmail("correo-invalido");
+        when(invitacionRepository.findByTokenHash(TokenVerificacionGenerator.hash(TOKEN_VALIDO)))
+                .thenReturn(Optional.of(enviada));
+
+        InvitacionPublicaResponseDTO response = service().resolver(TOKEN_VALIDO);
+
+        assertThat(response.getEmailEnmascarado()).isEqualTo("***");
     }
 
     @Test

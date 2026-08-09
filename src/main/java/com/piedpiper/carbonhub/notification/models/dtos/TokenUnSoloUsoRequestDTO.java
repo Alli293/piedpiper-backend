@@ -1,5 +1,6 @@
 package com.piedpiper.carbonhub.notification.models.dtos;
 
+import com.piedpiper.carbonhub.notification.TokenVerificacionGenerator;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
@@ -12,6 +13,7 @@ import lombok.NoArgsConstructor;
 public class TokenUnSoloUsoRequestDTO {
 
     @NotBlank(message = "El token es obligatorio.")
-    @Pattern(regexp = "^[A-Za-z0-9_-]{43}$", message = "El token no tiene un formato válido.")
+    @Pattern(regexp = TokenVerificacionGenerator.PATRON_TOKEN,
+            message = "El token no tiene un formato válido.")
     private String token;
 }

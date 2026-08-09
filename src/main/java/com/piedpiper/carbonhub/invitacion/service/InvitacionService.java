@@ -64,7 +64,9 @@ public class InvitacionService {
         Instant ahora = Instant.now();
 
         empresaRepository.bloquearPorId(empresaId)
-                .orElseThrow(ApiException::invitacionSinEmpresa);
+                .orElseThrow(ApiException::empresaDeInvitacionNoEncontrada);
+        // El límite protege los correos emitidos. Revocar o expirar una invitación no deshace
+        // el envío y, por tanto, no recupera cuota dentro de la ventana.
         long emitidasEnVentana = invitacionRepository.countByEmpresaIdAndFechaEmisionGreaterThanEqual(
                 empresaId, ahora.minus(HORAS_VENTANA_EMISION, ChronoUnit.HOURS));
         if (emitidasEnVentana >= maxEmisionesPorHora) {
@@ -215,6 +217,9 @@ public class InvitacionService {
 
     private String enmascararEmail(String email) {
         int separador = email.indexOf('@');
+        if (separador <= 0 || separador == email.length() - 1) {
+            return "***";
+        }
         String local = email.substring(0, separador);
         return "%s***%s".formatted(local.substring(0, 1), email.substring(separador));
     }
