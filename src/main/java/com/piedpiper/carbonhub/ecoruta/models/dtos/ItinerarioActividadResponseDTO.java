@@ -6,12 +6,16 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalTime;
+import java.util.UUID;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class ItinerarioActividadResponseDTO {
 
+    /** Identificador público de la actividad. Expuesto intencionalmente para que el
+     *  cliente pueda referenciarlo en PUT /itinerarios/{id}/actividades/{actividadId}/sustituir (PP-92). */
+    private UUID id;
     private String nombre;
     private String descripcion;
     private LocalTime horario;
