@@ -148,7 +148,10 @@ class PerfilPublicoControllerTest {
                 .thenThrow(ApiException.recursoNoEncontrado("La empresa no existe."));
 
         mockMvc.perform(get("/api/perfil-publico/{slug}/insignias", SLUG))
-    void huellaRetorna200ConLaSerieYTendencia() throws Exception {
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void evolucionHuellaRetorna200ConLaSerieYTendencia() throws Exception {
         EvolucionHuellaDTO dto = new EvolucionHuellaDTO(
                 "ultimos_3_anios",
