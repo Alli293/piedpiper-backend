@@ -23,6 +23,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Service
@@ -62,15 +64,51 @@ public class ResultadoAuditoriaService {
         ResultadoAuditoria resultado = ResultadoAuditoria.desde(datos.getResultado())
                 .orElseThrow(ApiException::resultadoAuditoriaInvalido);
 
+        solicitud.setResultadoAuditoria(resultado);
+        solicitud.setFechaResolucion(Instant.now());
+
         if (resultado == ResultadoAuditoria.APROBADA) {
+            solicitud.setFechaVencimientoCert(
+                    validarVencimiento(datos.getFechaVencimientoCert(), solicitud));
             aplicar(solicitud, EventoTransicionAuditoria.RESULTADO_APROBADA, auditor);
             SolicitudAuditoria guardada = guardar(solicitud);
             emitirCertificacionTrasCommit(comandoEmision(guardada, auditor));
             return detalleDe(guardada);
         }
 
+        solicitud.setObservaciones(validarObservaciones(datos.getObservaciones()));
         aplicar(solicitud, EventoTransicionAuditoria.RESULTADO_OBSERVACIONES, auditor);
         return detalleDe(guardar(solicitud));
+    }
+
+    /**
+     * Una certificacion que vence antes de la auditoria que la sustenta nace invalida, asi que la
+     * comparacion es contra {@code fechaAuditoriaRealizada} y no contra hoy: el auditor puede
+     * registrar el resultado dias despues de haber hecho la auditoria.
+     */
+    private LocalDate validarVencimiento(LocalDate fechaVencimiento, SolicitudAuditoria solicitud) {
+        if (fechaVencimiento == null) {
+            throw ApiException.fechaVencimientoCertRequerida();
+        }
+        if (!fechaVencimiento.isAfter(solicitud.getFechaAuditoriaRealizada())) {
+            throw ApiException.fechaVencimientoCertInvalida();
+        }
+        return fechaVencimiento;
+    }
+
+    /**
+     * El minimo de 20 caracteres existe porque estas observaciones son la unica instruccion que
+     * recibe la empresa sobre que corregir: un "revisar" suelto la obliga a volver a preguntar.
+     */
+    private String validarObservaciones(String observaciones) {
+        String limpio = observaciones == null ? "" : observaciones.trim();
+        if (limpio.length() < SolicitudAuditoria.OBSERVACIONES_MIN) {
+            throw ApiException.observacionesResultadoRequeridas();
+        }
+        if (limpio.length() > SolicitudAuditoria.OBSERVACIONES_MAX) {
+            throw ApiException.observacionesResultadoExcedidas();
+        }
+        return limpio;
     }
 
     private Usuario validarAuditorAsignado(SolicitudAuditoria solicitud, UUID usuarioId) {
@@ -106,7 +144,7 @@ public class ResultadoAuditoriaService {
                 ResultadoAuditoria.APROBADA.getCodigo(),
                 solicitud.getFechaAuditoriaRealizada(),
                 TipoCertificacion.INVENTARIO_GEI,
-                null);
+                solicitud.getFechaVencimientoCert());
     }
 
     private void emitirCertificacionTrasCommit(EmitirCertificacionRequestDTO comando) {

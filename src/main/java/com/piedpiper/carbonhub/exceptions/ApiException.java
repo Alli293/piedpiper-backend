@@ -410,6 +410,21 @@ public class ApiException extends RuntimeException {
                 "No tienes permiso para emitir el resultado de esta solicitud de auditor\u00eda.");
     }
 
+    public static ApiException observacionesResultadoRequeridas() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "Describe las observaciones con al menos 20 caracteres.");
+    }
+
+    public static ApiException observacionesResultadoExcedidas() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "Las observaciones no pueden superar los 1000 caracteres.");
+    }
+
+    public static ApiException fechaVencimientoCertRequerida() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "Indica la fecha de vencimiento de la certificaci\u00f3n.");
+    }
+
     public static ApiException decisionAuditorInvalida() {
         return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
                 "La decisión debe ser 'aceptada' o 'rechazada'.");
