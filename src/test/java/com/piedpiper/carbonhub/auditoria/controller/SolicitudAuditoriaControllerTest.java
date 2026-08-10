@@ -3,6 +3,8 @@ package com.piedpiper.carbonhub.auditoria.controller;
 import com.piedpiper.carbonhub.auditoria.models.dtos.AuditorAsignadoResponseDTO;
 import com.piedpiper.carbonhub.auditoria.models.dtos.DocumentoRespaldoResponseDTO;
 import com.piedpiper.carbonhub.auditoria.models.dtos.SolicitudAuditoriaDetalleResponseDTO;
+import com.piedpiper.carbonhub.auditoria.models.dtos.FiltrarSolicitudesAuditoriaRequestDTO;
+import com.piedpiper.carbonhub.auditoria.models.dtos.PaginaSolicitudesAuditoriaResponseDTO;
 import com.piedpiper.carbonhub.auditoria.models.dtos.SolicitudAuditoriaResponseDTO;
 import com.piedpiper.carbonhub.auditoria.models.dtos.TransicionEstadoAuditoriaResponseDTO;
 import com.piedpiper.carbonhub.auditoria.models.enums.ActorTransicionAuditoria;
@@ -21,6 +23,7 @@ import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.security.oauth2.client.OAuth2ClientAutoConfiguration;
 import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
@@ -50,6 +53,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -436,6 +440,84 @@ class SolicitudAuditoriaControllerTest {
     private static MockMultipartFile reportePdf() {
         return new MockMultipartFile("reporteAuditoria", "reporte.pdf", MediaType.APPLICATION_PDF_VALUE,
                 "%PDF-1.7 contenido de prueba".getBytes(StandardCharsets.US_ASCII));
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
+    void getListadoDevuelve200ConLaPrimeraPagina() throws Exception {
+        when(solicitudAuditoriaListadoService.listar(any(), any()))
+                .thenReturn(new PaginaSolicitudesAuditoriaResponseDTO(List.of(), 0, 1, 0));
+
+        mockMvc.perform(get("/api/auditorias").principal(principal()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.paginaActual").value(1))
+                .andExpect(jsonPath("$.contenido").isArray());
+    }
+
+    /** Un estado inventado no rompe la peticion: el servicio lo descarta y devuelve todo. */
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
+    void getListadoConFiltroInvalidoDevuelve200SinError() throws Exception {
+        when(solicitudAuditoriaListadoService.listar(any(), any()))
+                .thenReturn(new PaginaSolicitudesAuditoriaResponseDTO(List.of(), 0, 1, 0));
+
+        mockMvc.perform(get("/api/auditorias")
+                        .param("filtroEstado", "NO_EXISTE")
+                        .principal(principal()))
+                .andExpect(status().isOk());
+    }
+
+    /** Los parametros del filtro llegan al servicio ya convertidos, no como texto suelto. */
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
+    void losFiltrosDeLaQueryLleganAlServicio() throws Exception {
+        when(solicitudAuditoriaListadoService.listar(any(), any()))
+                .thenReturn(new PaginaSolicitudesAuditoriaResponseDTO(List.of(), 0, 2, 3));
+
+        mockMvc.perform(get("/api/auditorias")
+                        .param("filtroEstado", "EN_REVISION", "REPORTE_CARGADO")
+                        .param("pagina", "2")
+                        .principal(principal()))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<FiltrarSolicitudesAuditoriaRequestDTO> captor =
+                ArgumentCaptor.forClass(FiltrarSolicitudesAuditoriaRequestDTO.class);
+        verify(solicitudAuditoriaListadoService).listar(captor.capture(), any());
+        assertThat(captor.getValue().getPagina()).isEqualTo(2);
+        assertThat(captor.getValue().getFiltroEstado())
+                .containsExactly("EN_REVISION", "REPORTE_CARGADO");
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
+    void getListadoDeUnaEmpresaAjenaDevuelve403() throws Exception {
+        when(solicitudAuditoriaListadoService.listar(any(), any()))
+                .thenThrow(ApiException.listadoAuditoriasAjeno());
+
+        mockMvc.perform(get("/api/auditorias")
+                        .param("idEmpresa", "bbbbbbbb-2222-3333-4444-555566667777")
+                        .principal(principal()))
+                .andExpect(status().isForbidden());
+    }
+
+    /** El auditor tambien tiene listado: el endpoint dejo de ser solo de la empresa. */
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
+    void unAuditorPuedeConsultarElListado() throws Exception {
+        when(solicitudAuditoriaListadoService.listar(any(), any()))
+                .thenReturn(new PaginaSolicitudesAuditoriaResponseDTO(List.of(), 0, 1, 0));
+
+        mockMvc.perform(get("/api/auditorias").principal(principal()))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "USUARIO_GENERAL")
+    void unRolSinListadoDeAuditoriasRecibe403() throws Exception {
+        mockMvc.perform(get("/api/auditorias").principal(principal()))
+                .andExpect(status().isForbidden());
+
+        verify(solicitudAuditoriaListadoService, never()).listar(any(), any());
     }
 
     private static Authentication principal() {
