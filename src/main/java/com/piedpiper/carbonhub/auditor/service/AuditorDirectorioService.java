@@ -97,7 +97,7 @@ public class AuditorDirectorioService {
         return switch (orden) {
             case CALIFICACION -> Sort.by(Sort.Order.desc("calificacionPromedio").nullsLast());
             case AUDITORIAS_COMPLETADAS -> Sort.by(Sort.Order.desc("auditoriasCompletadas"));
-            case TIEMPO_RESPUESTA -> Sort.by(Sort.Order.asc("tiempoRespuestaHoras").nullsLast());
+            case TIEMPO_RESPUESTA -> Sort.by(Sort.Order.asc("tiempoPromedioRespuestaDias").nullsLast());
         };
     }
 

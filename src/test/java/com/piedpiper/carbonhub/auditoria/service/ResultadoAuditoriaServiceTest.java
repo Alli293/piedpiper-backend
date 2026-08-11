@@ -10,11 +10,13 @@ import com.piedpiper.carbonhub.auditoria.models.enums.EstadoSolicitudAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.EventoTransicionAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.OrigenAsignacion;
 import com.piedpiper.carbonhub.auditoria.models.enums.TipoCertificacionSolicitud;
+import com.piedpiper.carbonhub.auditoria.models.events.AuditoriaFinalizadaEvent;
 import com.piedpiper.carbonhub.auditoria.repository.SolicitudAuditoriaRepository;
 import com.piedpiper.carbonhub.auditoria.repository.TransicionEstadoAuditoriaRepository;
 import com.piedpiper.carbonhub.certificacion.models.dtos.EmitirCertificacionRequestDTO;
 import com.piedpiper.carbonhub.certificacion.service.EmisionCertificacionPort;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
+import com.piedpiper.carbonhub.empresa.models.enums.SectorIndustrial;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 
@@ -27,6 +29,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -63,6 +66,8 @@ class ResultadoAuditoriaServiceTest {
     private NotificacionTransicionRegistroService notificacionTransicionRegistroService;
     @Mock
     private EmisionCertificacionPort emisionCertificacionPort;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     private ResultadoAuditoriaService service;
 
@@ -80,6 +85,7 @@ class ResultadoAuditoriaServiceTest {
                 transicionEstadoAuditoriaRepository,
                 transiciones,
                 emisionCertificacionPort,
+                eventPublisher,
                 new SolicitudAuditoriaMapperImpl(),
                 new TransicionEstadoAuditoriaMapperImpl());
 
@@ -120,6 +126,17 @@ class ResultadoAuditoriaServiceTest {
         assertThat(captor.getValue().getIdEmpresa()).isEqualTo(EMPRESA_ID);
         assertThat(captor.getValue().getIdAuditor()).isEqualTo(AUDITOR_ID);
         assertThat(captor.getValue().getFechaAuditoria()).isEqualTo(LocalDate.of(2026, 8, 5));
+
+        ArgumentCaptor<AuditoriaFinalizadaEvent> eventCaptor =
+                ArgumentCaptor.forClass(AuditoriaFinalizadaEvent.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().auditoriaId()).isEqualTo(SOLICITUD_ID);
+        assertThat(eventCaptor.getValue().auditorId()).isEqualTo(AUDITOR_ID);
+        assertThat(eventCaptor.getValue().fechaAsignacion())
+                .isEqualTo(Instant.parse("2026-08-01T11:00:00Z"));
+        assertThat(eventCaptor.getValue().fechaPrimeraRespuesta())
+                .isEqualTo(Instant.parse("2026-08-02T11:00:00Z"));
+        assertThat(eventCaptor.getValue().sectorEmpresa()).isEqualTo("AGROINDUSTRIA");
     }
 
     @Test
@@ -127,6 +144,7 @@ class ResultadoAuditoriaServiceTest {
         service.emitir(SOLICITUD_ID, datos("aprobada"), AUDITOR_ID);
 
         verify(emisionCertificacionPort).emitirPorAuditoriaAprobada(any());
+        verify(eventPublisher).publishEvent(any(AuditoriaFinalizadaEvent.class));
     }
 
     @Test
@@ -201,6 +219,7 @@ class ResultadoAuditoriaServiceTest {
                         .id(EMPRESA_ID)
                         .nombreEmpresa("Acme S.A.")
                         .correoCorporativo("contacto@acme.cr")
+                        .sectorIndustrial(SectorIndustrial.AGROINDUSTRIA)
                         .build())
                 .tipoCertificacion(TipoCertificacionSolicitud.INICIAL)
                 .periodoInicio(LocalDate.of(2026, 1, 1))

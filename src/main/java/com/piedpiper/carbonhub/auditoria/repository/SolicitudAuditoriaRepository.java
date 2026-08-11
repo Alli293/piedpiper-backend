@@ -19,6 +19,16 @@ public interface SolicitudAuditoriaRepository extends JpaRepository<SolicitudAud
     List<SolicitudAuditoria> findByAuditorIdAndEstado(UUID auditorId, EstadoSolicitudAuditoria estado);
 
     @Query("""
+            select distinct s from SolicitudAuditoria s
+            left join fetch s.empresa
+            where s.auditor.id = :auditorId
+              and s.estado in :estadosCompletados
+            """)
+    List<SolicitudAuditoria> listarCompletadasPorAuditor(
+            @Param("auditorId") UUID auditorId,
+            @Param("estadosCompletados") Collection<EstadoSolicitudAuditoria> estadosCompletados);
+
+    @Query("""
             select count(s) > 0 from SolicitudAuditoria s
             where s.empresa.id = :empresaId
               and s.estado not in :estadosCerrados

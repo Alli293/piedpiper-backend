@@ -9,14 +9,17 @@ import com.piedpiper.carbonhub.auditoria.models.enums.ActorTransicionAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.EstadoSolicitudAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.EventoTransicionAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.ResultadoAuditoria;
+import com.piedpiper.carbonhub.auditoria.models.events.AuditoriaFinalizadaEvent;
 import com.piedpiper.carbonhub.auditoria.repository.SolicitudAuditoriaRepository;
 import com.piedpiper.carbonhub.auditoria.repository.TransicionEstadoAuditoriaRepository;
 import com.piedpiper.carbonhub.certificacion.models.dtos.EmitirCertificacionRequestDTO;
 import com.piedpiper.carbonhub.certificacion.models.enums.TipoCertificacion;
+import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.certificacion.service.EmisionCertificacionPort;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +35,7 @@ public class ResultadoAuditoriaService {
     private final TransicionEstadoAuditoriaRepository transicionEstadoAuditoriaRepository;
     private final TransicionEstadoAuditoriaService transicionEstadoAuditoriaService;
     private final EmisionCertificacionPort emisionCertificacionPort;
+    private final ApplicationEventPublisher eventPublisher;
     private final SolicitudAuditoriaMapper solicitudAuditoriaMapper;
     private final TransicionEstadoAuditoriaMapper transicionEstadoAuditoriaMapper;
 
@@ -40,12 +44,14 @@ public class ResultadoAuditoriaService {
             TransicionEstadoAuditoriaRepository transicionEstadoAuditoriaRepository,
             TransicionEstadoAuditoriaService transicionEstadoAuditoriaService,
             EmisionCertificacionPort emisionCertificacionPort,
+            ApplicationEventPublisher eventPublisher,
             SolicitudAuditoriaMapper solicitudAuditoriaMapper,
             TransicionEstadoAuditoriaMapper transicionEstadoAuditoriaMapper) {
         this.solicitudAuditoriaRepository = solicitudAuditoriaRepository;
         this.transicionEstadoAuditoriaRepository = transicionEstadoAuditoriaRepository;
         this.transicionEstadoAuditoriaService = transicionEstadoAuditoriaService;
         this.emisionCertificacionPort = emisionCertificacionPort;
+        this.eventPublisher = eventPublisher;
         this.solicitudAuditoriaMapper = solicitudAuditoriaMapper;
         this.transicionEstadoAuditoriaMapper = transicionEstadoAuditoriaMapper;
     }
@@ -65,7 +71,8 @@ public class ResultadoAuditoriaService {
         if (resultado == ResultadoAuditoria.APROBADA) {
             aplicar(solicitud, EventoTransicionAuditoria.RESULTADO_APROBADA, auditor);
             SolicitudAuditoria guardada = guardar(solicitud);
-            emitirCertificacionTrasCommit(comandoEmision(guardada, auditor));
+            publicarAprobacionTrasCommit(comandoEmision(guardada, auditor),
+                    eventoFinalizacion(guardada, auditor));
             return detalleDe(guardada);
         }
 
@@ -109,16 +116,36 @@ public class ResultadoAuditoriaService {
                 null);
     }
 
-    private void emitirCertificacionTrasCommit(EmitirCertificacionRequestDTO comando) {
+    private AuditoriaFinalizadaEvent eventoFinalizacion(SolicitudAuditoria solicitud, Usuario auditor) {
+        return new AuditoriaFinalizadaEvent(
+                solicitud.getId(),
+                auditor.getId(),
+                solicitud.getFechaAsignacion(),
+                solicitud.getFechaAceptacion(),
+                sectorEmpresaDe(solicitud.getEmpresa()));
+    }
+
+    private String sectorEmpresaDe(Empresa empresa) {
+        if (empresa == null || empresa.getSectorIndustrial() == null) {
+            return null;
+        }
+        return empresa.getSectorIndustrial().name();
+    }
+
+    private void publicarAprobacionTrasCommit(
+            EmitirCertificacionRequestDTO comando,
+            AuditoriaFinalizadaEvent event) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
                     emisionCertificacionPort.emitirPorAuditoriaAprobada(comando);
+                    eventPublisher.publishEvent(event);
                 }
             });
         } else {
             emisionCertificacionPort.emitirPorAuditoriaAprobada(comando);
+            eventPublisher.publishEvent(event);
         }
     }
 
