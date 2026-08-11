@@ -65,10 +65,9 @@ public class ConfiguracionInicialAuditorService {
 
         Set<EspecialidadAuditor> especialidades = resolverEspecialidades(datos.getEspecialidades());
         validadorDocumentosPdf.validar(documentos);
+        validarMetadatosDocumentos(documentos);
 
-        perfilAuditorService.asegurarPerfil(auditor);
-        PerfilAuditor perfil = perfilAuditorRepository.findByAuditorId(usuarioId)
-                .orElseThrow(() -> ApiException.errorInterno("No se pudo crear el perfil del auditor."));
+        PerfilAuditor perfil = perfilAuditorService.asegurarPerfil(auditor);
 
         perfil.setAniosExperiencia(datos.getAniosExperiencia());
         perfil.setEspecialidades(especialidades);
@@ -95,7 +94,10 @@ public class ConfiguracionInicialAuditorService {
     }
 
     private Set<EspecialidadAuditor> resolverEspecialidades(List<String> especialidades) {
-        if (especialidades.size() != new HashSet<>(especialidades).size()) {
+        List<String> normalizadas = especialidades.stream()
+                .map(ConfiguracionInicialAuditorService::normalizarEspecialidad)
+                .toList();
+        if (normalizadas.size() != new HashSet<>(normalizadas).size()) {
             throw ApiException.datosInvalidos("La lista de especialidades contiene duplicados.");
         }
         List<String> invalidas = especialidades.stream()
@@ -107,6 +109,20 @@ public class ConfiguracionInicialAuditorService {
         return especialidades.stream()
                 .map(e -> Catalogos.desde(EspecialidadAuditor.class, e).orElseThrow())
                 .collect(Collectors.toCollection(HashSet::new));
+    }
+
+    private static String normalizarEspecialidad(String valor) {
+        return valor == null ? null : valor.trim().toUpperCase();
+    }
+
+    private void validarMetadatosDocumentos(List<MultipartFile> documentos) {
+        for (MultipartFile documento : documentos) {
+            String nombreArchivo = documento.getOriginalFilename();
+            String tipoContenido = documento.getContentType();
+            if (nombreArchivo == null || nombreArchivo.isBlank() || tipoContenido == null || tipoContenido.isBlank()) {
+                throw ApiException.documentoCredencialMetadatosInvalidos();
+            }
+        }
     }
 
     private void guardarDocumentos(SolicitudValidacion solicitud, List<MultipartFile> documentos, Instant ahora) {

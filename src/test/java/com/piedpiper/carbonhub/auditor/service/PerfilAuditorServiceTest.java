@@ -11,6 +11,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -38,13 +39,14 @@ class PerfilAuditorServiceTest {
     @Test
     void creaElPerfilCuandoElAuditorNoTieneUno() {
         Usuario auditor = auditor();
-        when(perfilAuditorRepository.existsByAuditorId(auditor.getId())).thenReturn(false);
+        when(perfilAuditorRepository.findByAuditorId(auditor.getId())).thenReturn(Optional.empty());
+        when(perfilAuditorRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        service.asegurarPerfil(auditor);
+        PerfilAuditor perfil = service.asegurarPerfil(auditor);
 
         ArgumentCaptor<PerfilAuditor> captor = ArgumentCaptor.forClass(PerfilAuditor.class);
         verify(perfilAuditorRepository).save(captor.capture());
-        PerfilAuditor perfil = captor.getValue();
+        assertThat(perfil).isSameAs(captor.getValue());
         assertThat(perfil.getAuditor()).isEqualTo(auditor);
         assertThat(perfil.isDisponible()).isTrue();
         assertThat(perfil.getAuditoriasCompletadas()).isZero();
@@ -55,10 +57,12 @@ class PerfilAuditorServiceTest {
     @Test
     void noDuplicaElPerfilSiYaExiste() {
         Usuario auditor = auditor();
-        when(perfilAuditorRepository.existsByAuditorId(auditor.getId())).thenReturn(true);
+        PerfilAuditor existente = PerfilAuditor.builder().auditor(auditor).build();
+        when(perfilAuditorRepository.findByAuditorId(auditor.getId())).thenReturn(Optional.of(existente));
 
-        service.asegurarPerfil(auditor);
+        PerfilAuditor perfil = service.asegurarPerfil(auditor);
 
+        assertThat(perfil).isSameAs(existente);
         verify(perfilAuditorRepository, never()).save(any());
     }
 
@@ -69,9 +73,10 @@ class PerfilAuditorServiceTest {
                 .rol(Rol.ADMINISTRADOR_EMPRESA)
                 .build();
 
-        service.asegurarPerfil(usuario);
+        PerfilAuditor perfil = service.asegurarPerfil(usuario);
 
-        verify(perfilAuditorRepository, never()).existsByAuditorId(any());
+        assertThat(perfil).isNull();
+        verify(perfilAuditorRepository, never()).findByAuditorId(any());
         verify(perfilAuditorRepository, never()).save(any());
     }
 }

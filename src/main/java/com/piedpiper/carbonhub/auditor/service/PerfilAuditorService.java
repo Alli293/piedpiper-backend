@@ -17,13 +17,11 @@ public class PerfilAuditorService {
     }
 
     @Transactional
-    public void asegurarPerfil(Usuario usuario) {
+    public PerfilAuditor asegurarPerfil(Usuario usuario) {
         if (usuario.getRol() != Rol.AUDITOR_CERTIFICADO) {
-            return;
+            return null;
         }
-        if (perfilAuditorRepository.existsByAuditorId(usuario.getId())) {
-            return;
-        }
-        perfilAuditorRepository.save(PerfilAuditor.builder().auditor(usuario).build());
+        return perfilAuditorRepository.findByAuditorId(usuario.getId())
+                .orElseGet(() -> perfilAuditorRepository.save(PerfilAuditor.builder().auditor(usuario).build()));
     }
 }

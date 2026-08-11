@@ -2,8 +2,11 @@ package com.piedpiper.carbonhub.validacion.controller;
 
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
 import com.piedpiper.carbonhub.auth.service.JwtService;
+import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
-import com.piedpiper.carbonhub.validacion.service.ValidacionAuditorService;
+import com.piedpiper.carbonhub.validacion.models.dtos.MiSolicitudAuditorResponseDTO;
+import com.piedpiper.carbonhub.validacion.service.MiSolicitudAuditorService;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.security.oauth2.client.OAuth2ClientAutoConfiguration;
@@ -14,29 +17,30 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
-import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.util.UUID;
+import java.time.Instant;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(controllers = ValidacionAuditorController.class,
+@WebMvcTest(controllers = MiSolicitudAuditorController.class,
         excludeAutoConfiguration = {SecurityAutoConfiguration.class, OAuth2ClientAutoConfiguration.class},
         excludeFilters = @ComponentScan.Filter(
                 type = FilterType.ASSIGNABLE_TYPE, classes = SecurityConfig.class))
 @AutoConfigureMockMvc(addFilters = false)
-@Import(ValidacionAuditorControllerSecurityTest.MethodSecurityTestConfig.class)
-class ValidacionAuditorControllerSecurityTest {
+@Import(MiSolicitudAuditorControllerTest.MethodSecurityTestConfig.class)
+class MiSolicitudAuditorControllerTest {
 
     @TestConfiguration
     @EnableMethodSecurity
@@ -49,48 +53,44 @@ class ValidacionAuditorControllerSecurityTest {
     private MockMvc mockMvc;
 
     @MockitoBean
-    private ValidacionAuditorService validacionAuditorService;
+    private MiSolicitudAuditorService miSolicitudAuditorService;
     @MockitoBean
     private JwtService jwtService;
     @MockitoBean
     private UsuarioRepository usuarioRepository;
 
     @Test
-    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
-    void listarConRolNoAdminPlataformaDevuelve403() throws Exception {
-        mockMvc.perform(get("/api/admin/solicitudes-auditor"))
+    @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
+    void devuelve200ConElEstadoDeLaSolicitud() throws Exception {
+        when(miSolicitudAuditorService.obtener(any())).thenReturn(
+                new MiSolicitudAuditorResponseDTO("PENDIENTE", Instant.parse("2026-08-01T12:00:00Z"), null, null));
+
+        mockMvc.perform(get("/api/auditor/mi-solicitud").principal(principal()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("PENDIENTE"))
+                .andExpect(jsonPath("$.fechaResolucion").doesNotExist());
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_PLATAFORMA")
+    void rolNoAutorizadoDevuelve403() throws Exception {
+        mockMvc.perform(get("/api/auditor/mi-solicitud").principal(principal()))
                 .andExpect(status().isForbidden());
 
-        verify(validacionAuditorService, never()).listarPendientes(any(), anyInt());
+        verify(miSolicitudAuditorService, never()).obtener(any());
     }
 
     @Test
     @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
-    void resolverConRolNoAdminPlataformaDevuelve403() throws Exception {
-        mockMvc.perform(post("/api/admin/solicitudes-auditor/" + UUID.randomUUID() + "/decision")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"decision\":\"aprobado\"}"))
-                .andExpect(status().isForbidden());
+    void sinSolicitudPropiaDevuelve404() throws Exception {
+        when(miSolicitudAuditorService.obtener(any()))
+                .thenThrow(ApiException.solicitudValidacionNoEncontrada());
 
-        verify(validacionAuditorService, never()).resolver(any(), any(), any());
+        mockMvc.perform(get("/api/auditor/mi-solicitud").principal(principal()))
+                .andExpect(status().isNotFound());
     }
 
-    @Test
-    @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
-    void obtenerDetalleConRolNoAdminPlataformaDevuelve403() throws Exception {
-        mockMvc.perform(get("/api/admin/solicitudes-auditor/" + UUID.randomUUID()))
-                .andExpect(status().isForbidden());
-
-        verify(validacionAuditorService, never()).obtenerDetalle(any(), any());
-    }
-
-    @Test
-    @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
-    void descargarDocumentoConRolNoAdminPlataformaDevuelve403() throws Exception {
-        mockMvc.perform(get("/api/admin/solicitudes-auditor/" + UUID.randomUUID()
-                        + "/documentos/" + UUID.randomUUID()))
-                .andExpect(status().isForbidden());
-
-        verify(validacionAuditorService, never()).obtenerDocumento(any(), any(), any());
+    private static Authentication principal() {
+        return new UsernamePasswordAuthenticationToken(USUARIO_ID, null);
     }
 }

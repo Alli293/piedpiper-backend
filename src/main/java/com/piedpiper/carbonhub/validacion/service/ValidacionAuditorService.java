@@ -1,7 +1,6 @@
 package com.piedpiper.carbonhub.validacion.service;
 
 import com.piedpiper.carbonhub.auditor.models.entities.PerfilAuditor;
-import com.piedpiper.carbonhub.auditor.models.enums.EspecialidadAuditor;
 import com.piedpiper.carbonhub.auditor.repository.PerfilAuditorRepository;
 import com.piedpiper.carbonhub.auditor.service.PerfilAuditorService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
@@ -32,7 +31,6 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
-import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -96,22 +94,9 @@ public class ValidacionAuditorService {
         PerfilAuditor perfil = perfilAuditorRepository.findByAuditorId(auditor.getId()).orElse(null);
 
         List<DocumentoCredencialResumenResponseDTO> documentos = documentoCredencialAuditorRepository
-                .findBySolicitudId(solicitudId).stream()
-                .map(doc -> new DocumentoCredencialResumenResponseDTO(
-                        doc.getId(), doc.getNombreArchivo(), doc.getTamanioBytes()))
-                .toList();
+                .resumenPorSolicitudId(solicitudId);
 
-        return new SolicitudDetalleResponseDTO(
-                solicitud.getId(),
-                validacionAuditorMapper.nombreCompleto(auditor),
-                auditor.getEmail(),
-                solicitud.getEstado().name(),
-                solicitud.getFechaSolicitud(),
-                perfil == null ? null : perfil.getAniosExperiencia(),
-                especialidadesOrdenadas(perfil),
-                perfil == null ? null : perfil.getDescripcionProfesional(),
-                perfil == null ? null : perfil.getSitioWeb(),
-                documentos);
+        return validacionAuditorMapper.aDetalleDto(solicitud, perfil, documentos);
     }
 
     @Transactional(readOnly = true)
@@ -128,16 +113,6 @@ public class ValidacionAuditorService {
             throw ApiException.documentoCredencialNoEncontrado();
         }
         return documento;
-    }
-
-    private List<String> especialidadesOrdenadas(PerfilAuditor perfil) {
-        if (perfil == null || perfil.getEspecialidades() == null) {
-            return List.of();
-        }
-        return perfil.getEspecialidades().stream()
-                .sorted(Comparator.comparing(EspecialidadAuditor::name))
-                .map(Enum::name)
-                .toList();
     }
 
     @Transactional

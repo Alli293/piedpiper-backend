@@ -1,6 +1,7 @@
 package com.piedpiper.carbonhub.validacion.service;
 
 import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.validacion.mappers.ValidacionAuditorMapper;
 import com.piedpiper.carbonhub.validacion.models.dtos.MiSolicitudAuditorResponseDTO;
 import com.piedpiper.carbonhub.validacion.models.entities.SolicitudValidacion;
 import com.piedpiper.carbonhub.validacion.repository.SolicitudValidacionRepository;
@@ -20,9 +21,12 @@ import java.util.UUID;
 public class MiSolicitudAuditorService {
 
     private final SolicitudValidacionRepository solicitudValidacionRepository;
+    private final ValidacionAuditorMapper validacionAuditorMapper;
 
-    public MiSolicitudAuditorService(SolicitudValidacionRepository solicitudValidacionRepository) {
+    public MiSolicitudAuditorService(SolicitudValidacionRepository solicitudValidacionRepository,
+                                     ValidacionAuditorMapper validacionAuditorMapper) {
         this.solicitudValidacionRepository = solicitudValidacionRepository;
+        this.validacionAuditorMapper = validacionAuditorMapper;
     }
 
     @Transactional(readOnly = true)
@@ -31,10 +35,6 @@ public class MiSolicitudAuditorService {
                 .findTopByAuditorIdOrderByFechaSolicitudDesc(usuarioId)
                 .orElseThrow(ApiException::solicitudValidacionNoEncontrada);
 
-        return new MiSolicitudAuditorResponseDTO(
-                solicitud.getEstado().name(),
-                solicitud.getFechaSolicitud(),
-                solicitud.getFechaResolucion(),
-                solicitud.getMotivoRechazo());
+        return validacionAuditorMapper.aMiSolicitudDto(solicitud);
     }
 }

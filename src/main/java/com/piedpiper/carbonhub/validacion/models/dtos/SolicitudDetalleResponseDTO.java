@@ -19,7 +19,7 @@ public class SolicitudDetalleResponseDTO {
     private String estado;
     private Instant fechaSolicitud;
     private Integer aniosExperiencia;
-    private List<String> especialidades;
+    private List<String> especialidades = List.of();
     private String descripcionProfesional;
     private String sitioWeb;
     private List<DocumentoCredencialResumenResponseDTO> documentos;
