@@ -17,6 +17,7 @@ public class PerfilPublicoAuditorResponseDTO {
     private String nombre;
     private String fotoPerfil;
     private String descripcionProfesional;
+    private String provincia;
     private List<String> especialidades;
     private List<CertificacionPublicaDTO> certificaciones;
     private boolean disponible;
