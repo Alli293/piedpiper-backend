@@ -1,8 +1,11 @@
 package com.piedpiper.carbonhub.auditor.controller;
 
 import com.piedpiper.carbonhub.auditor.models.dtos.AuditorResumenResponseDTO;
+import com.piedpiper.carbonhub.auditor.models.dtos.CertificacionPublicaDTO;
+import com.piedpiper.carbonhub.auditor.models.dtos.DistribucionSectorDTO;
 import com.piedpiper.carbonhub.auditor.models.dtos.FiltrarAuditoresRequestDTO;
 import com.piedpiper.carbonhub.auditor.models.dtos.PaginaAuditoresResponseDTO;
+import com.piedpiper.carbonhub.auditor.models.dtos.PerfilPublicoAuditorResponseDTO;
 import com.piedpiper.carbonhub.auditor.service.AuditorDirectorioService;
 import com.piedpiper.carbonhub.auditor.service.PerfilPublicoAuditorService;
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
@@ -10,6 +13,7 @@ import com.piedpiper.carbonhub.auth.service.JwtService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +32,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -151,5 +157,96 @@ class AuditorControllerTest {
     void rolNoAutorizadoDevuelve403() throws Exception {
         mockMvc.perform(get("/api/auditores").principal(principal("ADMINISTRADOR_PLATAFORMA")))
                 .andExpect(status().isForbidden());
+    }
+
+    // ========================================================================
+    // Task 7.2 — Unit tests para GET /api/auditores/{auditorId}
+    // ========================================================================
+
+    @Test
+    @DisplayName("GET /{auditorId} con UUID válido retorna 200 con JSON del DTO")
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
+    void obtenerPerfilPublico_uuidValido_retorna200ConDto() throws Exception {
+        UUID auditorId = UUID.fromString("a1b2c3d4-e5f6-7890-abcd-ef1234567890");
+
+        PerfilPublicoAuditorResponseDTO dto = new PerfilPublicoAuditorResponseDTO(
+                auditorId,
+                "Carlos Ramírez",
+                "https://cdn.example.com/foto.png",
+                "Auditor certificado con 10 años de experiencia.",
+                List.of("AGROINDUSTRIA", "MANUFACTURA"),
+                List.of(new CertificacionPublicaDTO("Carbono Neutral", "CarbonHub",
+                        LocalDate.of(2027, 6, 15), false)),
+                true,
+                new BigDecimal("4.7"),
+                15,
+                42,
+                new BigDecimal("2.3"),
+                List.of(new DistribucionSectorDTO("AGROINDUSTRIA", new BigDecimal("60.0"))),
+                Collections.emptyList()
+        );
+
+        when(perfilPublicoAuditorService.obtenerPerfilPublico(auditorId)).thenReturn(dto);
+
+        mockMvc.perform(get("/api/auditores/{auditorId}", auditorId)
+                        .principal(principal("ADMINISTRADOR_EMPRESA")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.auditorId").value(auditorId.toString()))
+                .andExpect(jsonPath("$.nombre").value("Carlos Ramírez"))
+                .andExpect(jsonPath("$.fotoPerfil").value("https://cdn.example.com/foto.png"))
+                .andExpect(jsonPath("$.descripcionProfesional").value("Auditor certificado con 10 años de experiencia."))
+                .andExpect(jsonPath("$.especialidades[0]").value("AGROINDUSTRIA"))
+                .andExpect(jsonPath("$.especialidades[1]").value("MANUFACTURA"))
+                .andExpect(jsonPath("$.certificaciones[0].nombre").value("Carbono Neutral"))
+                .andExpect(jsonPath("$.disponible").value(true))
+                .andExpect(jsonPath("$.calificacionPromedio").value(4.7))
+                .andExpect(jsonPath("$.totalResenas").value(15))
+                .andExpect(jsonPath("$.auditoriasCompletadas").value(42))
+                .andExpect(jsonPath("$.tiempoPromedioRespuestaDias").value(2.3))
+                .andExpect(jsonPath("$.distribucionSectores[0].sector").value("AGROINDUSTRIA"))
+                .andExpect(jsonPath("$.resenas").isArray());
+    }
+
+    @Test
+    @DisplayName("GET /{auditorId} con UUID inválido retorna 400 con mensaje de error")
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
+    void obtenerPerfilPublico_uuidInvalido_retorna400() throws Exception {
+        mockMvc.perform(get("/api/auditores/{auditorId}", "not-a-uuid")
+                        .principal(principal("ADMINISTRADOR_EMPRESA")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").value("La solicitud contiene datos inválidos o incompletos."));
+    }
+
+    @Test
+    @DisplayName("GET /{auditorId} cuando perfil no existe retorna 404")
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
+    void obtenerPerfilPublico_perfilNoExiste_retorna404() throws Exception {
+        UUID auditorId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+
+        when(perfilPublicoAuditorService.obtenerPerfilPublico(auditorId))
+                .thenThrow(ApiException.recursoNoEncontrado("El perfil solicitado no está disponible."));
+
+        mockMvc.perform(get("/api/auditores/{auditorId}", auditorId)
+                        .principal(principal("ADMINISTRADOR_EMPRESA")))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.message").value("El perfil solicitado no está disponible."));
+    }
+
+    @Test
+    @DisplayName("GET /{auditorId} con error inesperado retorna 500")
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
+    void obtenerPerfilPublico_errorInesperado_retorna500() throws Exception {
+        UUID auditorId = UUID.fromString("00000000-0000-0000-0000-000000000002");
+
+        when(perfilPublicoAuditorService.obtenerPerfilPublico(auditorId))
+                .thenThrow(new RuntimeException("Error interno simulado"));
+
+        mockMvc.perform(get("/api/auditores/{auditorId}", auditorId)
+                        .principal(principal("ADMINISTRADOR_EMPRESA")))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.status").value(500))
+                .andExpect(jsonPath("$.message").value("Ocurrió un error inesperado. Por favor, intenta nuevamente."));
     }
 }
