@@ -31,6 +31,7 @@ public interface PerfilPublicoAuditorMapper {
         dto.setNombre(nombreCompleto(perfil));
         dto.setFotoPerfil(perfil.getFotoPerfil());
         dto.setDescripcionProfesional(perfil.getDescripcionProfesional());
+        dto.setProvincia(perfil.getProvincia() != null ? perfil.getProvincia().name() : null);
         dto.setEspecialidades(especialidadesAList(perfil.getEspecialidades()));
         dto.setDisponible(perfil.isDisponible());
 

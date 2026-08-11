@@ -14,6 +14,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -40,6 +41,12 @@ public interface PerfilAuditorRepository extends JpaRepository<PerfilAuditor, UU
     Optional<PerfilAuditor> findByAuditorIdAndAuditorEstadoConDistribucion(
             @Param("auditorId") UUID auditorId,
             @Param("estado") EstadoUsuario estado);
+
+    @Query("""
+            select p.auditor.id from PerfilAuditor p
+            where p.auditor is not null
+            """)
+    List<UUID> listarAuditorIdsConPerfil();
 
     boolean existsByAuditorId(UUID auditorId);
 
