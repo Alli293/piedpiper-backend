@@ -454,4 +454,19 @@ public class ApiException extends RuntimeException {
         return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
                 "La fecha límite debe ser una fecha futura.");
     }
+
+    public static ApiException calificacionDuplicada() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Ya existe una calificación para esta auditoría.");
+    }
+
+    public static ApiException auditoriaNoCalificable() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "Solo se pueden calificar auditorías con certificación emitida.");
+    }
+
+    public static ApiException calificacionNoEncontrada() {
+        return new ApiException(HttpStatus.NOT_FOUND,
+                "La calificación no fue encontrada.");
+    }
 }
