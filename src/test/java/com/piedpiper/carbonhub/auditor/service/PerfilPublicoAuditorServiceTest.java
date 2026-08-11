@@ -27,6 +27,7 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -182,8 +183,8 @@ class PerfilPublicoAuditorServiceTest {
                 .totalResenas(10)
                 .especialidades(Set.of(EspecialidadAuditor.ENERGIA_RENOVABLE))
                 .descripcionProfesional("Auditor con 5 años de experiencia")
-                .distribucionSectores(List.of(
-                        new DistribucionSectorAuditor("AGROINDUSTRIA", 3, new BigDecimal("60.0"))))
+                .distribucionSectores(new ArrayList<>(List.of(
+                        new DistribucionSectorAuditor("AGROINDUSTRIA", 3, new BigDecimal("60.0")))))
                 .build();
     }
 }

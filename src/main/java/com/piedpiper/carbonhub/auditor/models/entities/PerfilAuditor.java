@@ -61,7 +61,8 @@ public class PerfilAuditor {
     private boolean disponible = true;
 
     @Column(name = "auditorias_completadas")
-    private Integer auditoriasCompletadas;
+    @Builder.Default
+    private Integer auditoriasCompletadas = 0;
 
     @Column(name = "calificacion_promedio", precision = 2, scale = 1)
     private BigDecimal calificacionPromedio;
