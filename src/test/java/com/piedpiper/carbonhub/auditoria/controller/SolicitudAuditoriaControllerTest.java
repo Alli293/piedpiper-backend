@@ -446,11 +446,12 @@ class SolicitudAuditoriaControllerTest {
     @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
     void getListadoDevuelve200ConLaPrimeraPagina() throws Exception {
         when(solicitudAuditoriaListadoService.listar(any(), any()))
-                .thenReturn(new PaginaSolicitudesAuditoriaResponseDTO(List.of(), 0, 1, 0));
+                .thenReturn(new PaginaSolicitudesAuditoriaResponseDTO(List.of(), 0, 1, 0, 25));
 
         mockMvc.perform(get("/api/auditorias").principal(principal()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.paginaActual").value(1))
+                .andExpect(jsonPath("$.tamanioPagina").value(25))
                 .andExpect(jsonPath("$.contenido").isArray());
     }
 
@@ -459,7 +460,7 @@ class SolicitudAuditoriaControllerTest {
     @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
     void getListadoConFiltroInvalidoDevuelve200SinError() throws Exception {
         when(solicitudAuditoriaListadoService.listar(any(), any()))
-                .thenReturn(new PaginaSolicitudesAuditoriaResponseDTO(List.of(), 0, 1, 0));
+                .thenReturn(new PaginaSolicitudesAuditoriaResponseDTO(List.of(), 0, 1, 0, 25));
 
         mockMvc.perform(get("/api/auditorias")
                         .param("filtroEstado", "NO_EXISTE")
@@ -472,7 +473,7 @@ class SolicitudAuditoriaControllerTest {
     @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
     void losFiltrosDeLaQueryLleganAlServicio() throws Exception {
         when(solicitudAuditoriaListadoService.listar(any(), any()))
-                .thenReturn(new PaginaSolicitudesAuditoriaResponseDTO(List.of(), 0, 2, 3));
+                .thenReturn(new PaginaSolicitudesAuditoriaResponseDTO(List.of(), 0, 2, 3, 25));
 
         mockMvc.perform(get("/api/auditorias")
                         .param("filtroEstado", "EN_REVISION", "REPORTE_CARGADO")
@@ -505,7 +506,7 @@ class SolicitudAuditoriaControllerTest {
     @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
     void unAuditorPuedeConsultarElListado() throws Exception {
         when(solicitudAuditoriaListadoService.listar(any(), any()))
-                .thenReturn(new PaginaSolicitudesAuditoriaResponseDTO(List.of(), 0, 1, 0));
+                .thenReturn(new PaginaSolicitudesAuditoriaResponseDTO(List.of(), 0, 1, 0, 25));
 
         mockMvc.perform(get("/api/auditorias").principal(principal()))
                 .andExpect(status().isOk());

@@ -185,7 +185,8 @@ public class SolicitudAuditoriaListadoService {
                 aResumenes(pagina.getContent()),
                 pagina.getTotalElements(),
                 pagina.getNumber() + 1,
-                pagina.getTotalPages());
+                pagina.getTotalPages(),
+                TAMANIO_PAGINA);
     }
 
     private UUID empresaDe(Usuario usuario) {

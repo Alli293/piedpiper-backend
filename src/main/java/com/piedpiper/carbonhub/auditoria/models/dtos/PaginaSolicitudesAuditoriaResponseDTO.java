@@ -19,4 +19,11 @@ public class PaginaSolicitudesAuditoriaResponseDTO {
     private int paginaActual;
 
     private int totalPaginas;
+
+    /**
+     * Cuantos caben por pagina. Viaja en la respuesta y no queda como constante del cliente porque
+     * la pantalla lo necesita para calcular el rango que muestra ("26-32 de 60"): si el servidor
+     * cambiara el tamaño y el cliente conservara el suyo, el rango quedaria mal en silencio.
+     */
+    private int tamanioPagina;
 }

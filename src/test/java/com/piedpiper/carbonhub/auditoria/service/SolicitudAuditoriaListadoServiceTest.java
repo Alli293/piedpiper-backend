@@ -380,6 +380,17 @@ class SolicitudAuditoriaListadoServiceTest {
                 .isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
+    /**
+     * El front calcula el rango visible con este numero. Que viaje en la respuesta es lo que evita
+     * que una constante del cliente se desincronice del servidor sin que nadie se entere.
+     */
+    @Test
+    void laRespuestaInformaElTamanioDePaginaQueUsoElServidor() {
+        assertThat(listar(ADMIN_ID).getTamanioPagina())
+                .isEqualTo(SolicitudAuditoriaListadoService.TAMANIO_PAGINA)
+                .isEqualTo(25);
+    }
+
     private Pageable capturarPageableDeEmpresa() {
         ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
         verify(solicitudAuditoriaRepository)
