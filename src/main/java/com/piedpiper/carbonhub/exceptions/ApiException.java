@@ -420,6 +420,12 @@ public class ApiException extends RuntimeException {
                 "Las observaciones no pueden superar los 1000 caracteres.");
     }
 
+    public static ApiException fechaVencimientoCertExcedeVigencia(int vigenciaMeses) {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "La vigencia de esta certificación no puede superar los " + vigenciaMeses
+                        + " meses desde la fecha de la auditoría.");
+    }
+
     public static ApiException fechaVencimientoCertRequerida() {
         return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
                 "Indica la fecha de vencimiento de la certificaci\u00f3n.");

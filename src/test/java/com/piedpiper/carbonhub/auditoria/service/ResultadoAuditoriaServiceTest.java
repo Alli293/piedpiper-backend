@@ -14,6 +14,7 @@ import com.piedpiper.carbonhub.auditoria.models.enums.TipoCertificacionSolicitud
 import com.piedpiper.carbonhub.auditoria.repository.SolicitudAuditoriaRepository;
 import com.piedpiper.carbonhub.auditoria.repository.TransicionEstadoAuditoriaRepository;
 import com.piedpiper.carbonhub.certificacion.models.dtos.EmitirCertificacionRequestDTO;
+import com.piedpiper.carbonhub.certificacion.config.CatalogoTiposCertificacion;
 import com.piedpiper.carbonhub.certificacion.service.EmisionCertificacionPort;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.exceptions.ApiException;
@@ -87,6 +88,7 @@ class ResultadoAuditoriaServiceTest {
                 transicionEstadoAuditoriaRepository,
                 transiciones,
                 emisionCertificacionPort,
+                new CatalogoTiposCertificacion(),
                 new SolicitudAuditoriaMapperImpl(),
                 new TransicionEstadoAuditoriaMapperImpl());
 
@@ -220,6 +222,60 @@ class ResultadoAuditoriaServiceTest {
                 .isInstanceOf(ApiException.class)
                 .extracting(error -> ((ApiException) error).getStatus())
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
+    /**
+     * El catalogo le da 12 meses de vigencia a Inventario GEI. Sin tope, un error de tipeo del
+     * auditor emitiria una certificacion firmada valida por decadas: el catalogo existe justamente
+     * para que la vigencia no la decida quien llena el formulario.
+     */
+    @Test
+    void aprobarConVencimientoMasAllaDeLaVigenciaDelCatalogoDevuelve422() {
+        ResultadoAuditoriaRequestDTO exagerada = new ResultadoAuditoriaRequestDTO(
+                "aprobada", null, LocalDate.of(2099, 8, 5));
+
+        assertThatThrownBy(() -> service.emitir(SOLICITUD_ID, exagerada, AUDITOR_ID))
+                .isInstanceOf(ApiException.class)
+                .extracting(error -> ((ApiException) error).getStatus())
+                .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+
+        verify(solicitudAuditoriaRepository, never()).saveAndFlush(any());
+    }
+
+    /** El limite exacto si entra: 12 meses desde la auditoria es una vigencia valida. */
+    @Test
+    void aprobarConElVencimientoJustoEnElLimiteDeLaVigenciaSiEntra() {
+        ResultadoAuditoriaRequestDTO enElLimite = new ResultadoAuditoriaRequestDTO(
+                "aprobada", null, FECHA_AUDITORIA.plusMonths(12));
+
+        service.emitir(SOLICITUD_ID, enElLimite, AUDITOR_ID);
+
+        assertThat(capturarGuardada().getFechaVencimientoCert())
+                .isEqualTo(FECHA_AUDITORIA.plusMonths(12));
+    }
+
+    /** Un dia mas alla del limite ya no: el tope es el catalogo, no una aproximacion. */
+    @Test
+    void unDiaDespuesDelLimiteDeVigenciaYaNoEntra() {
+        ResultadoAuditoriaRequestDTO pasada = new ResultadoAuditoriaRequestDTO(
+                "aprobada", null, FECHA_AUDITORIA.plusMonths(12).plusDays(1));
+
+        assertThatThrownBy(() -> service.emitir(SOLICITUD_ID, pasada, AUDITOR_ID))
+                .isInstanceOf(ApiException.class)
+                .extracting(error -> ((ApiException) error).getStatus())
+                .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
+    /** Acortar la vigencia si es decision del auditor; lo que no puede es estirarla. */
+    @Test
+    void elAuditorPuedeAcortarLaVigenciaPorDebajoDelMaximo() {
+        ResultadoAuditoriaRequestDTO corta = new ResultadoAuditoriaRequestDTO(
+                "aprobada", null, FECHA_AUDITORIA.plusMonths(6));
+
+        service.emitir(SOLICITUD_ID, corta, AUDITOR_ID);
+
+        assertThat(capturarGuardada().getFechaVencimientoCert())
+                .isEqualTo(FECHA_AUDITORIA.plusMonths(6));
     }
 
     /**

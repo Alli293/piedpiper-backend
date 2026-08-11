@@ -18,6 +18,13 @@ import java.time.LocalDate;
  * expresar "obligatorio segun el valor de otro campo", asi que cual de los dos exigir lo decide
  * {@code ResultadoAuditoriaService} una vez que sabe cual resultado llego. Anotarlos como
  * {@code @NotNull} aca haria imposible enviar cualquiera de los dos resultados.</p>
+ *
+ * <p><strong>Brecha aceptada:</strong> a diferencia de {@code resultado}, {@code fechaVencimientoCert}
+ * si se declara como {@link LocalDate}. Una fecha con formato invalido (no ausente, sino ilegible)
+ * falla en la deserializacion de Jackson y sale como 400 generico, no como el 422 de dominio que
+ * devuelven {@code fechaVencimientoCertRequerida()} y sus hermanas. Se acepta porque el unico
+ * cliente es un selector de fecha que siempre emite ISO; tratarla como texto para ganar ese 422
+ * obligaria a parsearla a mano sin ningun caso real que lo justifique.</p>
  */
 @Data
 @NoArgsConstructor

@@ -12,6 +12,7 @@ import com.piedpiper.carbonhub.auditoria.models.enums.ResultadoAuditoria;
 import com.piedpiper.carbonhub.auditoria.repository.SolicitudAuditoriaRepository;
 import com.piedpiper.carbonhub.auditoria.repository.TransicionEstadoAuditoriaRepository;
 import com.piedpiper.carbonhub.certificacion.models.dtos.EmitirCertificacionRequestDTO;
+import com.piedpiper.carbonhub.certificacion.config.CatalogoTiposCertificacion;
 import com.piedpiper.carbonhub.certificacion.models.enums.TipoCertificacion;
 import com.piedpiper.carbonhub.certificacion.service.EmisionCertificacionPort;
 import com.piedpiper.carbonhub.exceptions.ApiException;
@@ -30,10 +31,18 @@ import java.util.UUID;
 @Service
 public class ResultadoAuditoriaService {
 
+    /**
+     * La solicitud de auditoria guarda si el tramite es inicial o renovacion, no el producto
+     * certificable. Mientras PP-48 no capture ese dato, la aprobacion emite Inventario GEI, y de
+     * ese tipo sale tambien el tope de vigencia.
+     */
+    private static final TipoCertificacion TIPO_EMITIDO = TipoCertificacion.INVENTARIO_GEI;
+
     private final SolicitudAuditoriaRepository solicitudAuditoriaRepository;
     private final TransicionEstadoAuditoriaRepository transicionEstadoAuditoriaRepository;
     private final TransicionEstadoAuditoriaService transicionEstadoAuditoriaService;
     private final EmisionCertificacionPort emisionCertificacionPort;
+    private final CatalogoTiposCertificacion catalogoTiposCertificacion;
     private final SolicitudAuditoriaMapper solicitudAuditoriaMapper;
     private final TransicionEstadoAuditoriaMapper transicionEstadoAuditoriaMapper;
 
@@ -42,12 +51,14 @@ public class ResultadoAuditoriaService {
             TransicionEstadoAuditoriaRepository transicionEstadoAuditoriaRepository,
             TransicionEstadoAuditoriaService transicionEstadoAuditoriaService,
             EmisionCertificacionPort emisionCertificacionPort,
+            CatalogoTiposCertificacion catalogoTiposCertificacion,
             SolicitudAuditoriaMapper solicitudAuditoriaMapper,
             TransicionEstadoAuditoriaMapper transicionEstadoAuditoriaMapper) {
         this.solicitudAuditoriaRepository = solicitudAuditoriaRepository;
         this.transicionEstadoAuditoriaRepository = transicionEstadoAuditoriaRepository;
         this.transicionEstadoAuditoriaService = transicionEstadoAuditoriaService;
         this.emisionCertificacionPort = emisionCertificacionPort;
+        this.catalogoTiposCertificacion = catalogoTiposCertificacion;
         this.solicitudAuditoriaMapper = solicitudAuditoriaMapper;
         this.transicionEstadoAuditoriaMapper = transicionEstadoAuditoriaMapper;
     }
@@ -85,6 +96,12 @@ public class ResultadoAuditoriaService {
      * Una certificacion que vence antes de la auditoria que la sustenta nace invalida, asi que la
      * comparacion es contra {@code fechaAuditoriaRealizada} y no contra hoy: el auditor puede
      * registrar el resultado dias despues de haber hecho la auditoria.
+     *
+     * <p>El limite superior sale del catalogo y no es negociable por el auditor. Antes de PP-49 la
+     * vigencia siempre se derivaba de {@code vigenciaMeses}; al dejar que el auditor la escriba,
+     * sin tope un simple error de tipeo ({@code 2099-08-05}) emitiria una certificacion valida por
+     * decadas y firmada, que es exactamente lo que el catalogo existe para impedir. El auditor
+     * puede acortar la vigencia, nunca estirarla.</p>
      */
     private LocalDate validarVencimiento(LocalDate fechaVencimiento, SolicitudAuditoria solicitud) {
         if (fechaVencimiento == null) {
@@ -93,7 +110,26 @@ public class ResultadoAuditoriaService {
         if (!fechaVencimiento.isAfter(solicitud.getFechaAuditoriaRealizada())) {
             throw ApiException.fechaVencimientoCertInvalida();
         }
+        if (fechaVencimiento.isAfter(vencimientoMaximo(solicitud))) {
+            throw ApiException.fechaVencimientoCertExcedeVigencia(vigenciaMeses());
+        }
         return fechaVencimiento;
+    }
+
+    private LocalDate vencimientoMaximo(SolicitudAuditoria solicitud) {
+        return solicitud.getFechaAuditoriaRealizada().plusMonths(vigenciaMeses());
+    }
+
+    /**
+     * La vigencia del unico tipo que hoy emite una aprobacion. Sale del catalogo y no de una
+     * constante local para que, si alguien cambia la vigencia ahi, este tope la siga sin que nadie
+     * tenga que acordarse de este archivo.
+     */
+    private int vigenciaMeses() {
+        return catalogoTiposCertificacion.buscar(TIPO_EMITIDO)
+                .orElseThrow(() -> ApiException.errorInterno(
+                        "No se pudo determinar la vigencia de la certificación."))
+                .vigenciaMeses();
     }
 
     /**
@@ -135,15 +171,13 @@ public class ResultadoAuditoriaService {
     }
 
     private EmitirCertificacionRequestDTO comandoEmision(SolicitudAuditoria solicitud, Usuario auditor) {
-        // La solicitud de auditoria guarda si el tramite es inicial o renovacion, no el producto
-        // certificable. Mientras PP-48 no capture ese dato, la aprobacion emite Inventario GEI.
         return new EmitirCertificacionRequestDTO(
                 solicitud.getId(),
                 solicitud.getEmpresa().getId(),
                 auditor.getId(),
                 ResultadoAuditoria.APROBADA.getCodigo(),
                 solicitud.getFechaAuditoriaRealizada(),
-                TipoCertificacion.INVENTARIO_GEI,
+                TIPO_EMITIDO,
                 solicitud.getFechaVencimientoCert());
     }
 
