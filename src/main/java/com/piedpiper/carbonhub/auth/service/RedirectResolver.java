@@ -14,6 +14,7 @@ public final class RedirectResolver {
                 case ADMINISTRADOR_EMPRESA -> usuario.getEmpresa() == null
                         ? "/empresa/configuracion-inicial"
                         : "/perfil/configuracion-inicial";
+                case AUDITOR_CERTIFICADO -> "/auditor/configuracion-inicial";
                 default -> "/perfil/configuracion-inicial";
             };
         }

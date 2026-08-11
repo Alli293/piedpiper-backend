@@ -33,14 +33,18 @@ class RedirectResolverTest {
                 .isEqualTo("/auditor/validacion-pendiente");
     }
 
-    /** La configuracion inicial manda sobre el destino por rol: sin ella no hay nada que mostrar. */
+    /**
+     * La configuracion inicial manda sobre el destino por rol: sin ella no hay nada que mostrar.
+     * El auditor tiene su propio paso de configuracion inicial (credenciales y documentos), no el
+     * generico de perfil.
+     */
     @Test
-    void unAuditorSinConfiguracionCompletaVaAConfigurarSuPerfil() {
-        Usuario sinConfigurar = auditor(EstadoUsuario.ACTIVO);
+    void unAuditorSinConfiguracionCompletaVaASuConfiguracionInicial() {
+        Usuario sinConfigurar = auditor(EstadoUsuario.PENDIENTE_VALIDACION);
         sinConfigurar.setConfiguracionCompleta(false);
 
         assertThat(RedirectResolver.paraUsuario(sinConfigurar))
-                .isEqualTo("/perfil/configuracion-inicial");
+                .isEqualTo("/auditor/configuracion-inicial");
     }
 
     @Test

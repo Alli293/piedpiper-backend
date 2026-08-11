@@ -1,5 +1,8 @@
 package com.piedpiper.carbonhub.validacion.service;
 
+import com.piedpiper.carbonhub.auditor.models.entities.PerfilAuditor;
+import com.piedpiper.carbonhub.auditor.models.enums.EspecialidadAuditor;
+import com.piedpiper.carbonhub.auditor.repository.PerfilAuditorRepository;
 import com.piedpiper.carbonhub.auditor.service.PerfilAuditorService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
@@ -8,12 +11,16 @@ import com.piedpiper.carbonhub.user.models.enums.Rol;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 import com.piedpiper.carbonhub.validacion.mappers.ValidacionAuditorMapper;
 import com.piedpiper.carbonhub.validacion.models.dtos.DecisionSolicitudRequestDTO;
+import com.piedpiper.carbonhub.validacion.models.dtos.DocumentoCredencialResumenResponseDTO;
 import com.piedpiper.carbonhub.validacion.models.dtos.PaginaSolicitudesResponseDTO;
+import com.piedpiper.carbonhub.validacion.models.dtos.SolicitudDetalleResponseDTO;
 import com.piedpiper.carbonhub.validacion.models.dtos.SolicitudResueltaResponseDTO;
+import com.piedpiper.carbonhub.validacion.models.entities.DocumentoCredencialAuditor;
 import com.piedpiper.carbonhub.validacion.models.entities.RegistroAuditoriaInterna;
 import com.piedpiper.carbonhub.validacion.models.entities.SolicitudValidacion;
 import com.piedpiper.carbonhub.validacion.models.enums.DecisionSolicitud;
 import com.piedpiper.carbonhub.validacion.models.enums.EstadoSolicitud;
+import com.piedpiper.carbonhub.validacion.repository.DocumentoCredencialAuditorRepository;
 import com.piedpiper.carbonhub.validacion.repository.RegistroAuditoriaInternaRepository;
 import com.piedpiper.carbonhub.validacion.repository.SolicitudValidacionRepository;
 import org.springframework.data.domain.Page;
@@ -25,6 +32,8 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
+import java.util.Comparator;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -42,19 +51,25 @@ public class ValidacionAuditorService {
     private final EnvioCorreoValidacionService envioCorreoValidacionService;
     private final ValidacionAuditorMapper validacionAuditorMapper;
     private final PerfilAuditorService perfilAuditorService;
+    private final PerfilAuditorRepository perfilAuditorRepository;
+    private final DocumentoCredencialAuditorRepository documentoCredencialAuditorRepository;
 
     public ValidacionAuditorService(SolicitudValidacionRepository solicitudValidacionRepository,
                                     RegistroAuditoriaInternaRepository registroAuditoriaInternaRepository,
                                     UsuarioRepository usuarioRepository,
                                     EnvioCorreoValidacionService envioCorreoValidacionService,
                                     ValidacionAuditorMapper validacionAuditorMapper,
-                                    PerfilAuditorService perfilAuditorService) {
+                                    PerfilAuditorService perfilAuditorService,
+                                    PerfilAuditorRepository perfilAuditorRepository,
+                                    DocumentoCredencialAuditorRepository documentoCredencialAuditorRepository) {
         this.solicitudValidacionRepository = solicitudValidacionRepository;
         this.registroAuditoriaInternaRepository = registroAuditoriaInternaRepository;
         this.usuarioRepository = usuarioRepository;
         this.envioCorreoValidacionService = envioCorreoValidacionService;
         this.validacionAuditorMapper = validacionAuditorMapper;
         this.perfilAuditorService = perfilAuditorService;
+        this.perfilAuditorRepository = perfilAuditorRepository;
+        this.documentoCredencialAuditorRepository = documentoCredencialAuditorRepository;
     }
 
     @Transactional(readOnly = true)
@@ -68,6 +83,61 @@ public class ValidacionAuditorService {
                 pendientes.getNumber(),
                 pendientes.getTotalPages(),
                 pendientes.getTotalElements());
+    }
+
+    @Transactional(readOnly = true)
+    public SolicitudDetalleResponseDTO obtenerDetalle(UUID usuarioId, UUID solicitudId) {
+        validarAdministradorPlataforma(usuarioId);
+
+        SolicitudValidacion solicitud = solicitudValidacionRepository.findById(solicitudId)
+                .orElseThrow(ApiException::solicitudNoEncontrada);
+
+        Usuario auditor = solicitud.getAuditor();
+        PerfilAuditor perfil = perfilAuditorRepository.findByAuditorId(auditor.getId()).orElse(null);
+
+        List<DocumentoCredencialResumenResponseDTO> documentos = documentoCredencialAuditorRepository
+                .findBySolicitudId(solicitudId).stream()
+                .map(doc -> new DocumentoCredencialResumenResponseDTO(
+                        doc.getId(), doc.getNombreArchivo(), doc.getTamanioBytes()))
+                .toList();
+
+        return new SolicitudDetalleResponseDTO(
+                solicitud.getId(),
+                validacionAuditorMapper.nombreCompleto(auditor),
+                auditor.getEmail(),
+                solicitud.getEstado().name(),
+                solicitud.getFechaSolicitud(),
+                perfil == null ? null : perfil.getAniosExperiencia(),
+                especialidadesOrdenadas(perfil),
+                perfil == null ? null : perfil.getDescripcionProfesional(),
+                perfil == null ? null : perfil.getSitioWeb(),
+                documentos);
+    }
+
+    @Transactional(readOnly = true)
+    public DocumentoCredencialAuditor obtenerDocumento(UUID usuarioId, UUID solicitudId, UUID documentoId) {
+        validarAdministradorPlataforma(usuarioId);
+
+        if (!solicitudValidacionRepository.existsById(solicitudId)) {
+            throw ApiException.solicitudNoEncontrada();
+        }
+
+        DocumentoCredencialAuditor documento = documentoCredencialAuditorRepository.findById(documentoId)
+                .orElseThrow(ApiException::documentoCredencialNoEncontrado);
+        if (!documento.getSolicitud().getId().equals(solicitudId)) {
+            throw ApiException.documentoCredencialNoEncontrado();
+        }
+        return documento;
+    }
+
+    private List<String> especialidadesOrdenadas(PerfilAuditor perfil) {
+        if (perfil == null || perfil.getEspecialidades() == null) {
+            return List.of();
+        }
+        return perfil.getEspecialidades().stream()
+                .sorted(Comparator.comparing(EspecialidadAuditor::name))
+                .map(Enum::name)
+                .toList();
     }
 
     @Transactional

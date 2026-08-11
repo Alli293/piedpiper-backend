@@ -55,7 +55,9 @@ class JwtServiceTest {
         assertThat(claims.getSubject()).isEqualTo(usuario.getId().toString());
         assertThat(claims)
                 .containsEntry("email", usuario.getEmail())
-                .containsEntry("rol", usuario.getRol().name());
+                .containsEntry("rol", usuario.getRol().name())
+                .containsEntry("estado", usuario.getEstado().name())
+                .containsEntry("configuracionCompleta", usuario.isConfiguracionCompleta());
     }
 
     @Test

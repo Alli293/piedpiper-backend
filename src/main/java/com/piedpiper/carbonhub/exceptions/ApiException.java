@@ -499,4 +499,20 @@ public class ApiException extends RuntimeException {
         return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
                 "La fecha límite debe ser una fecha futura.");
     }
+
+    public static ApiException configuracionAuditorNoDisponible() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Esta acción solo está disponible mientras tu cuenta de auditor está pendiente "
+                        + "de validación y no has completado tu configuración inicial.");
+    }
+
+    public static ApiException solicitudValidacionNoEncontrada() {
+        return new ApiException(HttpStatus.NOT_FOUND,
+                "No se encontró una solicitud de validación para tu cuenta.");
+    }
+
+    public static ApiException documentoCredencialNoEncontrado() {
+        return new ApiException(HttpStatus.NOT_FOUND,
+                "Este documento no fue encontrado.");
+    }
 }
