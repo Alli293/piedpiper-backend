@@ -100,9 +100,14 @@ public class LoginService {
         usuarioRepository.save(usuario);
     }
 
+    /**
+     * RECHAZADO puede iniciar sesion a proposito: necesita un token valido para ver el motivo de
+     * su rechazo en {@code /auditor/validacion-pendiente} (ver {@link RedirectResolver}) en vez de
+     * enterarse solo por el correo de notificacion. Espeja la misma regla de
+     * {@link com.piedpiper.carbonhub.auth.config.JwtAuthenticationFilter#habilitado}.
+     */
     private void verificarHabilitada(Usuario usuario) {
-        if (usuario.getEstado() == EstadoUsuario.RECHAZADO
-                || usuario.getEstado() == EstadoUsuario.DESHABILITADO) {
+        if (usuario.getEstado() == EstadoUsuario.DESHABILITADO) {
             throw new ApiException(HttpStatus.FORBIDDEN,
                     "Tu cuenta no está habilitada para iniciar sesión.");
         }

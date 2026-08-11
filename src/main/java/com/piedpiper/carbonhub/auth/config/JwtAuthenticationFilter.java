@@ -78,15 +78,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     /**
-     * Intencionalmente permisivo: solo bloquea RECHAZADO y DESHABILITADO. Un auditor en
+     * Intencionalmente permisivo: solo bloquea DESHABILITADO. Un auditor en
      * PENDIENTE_VALIDACION necesita un token valido para completar su configuracion
-     * inicial y consultar su solicitud, asi que este filtro no puede exigir estado
-     * ACTIVO para todos los roles. Un endpoint de auditor certificado que requiera
-     * estado ACTIVO tiene que validarlo explicitamente -- ver
+     * inicial y consultar su solicitud, y uno en RECHAZADO lo necesita para ver el
+     * motivo de su rechazo en {@code /auditor/validacion-pendiente} en vez de quedar
+     * bloqueado sin explicacion tras el correo de notificacion -- asi que este filtro
+     * no puede exigir estado ACTIVO para todos los roles. Un endpoint de auditor
+     * certificado que requiera estado ACTIVO tiene que validarlo explicitamente -- ver
      * {@link com.piedpiper.carbonhub.common.ValidacionesAuditor}.
      */
     private boolean habilitado(Usuario usuario) {
-        return usuario.getEstado() != EstadoUsuario.RECHAZADO
-                && usuario.getEstado() != EstadoUsuario.DESHABILITADO;
+        return usuario.getEstado() != EstadoUsuario.DESHABILITADO;
     }
 }
