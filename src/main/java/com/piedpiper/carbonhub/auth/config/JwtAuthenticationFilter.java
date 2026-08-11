@@ -77,6 +77,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 response.setHeader("X-Refresh-Token", jwtService.renovar(usuario, inicio)));
     }
 
+    /**
+     * Intencionalmente permisivo: solo bloquea RECHAZADO y DESHABILITADO. Un auditor en
+     * PENDIENTE_VALIDACION necesita un token valido para completar su configuracion
+     * inicial y consultar su solicitud, asi que este filtro no puede exigir estado
+     * ACTIVO para todos los roles. Un endpoint de auditor certificado que requiera
+     * estado ACTIVO tiene que validarlo explicitamente -- ver
+     * {@link com.piedpiper.carbonhub.common.ValidacionesAuditor}.
+     */
     private boolean habilitado(Usuario usuario) {
         return usuario.getEstado() != EstadoUsuario.RECHAZADO
                 && usuario.getEstado() != EstadoUsuario.DESHABILITADO;
