@@ -1,20 +1,14 @@
 package com.piedpiper.carbonhub.auditor.service;
 
 import com.piedpiper.carbonhub.auditor.mappers.PerfilPublicoAuditorMapper;
-import com.piedpiper.carbonhub.auditor.models.dtos.CertificacionPublicaDTO;
 import com.piedpiper.carbonhub.auditor.models.dtos.DistribucionSectorDTO;
 import com.piedpiper.carbonhub.auditor.models.dtos.MetricasAuditor;
 import com.piedpiper.carbonhub.auditor.models.dtos.PerfilPublicoAuditorResponseDTO;
-import com.piedpiper.carbonhub.auditor.models.dtos.ResenaVerificadaDTO;
+import com.piedpiper.carbonhub.auditor.models.entities.DistribucionSectorAuditor;
 import com.piedpiper.carbonhub.auditor.models.entities.PerfilAuditor;
 import com.piedpiper.carbonhub.auditor.models.enums.EspecialidadAuditor;
 import com.piedpiper.carbonhub.auditor.repository.PerfilAuditorRepository;
-import com.piedpiper.carbonhub.auditoria.models.entities.SolicitudAuditoria;
-import com.piedpiper.carbonhub.auditoria.models.enums.EstadoSolicitudAuditoria;
-import com.piedpiper.carbonhub.auditoria.models.enums.TipoCertificacionSolicitud;
-import com.piedpiper.carbonhub.auditoria.repository.SolicitudAuditoriaRepository;
 import com.piedpiper.carbonhub.certificacion.config.CatalogoTiposCertificacion;
-import com.piedpiper.carbonhub.certificacion.models.entities.Certificacion;
 import com.piedpiper.carbonhub.certificacion.repository.CertificacionRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
@@ -32,7 +26,6 @@ import org.springframework.http.HttpStatus;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Collections;
 import java.util.List;
@@ -50,39 +43,121 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class PerfilPublicoAuditorServiceTest {
 
+    private static final UUID AUDITOR_ID = UUID.randomUUID();
+    private static final Clock FIXED_CLOCK = Clock.fixed(
+            Instant.parse("2025-01-15T12:00:00Z"), ZoneId.of("UTC"));
+
     @Mock
     private PerfilAuditorRepository perfilAuditorRepository;
-
     @Mock
     private CertificacionRepository certificacionRepository;
-
-    @Mock
-    private SolicitudAuditoriaRepository solicitudAuditoriaRepository;
-
     @Mock
     private CatalogoTiposCertificacion catalogoTiposCertificacion;
-
     @Mock
     private PerfilPublicoAuditorMapper mapper;
 
     private PerfilPublicoAuditorService service;
-
-    private static final UUID AUDITOR_ID = UUID.randomUUID();
-    private static final Clock FIXED_CLOCK = Clock.fixed(
-            Instant.parse("2025-01-15T12:00:00Z"), ZoneId.of("UTC"));
 
     @BeforeEach
     void setUp() {
         service = new PerfilPublicoAuditorService(
                 perfilAuditorRepository,
                 certificacionRepository,
-                solicitudAuditoriaRepository,
                 catalogoTiposCertificacion,
                 mapper,
                 FIXED_CLOCK);
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
+    @Test
+    void auditorActivoRetornaMetricasPersistidasYDistribucion() {
+        Usuario auditor = auditorActivo();
+        PerfilAuditor perfil = perfilConMetricas(auditor);
+        when(perfilAuditorRepository.findByAuditorIdAndAuditorEstadoConDistribucion(
+                AUDITOR_ID, EstadoUsuario.ACTIVO))
+                .thenReturn(Optional.of(perfil));
+        when(certificacionRepository.findByAuditorId(AUDITOR_ID))
+                .thenReturn(Collections.emptyList());
+
+        PerfilPublicoAuditorResponseDTO expectedDto = new PerfilPublicoAuditorResponseDTO();
+        expectedDto.setAuditorId(AUDITOR_ID);
+        expectedDto.setAuditoriasCompletadas(5);
+        expectedDto.setTiempoPromedioRespuestaDias(new BigDecimal("1.8"));
+        expectedDto.setDistribucionSectores(List.of(
+                new DistribucionSectorDTO("AGROINDUSTRIA", 3, new BigDecimal("60.0"))));
+        when(mapper.aPerfilPublicoDto(any(), any(), any(), any(), any()))
+                .thenReturn(expectedDto);
+
+        PerfilPublicoAuditorResponseDTO result = service.obtenerPerfilPublico(AUDITOR_ID);
+
+        ArgumentCaptor<MetricasAuditor> metricasCaptor = ArgumentCaptor.forClass(MetricasAuditor.class);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<DistribucionSectorDTO>> distribucionCaptor =
+                ArgumentCaptor.forClass(List.class);
+        verify(mapper).aPerfilPublicoDto(
+                eq(perfil),
+                metricasCaptor.capture(),
+                any(),
+                distribucionCaptor.capture(),
+                any());
+        assertThat(metricasCaptor.getValue().auditoriasCompletadas()).isEqualTo(5);
+        assertThat(metricasCaptor.getValue().tiempoPromedioRespuestaDias())
+                .isEqualByComparingTo("1.8");
+        assertThat(distribucionCaptor.getValue()).singleElement()
+                .satisfies(distribucion -> {
+                    assertThat(distribucion.getSector()).isEqualTo("AGROINDUSTRIA");
+                    assertThat(distribucion.getCantidad()).isEqualTo(3);
+                    assertThat(distribucion.getPorcentaje()).isEqualByComparingTo("60.0");
+                });
+        assertThat(result.getAuditoriasCompletadas()).isEqualTo(5);
+    }
+
+    @Test
+    void auditorInexistenteLanzaApiException404() {
+        UUID idInexistente = UUID.randomUUID();
+        when(perfilAuditorRepository.findByAuditorIdAndAuditorEstadoConDistribucion(
+                idInexistente, EstadoUsuario.ACTIVO))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.obtenerPerfilPublico(idInexistente))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> {
+                    ApiException apiEx = (ApiException) ex;
+                    assertThat(apiEx.getStatus()).isEqualTo(HttpStatus.NOT_FOUND);
+                    assertThat(apiEx.getMessage()).isEqualTo("El perfil solicitado no está disponible.");
+                });
+    }
+
+    @Test
+    void perfilSinMetricasPersistidasExponeSinDatos() {
+        Usuario auditor = auditorActivo();
+        PerfilAuditor perfil = perfilConMetricas(auditor);
+        perfil.setAuditoriasCompletadas(null);
+        perfil.setTiempoPromedioRespuestaDias(null);
+        perfil.getDistribucionSectores().clear();
+        when(perfilAuditorRepository.findByAuditorIdAndAuditorEstadoConDistribucion(
+                AUDITOR_ID, EstadoUsuario.ACTIVO))
+                .thenReturn(Optional.of(perfil));
+        when(certificacionRepository.findByAuditorId(AUDITOR_ID))
+                .thenReturn(Collections.emptyList());
+        when(mapper.aPerfilPublicoDto(any(), any(), any(), any(), any()))
+                .thenReturn(new PerfilPublicoAuditorResponseDTO());
+
+        service.obtenerPerfilPublico(AUDITOR_ID);
+
+        ArgumentCaptor<MetricasAuditor> metricasCaptor = ArgumentCaptor.forClass(MetricasAuditor.class);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<DistribucionSectorDTO>> distribucionCaptor =
+                ArgumentCaptor.forClass(List.class);
+        verify(mapper).aPerfilPublicoDto(
+                eq(perfil),
+                metricasCaptor.capture(),
+                any(),
+                distribucionCaptor.capture(),
+                any());
+        assertThat(metricasCaptor.getValue().auditoriasCompletadas()).isNull();
+        assertThat(metricasCaptor.getValue().tiempoPromedioRespuestaDias()).isNull();
+        assertThat(distribucionCaptor.getValue()).isEmpty();
+    }
 
     private Usuario auditorActivo() {
         return Usuario.builder()
@@ -95,283 +170,20 @@ class PerfilPublicoAuditorServiceTest {
                 .build();
     }
 
-    private PerfilAuditor perfilCompleto(Usuario auditor) {
+    private PerfilAuditor perfilConMetricas(Usuario auditor) {
         return PerfilAuditor.builder()
                 .id(UUID.randomUUID())
                 .auditor(auditor)
                 .fotoPerfil("https://cdn.example.com/foto.jpg")
                 .disponible(true)
                 .auditoriasCompletadas(5)
+                .tiempoPromedioRespuestaDias(new BigDecimal("1.8"))
                 .calificacionPromedio(new BigDecimal("4.5"))
                 .totalResenas(10)
-                .tiempoRespuestaHoras(48)
                 .especialidades(Set.of(EspecialidadAuditor.ENERGIA_RENOVABLE))
                 .descripcionProfesional("Auditor con 5 años de experiencia")
+                .distribucionSectores(List.of(
+                        new DistribucionSectorAuditor("AGROINDUSTRIA", 3, new BigDecimal("60.0"))))
                 .build();
-    }
-
-    private SolicitudAuditoria solicitudCompletada() {
-        return SolicitudAuditoria.builder()
-                .id(UUID.randomUUID())
-                .tipoCertificacion(TipoCertificacionSolicitud.INICIAL)
-                .estado(EstadoSolicitudAuditoria.CERTIFICACION_EMITIDA)
-                .fechaAsignacion(Instant.parse("2024-06-01T10:00:00Z"))
-                .fechaAceptacion(Instant.parse("2024-06-02T10:00:00Z"))
-                .build();
-    }
-
-    // ── Test 1: Auditor activo retorna perfil completo con todos los campos ──
-
-    @Test
-    void auditorActivoRetornaPerfilCompletoConTodosLosCampos() {
-        // Arrange
-        Usuario auditor = auditorActivo();
-        PerfilAuditor perfil = perfilCompleto(auditor);
-        List<Certificacion> certificaciones = Collections.emptyList();
-        List<SolicitudAuditoria> auditoriasCompletadas = List.of(solicitudCompletada());
-
-        when(perfilAuditorRepository.findByAuditorIdAndAuditorEstado(AUDITOR_ID, EstadoUsuario.ACTIVO))
-                .thenReturn(Optional.of(perfil));
-        when(certificacionRepository.findByAuditorId(AUDITOR_ID))
-                .thenReturn(certificaciones);
-        when(solicitudAuditoriaRepository.findByAuditorIdAndEstado(AUDITOR_ID, EstadoSolicitudAuditoria.CERTIFICACION_EMITIDA))
-                .thenReturn(auditoriasCompletadas);
-
-        PerfilPublicoAuditorResponseDTO expectedDto = new PerfilPublicoAuditorResponseDTO();
-        expectedDto.setAuditorId(AUDITOR_ID);
-        expectedDto.setNombre("Carlos Ramírez");
-        expectedDto.setFotoPerfil("https://cdn.example.com/foto.jpg");
-        expectedDto.setDisponible(true);
-        expectedDto.setCalificacionPromedio(new BigDecimal("4.5"));
-        expectedDto.setTotalResenas(10);
-        expectedDto.setAuditoriasCompletadas(1);
-
-        when(mapper.aPerfilPublicoDto(any(), any(), any(), any(), any()))
-                .thenReturn(expectedDto);
-
-        // Act
-        PerfilPublicoAuditorResponseDTO result = service.obtenerPerfilPublico(AUDITOR_ID);
-
-        // Assert
-        assertThat(result).isNotNull();
-        assertThat(result.getAuditorId()).isEqualTo(AUDITOR_ID);
-        assertThat(result.getNombre()).isEqualTo("Carlos Ramírez");
-        assertThat(result.getFotoPerfil()).isEqualTo("https://cdn.example.com/foto.jpg");
-        assertThat(result.isDisponible()).isTrue();
-        assertThat(result.getCalificacionPromedio()).isEqualTo(new BigDecimal("4.5"));
-        assertThat(result.getTotalResenas()).isEqualTo(10);
-        assertThat(result.getAuditoriasCompletadas()).isEqualTo(1);
-
-        // Verify mapper was called with correct args
-        verify(mapper).aPerfilPublicoDto(
-                eq(perfil), any(MetricasAuditor.class), any(), any(), any());
-    }
-
-    // ── Test 2: Auditor inexistente lanza ApiException con 404 ──
-
-    @Test
-    void auditorInexistenteLanzaApiException404() {
-        // Arrange
-        UUID idInexistente = UUID.randomUUID();
-        when(perfilAuditorRepository.findByAuditorIdAndAuditorEstado(idInexistente, EstadoUsuario.ACTIVO))
-                .thenReturn(Optional.empty());
-
-        // Act & Assert
-        assertThatThrownBy(() -> service.obtenerPerfilPublico(idInexistente))
-                .isInstanceOf(ApiException.class)
-                .satisfies(ex -> {
-                    ApiException apiEx = (ApiException) ex;
-                    assertThat(apiEx.getStatus()).isEqualTo(HttpStatus.NOT_FOUND);
-                    assertThat(apiEx.getMessage()).isEqualTo("El perfil solicitado no está disponible.");
-                });
-    }
-
-    // ── Test 3: Auditor con estado no activo lanza ApiException 404 ──
-
-    @Test
-    void auditorPendienteValidacionLanzaApiException404() {
-        when(perfilAuditorRepository.findByAuditorIdAndAuditorEstado(AUDITOR_ID, EstadoUsuario.ACTIVO))
-                .thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> service.obtenerPerfilPublico(AUDITOR_ID))
-                .isInstanceOf(ApiException.class)
-                .satisfies(ex -> {
-                    ApiException apiEx = (ApiException) ex;
-                    assertThat(apiEx.getStatus()).isEqualTo(HttpStatus.NOT_FOUND);
-                    assertThat(apiEx.getMessage()).isEqualTo("El perfil solicitado no está disponible.");
-                });
-    }
-
-    @Test
-    void auditorRechazadoLanzaApiException404() {
-        when(perfilAuditorRepository.findByAuditorIdAndAuditorEstado(AUDITOR_ID, EstadoUsuario.ACTIVO))
-                .thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> service.obtenerPerfilPublico(AUDITOR_ID))
-                .isInstanceOf(ApiException.class)
-                .satisfies(ex -> {
-                    ApiException apiEx = (ApiException) ex;
-                    assertThat(apiEx.getStatus()).isEqualTo(HttpStatus.NOT_FOUND);
-                    assertThat(apiEx.getMessage()).isEqualTo("El perfil solicitado no está disponible.");
-                });
-    }
-
-    @Test
-    void auditorDeshabilitadoLanzaApiException404() {
-        when(perfilAuditorRepository.findByAuditorIdAndAuditorEstado(AUDITOR_ID, EstadoUsuario.ACTIVO))
-                .thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> service.obtenerPerfilPublico(AUDITOR_ID))
-                .isInstanceOf(ApiException.class)
-                .satisfies(ex -> {
-                    ApiException apiEx = (ApiException) ex;
-                    assertThat(apiEx.getStatus()).isEqualTo(HttpStatus.NOT_FOUND);
-                    assertThat(apiEx.getMessage()).isEqualTo("El perfil solicitado no está disponible.");
-                });
-    }
-
-    // ── Test 4: Auditor sin auditorías completadas pero con calificación previa retorna métricas parciales ──
-
-    @Test
-    void auditorSinAuditoriasCompletadasPeroConCalificacionRetornaMetricasParciales() {
-        // Arrange
-        Usuario auditor = auditorActivo();
-        PerfilAuditor perfil = perfilCompleto(auditor); // has calificacionPromedio=4.5, totalResenas=10
-
-        when(perfilAuditorRepository.findByAuditorIdAndAuditorEstado(AUDITOR_ID, EstadoUsuario.ACTIVO))
-                .thenReturn(Optional.of(perfil));
-        when(certificacionRepository.findByAuditorId(AUDITOR_ID))
-                .thenReturn(Collections.emptyList());
-        when(solicitudAuditoriaRepository.findByAuditorIdAndEstado(AUDITOR_ID, EstadoSolicitudAuditoria.CERTIFICACION_EMITIDA))
-                .thenReturn(Collections.emptyList());
-
-        PerfilPublicoAuditorResponseDTO dtoConMetricasParciales = new PerfilPublicoAuditorResponseDTO();
-        dtoConMetricasParciales.setAuditorId(AUDITOR_ID);
-        dtoConMetricasParciales.setCalificacionPromedio(new BigDecimal("4.5"));
-        dtoConMetricasParciales.setTotalResenas(10);
-        dtoConMetricasParciales.setAuditoriasCompletadas(0);
-        dtoConMetricasParciales.setDistribucionSectores(Collections.emptyList());
-
-        when(mapper.aPerfilPublicoDto(any(), any(), any(), any(), any()))
-                .thenReturn(dtoConMetricasParciales);
-
-        // Act
-        PerfilPublicoAuditorResponseDTO result = service.obtenerPerfilPublico(AUDITOR_ID);
-
-        // Assert — verify mapper is called with non-null metricas (partial) and empty distribucion
-        ArgumentCaptor<MetricasAuditor> metricasCaptor = ArgumentCaptor.forClass(MetricasAuditor.class);
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<List<DistribucionSectorDTO>> distribucionCaptor =
-                ArgumentCaptor.forClass(List.class);
-
-        verify(mapper).aPerfilPublicoDto(
-                eq(perfil),
-                metricasCaptor.capture(),
-                any(),
-                distribucionCaptor.capture(),
-                any());
-
-        MetricasAuditor metricas = metricasCaptor.getValue();
-        assertThat(metricas).isNotNull();
-        assertThat(metricas.calificacionPromedio()).isEqualByComparingTo(new BigDecimal("4.5"));
-        assertThat(metricas.totalResenas()).isEqualTo(10);
-        assertThat(metricas.auditoriasCompletadas()).isEqualTo(0);
-        assertThat(metricas.tiempoPromedioRespuestaDias()).isNull();
-        assertThat(distribucionCaptor.getValue()).isEmpty();
-    }
-
-    // ── Test 4b: Auditor sin auditorías y sin calificación retorna métricas null ──
-
-    @Test
-    void auditorSinAuditoriasYSinCalificacionRetornaMetricasNull() {
-        // Arrange
-        Usuario auditor = auditorActivo();
-        PerfilAuditor perfil = PerfilAuditor.builder()
-                .id(UUID.randomUUID())
-                .auditor(auditor)
-                .fotoPerfil("https://cdn.example.com/foto.jpg")
-                .disponible(true)
-                .auditoriasCompletadas(0)
-                .calificacionPromedio(null)
-                .totalResenas(0)
-                .especialidades(Set.of(EspecialidadAuditor.ENERGIA_RENOVABLE))
-                .descripcionProfesional("Auditor nuevo")
-                .build();
-
-        when(perfilAuditorRepository.findByAuditorIdAndAuditorEstado(AUDITOR_ID, EstadoUsuario.ACTIVO))
-                .thenReturn(Optional.of(perfil));
-        when(certificacionRepository.findByAuditorId(AUDITOR_ID))
-                .thenReturn(Collections.emptyList());
-        when(solicitudAuditoriaRepository.findByAuditorIdAndEstado(AUDITOR_ID, EstadoSolicitudAuditoria.CERTIFICACION_EMITIDA))
-                .thenReturn(Collections.emptyList());
-
-        PerfilPublicoAuditorResponseDTO dtoSinMetricas = new PerfilPublicoAuditorResponseDTO();
-        dtoSinMetricas.setAuditorId(AUDITOR_ID);
-        dtoSinMetricas.setDistribucionSectores(Collections.emptyList());
-
-        when(mapper.aPerfilPublicoDto(any(), any(), any(), any(), any()))
-                .thenReturn(dtoSinMetricas);
-
-        // Act
-        PerfilPublicoAuditorResponseDTO result = service.obtenerPerfilPublico(AUDITOR_ID);
-
-        // Assert — verify mapper is called with null metricas and empty distribucion
-        ArgumentCaptor<MetricasAuditor> metricasCaptor = ArgumentCaptor.forClass(MetricasAuditor.class);
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<List<DistribucionSectorDTO>> distribucionCaptor =
-                ArgumentCaptor.forClass(List.class);
-
-        verify(mapper).aPerfilPublicoDto(
-                eq(perfil),
-                metricasCaptor.capture(),
-                any(),
-                distribucionCaptor.capture(),
-                any());
-
-        assertThat(metricasCaptor.getValue()).isNull();
-        assertThat(distribucionCaptor.getValue()).isEmpty();
-
-        // Assert on the result DTO
-        assertThat(result.getCalificacionPromedio()).isNull();
-        assertThat(result.getTotalResenas()).isNull();
-        assertThat(result.getAuditoriasCompletadas()).isNull();
-        assertThat(result.getTiempoPromedioRespuestaDias()).isNull();
-        assertThat(result.getDistribucionSectores()).isEmpty();
-    }
-
-    // ── Test 5: Mensaje de error 404 es idéntico para inexistente y no activo ──
-
-    @Test
-    void mensajeError404EsIdenticoParaInexistenteYNoActivo() {
-        UUID idInexistente = UUID.randomUUID();
-
-        // Caso 1: auditor inexistente
-        when(perfilAuditorRepository.findByAuditorIdAndAuditorEstado(idInexistente, EstadoUsuario.ACTIVO))
-                .thenReturn(Optional.empty());
-
-        String mensajeInexistente = null;
-        try {
-            service.obtenerPerfilPublico(idInexistente);
-        } catch (ApiException ex) {
-            mensajeInexistente = ex.getMessage();
-        }
-
-        // Caso 2: auditor no activo (repo retorna vacío porque filtra por ACTIVO)
-        UUID idNoActivo = UUID.randomUUID();
-        when(perfilAuditorRepository.findByAuditorIdAndAuditorEstado(idNoActivo, EstadoUsuario.ACTIVO))
-                .thenReturn(Optional.empty());
-
-        String mensajeNoActivo = null;
-        try {
-            service.obtenerPerfilPublico(idNoActivo);
-        } catch (ApiException ex) {
-            mensajeNoActivo = ex.getMessage();
-        }
-
-        // Assert: ambos mensajes son exactamente iguales
-        assertThat(mensajeInexistente).isNotNull();
-        assertThat(mensajeNoActivo).isNotNull();
-        assertThat(mensajeInexistente).isEqualTo(mensajeNoActivo);
-        assertThat(mensajeInexistente).isEqualTo("El perfil solicitado no está disponible.");
     }
 }

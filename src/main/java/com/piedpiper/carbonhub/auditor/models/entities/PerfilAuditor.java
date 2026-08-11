@@ -15,6 +15,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OrderColumn;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
@@ -27,7 +28,9 @@ import org.hibernate.annotations.BatchSize;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -57,9 +60,8 @@ public class PerfilAuditor {
     @Builder.Default
     private boolean disponible = true;
 
-    @Column(name = "auditorias_completadas", nullable = false)
-    @Builder.Default
-    private int auditoriasCompletadas = 0;
+    @Column(name = "auditorias_completadas")
+    private Integer auditoriasCompletadas;
 
     @Column(name = "calificacion_promedio", precision = 2, scale = 1)
     private BigDecimal calificacionPromedio;
@@ -70,6 +72,17 @@ public class PerfilAuditor {
 
     @Column(name = "tiempo_respuesta_horas")
     private Integer tiempoRespuestaHoras;
+
+    @Column(name = "tiempo_promedio_respuesta_dias", precision = 5, scale = 1)
+    private BigDecimal tiempoPromedioRespuestaDias;
+
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(
+            name = "perfil_auditor_distribucion_sectores",
+            joinColumns = @JoinColumn(name = "perfil_auditor_id"))
+    @OrderColumn(name = "orden", nullable = false, columnDefinition = "integer default 0")
+    @Builder.Default
+    private List<DistribucionSectorAuditor> distribucionSectores = new ArrayList<>();
 
     @Column(name = "anios_experiencia")
     private Integer aniosExperiencia;

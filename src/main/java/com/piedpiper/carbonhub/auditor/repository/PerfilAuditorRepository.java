@@ -23,6 +23,24 @@ public interface PerfilAuditorRepository extends JpaRepository<PerfilAuditor, UU
 
     Optional<PerfilAuditor> findByAuditorIdAndAuditorEstado(UUID auditorId, EstadoUsuario estado);
 
+    @Query("""
+            select distinct p from PerfilAuditor p
+            left join fetch p.distribucionSectores
+            where p.auditor.id = :auditorId
+            """)
+    Optional<PerfilAuditor> findByAuditorIdConDistribucion(@Param("auditorId") UUID auditorId);
+
+    @Query("""
+            select distinct p from PerfilAuditor p
+            join fetch p.auditor
+            left join fetch p.distribucionSectores
+            where p.auditor.id = :auditorId
+              and p.auditor.estado = :estado
+            """)
+    Optional<PerfilAuditor> findByAuditorIdAndAuditorEstadoConDistribucion(
+            @Param("auditorId") UUID auditorId,
+            @Param("estado") EstadoUsuario estado);
+
     boolean existsByAuditorId(UUID auditorId);
 
     // El cast de :termino es necesario, no es un no-op: al venir null sin tipo dentro de un

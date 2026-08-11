@@ -182,7 +182,7 @@ class AuditorControllerTest {
                 15,
                 42,
                 new BigDecimal("2.3"),
-                List.of(new DistribucionSectorDTO("AGROINDUSTRIA", new BigDecimal("60.0"))),
+                List.of(new DistribucionSectorDTO("AGROINDUSTRIA", 25, new BigDecimal("60.0"))),
                 Collections.emptyList()
         );
 
