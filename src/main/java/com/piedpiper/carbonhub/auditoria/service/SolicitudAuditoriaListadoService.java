@@ -45,6 +45,13 @@ public class SolicitudAuditoriaListadoService {
     /** Fijado por la historia; no es configurable porque la pantalla lo asume para su paginador. */
     static final int TAMANIO_PAGINA = 25;
 
+    /**
+     * La pagina mas alta cuyo desplazamiento todavia cabe en un {@code int}, que es el limite que
+     * impone Spring Data. Sale del tamanio de pagina en vez de ser un numero escrito a mano para
+     * que siga siendo correcto si alguien cambia {@link #TAMANIO_PAGINA}.
+     */
+    static final int PAGINA_MAXIMA = Integer.MAX_VALUE / TAMANIO_PAGINA;
+
     private final SolicitudAuditoriaRepository solicitudAuditoriaRepository;
     private final UsuarioRepository usuarioRepository;
     private final DocumentoRespaldoRepository documentoRespaldoRepository;
@@ -173,9 +180,14 @@ public class SolicitudAuditoriaListadoService {
     /**
      * La pagina llega en base 1 y Spring Data cuenta desde 0. Un valor ausente o menor que 1 cae en
      * la primera pagina sin error, como pide la historia.
+     *
+     * <p>El tope superior existe por la misma razon que el inferior, y ademas porque sin el la
+     * peticion revienta: Spring Data calcula el desplazamiento como {@code (pagina - 1) * tamanio}
+     * sobre un {@code int}, asi que un {@code ?pagina=999999999} lo desborda y sale un 500. Pasado
+     * el tope se responde una pagina vacia, igual que cualquier otra pagina fuera de rango.</p>
      */
     private static Pageable paginaDe(Integer pagina) {
-        int solicitada = pagina == null ? 1 : Math.max(pagina, 1);
+        int solicitada = pagina == null ? 1 : Math.clamp(pagina, 1, PAGINA_MAXIMA);
         return PageRequest.of(solicitada - 1, TAMANIO_PAGINA,
                 Sort.by(Sort.Direction.DESC, "fechaCreacion"));
     }
