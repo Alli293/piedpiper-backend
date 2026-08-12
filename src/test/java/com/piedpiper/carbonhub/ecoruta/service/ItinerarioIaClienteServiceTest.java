@@ -3,9 +3,13 @@ package com.piedpiper.carbonhub.ecoruta.service;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO.ActividadIaDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO.DiaIaDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoIaResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.enums.ResultadoValidacionItinerario;
 import com.piedpiper.carbonhub.ecoruta.service.ItinerarioIaClienteService.ResultadoGeneracionIA;
+import com.piedpiper.carbonhub.ecoruta.service.ItinerarioIaClienteService.ResultadoRefinamientoIA;
 import com.piedpiper.carbonhub.exceptions.ApiException;
+
+import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -123,5 +127,81 @@ class ItinerarioIaClienteServiceTest {
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.GATEWAY_TIMEOUT));
         verify(chatClient, never()).prompt();
+    }
+
+    // --- refinar (PP-88) ---
+
+    private RefinamientoIaResponseDTO respuestaConCambios() {
+        return new RefinamientoIaResponseDTO(false, "Listo, agregué una actividad al aire libre.",
+                null, respuestaValida());
+    }
+
+    @Test
+    void refinarConCambiosValidosAlPrimerIntentoNoReintenta() {
+        configurarChatClientMockChain();
+        when(callResponseSpec.entity(RefinamientoIaResponseDTO.class)).thenReturn(respuestaConCambios());
+
+        ResultadoRefinamientoIA resultado = service.refinar("contexto", 1);
+
+        assertThat(resultado.resultado()).isEqualTo(ResultadoValidacionItinerario.VALIDO_COMPLETO);
+        assertThat(resultado.respuesta().getItinerarioActualizado()).isNotNull();
+        verify(chatClient, times(1)).prompt();
+    }
+
+    @Test
+    void refinarConSolicitudAmbiguaNoValidaNiReintenta() {
+        configurarChatClientMockChain();
+        RefinamientoIaResponseDTO ambigua = new RefinamientoIaResponseDTO(
+                true, "¿A qué te referís con más económicas?", null, null);
+        when(callResponseSpec.entity(RefinamientoIaResponseDTO.class)).thenReturn(ambigua);
+
+        ResultadoRefinamientoIA resultado = service.refinar("contexto", 1);
+
+        assertThat(resultado.respuesta().isRequiereAclaracion()).isTrue();
+        assertThat(resultado.respuesta().getItinerarioActualizado()).isNull();
+        verify(chatClient, times(1)).prompt();
+    }
+
+    @Test
+    void refinarConActividadParaCompararNoValidaNiReintenta() {
+        configurarChatClientMockChain();
+        UUID actividadId = UUID.randomUUID();
+        RefinamientoIaResponseDTO conComparacion = new RefinamientoIaResponseDTO(
+                false, "Te muestro otras opciones de hospedaje.", actividadId, null);
+        when(callResponseSpec.entity(RefinamientoIaResponseDTO.class)).thenReturn(conComparacion);
+
+        ResultadoRefinamientoIA resultado = service.refinar("contexto", 1);
+
+        assertThat(resultado.respuesta().getActividadParaComparar()).isEqualTo(actividadId);
+        verify(chatClient, times(1)).prompt();
+    }
+
+    @Test
+    void refinarConItinerarioInvalidoReintentaHastaAgotarYLanzaError() {
+        configurarChatClientMockChain();
+        RefinamientoIaResponseDTO invalida = new RefinamientoIaResponseDTO(
+                false, "...", null, new ItinerarioIaResponseDTO(List.of(), 0));
+        when(callResponseSpec.entity(RefinamientoIaResponseDTO.class)).thenReturn(invalida);
+
+        assertThatThrownBy(() -> service.refinar("contexto", 1))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.GATEWAY_TIMEOUT));
+        verify(chatClient, times(3)).prompt();
+    }
+
+    @Test
+    void refinarConTimeoutFallaDeInmediatoSinReintentar() {
+        configurarChatClientMockChain();
+        when(callResponseSpec.entity(RefinamientoIaResponseDTO.class))
+                .thenThrow(new RuntimeException("Request timed out", new TimeoutException("timeout")));
+
+        assertThatThrownBy(() -> service.refinar("contexto", 1))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> {
+                    assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.GATEWAY_TIMEOUT);
+                    assertThat(ex.getMessage()).isEqualTo(
+                            "No fue posible actualizar el itinerario. Intenta nuevamente.");
+                });
+        verify(chatClient, times(1)).prompt();
     }
 }

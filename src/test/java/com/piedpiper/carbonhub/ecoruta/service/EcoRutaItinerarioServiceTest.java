@@ -7,16 +7,21 @@ import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO.ActividadIaDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO.DiaIaDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioResponseDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoIaResponseDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoItinerarioRequestDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoItinerarioResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ResultadoPriorizacion;
 import com.piedpiper.carbonhub.ecoruta.models.entities.Itinerario;
 import com.piedpiper.carbonhub.ecoruta.models.entities.PreferenciasViaje;
 import com.piedpiper.carbonhub.ecoruta.models.enums.ClasificacionAmbiental;
+import com.piedpiper.carbonhub.ecoruta.models.enums.EstadoItinerario;
 import com.piedpiper.carbonhub.ecoruta.models.enums.InteresTuristico;
 import com.piedpiper.carbonhub.ecoruta.models.enums.ResultadoValidacionItinerario;
 import com.piedpiper.carbonhub.ecoruta.models.enums.TipoViaje;
 import com.piedpiper.carbonhub.ecoruta.repository.ItinerarioRepository;
 import com.piedpiper.carbonhub.ecoruta.repository.PreferenciasViajeRepository;
 import com.piedpiper.carbonhub.ecoruta.service.ItinerarioIaClienteService.ResultadoGeneracionIA;
+import com.piedpiper.carbonhub.ecoruta.service.ItinerarioIaClienteService.ResultadoRefinamientoIA;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.reconocimiento.models.enums.EventoReconocimientoCodigo;
 import com.piedpiper.carbonhub.reconocimiento.service.EventoReconocimientoService;
@@ -410,5 +415,138 @@ class EcoRutaItinerarioServiceTest {
         assertThatThrownBy(() -> service.obtener(itinerarioId, USUARIO_ID))
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.NOT_FOUND));
+    }
+
+    // --- refinar (PP-88) ---
+
+    private Itinerario itinerarioExistente(UUID itinerarioId) {
+        return Itinerario.builder()
+                .id(itinerarioId)
+                .usuario(usuario())
+                .cantidadDias(2)
+                .fechaInicio(LocalDate.now().plusDays(10))
+                .tipoViaje(TipoViaje.INDIVIDUAL)
+                .estado(EstadoItinerario.GENERADO)
+                .version(1)
+                .fechaGeneracion(Instant.now())
+                .dias(new ArrayList<>())
+                .build();
+    }
+
+    private RefinamientoItinerarioRequestDTO mensaje(String texto) {
+        return new RefinamientoItinerarioRequestDTO(texto, null);
+    }
+
+    @Test
+    void refinarConAjusteExitosoModificaEIncrementaLaVersion() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioExistente(itinerarioId);
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+        RefinamientoIaResponseDTO respuestaIa = new RefinamientoIaResponseDTO(
+                false, "Agregué una caminata al aire libre.", null, respuestaValida(2));
+        when(itinerarioIaClienteService.refinar(any(), eq(2))).thenReturn(
+                new ResultadoRefinamientoIA(respuestaIa, ResultadoValidacionItinerario.VALIDO_COMPLETO));
+        when(itinerarioRepository.saveAndFlush(any(Itinerario.class))).thenAnswer(i -> i.getArgument(0));
+
+        RefinamientoItinerarioResponseDTO response = service.refinar(
+                itinerarioId, USUARIO_ID, mensaje("Quiero más actividades al aire libre."));
+
+        assertThat(response.getItinerario().getVersion()).isEqualTo(2);
+        assertThat(response.getItinerario().getDias()).hasSize(2);
+        assertThat(response.getRespuestaAsistente()).isEqualTo("Agregué una caminata al aire libre.");
+        assertThat(response.getHistorialMensajes()).hasSize(2);
+        assertThat(response.getHistorialMensajes().get(0).getRol()).isEqualTo("USUARIO");
+        assertThat(response.getHistorialMensajes().get(1).getRol()).isEqualTo("ASISTENTE");
+        assertThat(response.getActividadParaComparar()).isNull();
+    }
+
+    @Test
+    void refinarConSolicitudAmbiguaNoModificaElItinerario() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioExistente(itinerarioId);
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+        RefinamientoIaResponseDTO respuestaIa = new RefinamientoIaResponseDTO(
+                true, "¿A qué actividad te referís?", null, null);
+        when(itinerarioIaClienteService.refinar(any(), eq(2))).thenReturn(
+                new ResultadoRefinamientoIA(respuestaIa, ResultadoValidacionItinerario.VALIDO_COMPLETO));
+
+        RefinamientoItinerarioResponseDTO response = service.refinar(
+                itinerarioId, USUARIO_ID, mensaje("Cámbiala."));
+
+        assertThat(response.getItinerario().getVersion()).isEqualTo(1);
+        assertThat(response.getRespuestaAsistente()).isEqualTo("¿A qué actividad te referís?");
+        verify(itinerarioRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void refinarConSolicitudDeAlternativasNoModificaYDevuelveLaActividad() {
+        UUID itinerarioId = UUID.randomUUID();
+        UUID actividadId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioExistente(itinerarioId);
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+        RefinamientoIaResponseDTO respuestaIa = new RefinamientoIaResponseDTO(
+                false, "Te muestro otras opciones de hospedaje.", actividadId, null);
+        when(itinerarioIaClienteService.refinar(any(), eq(2))).thenReturn(
+                new ResultadoRefinamientoIA(respuestaIa, ResultadoValidacionItinerario.VALIDO_COMPLETO));
+
+        RefinamientoItinerarioResponseDTO response = service.refinar(
+                itinerarioId, USUARIO_ID, mensaje("¿Hay opciones de hospedaje con menor huella?"));
+
+        assertThat(response.getItinerario().getVersion()).isEqualTo(1);
+        assertThat(response.getActividadParaComparar()).isEqualTo(actividadId);
+        verify(itinerarioRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void refinarConTimeoutDeIaNoPersisteNadaYPropagaElError() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioExistente(itinerarioId);
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+        when(itinerarioIaClienteService.refinar(any(), eq(2)))
+                .thenThrow(ApiException.itinerarioRefinamientoFallido());
+
+        assertThatThrownBy(() -> service.refinar(itinerarioId, USUARIO_ID, mensaje("Quiero más playas.")))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.GATEWAY_TIMEOUT));
+
+        verify(itinerarioRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void refinarConErrorDePersistenciaLanza500ConMensajeExacto() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioExistente(itinerarioId);
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+        RefinamientoIaResponseDTO respuestaIa = new RefinamientoIaResponseDTO(
+                false, "Listo.", null, respuestaValida(2));
+        when(itinerarioIaClienteService.refinar(any(), eq(2))).thenReturn(
+                new ResultadoRefinamientoIA(respuestaIa, ResultadoValidacionItinerario.VALIDO_COMPLETO));
+        when(itinerarioRepository.saveAndFlush(any(Itinerario.class)))
+                .thenThrow(new DataAccessResourceFailureException("fallo de conexion"));
+
+        assertThatThrownBy(() -> service.refinar(itinerarioId, USUARIO_ID, mensaje("Quiero más playas.")))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> {
+                    assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+                    assertThat(ex.getMessage()).isEqualTo(
+                            "No fue posible guardar los cambios del itinerario. Intenta nuevamente.");
+                });
+    }
+
+    @Test
+    void refinarConItinerarioInexistenteLanza404() {
+        UUID itinerarioId = UUID.randomUUID();
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.refinar(itinerarioId, USUARIO_ID, mensaje("Quiero más playas.")))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.NOT_FOUND));
+
+        verify(itinerarioIaClienteService, never()).refinar(any(), anyInt());
     }
 }

@@ -3,6 +3,7 @@ package com.piedpiper.carbonhub.ecoruta.service;
 import com.piedpiper.carbonhub.common.Catalogos;
 import com.piedpiper.carbonhub.ecoruta.mappers.ItinerarioMapper;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.BenchmarkDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.ConversacionContextoDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.EcoScoreResultado;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.EstablecimientoEcoScoreResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.EstablecimientoRankeado;
@@ -13,7 +14,11 @@ import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO.ActividadIaDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO.DiaIaDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioResponseDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.MensajeConversacionDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.PuntuacionAmbientalResponseDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoIaResponseDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoItinerarioRequestDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoItinerarioResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ResultadoPriorizacion;
 import com.piedpiper.carbonhub.ecoruta.models.entities.Itinerario;
 import com.piedpiper.carbonhub.ecoruta.models.entities.ItinerarioActividad;
@@ -27,6 +32,7 @@ import com.piedpiper.carbonhub.ecoruta.models.enums.ResultadoValidacionItinerari
 import com.piedpiper.carbonhub.ecoruta.repository.ItinerarioRepository;
 import com.piedpiper.carbonhub.ecoruta.repository.PreferenciasViajeRepository;
 import com.piedpiper.carbonhub.ecoruta.service.ItinerarioIaClienteService.ResultadoGeneracionIA;
+import com.piedpiper.carbonhub.ecoruta.service.ItinerarioIaClienteService.ResultadoRefinamientoIA;
 import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.reconocimiento.models.enums.EventoReconocimientoCodigo;
@@ -179,6 +185,125 @@ public class EcoRutaItinerarioService {
     }
 
     /**
+     * Interpreta un mensaje libre del chat de refinamiento (PP-88) y, si corresponde, regenera
+     * parcialmente el itinerario. A propósito NO {@code @Transactional} por la misma razón que
+     * {@link #generar}: la llamada a Gemini puede tardar hasta 10s. El controlador ya validó
+     * ownership antes de llegar acá (403), así que este método solo maneja el caso "no encontrado"
+     * con 404 — no debería ocurrir en la práctica dado ese chequeo previo, pero se cubre por si
+     * el itinerario fue borrado entre la validación y esta llamada.
+     */
+    public RefinamientoItinerarioResponseDTO refinar(UUID itinerarioId, UUID usuarioId,
+                                                       RefinamientoItinerarioRequestDTO request) {
+        Itinerario itinerario = itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, usuarioId)
+                .orElseThrow(() -> ApiException.recursoNoEncontrado(
+                        "No fue posible encontrar el itinerario solicitado."));
+
+        List<MensajeConversacionDTO> historialPrevio = obtenerHistorialPrevio(request.getContextoConversacional());
+
+        String contexto = construirContextoRefinamiento(itinerario, historialPrevio, request.getMensajeUsuario());
+
+        ResultadoRefinamientoIA resultadoIA = itinerarioIaClienteService.refinar(
+                contexto, itinerario.getCantidadDias());
+        RefinamientoIaResponseDTO respuesta = resultadoIA.respuesta();
+
+        List<MensajeConversacionDTO> historialActualizado = new ArrayList<>(historialPrevio);
+        historialActualizado.add(new MensajeConversacionDTO("USUARIO", request.getMensajeUsuario()));
+        historialActualizado.add(new MensajeConversacionDTO("ASISTENTE", respuesta.getRespuestaTexto()));
+
+        if (respuesta.isRequiereAclaracion() || respuesta.getItinerarioActualizado() == null) {
+            // Ni una aclaración pedida ni una comparación de alternativas modifican el itinerario.
+            ItinerarioResponseDTO sinCambios = mapper.toDto(itinerario);
+            sinCambios.setEstablecimientosEvaluados(List.of());
+            return new RefinamientoItinerarioResponseDTO(
+                    sinCambios, respuesta.getRespuestaTexto(), historialActualizado,
+                    respuesta.getActividadParaComparar());
+        }
+
+        itinerario.setDias(construirDias(itinerario, respuesta.getItinerarioActualizado().getDias(),
+                itinerario.getFechaInicio()));
+        itinerario.setVersion(itinerario.getVersion() + 1);
+        if (respuesta.getItinerarioActualizado().getPuntuacionAmbientalPreliminar() != null) {
+            itinerario.setPuntuacionAmbientalPreliminar(
+                    BigDecimal.valueOf(respuesta.getItinerarioActualizado().getPuntuacionAmbientalPreliminar()));
+        }
+
+        try {
+            itinerarioRepository.saveAndFlush(itinerario);
+        } catch (DataAccessException e) {
+            log.error("Error al guardar los cambios del itinerario {} tras refinamiento", itinerarioId, e);
+            throw ApiException.errorInterno(
+                    "No fue posible guardar los cambios del itinerario. Intenta nuevamente.");
+        }
+
+        ResultadoPriorizacion resultadoPriorizacion = aplicarPriorizacionAmbiental(itinerario, usuarioId);
+        calcularYPersistirEcoScore(itinerario, resultadoPriorizacion);
+
+        ItinerarioResponseDTO responseDTO = mapper.toDto(itinerario);
+        responseDTO.setEstablecimientosEvaluados(List.of());
+        enriquecerConPuntuacionAmbiental(responseDTO, resultadoPriorizacion);
+
+        return new RefinamientoItinerarioResponseDTO(
+                responseDTO, respuesta.getRespuestaTexto(), historialActualizado, null);
+    }
+
+    private List<MensajeConversacionDTO> obtenerHistorialPrevio(ConversacionContextoDTO contexto) {
+        if (contexto == null || contexto.getHistorialMensajes() == null) {
+            return new ArrayList<>();
+        }
+        return new ArrayList<>(contexto.getHistorialMensajes());
+    }
+
+    /**
+     * Arma el prompt de refinamiento: el itinerario actual completo (con el id de cada actividad,
+     * para que la IA pueda señalar una en concreto vía {@code actividadParaComparar}), el historial
+     * de la conversación y el mensaje nuevo del usuario.
+     */
+    private String construirContextoRefinamiento(Itinerario itinerario, List<MensajeConversacionDTO> historial,
+                                                   String mensajeUsuario) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Itinerario actual (JSON):\n").append(serializarItinerarioParaPrompt(itinerario)).append("\n\n");
+
+        if (!historial.isEmpty()) {
+            sb.append("Historial de la conversación:\n");
+            for (MensajeConversacionDTO mensaje : historial) {
+                sb.append(mensaje.getRol()).append(": ").append(mensaje.getContenido()).append("\n");
+            }
+            sb.append("\n");
+        }
+
+        sb.append("Mensaje nuevo del usuario: ").append(mensajeUsuario);
+        return sb.toString();
+    }
+
+    private String serializarItinerarioParaPrompt(Itinerario itinerario) {
+        StringBuilder sb = new StringBuilder("{\"dias\":[");
+        List<ItinerarioDia> dias = itinerario.getDias();
+        for (int i = 0; i < dias.size(); i++) {
+            ItinerarioDia dia = dias.get(i);
+            sb.append("{\"numeroDia\":").append(dia.getNumeroDia()).append(",\"actividades\":[");
+            List<ItinerarioActividad> actividades = dia.getActividades();
+            for (int j = 0; j < actividades.size(); j++) {
+                ItinerarioActividad actividad = actividades.get(j);
+                sb.append("{\"id\":\"").append(actividad.getId()).append("\",")
+                        .append("\"nombre\":\"").append(escaparJson(actividad.getNombre())).append("\",")
+                        .append("\"horario\":\"").append(actividad.getHorario()).append("\",")
+                        .append("\"establecimientoRecomendado\":\"")
+                        .append(escaparJson(actividad.getEstablecimientoRecomendado())).append("\",")
+                        .append("\"provincia\":\"").append(actividad.getProvincia()).append("\"}");
+                if (j < actividades.size() - 1) sb.append(",");
+            }
+            sb.append("]}");
+            if (i < dias.size() - 1) sb.append(",");
+        }
+        sb.append("]}");
+        return sb.toString();
+    }
+
+    private String escaparJson(String texto) {
+        return texto == null ? "" : texto.replace("\"", "'");
+    }
+
+    /**
      * Historial derivado únicamente de datos del usuario autenticado — nunca se acepta desde el
      * cliente, así que el criterio "debe corresponder al usuario de la sesión activa" se cumple
      * por construcción.
@@ -274,12 +399,23 @@ public class EcoRutaItinerarioService {
                 .fechaGeneracion(Instant.now())
                 .build();
 
+        itinerario.setDias(construirDias(itinerario, respuesta.getDias(), preferencias.getFechaInicio()));
+        return itinerario;
+    }
+
+    /**
+     * Construye la lista de {@link ItinerarioDia} (con sus actividades) a partir del shape crudo
+     * de la IA. Compartido entre {@link #generar} y {@link #refinar} — ambos flujos arman un
+     * itinerario completo a partir de una respuesta de Gemini, solo cambia de dónde sale la fecha
+     * de inicio (preferencias vs. el itinerario ya existente).
+     */
+    private List<ItinerarioDia> construirDias(Itinerario itinerario, List<DiaIaDTO> diasIa, LocalDate fechaInicio) {
         List<ItinerarioDia> dias = new ArrayList<>();
-        for (DiaIaDTO diaIa : respuesta.getDias()) {
+        for (DiaIaDTO diaIa : diasIa) {
             ItinerarioDia dia = ItinerarioDia.builder()
                     .itinerario(itinerario)
                     .numeroDia(diaIa.getNumeroDia())
-                    .fecha(preferencias.getFechaInicio().plusDays(diaIa.getNumeroDia() - 1L))
+                    .fecha(fechaInicio.plusDays(diaIa.getNumeroDia() - 1L))
                     .orden(diaIa.getNumeroDia())
                     .build();
 
@@ -291,8 +427,7 @@ public class EcoRutaItinerarioService {
             dia.setActividades(actividades);
             dias.add(dia);
         }
-        itinerario.setDias(dias);
-        return itinerario;
+        return dias;
     }
 
     /**

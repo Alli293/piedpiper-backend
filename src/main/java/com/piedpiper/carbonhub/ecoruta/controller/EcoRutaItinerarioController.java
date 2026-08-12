@@ -2,8 +2,12 @@ package com.piedpiper.carbonhub.ecoruta.controller;
 
 import com.piedpiper.carbonhub.common.Autenticaciones;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioResponseDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoItinerarioRequestDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoItinerarioResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.service.EcoRutaItinerarioService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
+
+import jakarta.validation.Valid;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,6 +18,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -46,6 +51,17 @@ public class EcoRutaItinerarioController {
         return ResponseEntity.ok(service.obtener(id, usuarioId));
     }
 
+    /** Conversación continua de refinamiento del itinerario (PP-88). */
+    @PostMapping("/{id}/mensajes")
+    public ResponseEntity<RefinamientoItinerarioResponseDTO> refinar(
+            @PathVariable UUID id,
+            @Valid @RequestBody RefinamientoItinerarioRequestDTO request,
+            Authentication authentication) {
+        UUID usuarioId = Autenticaciones.usuarioId(authentication);
+        verificarPropiedadItinerarioParaModificar(id, usuarioId);
+        return ResponseEntity.ok(service.refinar(id, usuarioId, request));
+    }
+
     /**
      * Verifica que el itinerario pertenezca al usuario autenticado antes de permitir la operación.
      * A diferencia del método {@link EcoRutaItinerarioService#obtener}, aquí se lanza 403 explícito
@@ -56,6 +72,17 @@ public class EcoRutaItinerarioController {
         if (!service.perteneceAlUsuario(itinerarioId, usuarioId)) {
             log.warn("Acceso denegado a itinerario {} por usuario {}: no es el propietario", itinerarioId, usuarioId);
             throw ApiException.accesoDenegado("No tienes permiso para acceder a este itinerario.");
+        }
+    }
+
+    /**
+     * Misma validación que {@link #verificarPropiedadItinerario}, con el mensaje específico que
+     * pide el AC de PP-88 para un intento de modificación (no solo lectura) de un itinerario ajeno.
+     */
+    private void verificarPropiedadItinerarioParaModificar(UUID itinerarioId, UUID usuarioId) {
+        if (!service.perteneceAlUsuario(itinerarioId, usuarioId)) {
+            log.warn("Intento de modificar itinerario {} por usuario {}: no es el propietario", itinerarioId, usuarioId);
+            throw ApiException.accesoDenegado("No tienes permiso para modificar este itinerario.");
         }
     }
 }

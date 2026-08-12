@@ -158,6 +158,10 @@ public class ComparacionAlternativasService {
 
         itinerarioActividadRepository.save(actividad);
 
+        // Toda modificación real del itinerario incrementa la versión (PP-88 depende de esto
+        // para reflejar correctamente cada ajuste, sea vía chat o vía esta sustitución puntual).
+        itinerario.setVersion(itinerario.getVersion() + 1);
+
         return mapper.toDto(itinerario);
     }
 
