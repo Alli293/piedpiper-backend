@@ -1,8 +1,8 @@
 package com.piedpiper.carbonhub.auditoria.repository;
 
-import com.piedpiper.carbonhub.certificacion.models.enums.EstadoCertificacion;
 import com.piedpiper.carbonhub.auditoria.models.entities.SolicitudAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.EstadoSolicitudAuditoria;
+import com.piedpiper.carbonhub.certificacion.models.enums.EstadoCertificacion;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -15,8 +15,6 @@ import java.util.List;
 import java.util.UUID;
 
 public interface SolicitudAuditoriaRepository extends JpaRepository<SolicitudAuditoria, UUID> {
-
-    List<SolicitudAuditoria> findByAuditorIdAndEstado(UUID auditorId, EstadoSolicitudAuditoria estado);
 
     @Query("""
             select distinct s from SolicitudAuditoria s

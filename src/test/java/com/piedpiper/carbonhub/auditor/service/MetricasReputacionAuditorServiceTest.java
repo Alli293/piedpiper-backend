@@ -78,8 +78,8 @@ class MetricasReputacionAuditorServiceTest {
     void acumulacionCalculaPorcentajesConUnDecimal() {
         PerfilAuditor perfil = perfil();
         preparar(perfil, List.of(
-                solicitud(SectorIndustrial.AGROINDUSTRIA, 1),
-                solicitud(SectorIndustrial.MANUFACTURA, 3)));
+                solicitud(SectorIndustrial.MANUFACTURA, 3),
+                solicitud(SectorIndustrial.AGROINDUSTRIA, 1)));
 
         service.recalcular(AUDITOR_ID);
 
@@ -88,6 +88,9 @@ class MetricasReputacionAuditorServiceTest {
         assertThat(perfil.getDistribucionSectores())
                 .extracting(DistribucionSectorAuditor::getPorcentaje)
                 .containsExactly(new BigDecimal("50.0"), new BigDecimal("50.0"));
+        assertThat(perfil.getDistribucionSectores())
+                .extracting(DistribucionSectorAuditor::getSector)
+                .containsExactly("AGROINDUSTRIA", "MANUFACTURA");
     }
 
     @Test

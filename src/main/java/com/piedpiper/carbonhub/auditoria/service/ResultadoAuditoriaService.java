@@ -14,7 +14,6 @@ import com.piedpiper.carbonhub.auditoria.repository.SolicitudAuditoriaRepository
 import com.piedpiper.carbonhub.auditoria.repository.TransicionEstadoAuditoriaRepository;
 import com.piedpiper.carbonhub.certificacion.models.dtos.EmitirCertificacionRequestDTO;
 import com.piedpiper.carbonhub.certificacion.models.enums.TipoCertificacion;
-import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.certificacion.service.EmisionCertificacionPort;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
@@ -119,17 +118,7 @@ public class ResultadoAuditoriaService {
     private AuditoriaFinalizadaEvent eventoFinalizacion(SolicitudAuditoria solicitud, Usuario auditor) {
         return new AuditoriaFinalizadaEvent(
                 solicitud.getId(),
-                auditor.getId(),
-                solicitud.getFechaAsignacion(),
-                solicitud.getFechaAceptacion(),
-                sectorEmpresaDe(solicitud.getEmpresa()));
-    }
-
-    private String sectorEmpresaDe(Empresa empresa) {
-        if (empresa == null || empresa.getSectorIndustrial() == null) {
-            return null;
-        }
-        return empresa.getSectorIndustrial().name();
+                auditor.getId());
     }
 
     private void publicarAprobacionTrasCommit(

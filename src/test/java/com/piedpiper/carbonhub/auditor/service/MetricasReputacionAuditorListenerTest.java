@@ -4,7 +4,6 @@ import com.piedpiper.carbonhub.auditoria.models.events.AuditoriaFinalizadaEvent;
 
 import org.junit.jupiter.api.Test;
 
-import java.time.Instant;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThatNoException;
@@ -39,9 +38,6 @@ class MetricasReputacionAuditorListenerTest {
     private AuditoriaFinalizadaEvent event() {
         return new AuditoriaFinalizadaEvent(
                 UUID.randomUUID(),
-                UUID.randomUUID(),
-                Instant.parse("2026-08-01T10:00:00Z"),
-                Instant.parse("2026-08-02T10:00:00Z"),
-                "AGROINDUSTRIA");
+                UUID.randomUUID());
     }
 }

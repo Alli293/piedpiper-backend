@@ -22,8 +22,6 @@ public interface PerfilAuditorRepository extends JpaRepository<PerfilAuditor, UU
 
     Optional<PerfilAuditor> findByAuditorId(UUID auditorId);
 
-    Optional<PerfilAuditor> findByAuditorIdAndAuditorEstado(UUID auditorId, EstadoUsuario estado);
-
     @Query("""
             select distinct p from PerfilAuditor p
             left join fetch p.distribucionSectores

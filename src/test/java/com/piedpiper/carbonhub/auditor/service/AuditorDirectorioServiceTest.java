@@ -162,6 +162,7 @@ class AuditorDirectorioServiceTest {
         Sort.Order orden = pageableCaptor.getValue().getSort().getOrderFor("auditoriasCompletadas");
         assertThat(orden).isNotNull();
         assertThat(orden.getDirection()).isEqualTo(Sort.Direction.DESC);
+        assertThat(orden.getNullHandling()).isEqualTo(Sort.NullHandling.NULLS_LAST);
     }
 
     @Test

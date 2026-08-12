@@ -132,11 +132,6 @@ class ResultadoAuditoriaServiceTest {
         verify(eventPublisher).publishEvent(eventCaptor.capture());
         assertThat(eventCaptor.getValue().auditoriaId()).isEqualTo(SOLICITUD_ID);
         assertThat(eventCaptor.getValue().auditorId()).isEqualTo(AUDITOR_ID);
-        assertThat(eventCaptor.getValue().fechaAsignacion())
-                .isEqualTo(Instant.parse("2026-08-01T11:00:00Z"));
-        assertThat(eventCaptor.getValue().fechaPrimeraRespuesta())
-                .isEqualTo(Instant.parse("2026-08-02T11:00:00Z"));
-        assertThat(eventCaptor.getValue().sectorEmpresa()).isEqualTo("AGROINDUSTRIA");
     }
 
     @Test

@@ -27,6 +27,8 @@ import java.util.UUID;
 @Service
 public class PerfilPublicoAuditorService {
 
+    private static final String ENTIDAD_CERTIFICADORA_CARBONHUB = "CarbonHub";
+
     private final PerfilAuditorRepository perfilAuditorRepository;
     private final CertificacionRepository certificacionRepository;
     private final CatalogoTiposCertificacion catalogoTiposCertificacion;
@@ -89,10 +91,13 @@ public class PerfilPublicoAuditorService {
                     String nombre = catalogoTiposCertificacion.buscar(cert.getTipo())
                             .map(def -> def.nombre())
                             .orElse(cert.getTipo() != null ? cert.getTipo().name() : "Certificación");
-                    String entidadCertificadora = "CarbonHub";
                     LocalDate fechaVigencia = cert.getFechaVencimiento();
                     boolean vencida = fechaVigencia == null || fechaVigencia.isBefore(hoy);
-                    return new CertificacionPublicaDTO(nombre, entidadCertificadora, fechaVigencia, vencida);
+                    return new CertificacionPublicaDTO(
+                            nombre,
+                            ENTIDAD_CERTIFICADORA_CARBONHUB,
+                            fechaVigencia,
+                            vencida);
                 })
                 .toList();
     }

@@ -47,6 +47,7 @@ public class MetricasReputacionAuditorService {
     @Transactional
     public void recalcular(UUID auditorId) {
         PerfilAuditor perfil = perfilAuditorRepository.findByAuditorIdConDistribucion(auditorId)
+                // Invariante interna: todo auditor calculable debe tener perfil creado previamente.
                 .orElseThrow(() -> new IllegalStateException(
                         "No existe perfil de auditor para recalcular metricas."));
         List<SolicitudAuditoria> completadas =
@@ -123,7 +124,13 @@ public class MetricasReputacionAuditorService {
 
         return conteos.entrySet().stream()
                 .map(entry -> aDistribucion(entry.getKey(), entry.getValue(), totalCompletadas))
-                .sorted((a, b) -> b.getPorcentaje().compareTo(a.getPorcentaje()))
+                .sorted((a, b) -> {
+                    int comparacionPorcentaje = b.getPorcentaje().compareTo(a.getPorcentaje());
+                    if (comparacionPorcentaje != 0) {
+                        return comparacionPorcentaje;
+                    }
+                    return a.getSector().compareTo(b.getSector());
+                })
                 .toList();
     }
 
