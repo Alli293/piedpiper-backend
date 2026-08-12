@@ -365,6 +365,20 @@ public class ApiException extends RuntimeException {
                 "Esta solicitud de auditoría no fue encontrada.");
     }
 
+    /**
+     * El administrador de plataforma no es empresa ni auditor, asi que no tiene un listado propio:
+     * tiene que decir de quien lo quiere.
+     */
+    public static ApiException listadoAuditoriasSinDestinatario() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Indica la empresa o el auditor cuyo listado de auditorías quieres consultar.");
+    }
+
+    public static ApiException listadoAuditoriasAjeno() {
+        return new ApiException(HttpStatus.FORBIDDEN,
+                "Solo puedes consultar tu propio listado de auditorías.");
+    }
+
     public static ApiException solicitudAuditoriaAjena() {
         return new ApiException(HttpStatus.FORBIDDEN,
                 "No tienes permiso para gestionar esta solicitud de auditoría.");
