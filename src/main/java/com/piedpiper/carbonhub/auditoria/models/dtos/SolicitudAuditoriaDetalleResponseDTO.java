@@ -2,6 +2,7 @@ package com.piedpiper.carbonhub.auditoria.models.dtos;
 
 import com.piedpiper.carbonhub.auditoria.models.enums.EstadoSolicitudAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.OrigenAsignacion;
+import com.piedpiper.carbonhub.auditoria.models.enums.ResultadoAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.TipoCertificacionSolicitud;
 
 import lombok.AllArgsConstructor;
@@ -50,6 +51,16 @@ public class SolicitudAuditoriaDetalleResponseDTO {
     private ReporteAuditoriaResponseDTO reporteAuditoria;
     private LocalDate fechaAuditoriaRealizada;
     private Instant fechaCargaReporte;
+
+    /**
+     * Resultado final del auditor. Viaja junto al estado y no derivado de el porque la pantalla
+     * muestra las dos cosas distintas: en que paso quedo la solicitud y que decidio el auditor.
+     */
+    private ResultadoAuditoria resultadoAuditoria;
+
+    private String observaciones;
+    private Instant fechaResolucion;
+    private LocalDate fechaVencimientoCert;
     private String nombreEmpresa;
     private List<TransicionEstadoAuditoriaResponseDTO> historial;
 }
