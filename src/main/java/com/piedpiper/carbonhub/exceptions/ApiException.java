@@ -521,4 +521,24 @@ public class ApiException extends RuntimeException {
                 "Uno de los documentos no tiene un nombre de archivo o tipo de contenido válido. "
                         + "Intenta subirlo de nuevo.");
     }
+
+    public static ApiException documentosCredencialesRequeridos() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Debes adjuntar al menos un documento de credencial.");
+    }
+
+    public static ApiException documentosCredencialesExcedenMaximo() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Puedes adjuntar un máximo de 10 documentos.");
+    }
+
+    public static ApiException documentoCredencialExcedeTamanio() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "El archivo no puede superar 15 MB.");
+    }
+
+    public static ApiException documentoCredencialNoEsPdf() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Solo se aceptan archivos en formato PDF.");
+    }
 }

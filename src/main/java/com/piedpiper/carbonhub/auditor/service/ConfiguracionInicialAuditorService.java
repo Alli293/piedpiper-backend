@@ -5,6 +5,7 @@ import com.piedpiper.carbonhub.auditor.models.entities.PerfilAuditor;
 import com.piedpiper.carbonhub.auditor.models.enums.EspecialidadAuditor;
 import com.piedpiper.carbonhub.auditor.repository.PerfilAuditorRepository;
 import com.piedpiper.carbonhub.auth.models.dtos.MensajeResponseDTO;
+import com.piedpiper.carbonhub.auditoria.service.TipoDocumentoAdjunto;
 import com.piedpiper.carbonhub.auditoria.service.ValidadorDocumentosPdf;
 import com.piedpiper.carbonhub.common.Catalogos;
 import com.piedpiper.carbonhub.exceptions.ApiException;
@@ -21,13 +22,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
 import java.time.Instant;
-import java.util.HashSet;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 public class ConfiguracionInicialAuditorService {
@@ -56,15 +55,26 @@ public class ConfiguracionInicialAuditorService {
     @Transactional
     public MensajeResponseDTO completar(UUID usuarioId, CompletarConfiguracionAuditorRequestDTO datos,
                                         List<MultipartFile> documentos) {
-        Usuario auditor = usuarioRepository.findById(usuarioId)
+        // Lock de fila (mismo patron que VerificarCorreoService/RestablecerContrasenaService): sin
+        // esto, dos submits concurrentes (doble clic, reintento de red en un POST multipart lento)
+        // leen configuracionCompleta=false antes de que cualquiera de los dos haga commit, y ambos
+        // pasan el guard de abajo -- resultando en dos SolicitudValidacion y dos juegos de
+        // documentos para el mismo auditor.
+        Usuario auditor = usuarioRepository.findByIdForUpdate(usuarioId)
                 .orElseThrow(() -> ApiException.errorInterno("No se pudo identificar al usuario autenticado."));
 
+        // Callejon sin salida intencional para RECHAZADO: no vuelve a PENDIENTE_VALIDACION, asi que
+        // este guard tambien lo bloquea. No hay endpoint para corregir y reenviar; el auditor
+        // rechazado tiene que contactar a soporte. RedirectResolver nunca lo trae a esta pantalla
+        // (isConfiguracionCompleta ya es true para el), asi que en la practica esto solo se alcanza
+        // llamando al endpoint directamente.
         if (auditor.getEstado() != EstadoUsuario.PENDIENTE_VALIDACION || auditor.isConfiguracionCompleta()) {
             throw ApiException.configuracionAuditorNoDisponible();
         }
 
         Set<EspecialidadAuditor> especialidades = resolverEspecialidades(datos.getEspecialidades());
-        validadorDocumentosPdf.validar(documentos);
+        List<byte[]> contenidosDocumentos = validadorDocumentosPdf.validarYLeer(
+                documentos, TipoDocumentoAdjunto.CREDENCIAL_AUDITOR);
         validarMetadatosDocumentos(documentos);
 
         PerfilAuditor perfil = perfilAuditorService.asegurarPerfil(auditor);
@@ -83,7 +93,7 @@ public class ConfiguracionInicialAuditorService {
                 .fechaSolicitud(ahora)
                 .build());
 
-        guardarDocumentos(solicitud, documentos, ahora);
+        guardarDocumentos(solicitud, documentos, contenidosDocumentos, ahora);
 
         auditor.setConfiguracionCompleta(true);
         usuarioRepository.save(auditor);
@@ -94,25 +104,9 @@ public class ConfiguracionInicialAuditorService {
     }
 
     private Set<EspecialidadAuditor> resolverEspecialidades(List<String> especialidades) {
-        List<String> normalizadas = especialidades.stream()
-                .map(ConfiguracionInicialAuditorService::normalizarEspecialidad)
-                .toList();
-        if (normalizadas.size() != new HashSet<>(normalizadas).size()) {
-            throw ApiException.datosInvalidos("La lista de especialidades contiene duplicados.");
-        }
-        List<String> invalidas = especialidades.stream()
-                .filter(e -> Catalogos.desde(EspecialidadAuditor.class, e).isEmpty())
-                .toList();
-        if (!invalidas.isEmpty()) {
-            throw ApiException.especialidadesInvalidas(invalidas);
-        }
-        return especialidades.stream()
-                .map(e -> Catalogos.desde(EspecialidadAuditor.class, e).orElseThrow())
-                .collect(Collectors.toCollection(HashSet::new));
-    }
-
-    private static String normalizarEspecialidad(String valor) {
-        return valor == null ? null : valor.trim().toUpperCase();
+        return Catalogos.resolverConjunto(EspecialidadAuditor.class, especialidades,
+                () -> ApiException.datosInvalidos("La lista de especialidades contiene duplicados."),
+                ApiException::especialidadesInvalidas);
     }
 
     private void validarMetadatosDocumentos(List<MultipartFile> documentos) {
@@ -125,20 +119,20 @@ public class ConfiguracionInicialAuditorService {
         }
     }
 
-    private void guardarDocumentos(SolicitudValidacion solicitud, List<MultipartFile> documentos, Instant ahora) {
-        for (MultipartFile documento : documentos) {
-            try {
-                documentoCredencialAuditorRepository.save(DocumentoCredencialAuditor.builder()
-                        .solicitud(solicitud)
-                        .nombreArchivo(documento.getOriginalFilename())
-                        .tipoContenido(documento.getContentType())
-                        .tamanioBytes(documento.getSize())
-                        .contenido(documento.getBytes())
-                        .fechaCarga(ahora)
-                        .build());
-            } catch (IOException e) {
-                throw ApiException.errorInterno("No se pudo guardar uno de tus documentos. Intenta nuevamente.");
-            }
+    private void guardarDocumentos(SolicitudValidacion solicitud, List<MultipartFile> documentos,
+                                   List<byte[]> contenidosDocumentos, Instant ahora) {
+        List<DocumentoCredencialAuditor> entidades = new ArrayList<>(documentos.size());
+        for (int i = 0; i < documentos.size(); i++) {
+            MultipartFile documento = documentos.get(i);
+            entidades.add(DocumentoCredencialAuditor.builder()
+                    .solicitud(solicitud)
+                    .nombreArchivo(documento.getOriginalFilename())
+                    .tipoContenido(documento.getContentType())
+                    .tamanioBytes(documento.getSize())
+                    .contenido(contenidosDocumentos.get(i))
+                    .fechaCarga(ahora)
+                    .build());
         }
+        documentoCredencialAuditorRepository.saveAll(entidades);
     }
 }

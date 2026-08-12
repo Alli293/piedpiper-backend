@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 
 import java.util.List;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -38,6 +39,6 @@ public class ConfiguracionInicialAuditorController {
             Authentication authentication) {
         MensajeResponseDTO respuesta = configuracionInicialAuditorService.completar(
                 Autenticaciones.usuarioId(authentication), datos, documentos);
-        return ResponseEntity.ok(respuesta);
+        return ResponseEntity.status(HttpStatus.CREATED).body(respuesta);
     }
 }

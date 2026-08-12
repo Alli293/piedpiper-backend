@@ -18,4 +18,9 @@ public interface SolicitudValidacionRepository extends JpaRepository<SolicitudVa
             EstadoSolicitud estado, Pageable pageable);
 
     Optional<SolicitudValidacion> findTopByAuditorIdOrderByFechaSolicitudDesc(UUID auditorId);
+
+    // Sobreescribe JpaRepository.findById: todos los usos actuales (obtenerDetalle, resolver)
+    // necesitan el auditor para el nombre/email en la respuesta o el correo de resolucion.
+    @EntityGraph(attributePaths = "auditor")
+    Optional<SolicitudValidacion> findById(UUID id);
 }

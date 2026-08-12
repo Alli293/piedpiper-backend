@@ -75,7 +75,7 @@ class ConfiguracionInicialAuditorServiceTest {
                 documentoCredencialAuditorRepository,
                 new ValidadorDocumentosPdf());
 
-        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(auditorPendiente()));
+        when(usuarioRepository.findByIdForUpdate(USUARIO_ID)).thenReturn(Optional.of(auditorPendiente()));
         when(perfilAuditorService.asegurarPerfil(any()))
                 .thenAnswer(invocacion -> PerfilAuditor.builder().auditor(invocacion.getArgument(0)).build());
         when(solicitudValidacionRepository.save(any(SolicitudValidacion.class)))
@@ -129,11 +129,13 @@ class ConfiguracionInicialAuditorServiceTest {
         verify(solicitudValidacionRepository).save(solicitudCaptor.capture());
         assertThat(solicitudCaptor.getValue().getEstado()).isEqualTo(EstadoSolicitud.PENDIENTE);
 
-        ArgumentCaptor<DocumentoCredencialAuditor> documentoCaptor =
-                ArgumentCaptor.forClass(DocumentoCredencialAuditor.class);
-        verify(documentoCredencialAuditorRepository).save(documentoCaptor.capture());
-        assertThat(documentoCaptor.getValue().getNombreArchivo()).isEqualTo("cert.pdf");
-        assertThat(documentoCaptor.getValue().getTipoContenido()).isEqualTo(MediaType.APPLICATION_PDF_VALUE);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<DocumentoCredencialAuditor>> documentoCaptor = ArgumentCaptor.forClass(List.class);
+        verify(documentoCredencialAuditorRepository).saveAll(documentoCaptor.capture());
+        List<DocumentoCredencialAuditor> documentosGuardados = documentoCaptor.getValue();
+        assertThat(documentosGuardados).hasSize(1);
+        assertThat(documentosGuardados.get(0).getNombreArchivo()).isEqualTo("cert.pdf");
+        assertThat(documentosGuardados.get(0).getTipoContenido()).isEqualTo(MediaType.APPLICATION_PDF_VALUE);
 
         ArgumentCaptor<Usuario> usuarioCaptor = ArgumentCaptor.forClass(Usuario.class);
         verify(usuarioRepository).save(usuarioCaptor.capture());
@@ -142,7 +144,7 @@ class ConfiguracionInicialAuditorServiceTest {
 
     @Test
     void auditorQueNoEstaPendienteDeValidacionDevuelve409() {
-        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(
+        when(usuarioRepository.findByIdForUpdate(USUARIO_ID)).thenReturn(Optional.of(
                 Usuario.builder().id(USUARIO_ID).rol(Rol.AUDITOR_CERTIFICADO)
                         .estado(EstadoUsuario.ACTIVO).build()));
 
@@ -155,7 +157,7 @@ class ConfiguracionInicialAuditorServiceTest {
 
     @Test
     void auditorConConfiguracionYaCompletaDevuelve409() {
-        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(
+        when(usuarioRepository.findByIdForUpdate(USUARIO_ID)).thenReturn(Optional.of(
                 Usuario.builder().id(USUARIO_ID).rol(Rol.AUDITOR_CERTIFICADO)
                         .estado(EstadoUsuario.PENDIENTE_VALIDACION).configuracionCompleta(true).build()));
 
@@ -197,6 +199,16 @@ class ConfiguracionInicialAuditorServiceTest {
     }
 
     @Test
+    void sinDocumentosDevuelveMensajeDeCredencialNoDeRespaldo() {
+        assertThatThrownBy(() -> service.completar(USUARIO_ID, datos(List.of("MANUFACTURA")), List.of()))
+                .isInstanceOf(ApiException.class)
+                .hasMessage("Debes adjuntar al menos un documento de credencial.")
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+        verify(solicitudValidacionRepository, never()).save(any());
+    }
+
+    @Test
     void documentoSinNombreDeArchivoDevuelve400YNoPersisteNada() {
         MultipartFile sinNombre = new MockMultipartFile(
                 "documentos", null, MediaType.APPLICATION_PDF_VALUE, contenidoPdf());
@@ -206,7 +218,7 @@ class ConfiguracionInicialAuditorServiceTest {
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.BAD_REQUEST);
         verify(solicitudValidacionRepository, never()).save(any());
-        verify(documentoCredencialAuditorRepository, never()).save(any());
+        verify(documentoCredencialAuditorRepository, never()).saveAll(any());
     }
 
     @Test
@@ -220,21 +232,21 @@ class ConfiguracionInicialAuditorServiceTest {
     }
 
     @Test
-    void errorAlLeerElDocumentoDevuelve500() throws IOException {
+    void documentoIlegibleDevuelve400YNoPersisteNada() throws IOException {
         MultipartFile fallido = mock(MultipartFile.class);
         when(fallido.isEmpty()).thenReturn(false);
         when(fallido.getSize()).thenReturn((long) contenidoPdf().length);
         when(fallido.getOriginalFilename()).thenReturn("cert.pdf");
         when(fallido.getContentType()).thenReturn(MediaType.APPLICATION_PDF_VALUE);
-        // Primera llamada: la validacion de estructura PDF lee el archivo con exito.
-        // Segunda llamada: guardarDocumentos() vuelve a leerlo para persistirlo y esta vez falla.
-        when(fallido.getBytes())
-                .thenReturn(contenidoPdf())
-                .thenThrow(new IOException("disco lleno"));
+        // El validador lee los bytes una sola vez (para validar estructura y para persistir),
+        // asi que una falla de lectura del stream multipart se detecta antes de escribir nada.
+        when(fallido.getBytes()).thenThrow(new IOException("stream interrumpido"));
 
         assertThatThrownBy(() -> service.completar(USUARIO_ID, datos(List.of("MANUFACTURA")), List.of(fallido)))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
-                .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+        verify(solicitudValidacionRepository, never()).save(any());
+        verify(documentoCredencialAuditorRepository, never()).saveAll(any());
     }
 }

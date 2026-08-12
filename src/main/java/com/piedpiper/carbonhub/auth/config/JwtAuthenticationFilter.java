@@ -2,7 +2,6 @@ package com.piedpiper.carbonhub.auth.config;
 
 import com.piedpiper.carbonhub.auth.service.JwtService;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
-import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
@@ -77,17 +76,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 response.setHeader("X-Refresh-Token", jwtService.renovar(usuario, inicio)));
     }
 
-    /**
-     * Intencionalmente permisivo: solo bloquea DESHABILITADO. Un auditor en
-     * PENDIENTE_VALIDACION necesita un token valido para completar su configuracion
-     * inicial y consultar su solicitud, y uno en RECHAZADO lo necesita para ver el
-     * motivo de su rechazo en {@code /auditor/validacion-pendiente} en vez de quedar
-     * bloqueado sin explicacion tras el correo de notificacion -- asi que este filtro
-     * no puede exigir estado ACTIVO para todos los roles. Un endpoint de auditor
-     * certificado que requiera estado ACTIVO tiene que validarlo explicitamente -- ver
-     * {@link com.piedpiper.carbonhub.common.ValidacionesAuditor}.
-     */
+    // Regla centralizada en Usuario.estaHabilitado() -- ver su Javadoc para el porque.
     private boolean habilitado(Usuario usuario) {
-        return usuario.getEstado() != EstadoUsuario.DESHABILITADO;
+        return usuario.estaHabilitado();
     }
 }

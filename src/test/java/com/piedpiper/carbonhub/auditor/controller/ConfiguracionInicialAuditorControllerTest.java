@@ -63,7 +63,7 @@ class ConfiguracionInicialAuditorControllerTest {
 
     @Test
     @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
-    void postValidoDevuelve200ConElMensaje() throws Exception {
+    void postValidoDevuelve201ConElMensaje() throws Exception {
         when(configuracionInicialAuditorService.completar(any(), any(), any()))
                 .thenReturn(new MensajeResponseDTO("Recibimos tu información."));
 
@@ -71,7 +71,7 @@ class ConfiguracionInicialAuditorControllerTest {
                         .file(datos())
                         .file(documentoPdf())
                         .principal(principal()))
-                .andExpect(status().isOk())
+                .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.mensaje").value("Recibimos tu información."));
 
         verify(configuracionInicialAuditorService).completar(any(), any(), any());

@@ -2,8 +2,10 @@ package com.piedpiper.carbonhub.auditor.service;
 
 import com.piedpiper.carbonhub.auditor.models.entities.PerfilAuditor;
 import com.piedpiper.carbonhub.auditor.repository.PerfilAuditorRepository;
+import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.models.enums.Rol;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +24,17 @@ public class PerfilAuditorService {
             return null;
         }
         return perfilAuditorRepository.findByAuditorId(usuario.getId())
-                .orElseGet(() -> perfilAuditorRepository.save(PerfilAuditor.builder().auditor(usuario).build()));
+                .orElseGet(() -> crear(usuario));
+    }
+
+    private PerfilAuditor crear(Usuario usuario) {
+        try {
+            return perfilAuditorRepository.save(PerfilAuditor.builder().auditor(usuario).build());
+        } catch (DataIntegrityViolationException e) {
+            // uk_perfiles_auditor_auditor: otra llamada concurrente (mismo patron que
+            // AuditorPerfilService.actualizar) ya creo el perfil entre el findByAuditorId y este save.
+            return perfilAuditorRepository.findByAuditorId(usuario.getId())
+                    .orElseThrow(() -> ApiException.errorInterno("No se pudo crear el perfil del auditor."));
+        }
     }
 }
