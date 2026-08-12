@@ -15,6 +15,8 @@ import java.util.UUID;
 
 public interface EmisionRepository extends JpaRepository<Emision, UUID> {
 
+    boolean existsByEmpresaIdAndFechaActividadLessThanEqual(UUID empresaId, LocalDate fecha);
+
     @Query("""
             select distinct e
             from Emision e

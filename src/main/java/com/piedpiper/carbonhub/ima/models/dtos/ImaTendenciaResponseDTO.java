@@ -24,4 +24,11 @@ public class ImaTendenciaResponseDTO {
 
     /** Eventos detectados sobre la serie; vacía si no hay ninguno (no es error). */
     private List<ImaEventoDTO> eventos;
+
+    /**
+     * true cuando hay meses con emisiones registradas pero sin snapshot todavía: el backend
+     * los está calculando en segundo plano (ver ImaTendenciaBackfillService) y el cliente debe
+     * volver a consultar en unos segundos para verlos completos.
+     */
+    private boolean completando;
 }
