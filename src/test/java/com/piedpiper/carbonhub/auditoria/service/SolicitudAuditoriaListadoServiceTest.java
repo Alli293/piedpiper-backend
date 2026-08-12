@@ -212,6 +212,34 @@ class SolicitudAuditoriaListadoServiceTest {
     }
 
     /**
+     * Spring Data calcula el desplazamiento como {@code (pagina - 1) * tamanio} sobre un {@code
+     * int}. Sin tope superior un {@code ?pagina=999999999} lo desborda y la peticion sale con un
+     * 500, o sea que un solo parametro de la barra de direcciones tumba el listado.
+     */
+    @Test
+    void unaPaginaGigantescaNoDesbordaElDesplazamiento() {
+        listar(ADMIN_ID, filtros(null, Integer.MAX_VALUE));
+
+        Pageable pageable = capturarPageableDeEmpresa();
+        assertThat(pageable.getPageNumber())
+                .isEqualTo(SolicitudAuditoriaListadoService.PAGINA_MAXIMA - 1);
+        assertThat(pageable.getOffset()).isLessThanOrEqualTo(Integer.MAX_VALUE);
+    }
+
+    /**
+     * El tope sale de {@code TAMANIO_PAGINA} y no de un numero escrito a mano, asi que tiene que
+     * seguir siendo valido si alguien cambia el tamanio de pagina.
+     */
+    @Test
+    void elTopeDePaginaMantieneElDesplazamientoDentroDeUnInt() {
+        long desplazamientoMaximo =
+                (long) (SolicitudAuditoriaListadoService.PAGINA_MAXIMA - 1)
+                        * SolicitudAuditoriaListadoService.TAMANIO_PAGINA;
+
+        assertThat(desplazamientoMaximo).isLessThanOrEqualTo(Integer.MAX_VALUE);
+    }
+
+    /**
      * La pagina 2 de 60 resultados, que es una pagina intermedia: {@code PageImpl} recalcula el
      * total cuando la pagina pedida es la ultima, asi que un escenario de borde probaria mas sobre
      * Spring Data que sobre este servicio.
