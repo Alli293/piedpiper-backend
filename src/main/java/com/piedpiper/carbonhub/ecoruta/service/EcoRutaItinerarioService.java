@@ -219,8 +219,16 @@ public class EcoRutaItinerarioService {
                     respuesta.getActividadParaComparar());
         }
 
-        itinerario.setDias(construirDias(itinerario, respuesta.getItinerarioActualizado().getDias(),
-                itinerario.getFechaInicio()));
+        // No usar setDias(nuevaLista): Itinerario.dias es un @OneToMany(orphanRemoval = true) ya
+        // administrado por Hibernate para este itinerario persistido. Reemplazar la referencia de
+        // la colección (en vez de mutar la misma instancia) la "desreferencia" del lado de
+        // Hibernate y el flush revienta con "A collection with orphan deletion was no longer
+        // referenced by the owning entity instance" — hay que limpiar y volver a llenar la MISMA
+        // colección para que el orphan removal seguido de las inserciones nuevas funcione.
+        List<ItinerarioDia> diasNuevos = construirDias(itinerario, respuesta.getItinerarioActualizado().getDias(),
+                itinerario.getFechaInicio());
+        itinerario.getDias().clear();
+        itinerario.getDias().addAll(diasNuevos);
         itinerario.setVersion(itinerario.getVersion() + 1);
         if (respuesta.getItinerarioActualizado().getPuntuacionAmbientalPreliminar() != null) {
             itinerario.setPuntuacionAmbientalPreliminar(
@@ -261,6 +269,10 @@ public class EcoRutaItinerarioService {
     private String construirContextoRefinamiento(Itinerario itinerario, List<MensajeConversacionDTO> historial,
                                                    String mensajeUsuario) {
         StringBuilder sb = new StringBuilder();
+        sb.append("Moneda preferida del usuario (usar SIEMPRE esta moneda si modificás o agregás ")
+                .append("costoAproximado/moneda de alguna actividad, salvo que el establecimiento real ")
+                .append("solo opere en otra): ")
+                .append(monedaPreferidaDe(itinerario.getUsuario())).append("\n\n");
         sb.append("Itinerario actual (JSON):\n").append(serializarItinerarioParaPrompt(itinerario)).append("\n\n");
 
         if (!historial.isEmpty()) {
@@ -342,6 +354,9 @@ public class EcoRutaItinerarioService {
             sb.append("Restricciones de accesibilidad: ").append(preferencias.getLimitacionesMovilidad()).append("\n");
         }
         sb.append("Requiere hospedaje: ").append(preferencias.isRequiereHospedaje()).append("\n");
+        sb.append("Moneda preferida del usuario (usar SIEMPRE esta moneda en costoAproximado/moneda ")
+                .append("de cada actividad, salvo que el establecimiento real solo opere en otra): ")
+                .append(monedaPreferidaDe(preferencias.getUsuario())).append("\n");
         sb.append("Itinerarios generados previamente por el usuario: ")
                 .append(historial.getTotalItinerariosGenerados()).append("\n");
         if (!historial.getProvinciasVisitadas().isEmpty()) {
@@ -358,6 +373,20 @@ public class EcoRutaItinerarioService {
         }
 
         return sb.toString();
+    }
+
+    /**
+     * El usuario configura su moneda preferida al completar su perfil inicial
+     * ({@code PerfilInicialService}/{@code PreferenciasUsuarioService}), pero hasta ahora ningún
+     * flujo de EcoRuta se la pasaba a la IA — Gemini elegía CRC/USD libremente por actividad, sin
+     * relación con lo que el usuario configuró. Se resuelve acá con el mismo catálogo que usa el
+     * resto de la app ({@code user.models.enums.Moneda}), con CRC como default si el usuario nunca
+     * lo configuró explícitamente.
+     */
+    private String monedaPreferidaDe(com.piedpiper.carbonhub.user.models.entities.Usuario usuario) {
+        return com.piedpiper.carbonhub.user.models.enums.Moneda.desde(usuario.getMoneda())
+                .orElse(com.piedpiper.carbonhub.user.models.enums.Moneda.POR_DEFECTO)
+                .name();
     }
 
     /**
