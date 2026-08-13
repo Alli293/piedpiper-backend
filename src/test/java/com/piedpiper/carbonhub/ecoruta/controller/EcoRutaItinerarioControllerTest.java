@@ -80,6 +80,7 @@ class EcoRutaItinerarioControllerTest {
         response.setDias(List.of());
         response.setEstablecimientosEvaluados(List.of(new EstablecimientoEcoScoreResponseDTO(
                 "Reserva Selvatura",
+                null,
                 new PuntuacionAmbientalResponseDTO(new BigDecimal("68.0"), new BigDecimal("30"),
                         new BigDecimal("24"), new BigDecimal("14"), 3))));
         return response;

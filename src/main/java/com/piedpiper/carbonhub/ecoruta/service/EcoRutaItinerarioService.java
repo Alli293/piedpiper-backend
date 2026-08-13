@@ -146,9 +146,11 @@ public class EcoRutaItinerarioService {
         ResultadoGeneracionIA resultadoIA = itinerarioIaClienteService.generar(
                 contexto, preferencias.getCantidadDias());
 
-        // Pre-cargar empresas activas una sola vez por generación y reutilizar la misma lista en
-        // construirItinerario (matching por actividad) y en aplicarPriorizacionAmbiental (EcoScore)
-        // — antes de esto cada uno hacía su propio fetch, duplicando la consulta.
+        // Pre-cargar empresas activas una sola vez y pasarla a construirItinerario para vincular
+        // cada actividad con su empresa (persistido en ItinerarioActividad.empresa). Ya no se
+        // reutiliza en aplicarPriorizacionAmbiental: ese flujo ahora lee el vínculo ya persistido
+        // en cada actividad en vez de volver a matchear por nombre (ver
+        // extraerEstablecimientosRankeados).
         List<Empresa> empresasActivas = empresaRepository.findByEstado(EstadoEmpresa.ACTIVO);
 
         Itinerario itinerario = construirItinerario(preferencias, resultadoIA, empresasActivas);
@@ -163,8 +165,7 @@ public class EcoRutaItinerarioService {
 
         // Aplicar priorización ambiental: calcula scores y persiste registros de auditoría
         // dentro de la misma transacción (@Transactional)
-        ResultadoPriorizacion resultadoPriorizacion =
-                aplicarPriorizacionAmbiental(itinerario, usuarioId, empresasActivas);
+        ResultadoPriorizacion resultadoPriorizacion = aplicarPriorizacionAmbiental(itinerario, usuarioId);
 
         // Calcular y persistir el EcoScore del itinerario (Req PP-91)
         calcularYPersistirEcoScore(itinerario, resultadoPriorizacion);
@@ -622,9 +623,10 @@ public class EcoRutaItinerarioService {
     /**
      * Busca, por coincidencia parcial de nombre (case-insensitive, en cualquier dirección), la
      * empresa activa registrada en CarbonHub que corresponde al establecimiento recomendado por la
-     * IA. Compartido entre la construcción de la actividad y el cálculo de EcoScore
-     * ({@link #extraerEstablecimientosRankeados(Itinerario, List)}) para no duplicar el criterio de
-     * matching.
+     * IA. Se usa una única vez, al construir la actividad en el momento de generación
+     * ({@link #construirActividad}) — el resultado queda persistido en
+     * {@code ItinerarioActividad.empresa} y no se vuelve a recalcular en lecturas posteriores del
+     * itinerario (ver {@link #extraerEstablecimientosRankeados(Itinerario)}).
      */
     private Optional<Empresa> matchearEmpresaPorNombre(String nombreEstablecimiento, List<Empresa> empresasActivas) {
         String nombreNormalizado = nombreEstablecimiento.toLowerCase();
@@ -671,10 +673,8 @@ public class EcoRutaItinerarioService {
      * coincidan con empresas registradas en CarbonHub. No altera el orden del itinerario;
      * los registros de ponderación se persisten para auditoría (Req 5.4).
      */
-    private ResultadoPriorizacion aplicarPriorizacionAmbiental(Itinerario itinerario, UUID usuarioId,
-                                                                List<Empresa> empresasActivas) {
-        List<EstablecimientoRankeado> establecimientos =
-                extraerEstablecimientosRankeados(itinerario, empresasActivas);
+    private ResultadoPriorizacion aplicarPriorizacionAmbiental(Itinerario itinerario, UUID usuarioId) {
+        List<EstablecimientoRankeado> establecimientos = extraerEstablecimientosRankeados(itinerario);
 
         if (establecimientos.isEmpty()) {
             return new ResultadoPriorizacion(establecimientos, 0, 0);
@@ -721,26 +721,28 @@ public class EcoRutaItinerarioService {
 
     /**
      * Construye la lista de {@link EstablecimientoRankeado} a partir de las actividades del
-     * itinerario. Solo incluye establecimientos que coincidan con una empresa registrada en
-     * CarbonHub (por nombre parcial, case-insensitive). Los que no matchean se omiten del
-     * cálculo ambiental — su puntuación será calculada por la IA si disponible.
+     * itinerario. Solo incluye establecimientos vinculados a una empresa registrada en CarbonHub.
+     * Los que no matchean se omiten del cálculo ambiental — su puntuación será calculada por la
+     * IA si disponible.
      *
-     * <p>Recibe {@code empresasActivas} ya cargada en vez de consultarla — así el flujo de
-     * {@code generar()} reutiliza el mismo fetch que ya hizo para vincular cada actividad con su
-     * empresa, en lugar de duplicar la consulta.
+     * <p>Lee {@code actividad.getEmpresa()} (persistido en {@link #construirActividad} al generar
+     * el itinerario) en vez de volver a matchear por nombre contra el catálogo de empresas
+     * activas. Antes de este cambio, cada lectura del itinerario re-ejecutaba
+     * {@link #matchearEmpresaPorNombre} contra el catálogo <em>vigente</em> al momento de la
+     * consulta — lo que producía dos problemas: (1) el resultado podía divergir del que se
+     * calculó al generar el itinerario si el catálogo de empresas cambiaba entretanto (una
+     * empresa se desactiva, cambia de nombre, etc.), y (2) nombres de empresa ambiguos entre sí
+     * (p. ej. "Café del Valle" / "Café del Valle S.A.") podían resolver a una empresa distinta en
+     * cada lectura, porque el matching por {@code contains} sin desambiguación no es determinista
+     * frente a variaciones en el orden de la consulta. Usar el vínculo ya persistido lo hace
+     * estable: la actividad siempre reporta la misma empresa con la que quedó vinculada al
+     * generarse, sin importar cuántas veces se consulte después.
      */
-    private List<EstablecimientoRankeado> extraerEstablecimientosRankeados(Itinerario itinerario,
-                                                                             List<Empresa> empresasActivas) {
+    private List<EstablecimientoRankeado> extraerEstablecimientosRankeados(Itinerario itinerario) {
         List<EstablecimientoRankeado> establecimientos = new ArrayList<>();
         int totalActividades = itinerario.getDias().stream()
                 .mapToInt(dia -> dia.getActividades().size())
                 .sum();
-
-        if (empresasActivas.size() > 100) {
-            log.warn("Catálogo de empresas activas ({}) supera el tope de matching (100). "
-                    + "Establecimientos fuera del primer bloque no se vincularán con scores reales.",
-                    empresasActivas.size());
-        }
 
         int posicion = 0;
         for (ItinerarioDia dia : itinerario.getDias()) {
@@ -751,11 +753,7 @@ public class EcoRutaItinerarioService {
                     continue;
                 }
 
-                // Buscar empresa registrada por coincidencia parcial de nombre; sin match no hay
-                // datos verificados
-                UUID empresaId = matchearEmpresaPorNombre(actividad.getEstablecimientoRecomendado(), empresasActivas)
-                        .map(Empresa::getId)
-                        .orElse(null);
+                UUID empresaId = actividad.getEmpresa() != null ? actividad.getEmpresa().getId() : null;
 
                 // Puntuación turística base: orden inverso normalizado (1.0 para el primero)
                 BigDecimal puntuacionTuristica = totalActividades > 0
@@ -794,7 +792,8 @@ public class EcoRutaItinerarioService {
                                 (a, b) -> a // En caso de duplicados, conservar el primero
                         ));
 
-        responseDTO.setEstablecimientosEvaluados(construirEstablecimientosEvaluados(puntuacionesPorEstablecimiento));
+        responseDTO.setEstablecimientosEvaluados(construirEstablecimientosEvaluados(
+                resultadoPriorizacion.getEstablecimientosRankeados()));
 
         if (responseDTO.getDias() == null) {
             return;
@@ -815,14 +814,34 @@ public class EcoRutaItinerarioService {
     }
 
     /**
-     * Convierte el mapa nombre → puntuación ambiental en el desglose por establecimiento expuesto
-     * en la respuesta del itinerario (Req PP-91), omitiendo establecimientos sin puntuación.
+     * Arma el desglose por establecimiento expuesto en la respuesta del itinerario (Req PP-91),
+     * omitiendo establecimientos sin puntuación. Incluye {@code empresaId} (PP-95) cuando el
+     * establecimiento matcheó con una empresa registrada — {@code null} si no matcheó, ver
+     * {@link #extraerEstablecimientosRankeados}.
+     *
+     * <p>Deduplica por nombre UNA sola vez sobre {@code establecimientosRankeados} y arma el DTO a
+     * partir del {@link EstablecimientoRankeado} elegido — nombre, {@code empresaId} y
+     * {@code detalleAmbiental} salen siempre del mismo objeto. Antes de este fix, el empresaId y
+     * el score se resolvían con dos dedupe distintos (uno acá, otro implícito en cómo el llamador
+     * armaba el mapa de puntuaciones), que en itinerarios con dos actividades recomendando el
+     * mismo nombre de establecimiento podían "ganar" filas distintas — mostrando el score de una
+     * actividad junto al empresaId (o la bandera) de otra.
      */
     private List<EstablecimientoEcoScoreResponseDTO> construirEstablecimientosEvaluados(
-            Map<String, PuntuacionAmbientalResponseDTO> puntuacionesPorEstablecimiento) {
-        return puntuacionesPorEstablecimiento.entrySet().stream()
-                .filter(entry -> entry.getValue() != null)
-                .map(entry -> new EstablecimientoEcoScoreResponseDTO(entry.getKey(), entry.getValue()))
+            List<EstablecimientoRankeado> establecimientosRankeados) {
+        Map<String, EstablecimientoRankeado> primerRankeadoPorNombre = establecimientosRankeados.stream()
+                .collect(Collectors.toMap(
+                        EstablecimientoRankeado::getNombreEstablecimiento,
+                        rankeado -> rankeado,
+                        (a, b) -> a
+                ));
+
+        return primerRankeadoPorNombre.values().stream()
+                .filter(rankeado -> rankeado.getDetalleAmbiental() != null)
+                .map(rankeado -> new EstablecimientoEcoScoreResponseDTO(
+                        rankeado.getNombreEstablecimiento(),
+                        rankeado.getEmpresaId(),
+                        rankeado.getDetalleAmbiental()))
                 .toList();
     }
 
@@ -831,11 +850,9 @@ public class EcoRutaItinerarioService {
      * de auditoría. Usado al obtener un itinerario ya guardado para enriquecer la visualización.
      */
     private void enriquecerConPuntuacionesCalculadas(ItinerarioResponseDTO responseDTO, Itinerario itinerario) {
-        // Este flujo (obtener() ya persistido) no tiene una lista de empresas activas precargada
-        // de antes, a diferencia de generar() — se hace el fetch acá, una sola vez.
-        List<Empresa> empresasActivas = empresaRepository.findByEstado(EstadoEmpresa.ACTIVO);
-        List<EstablecimientoRankeado> establecimientos =
-                extraerEstablecimientosRankeados(itinerario, empresasActivas);
+        // Ya no hace falta cargar el catálogo de empresas activas acá: extraerEstablecimientosRankeados
+        // lee el vínculo empresa-actividad ya persistido, no vuelve a matchear por nombre.
+        List<EstablecimientoRankeado> establecimientos = extraerEstablecimientosRankeados(itinerario);
         if (establecimientos.isEmpty()) {
             return;
         }
@@ -869,7 +886,12 @@ public class EcoRutaItinerarioService {
             }
         }
 
-        // Calcular puntuaciones sin persistir
+        // Calcular puntuaciones sin persistir. Se setean tanto en el mapa (usado más abajo para
+        // enriquecer cada actividad del día a día) como en el propio EstablecimientoRankeado
+        // (usado por construirEstablecimientosEvaluados): así el desglose y la actividad
+        // individual siempre leen la puntuación del mismo establecimiento resuelto, sin depender
+        // de un segundo lookup por nombre que podría resolver a una fila distinta si hay dos
+        // establecimientos con el mismo nombre en el itinerario.
         Map<String, PuntuacionAmbientalResponseDTO> puntuacionesPorEstablecimiento = new java.util.HashMap<>();
 
         for (EstablecimientoRankeado est : establecimientos) {
@@ -877,11 +899,12 @@ public class EcoRutaItinerarioService {
             Integer scoreIA = scoreEstimadoPorNombre.get(est.getNombreEstablecimiento());
             PuntuacionAmbientalResponseDTO detalle = puntuacionCalculator.calcular(
                     indicadores.get(empresaId), imaMap.get(empresaId), benchmarkMap.get(empresaId), scoreIA);
+            est.setDetalleAmbiental(detalle);
             puntuacionesPorEstablecimiento.put(est.getNombreEstablecimiento(), detalle);
         }
 
         // Asignar al DTO de respuesta
-        responseDTO.setEstablecimientosEvaluados(construirEstablecimientosEvaluados(puntuacionesPorEstablecimiento));
+        responseDTO.setEstablecimientosEvaluados(construirEstablecimientosEvaluados(establecimientos));
 
         if (responseDTO.getDias() == null) return;
         for (var dia : responseDTO.getDias()) {

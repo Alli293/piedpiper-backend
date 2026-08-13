@@ -4,11 +4,13 @@ import com.piedpiper.carbonhub.ecoruta.mappers.ItinerarioMapper;
 import com.piedpiper.carbonhub.ecoruta.mappers.ItinerarioMapperImpl;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ConversacionContextoDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.EcoScoreResultado;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.EstablecimientoRankeado;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO.ActividadIaDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO.DiaIaDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.MensajeConversacionDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.PuntuacionAmbientalResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoIaResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoItinerarioRequestDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoItinerarioResponseDTO;
@@ -259,6 +261,52 @@ class EcoRutaItinerarioServiceTest {
         ItinerarioResponseDTO response = service.generar(USUARIO_ID);
 
         assertThat(response.getDias().get(0).getActividades().get(0).getEmpresaId()).isNull();
+    }
+
+    @Test
+    void establecimientosEvaluadosResuelveEmpresaIdYPuntuacionDelMismoRankeadoConNombresDuplicados() {
+        // Bug real corregido en PP-95: construirEstablecimientosEvaluados deduplicaba por nombre
+        // usando dos fuentes distintas (una para elegir el EstablecimientoRankeado, otra --ya
+        // filtrada por detalleAmbiental != null-- para el mapa de puntuaciones), así que con dos
+        // rankeados de mismo nombre pero distinto empresaId/puntuación cada una podía "ganar" un
+        // objeto distinto: el score de uno terminaba mostrado junto al empresaId del otro. Ahora
+        // debe deduplicar UNA sola vez y tomar empresaId + puntuación del mismo objeto elegido.
+        UUID empresaCorrecta = UUID.randomUUID();
+        UUID empresaIncorrecta = UUID.randomUUID();
+
+        PuntuacionAmbientalResponseDTO puntuacionCorrecta =
+                new PuntuacionAmbientalResponseDTO(new BigDecimal("90.0"), new BigDecimal("40"),
+                        new BigDecimal("30"), new BigDecimal("20"), 5);
+        PuntuacionAmbientalResponseDTO puntuacionIncorrecta =
+                new PuntuacionAmbientalResponseDTO(new BigDecimal("30.0"), new BigDecimal("10"),
+                        new BigDecimal("10"), new BigDecimal("10"), 0);
+
+        EstablecimientoRankeado primeraOcurrencia = new EstablecimientoRankeado(
+                empresaCorrecta, "Reserva Selvatura", BigDecimal.ONE, BigDecimal.ZERO, BigDecimal.ZERO,
+                puntuacionCorrecta);
+        EstablecimientoRankeado segundaOcurrencia = new EstablecimientoRankeado(
+                empresaIncorrecta, "Reserva Selvatura", BigDecimal.ONE, BigDecimal.ZERO, BigDecimal.ZERO,
+                puntuacionIncorrecta);
+
+        PreferenciasViaje preferencias = preferencias();
+        when(preferenciasViajeRepository.findByUsuario_Id(USUARIO_ID)).thenReturn(Optional.of(preferencias));
+        when(itinerarioIaClienteService.generar(any(), eq(2))).thenReturn(
+                new ResultadoGeneracionIA(respuestaValida(2), ResultadoValidacionItinerario.VALIDO_COMPLETO));
+        when(itinerarioRepository.saveAndFlush(any(Itinerario.class))).thenAnswer(i -> i.getArgument(0));
+        when(itinerarioRepository.countByUsuario_Id(USUARIO_ID)).thenReturn(1L);
+        when(priorizacionAmbientalService.aplicarPriorizacion(any(), any(), any()))
+                .thenReturn(new ResultadoPriorizacion(List.of(primeraOcurrencia, segundaOcurrencia), 2, 0));
+
+        ItinerarioResponseDTO response = service.generar(USUARIO_ID);
+
+        assertThat(response.getEstablecimientosEvaluados()).hasSize(1);
+        var establecimiento = response.getEstablecimientosEvaluados().get(0);
+        assertThat(establecimiento.getNombreEstablecimiento()).isEqualTo("Reserva Selvatura");
+        // empresaId y puntuacionAmbiental deben venir del MISMO EstablecimientoRankeado (el
+        // primero, según el orden de dedupe) -- nunca la combinación score-de-uno/empresaId-de-otro.
+        assertThat(establecimiento.getEmpresaId()).isEqualTo(empresaCorrecta);
+        assertThat(establecimiento.getPuntuacionAmbiental().getPuntuacionTotal())
+                .isEqualByComparingTo(new BigDecimal("90.0"));
     }
 
     @Test
