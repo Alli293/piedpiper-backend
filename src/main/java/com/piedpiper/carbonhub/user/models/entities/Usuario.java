@@ -164,6 +164,21 @@ public class Usuario {
         return nombre.length() > NOMBRE_MAX ? nombre.substring(0, NOMBRE_MAX) : nombre;
     }
 
+    /**
+     * Intencionalmente permisivo: solo bloquea DESHABILITADO. Un auditor en PENDIENTE_VALIDACION
+     * necesita loguearse para completar su configuracion inicial y consultar su solicitud, y uno en
+     * RECHAZADO lo necesita para ver el motivo de su rechazo en {@code /auditor/validacion-pendiente}
+     * en vez de quedar bloqueado sin explicacion tras el correo de notificacion.
+     *
+     * <p>Fuente unica de esta regla: {@code JwtAuthenticationFilter} y {@code LoginService} delegan
+     * aca en vez de reimplementarla, para que no puedan divergir. Un endpoint de auditor certificado
+     * que requiera estado ACTIVO tiene que validarlo explicitamente — ver
+     * {@code com.piedpiper.carbonhub.common.ValidacionesAuditor}.</p>
+     */
+    public boolean estaHabilitado() {
+        return estado != EstadoUsuario.DESHABILITADO;
+    }
+
     @PrePersist
     @PreUpdate
     void normalizarEmail() {

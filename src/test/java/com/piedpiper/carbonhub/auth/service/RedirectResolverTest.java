@@ -33,14 +33,28 @@ class RedirectResolverTest {
                 .isEqualTo("/auditor/validacion-pendiente");
     }
 
-    /** La configuracion inicial manda sobre el destino por rol: sin ella no hay nada que mostrar. */
+    /**
+     * Un auditor rechazado tambien aterriza en la pantalla de espera (no en /auditor/auditorias,
+     * a la que nunca deberia llegar): esa pantalla es la que le muestra el motivo del rechazo.
+     */
     @Test
-    void unAuditorSinConfiguracionCompletaVaAConfigurarSuPerfil() {
-        Usuario sinConfigurar = auditor(EstadoUsuario.ACTIVO);
+    void unAuditorRechazadoTambienVeElResultadoEnLaPantallaDeEspera() {
+        assertThat(RedirectResolver.paraUsuario(auditor(EstadoUsuario.RECHAZADO)))
+                .isEqualTo("/auditor/validacion-pendiente");
+    }
+
+    /**
+     * La configuracion inicial manda sobre el destino por rol: sin ella no hay nada que mostrar.
+     * El auditor tiene su propio paso de configuracion inicial (credenciales y documentos), no el
+     * generico de perfil.
+     */
+    @Test
+    void unAuditorSinConfiguracionCompletaVaASuConfiguracionInicial() {
+        Usuario sinConfigurar = auditor(EstadoUsuario.PENDIENTE_VALIDACION);
         sinConfigurar.setConfiguracionCompleta(false);
 
         assertThat(RedirectResolver.paraUsuario(sinConfigurar))
-                .isEqualTo("/perfil/configuracion-inicial");
+                .isEqualTo("/auditor/configuracion-inicial");
     }
 
     @Test

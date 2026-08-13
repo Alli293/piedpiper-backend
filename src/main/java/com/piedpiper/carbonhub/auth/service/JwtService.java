@@ -79,6 +79,7 @@ public class JwtService {
                         "email", usuario.getEmail(),
                         "rol", usuario.getRol().name(),
                         "estado", usuario.getEstado().name(),
+                        "configuracionCompleta", usuario.isConfiguracionCompleta(),
                         CLAIM_INICIO_SESION, inicioSesionSegundos))
                 .setIssuedAt(ahora)
                 .setExpiration(expira)

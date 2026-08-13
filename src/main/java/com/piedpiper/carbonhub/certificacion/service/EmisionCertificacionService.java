@@ -12,13 +12,12 @@ import com.piedpiper.carbonhub.certificacion.models.enums.EstadoCertificacion;
 import com.piedpiper.carbonhub.certificacion.repository.CertificacionRepository;
 import com.piedpiper.carbonhub.certificacion.repository.IndiceEstadoCertificacionRepository;
 import com.piedpiper.carbonhub.certificacion.repository.NotificacionPanelRepository;
+import com.piedpiper.carbonhub.common.ValidacionesAuditor;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.insignia.service.InsigniaEmpresaEvaluacionService;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
-import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
-import com.piedpiper.carbonhub.user.models.enums.Rol;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.slf4j.Logger;
@@ -140,7 +139,7 @@ public class EmisionCertificacionService implements EmisionCertificacionPort {
                     return ApiException.recursoNoEncontrado("El auditor indicado no existe.");
                 });
 
-        if (auditor.getRol() != Rol.AUDITOR_CERTIFICADO || auditor.getEstado() != EstadoUsuario.ACTIVO) {
+        if (!ValidacionesAuditor.esAuditorCertificadoActivo(auditor)) {
             log.error("No se emitio la certificacion de la auditoria {}: el usuario {} no es un "
                     + "auditor certificado activo.", comando.getIdAuditoria(), comando.getIdAuditor());
             throw ApiException.auditorNoValido();

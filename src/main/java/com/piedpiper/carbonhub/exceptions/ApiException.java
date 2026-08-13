@@ -499,4 +499,46 @@ public class ApiException extends RuntimeException {
         return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
                 "La fecha límite debe ser una fecha futura.");
     }
+
+    public static ApiException configuracionAuditorNoDisponible() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Esta acción solo está disponible mientras tu cuenta de auditor está pendiente "
+                        + "de validación y no has completado tu configuración inicial.");
+    }
+
+    public static ApiException solicitudValidacionNoEncontrada() {
+        return new ApiException(HttpStatus.NOT_FOUND,
+                "No se encontró una solicitud de validación para tu cuenta.");
+    }
+
+    public static ApiException documentoCredencialNoEncontrado() {
+        return new ApiException(HttpStatus.NOT_FOUND,
+                "Este documento no fue encontrado.");
+    }
+
+    public static ApiException documentoCredencialMetadatosInvalidos(int posicion) {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "El documento #" + posicion + " no tiene un nombre de archivo o tipo de contenido "
+                        + "válido. Intenta subirlo de nuevo.");
+    }
+
+    public static ApiException documentosCredencialesRequeridos() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Debes adjuntar al menos un documento de credencial.");
+    }
+
+    public static ApiException documentosCredencialesExcedenMaximo() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Puedes adjuntar un máximo de 10 documentos.");
+    }
+
+    public static ApiException documentoCredencialExcedeTamanio() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "El archivo no puede superar 15 MB.");
+    }
+
+    public static ApiException documentoCredencialNoEsPdf() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Solo se aceptan archivos en formato PDF.");
+    }
 }
