@@ -6,6 +6,7 @@ import com.piedpiper.carbonhub.common.IaRateLimitService;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -33,6 +34,17 @@ class RecomendacionAuditoresIaServiceTest {
     private static List<CandidatoIa> candidatos() {
         return List.of(new CandidatoIa(UUID.randomUUID(), "Ana Mora",
                 List.of("Manufactura"), "4.8", List.of("MANUFACTURA"), 12));
+    }
+
+    private static RecomendacionAuditoresIaService.JustificacionIa justificacion(String nombre,
+                                                                                 String texto) {
+        return new RecomendacionAuditoresIaService.JustificacionIa(nombre, texto);
+    }
+
+    private static Map<UUID, String> emparejar(
+            List<CandidatoIa> candidatos,
+            List<RecomendacionAuditoresIaService.JustificacionIa> justificaciones) {
+        return servicio("clave", true).emparejar(candidatos, justificaciones);
     }
 
     /** Sin API key no se intenta la llamada: se degrada en silencio y el listado sigue saliendo. */
@@ -109,6 +121,77 @@ class RecomendacionAuditoresIaServiceTest {
                 "MANUFACTURA", "Manufactura", "SAN_JOSE", sinSectores);
 
         assertThat(prompt).contains("sectores auditados con mayor frecuencia: sin datos");
+    }
+
+    /**
+     * Lo que protege este bloque: si el modelo devolviera las justificaciones en otro orden, cada
+     * auditor recibiría la de otro. Texto plausible, atribuido a quien no es, y sin ninguna señal.
+     */
+    @Test
+    void unaJustificacionQueNoCorrespondeAlCandidatoSeDescarta() {
+        UUID ana = UUID.randomUUID();
+        UUID luis = UUID.randomUUID();
+        List<CandidatoIa> candidatos = List.of(
+                new CandidatoIa(ana, "Ana Mora", List.of("Manufactura"), "4.8", List.of(), 10),
+                new CandidatoIa(luis, "Luis Rojas", List.of("Manufactura"), "4.0", List.of(), 5));
+
+        Map<UUID, String> resultado = emparejar(candidatos, List.of(
+                justificacion("Luis Rojas", "Texto de Luis."),
+                justificacion("Ana Mora", "Texto de Ana.")));
+
+        assertThat(resultado).isEmpty();
+    }
+
+    @Test
+    void cadaJustificacionEnSuPosicionSeAsignaAlAuditorCorrecto() {
+        UUID ana = UUID.randomUUID();
+        UUID luis = UUID.randomUUID();
+        List<CandidatoIa> candidatos = List.of(
+                new CandidatoIa(ana, "Ana Mora", List.of("Manufactura"), "4.8", List.of(), 10),
+                new CandidatoIa(luis, "Luis Rojas", List.of("Manufactura"), "4.0", List.of(), 5));
+
+        Map<UUID, String> resultado = emparejar(candidatos, List.of(
+                justificacion("Ana Mora", "Texto de Ana."),
+                justificacion("Luis Rojas", "Texto de Luis.")));
+
+        assertThat(resultado).containsEntry(ana, "Texto de Ana.").containsEntry(luis, "Texto de Luis.");
+    }
+
+    /** El modelo suele acortar el nombre completo; descartar por eso tiraria texto bueno. */
+    @Test
+    void unNombreAcortadoOConTildesDistintasSigueContandoComoElMismoAuditor() {
+        UUID ana = UUID.randomUUID();
+        List<CandidatoIa> candidatos = List.of(
+                new CandidatoIa(ana, "Ana Mora Vargas", List.of("Manufactura"), "4.8", List.of(), 10));
+
+        Map<UUID, String> resultado = emparejar(candidatos, List.of(
+                justificacion("ana mora", "Texto de Ana.")));
+
+        assertThat(resultado).containsEntry(ana, "Texto de Ana.");
+    }
+
+    /** Si el modelo no devuelve el nombre no hay cruce que detectar, y el texto se aprovecha. */
+    @Test
+    void siLaRespuestaNoTraeNombreLaJustificacionSeAsignaIgual() {
+        UUID ana = UUID.randomUUID();
+        List<CandidatoIa> candidatos = List.of(
+                new CandidatoIa(ana, "Ana Mora", List.of("Manufactura"), "4.8", List.of(), 10));
+
+        Map<UUID, String> resultado = emparejar(candidatos, List.of(
+                justificacion(null, "Texto de Ana.")));
+
+        assertThat(resultado).containsEntry(ana, "Texto de Ana.");
+    }
+
+    @Test
+    void unaJustificacionVaciaNoSeAsigna() {
+        UUID ana = UUID.randomUUID();
+        List<CandidatoIa> candidatos = List.of(
+                new CandidatoIa(ana, "Ana Mora", List.of("Manufactura"), "4.8", List.of(), 10));
+
+        Map<UUID, String> resultado = emparejar(candidatos, List.of(justificacion("Ana Mora", "   ")));
+
+        assertThat(resultado).isEmpty();
     }
 
     @Test
