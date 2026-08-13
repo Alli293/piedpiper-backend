@@ -19,7 +19,7 @@ import java.util.UUID;
 /**
  * Encapsula ÚNICAMENTE la llamada a Gemini que redacta las justificaciones de la recomendación de
  * auditores (PP-57). El orden y la selección de los candidatos ya los decidió de forma determinista
- * {@link RecomendacionAuditoresService}; la IA solo pone en palabras por qué cada uno encaja.
+ * {@link RecomendacionAuditoresConsultaService}; la IA solo pone en palabras por qué cada uno encaja.
  *
  * <p>Se llama <b>una sola vez</b> con todos los candidatos, no una por auditor. Cualquier fallo
  * (API key ausente, cuota agotada, timeout, 429/5xx de Gemini, respuesta no parseable) se traduce a
@@ -192,7 +192,7 @@ public class RecomendacionAuditoresIaService {
             }
             sb.append(c.nombre())
                     .append(", especialidades: ").append(String.join(", ", c.especialidades()))
-                    .append(", calificación promedio: ").append(c.calificacionPromedio()).append("/5")
+                    .append(", calificación promedio: ").append(calificacionDe(c))
                     .append(", sectores auditados con mayor frecuencia: ")
                     .append(c.top3Sectores().isEmpty() ? "sin datos" : String.join(", ", c.top3Sectores()))
                     .append(", auditorías completadas: ").append(c.auditoriasCompletadas());
@@ -201,7 +201,24 @@ public class RecomendacionAuditoresIaService {
         return sb.toString();
     }
 
-    /** Vista pública de un candidato para el prompt. El {@code auditorId} nunca se envía a Gemini. */
+    /**
+     * El {@code /5} solo tiene sentido detrás de un número. Un auditor recién certificado todavía no
+     * tiene reseñas y llega con la calificación en nulo —según el javadoc del comparador de
+     * {@code RecomendacionAuditoresConsultaService}, el caso más común en un sistema nuevo—, así que
+     * concatenar la escala sin mirar producía "sin calificaciones/5" en el prompt.
+     */
+    private String calificacionDe(CandidatoIa candidato) {
+        return candidato.calificacionPromedio() == null
+                ? "sin calificaciones"
+                : candidato.calificacionPromedio() + "/5";
+    }
+
+    /**
+     * Vista pública de un candidato para el prompt. El {@code auditorId} nunca se envía a Gemini.
+     *
+     * <p>{@code calificacionPromedio} viaja nulo cuando el auditor no tiene reseñas: el texto que
+     * describe esa ausencia lo decide el prompt, no quien arma el candidato.</p>
+     */
     public record CandidatoIa(
             UUID auditorId,
             String nombre,

@@ -63,10 +63,16 @@ class RecomendacionAuditoresServiceTest {
 
     private RecomendacionAuditoresService service;
 
+    /**
+     * El servicio de consulta va real y no mockeado: es donde viven la consulta, el orden y el mapeo
+     * que estos tests verifican. Mockearlo dejaría el orden sin cubrir y solo probaría el pegado de
+     * las justificaciones.
+     */
     @BeforeEach
     void configurar() {
         service = new RecomendacionAuditoresService(
-                perfilAuditorRepository, usuarioRepository, recomendacionAuditoresIaService);
+                new RecomendacionAuditoresConsultaService(perfilAuditorRepository, usuarioRepository),
+                recomendacionAuditoresIaService);
 
         when(usuarioRepository.findById(ADMIN_ID)).thenReturn(Optional.of(Usuario.builder()
                 .id(ADMIN_ID)
@@ -92,7 +98,8 @@ class RecomendacionAuditoresServiceTest {
 
         RecomendacionAuditoresResponseDTO respuesta = service.recomendar(filtros(), ADMIN_ID);
 
-        assertThat(respuesta.getRecomendaciones()).hasSize(RecomendacionAuditoresService.MAXIMO_RECOMENDACIONES);
+        assertThat(respuesta.getRecomendaciones())
+                .hasSize(RecomendacionAuditoresConsultaService.MAXIMO_RECOMENDACIONES);
     }
 
     @Test

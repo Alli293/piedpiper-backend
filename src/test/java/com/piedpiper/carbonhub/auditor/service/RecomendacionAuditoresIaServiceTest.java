@@ -4,6 +4,7 @@ import com.piedpiper.carbonhub.auditor.service.RecomendacionAuditoresIaService.C
 import com.piedpiper.carbonhub.common.IaRateLimitService;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.chat.client.ChatClient;
 
 import java.util.List;
 import java.util.Map;
@@ -24,8 +25,8 @@ class RecomendacionAuditoresIaServiceTest {
     private static final UUID EMPRESA_ID = UUID.randomUUID();
 
     private static RecomendacionAuditoresIaService servicio(String apiKey, boolean cuotaDisponible) {
-        var builder = mock(org.springframework.ai.chat.client.ChatClient.Builder.class);
-        when(builder.build()).thenReturn(mock(org.springframework.ai.chat.client.ChatClient.class));
+        ChatClient.Builder builder = mock(ChatClient.Builder.class);
+        when(builder.build()).thenReturn(mock(ChatClient.class));
         IaRateLimitService rateLimit = mock(IaRateLimitService.class);
         when(rateLimit.reservar(any())).thenReturn(cuotaDisponible);
         return new RecomendacionAuditoresIaService(builder, rateLimit, apiKey);
@@ -110,17 +111,26 @@ class RecomendacionAuditoresIaServiceTest {
                 .contains("especialidades: Manufactura");
     }
 
-    /** Un auditor sin distribución de sectores no puede dejar el prompt a medias. */
+    /**
+     * Un auditor recién certificado no tiene sectores ni calificación, y ninguna de las dos
+     * ausencias puede dejar el prompt a medias.
+     *
+     * <p>La escala {@code /5} solo va detrás de un número: concatenarla sin mirar producía
+     * "calificación promedio: sin calificaciones/5", y por el javadoc del comparador de
+     * {@link RecomendacionAuditoresConsultaService} ese es el caso más común en un sistema nuevo.</p>
+     */
     @Test
-    void unCandidatoSinSectoresSeDescribeComoSinDatos() {
-        List<CandidatoIa> sinSectores = List.of(new CandidatoIa(
-                UUID.randomUUID(), "Luis Rojas", List.of("Manufactura"), "sin calificaciones",
-                List.of(), 0));
+    void unCandidatoSinSectoresNiCalificacionSeDescribeSinTextoRaro() {
+        List<CandidatoIa> sinDatos = List.of(new CandidatoIa(
+                UUID.randomUUID(), "Luis Rojas", List.of("Manufactura"), null, List.of(), 0));
 
         String prompt = servicio("clave", true).construirPromptUsuario(
-                "MANUFACTURA", "Manufactura", "SAN_JOSE", sinSectores);
+                "MANUFACTURA", "Manufactura", "SAN_JOSE", sinDatos);
 
-        assertThat(prompt).contains("sectores auditados con mayor frecuencia: sin datos");
+        assertThat(prompt)
+                .contains("sectores auditados con mayor frecuencia: sin datos")
+                .contains("calificación promedio: sin calificaciones,")
+                .doesNotContain("sin calificaciones/5");
     }
 
     /**
