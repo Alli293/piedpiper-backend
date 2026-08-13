@@ -17,6 +17,7 @@ import com.piedpiper.carbonhub.ecoruta.models.enums.TipoViaje;
 import com.piedpiper.carbonhub.ecoruta.repository.ItinerarioRepository;
 import com.piedpiper.carbonhub.ecoruta.repository.PreferenciasViajeRepository;
 import com.piedpiper.carbonhub.ecoruta.service.ItinerarioIaClienteService.ResultadoGeneracionIA;
+import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.reconocimiento.models.enums.EventoReconocimientoCodigo;
 import com.piedpiper.carbonhub.reconocimiento.service.EventoReconocimientoService;
@@ -182,6 +183,50 @@ class EcoRutaItinerarioServiceTest {
         // priorizacionAmbientalService no fue stubbeado (devuelve null): la enriquecida debe
         // degradar a lista vacía, nunca null, o el frontend revienta al leer .length.
         assertThat(response.getEstablecimientosEvaluados()).isNotNull().isEmpty();
+        // Sin empresas activas registradas (stub default), ninguna actividad debe quedar
+        // vinculada a una empresa.
+        assertThat(response.getDias().get(0).getActividades().get(0).getEmpresaId()).isNull();
+    }
+
+    @Test
+    void establecimientoRecomendadoQueCoincideConEmpresaActivaQuedaVinculado() {
+        UUID empresaId = UUID.randomUUID();
+        Empresa empresaRegistrada = Empresa.builder()
+                .id(empresaId)
+                .nombreEmpresa("Reserva Selvatura")
+                .build();
+        when(empresaRepository.findByEstado(any())).thenReturn(List.of(empresaRegistrada));
+
+        PreferenciasViaje preferencias = preferencias();
+        when(preferenciasViajeRepository.findByUsuario_Id(USUARIO_ID)).thenReturn(Optional.of(preferencias));
+        when(itinerarioIaClienteService.generar(any(), eq(2))).thenReturn(
+                new ResultadoGeneracionIA(respuestaValida(2), ResultadoValidacionItinerario.VALIDO_COMPLETO));
+        when(itinerarioRepository.saveAndFlush(any(Itinerario.class))).thenAnswer(i -> i.getArgument(0));
+        when(itinerarioRepository.countByUsuario_Id(USUARIO_ID)).thenReturn(1L);
+
+        ItinerarioResponseDTO response = service.generar(USUARIO_ID);
+
+        assertThat(response.getDias().get(0).getActividades().get(0).getEmpresaId()).isEqualTo(empresaId);
+    }
+
+    @Test
+    void establecimientoRecomendadoSinCoincidenciaNoQuedaVinculado() {
+        Empresa otraEmpresa = Empresa.builder()
+                .id(UUID.randomUUID())
+                .nombreEmpresa("Café Britt")
+                .build();
+        when(empresaRepository.findByEstado(any())).thenReturn(List.of(otraEmpresa));
+
+        PreferenciasViaje preferencias = preferencias();
+        when(preferenciasViajeRepository.findByUsuario_Id(USUARIO_ID)).thenReturn(Optional.of(preferencias));
+        when(itinerarioIaClienteService.generar(any(), eq(2))).thenReturn(
+                new ResultadoGeneracionIA(respuestaValida(2), ResultadoValidacionItinerario.VALIDO_COMPLETO));
+        when(itinerarioRepository.saveAndFlush(any(Itinerario.class))).thenAnswer(i -> i.getArgument(0));
+        when(itinerarioRepository.countByUsuario_Id(USUARIO_ID)).thenReturn(1L);
+
+        ItinerarioResponseDTO response = service.generar(USUARIO_ID);
+
+        assertThat(response.getDias().get(0).getActividades().get(0).getEmpresaId()).isNull();
     }
 
     @Test
