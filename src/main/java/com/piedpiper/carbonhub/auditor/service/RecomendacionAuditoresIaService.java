@@ -8,8 +8,10 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.text.Normalizer;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -84,20 +86,61 @@ public class RecomendacionAuditoresIaService {
                 return Optional.empty();
             }
 
-            // Se mapea por posición y no por nombre: dos auditores podrían llamarse igual, pero el
-            // orden en que se enviaron es único y la IA responde en ese mismo orden.
-            Map<UUID, String> porAuditor = new HashMap<>();
-            for (int i = 0; i < candidatos.size(); i++) {
-                String texto = respuesta.justificaciones().get(i).justificacion();
-                if (texto != null && !texto.isBlank()) {
-                    porAuditor.put(candidatos.get(i).auditorId(), texto.trim());
-                }
-            }
-            return Optional.of(porAuditor);
+            return Optional.of(emparejar(candidatos, respuesta.justificaciones()));
         } catch (Exception e) {
             log.warn("Error generando las justificaciones de la recomendación vía IA: {}", e.getMessage());
             return Optional.empty();
         }
+    }
+
+    /**
+     * Empareja cada justificación con su auditor, y descarta la que no se pueda atribuir con
+     * certeza.
+     *
+     * <p>Emparejar por posición a secas seria confiar en que el modelo respeta el orden en que se
+     * le mandaron los candidatos. Si algún día no lo respeta, cada auditor recibiria la
+     * justificación de otro: texto plausible, atribuido a quien no corresponde, y sin ninguna señal
+     * de que algo salió mal. En una pantalla que existe para ayudar a elegir un auditor, eso es
+     * bastante peor que no mostrar justificación.</p>
+     *
+     * <p>Por eso se comprueba contra el nombre que el propio modelo devuelve. La comparación es
+     * laxa (sin tildes, sin mayúsculas y por prefijo) porque el modelo suele acortar "Ana Mora
+     * Vargas" a "Ana Mora", y descartar por eso seria tirar justificaciones buenas.</p>
+     */
+    Map<UUID, String> emparejar(List<CandidatoIa> candidatos, List<JustificacionIa> justificaciones) {
+        Map<UUID, String> porAuditor = new HashMap<>();
+        for (int i = 0; i < candidatos.size(); i++) {
+            CandidatoIa candidato = candidatos.get(i);
+            JustificacionIa justificacion = justificaciones.get(i);
+            String texto = justificacion.justificacion();
+            if (texto == null || texto.isBlank()) {
+                continue;
+            }
+            if (!mismoAuditor(candidato.nombre(), justificacion.nombre())) {
+                log.warn("La IA devolvió una justificación que no corresponde al candidato en esa posición; "
+                        + "se descarta para no atribuirla a quien no es");
+                continue;
+            }
+            porAuditor.put(candidato.auditorId(), texto.trim());
+        }
+        return porAuditor;
+    }
+
+    /** Un nombre ausente en la respuesta no invalida nada: solo se usa para detectar un cruce. */
+    private boolean mismoAuditor(String nombreCandidato, String nombreRespuesta) {
+        if (nombreRespuesta == null || nombreRespuesta.isBlank()) {
+            return true;
+        }
+        String esperado = normalizar(nombreCandidato);
+        String recibido = normalizar(nombreRespuesta);
+        return esperado.startsWith(recibido) || recibido.startsWith(esperado);
+    }
+
+    private String normalizar(String valor) {
+        return Normalizer.normalize(valor == null ? "" : valor, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .toLowerCase(Locale.ROOT)
+                .trim();
     }
 
     String construirPromptUsuario(String sector, String tipoAuditoria, String zonaGeografica,
