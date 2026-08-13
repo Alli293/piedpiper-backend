@@ -224,7 +224,6 @@ class EcoRutaItinerarioControllerTest {
     void postMensajesConMensajeValidoDevuelve200() throws Exception {
         UUID itinerarioId = UUID.randomUUID();
         UUID usuarioId = UUID.fromString(USUARIO_ID);
-        when(service.perteneceAlUsuario(eq(itinerarioId), eq(usuarioId))).thenReturn(true);
         when(service.refinar(eq(itinerarioId), eq(usuarioId), any())).thenReturn(respuestaRefinamiento());
 
         RefinamientoItinerarioRequestDTO request =
@@ -243,10 +242,44 @@ class EcoRutaItinerarioControllerTest {
     @WithMockUser(username = USUARIO_ID, authorities = "ROLE_USUARIO_INDIVIDUAL")
     void postMensajesConMensajeVacioDevuelve400() throws Exception {
         UUID itinerarioId = UUID.randomUUID();
-        UUID usuarioId = UUID.fromString(USUARIO_ID);
-        when(service.perteneceAlUsuario(eq(itinerarioId), eq(usuarioId))).thenReturn(true);
 
         RefinamientoItinerarioRequestDTO request = new RefinamientoItinerarioRequestDTO("", null);
+
+        mockMvc.perform(post("/api/ecoruta/itinerarios/" + itinerarioId + "/mensajes")
+                        .principal(authentication("ROLE_USUARIO_INDIVIDUAL"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_USUARIO_INDIVIDUAL")
+    void postMensajesConHistorialDemasiadoLargoDevuelve400() throws Exception {
+        UUID itinerarioId = UUID.randomUUID();
+        List<MensajeConversacionDTO> historialEnorme = new java.util.ArrayList<>();
+        for (int i = 0; i < 201; i++) {
+            historialEnorme.add(new MensajeConversacionDTO("USUARIO", "mensaje " + i));
+        }
+        var contexto = new com.piedpiper.carbonhub.ecoruta.models.dtos.ConversacionContextoDTO(
+                itinerarioId, historialEnorme, null);
+        RefinamientoItinerarioRequestDTO request =
+                new RefinamientoItinerarioRequestDTO("Quiero más playas.", contexto);
+
+        mockMvc.perform(post("/api/ecoruta/itinerarios/" + itinerarioId + "/mensajes")
+                        .principal(authentication("ROLE_USUARIO_INDIVIDUAL"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_USUARIO_INDIVIDUAL")
+    void postMensajesConRolInvalidoEnHistorialDevuelve400() throws Exception {
+        UUID itinerarioId = UUID.randomUUID();
+        var contexto = new com.piedpiper.carbonhub.ecoruta.models.dtos.ConversacionContextoDTO(
+                itinerarioId, List.of(new MensajeConversacionDTO("MODERADOR", "hola")), null);
+        RefinamientoItinerarioRequestDTO request =
+                new RefinamientoItinerarioRequestDTO("Quiero más playas.", contexto);
 
         mockMvc.perform(post("/api/ecoruta/itinerarios/" + itinerarioId + "/mensajes")
                         .principal(authentication("ROLE_USUARIO_INDIVIDUAL"))
@@ -260,7 +293,8 @@ class EcoRutaItinerarioControllerTest {
     void postMensajesConItinerarioAjenoDevuelve403ConMensajeExacto() throws Exception {
         UUID itinerarioId = UUID.randomUUID();
         UUID usuarioId = UUID.fromString(USUARIO_ID);
-        when(service.perteneceAlUsuario(eq(itinerarioId), eq(usuarioId))).thenReturn(false);
+        when(service.refinar(eq(itinerarioId), eq(usuarioId), any()))
+                .thenThrow(ApiException.accesoDenegado("No tienes permiso para modificar este itinerario."));
 
         RefinamientoItinerarioRequestDTO request =
                 new RefinamientoItinerarioRequestDTO("Quiero más playas.", null);
@@ -314,7 +348,6 @@ class EcoRutaItinerarioControllerTest {
     void deleteConItinerarioPropioDevuelve204() throws Exception {
         UUID itinerarioId = UUID.randomUUID();
         UUID usuarioId = UUID.fromString(USUARIO_ID);
-        when(service.perteneceAlUsuario(eq(itinerarioId), eq(usuarioId))).thenReturn(true);
         doNothing().when(service).eliminar(eq(itinerarioId), eq(usuarioId));
 
         mockMvc.perform(delete("/api/ecoruta/itinerarios/" + itinerarioId)
@@ -324,28 +357,15 @@ class EcoRutaItinerarioControllerTest {
 
     @Test
     @WithMockUser(username = USUARIO_ID, authorities = "ROLE_USUARIO_INDIVIDUAL")
-    void deleteConItinerarioAjenoDevuelve403ConMensajeExacto() throws Exception {
+    void deleteConItinerarioInexistenteOAjenoDevuelve403ConMensajeExacto() throws Exception {
         UUID itinerarioId = UUID.randomUUID();
         UUID usuarioId = UUID.fromString(USUARIO_ID);
-        when(service.perteneceAlUsuario(eq(itinerarioId), eq(usuarioId))).thenReturn(false);
+        doThrow(ApiException.accesoDenegado("No tienes permiso para modificar este itinerario."))
+                .when(service).eliminar(eq(itinerarioId), eq(usuarioId));
 
         mockMvc.perform(delete("/api/ecoruta/itinerarios/" + itinerarioId)
                         .principal(authentication("ROLE_USUARIO_INDIVIDUAL")))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value("No tienes permiso para modificar este itinerario."));
-    }
-
-    @Test
-    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_USUARIO_INDIVIDUAL")
-    void deleteConItinerarioInexistenteDevuelve404() throws Exception {
-        UUID itinerarioId = UUID.randomUUID();
-        UUID usuarioId = UUID.fromString(USUARIO_ID);
-        when(service.perteneceAlUsuario(eq(itinerarioId), eq(usuarioId))).thenReturn(true);
-        doThrow(ApiException.recursoNoEncontrado("El itinerario solicitado no existe o ya no está disponible."))
-                .when(service).eliminar(eq(itinerarioId), eq(usuarioId));
-
-        mockMvc.perform(delete("/api/ecoruta/itinerarios/" + itinerarioId)
-                        .principal(authentication("ROLE_USUARIO_INDIVIDUAL")))
-                .andExpect(status().isNotFound());
     }
 }

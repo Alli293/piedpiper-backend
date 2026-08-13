@@ -63,23 +63,30 @@ public class EcoRutaItinerarioController {
         return ResponseEntity.ok(service.listar(usuarioId, filtros));
     }
 
-    /** Eliminar itinerario (PP-89) — fuera del AC de la historia, pedido explícito del equipo. */
+    /**
+     * Eliminar itinerario (PP-89) — fuera del AC de la historia, pedido explícito del equipo. La
+     * propiedad se resuelve dentro de {@link EcoRutaItinerarioService#eliminar}, con una sola
+     * consulta — sin chequeo de ownership acá, para no repetir la misma comprobación dos veces
+     * (detalle señalado en revisión, mismo criterio que {@link #refinar}).
+     */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable UUID id, Authentication authentication) {
         UUID usuarioId = Autenticaciones.usuarioId(authentication);
-        verificarPropiedadItinerarioParaModificar(id, usuarioId);
         service.eliminar(id, usuarioId);
         return ResponseEntity.noContent().build();
     }
 
-    /** Conversación continua de refinamiento del itinerario (PP-88). */
+    /**
+     * Conversación continua de refinamiento del itinerario (PP-88). La propiedad se resuelve
+     * dentro de {@link EcoRutaItinerarioService#refinar}, con una sola consulta — sin chequeo de
+     * ownership acá, para no repetir la misma comprobación dos veces.
+     */
     @PostMapping("/{id}/mensajes")
     public ResponseEntity<RefinamientoItinerarioResponseDTO> refinar(
             @PathVariable UUID id,
             @Valid @RequestBody RefinamientoItinerarioRequestDTO request,
             Authentication authentication) {
         UUID usuarioId = Autenticaciones.usuarioId(authentication);
-        verificarPropiedadItinerarioParaModificar(id, usuarioId);
         return ResponseEntity.ok(service.refinar(id, usuarioId, request));
     }
 
@@ -93,17 +100,6 @@ public class EcoRutaItinerarioController {
         if (!service.perteneceAlUsuario(itinerarioId, usuarioId)) {
             log.warn("Acceso denegado a itinerario {} por usuario {}: no es el propietario", itinerarioId, usuarioId);
             throw ApiException.accesoDenegado("No tienes permiso para acceder a este itinerario.");
-        }
-    }
-
-    /**
-     * Misma validación que {@link #verificarPropiedadItinerario}, con el mensaje específico que
-     * pide el AC de PP-88 para un intento de modificación (no solo lectura) de un itinerario ajeno.
-     */
-    private void verificarPropiedadItinerarioParaModificar(UUID itinerarioId, UUID usuarioId) {
-        if (!service.perteneceAlUsuario(itinerarioId, usuarioId)) {
-            log.warn("Intento de modificar itinerario {} por usuario {}: no es el propietario", itinerarioId, usuarioId);
-            throw ApiException.accesoDenegado("No tienes permiso para modificar este itinerario.");
         }
     }
 }

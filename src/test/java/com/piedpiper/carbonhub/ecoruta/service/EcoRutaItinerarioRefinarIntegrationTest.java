@@ -80,7 +80,8 @@ class EcoRutaItinerarioRefinarIntegrationTest {
                 mock(BenchmarkClient.class),
                 mock(PuntuacionAmbientalCalculator.class),
                 mock(EmpresaRepository.class),
-                new ItinerarioMapperImpl());
+                new ItinerarioMapperImpl(),
+                new com.fasterxml.jackson.databind.ObjectMapper());
     }
 
     private Usuario usuarioActivo() {

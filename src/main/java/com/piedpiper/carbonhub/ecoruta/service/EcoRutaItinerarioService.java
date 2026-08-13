@@ -41,6 +41,9 @@ import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.reconocimiento.models.enums.EventoReconocimientoCodigo;
 import com.piedpiper.carbonhub.reconocimiento.service.EventoReconocimientoService;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
@@ -74,6 +77,15 @@ public class EcoRutaItinerarioService {
     /** Tope para que {@code (pagina - 1) * tamanio} nunca desborde el {@code int} que usa Spring Data. */
     static final int PAGINA_MAXIMA = Integer.MAX_VALUE / TAMANIO_PAGINA;
 
+    /**
+     * Cuántos turnos (mensaje del usuario + respuesta del asistente) del historial se incluyen en
+     * el prompt de refinamiento. El cliente puede reenviar toda la conversación acumulada — acá se
+     * usan solo los últimos, para que el prompt no crezca sin límite: sin esto, una conversación
+     * larga (15-20 turnos) sumaba decenas de mensajes al prompt además del JSON del itinerario, y
+     * con el timeout de 10s de Gemini eso se iba poniendo lento hasta fallar.
+     */
+    static final int MAX_TURNOS_HISTORIAL_EN_PROMPT = 10;
+
     private final PreferenciasViajeRepository preferenciasViajeRepository;
     private final ItinerarioRepository itinerarioRepository;
     private final ItinerarioIaClienteService itinerarioIaClienteService;
@@ -87,6 +99,7 @@ public class EcoRutaItinerarioService {
     private final PuntuacionAmbientalCalculator puntuacionCalculator;
     private final EmpresaRepository empresaRepository;
     private final ItinerarioMapper mapper;
+    private final ObjectMapper objectMapper;
 
     public EcoRutaItinerarioService(PreferenciasViajeRepository preferenciasViajeRepository,
                                     ItinerarioRepository itinerarioRepository,
@@ -100,7 +113,8 @@ public class EcoRutaItinerarioService {
                                     BenchmarkClient benchmarkClient,
                                     PuntuacionAmbientalCalculator puntuacionCalculator,
                                     EmpresaRepository empresaRepository,
-                                    ItinerarioMapper mapper) {
+                                    ItinerarioMapper mapper,
+                                    ObjectMapper objectMapper) {
         this.preferenciasViajeRepository = preferenciasViajeRepository;
         this.itinerarioRepository = itinerarioRepository;
         this.itinerarioIaClienteService = itinerarioIaClienteService;
@@ -114,6 +128,7 @@ public class EcoRutaItinerarioService {
         this.puntuacionCalculator = puntuacionCalculator;
         this.empresaRepository = empresaRepository;
         this.mapper = mapper;
+        this.objectMapper = objectMapper;
     }
 
     /**
@@ -207,9 +222,7 @@ public class EcoRutaItinerarioService {
     public PaginaItinerariosResponseDTO listar(UUID usuarioId, FiltrarItinerariosRequestDTO filtros) {
         try {
             Page<Itinerario> pagina = itinerarioRepository.findByUsuario_Id(usuarioId, paginaDe(filtros.getPagina()));
-            List<ItinerarioResumenResponseDTO> contenido = pagina.getContent().stream()
-                    .map(this::aResumen)
-                    .toList();
+            List<ItinerarioResumenResponseDTO> contenido = aResumenes(pagina.getContent());
             return new PaginaItinerariosResponseDTO(
                     contenido, pagina.getTotalElements(), pagina.getNumber() + 1,
                     pagina.getTotalPages(), TAMANIO_PAGINA);
@@ -220,24 +233,46 @@ public class EcoRutaItinerarioService {
     }
 
     /**
-     * Elimina un itinerario del usuario. El controlador ya validó ownership antes de llegar acá
-     * (403 si el itinerario es ajeno); este método solo maneja el caso "no encontrado" con 404.
+     * La propiedad ya se resuelve acá con una sola consulta (403 si el itinerario no existe o no
+     * es del usuario, sin distinguir los dos casos para no confirmarle a nadie que ese id existe),
+     * así que el controlador no necesita un chequeo de ownership propio antes de llamar a este
+     * método.
      */
     @Transactional
     public void eliminar(UUID itinerarioId, UUID usuarioId) {
         Itinerario itinerario = itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, usuarioId)
-                .orElseThrow(() -> ApiException.recursoNoEncontrado(
-                        "El itinerario solicitado no existe o ya no está disponible."));
+                .orElseThrow(() -> {
+                    log.warn("Intento de eliminar itinerario {} por usuario {}: no es el propietario o no existe",
+                            itinerarioId, usuarioId);
+                    return ApiException.accesoDenegado("No tienes permiso para modificar este itinerario.");
+                });
         itinerarioRepository.delete(itinerario);
     }
 
-    private ItinerarioResumenResponseDTO aResumen(Itinerario itinerario) {
-        ItinerarioResumenResponseDTO resumen = mapper.toResumenDto(itinerario);
-        resumen.setProvinciasVisitadas(
-                itinerarioRepository.findProvinciasVisitadasByItinerarioId(itinerario.getId()).stream()
-                        .map(Enum::name)
-                        .toList());
-        return resumen;
+    /**
+     * Arma los resúmenes de una página completa con una sola consulta de provincias (en vez de
+     * una por itinerario, N+1 señalado en revisión) — con la página fija en {@link #TAMANIO_PAGINA}
+     * no era grave, pero tampoco cuesta nada resolverlo de una.
+     */
+    private List<ItinerarioResumenResponseDTO> aResumenes(List<Itinerario> itinerarios) {
+        if (itinerarios.isEmpty()) {
+            return List.of();
+        }
+        List<UUID> ids = itinerarios.stream().map(Itinerario::getId).toList();
+        Map<UUID, List<String>> provinciasPorItinerario = itinerarioRepository
+                .findProvinciasVisitadasPorItinerarios(ids).stream()
+                .collect(Collectors.groupingBy(
+                        ItinerarioRepository.ProvinciaPorItinerario::getItinerarioId,
+                        Collectors.mapping(p -> p.getProvincia().name(), Collectors.toList())));
+
+        return itinerarios.stream()
+                .map(itinerario -> {
+                    ItinerarioResumenResponseDTO resumen = mapper.toResumenDto(itinerario);
+                    resumen.setProvinciasVisitadas(
+                            provinciasPorItinerario.getOrDefault(itinerario.getId(), List.of()));
+                    return resumen;
+                })
+                .toList();
     }
 
     private static Pageable paginaDe(Integer pagina) {
@@ -249,20 +284,32 @@ public class EcoRutaItinerarioService {
     /**
      * Interpreta un mensaje libre del chat de refinamiento (PP-88) y, si corresponde, regenera
      * parcialmente el itinerario. A propósito NO {@code @Transactional} por la misma razón que
-     * {@link #generar}: la llamada a Gemini puede tardar hasta 10s. El controlador ya validó
-     * ownership antes de llegar acá (403), así que este método solo maneja el caso "no encontrado"
-     * con 404 — no debería ocurrir en la práctica dado ese chequeo previo, pero se cubre por si
-     * el itinerario fue borrado entre la validación y esta llamada.
+     * {@link #generar}: la llamada a Gemini puede tardar hasta 10s y no debe retener una conexión
+     * del pool mientras espera. Esto depende de {@code spring.jpa.open-in-view} (deuda conocida,
+     * documentada en {@code CONVENTIONS.md} §12) para que las relaciones lazy usadas más abajo
+     * ({@code itinerario.getUsuario()}, {@code itinerario.getDias()}) sigan resolviendo fuera del
+     * método — separar esto en transacciones cortas de snapshot/guardado es un cambio de mayor
+     * alcance que se deja para una ronda aparte, no silenciosamente: se documenta acá a propósito.
+     *
+     * <p>La propiedad se resuelve en esta misma consulta (403 si el itinerario no existe o no es
+     * del usuario), sin un chequeo de ownership separado en el controlador — evita la doble
+     * consulta que hacía antes.
      */
     public RefinamientoItinerarioResponseDTO refinar(UUID itinerarioId, UUID usuarioId,
                                                        RefinamientoItinerarioRequestDTO request) {
         Itinerario itinerario = itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, usuarioId)
-                .orElseThrow(() -> ApiException.recursoNoEncontrado(
-                        "No fue posible encontrar el itinerario solicitado."));
+                .orElseThrow(() -> {
+                    log.warn("Intento de modificar itinerario {} por usuario {}: no es el propietario o no existe",
+                            itinerarioId, usuarioId);
+                    return ApiException.accesoDenegado("No tienes permiso para modificar este itinerario.");
+                });
+
+        validarContextoConversacional(itinerarioId, itinerario, request.getContextoConversacional());
 
         List<MensajeConversacionDTO> historialPrevio = obtenerHistorialPrevio(request.getContextoConversacional());
 
-        String contexto = construirContextoRefinamiento(itinerario, historialPrevio, request.getMensajeUsuario());
+        String contexto = construirContextoRefinamiento(
+                itinerario, ultimosTurnos(historialPrevio), request.getMensajeUsuario());
 
         ResultadoRefinamientoIA resultadoIA = itinerarioIaClienteService.refinar(
                 contexto, itinerario.getCantidadDias());
@@ -349,32 +396,68 @@ public class EcoRutaItinerarioService {
         return sb.toString();
     }
 
+    /** Shape mínimo del itinerario actual que se serializa hacia el prompt de refinamiento. */
+    private record ActividadPromptDTO(String id, String nombre, String horario,
+                                       String establecimientoRecomendado, String provincia) { }
+
+    private record DiaPromptDTO(int numeroDia, List<ActividadPromptDTO> actividades) { }
+
+    private record ItinerarioPromptDTO(List<DiaPromptDTO> dias) { }
+
+    /**
+     * Antes armaba el JSON a mano con un {@code StringBuilder} y solo escapaba comillas — no
+     * saltos de línea ni backslashes. Serializar con Jackson (ya dependencia del proyecto) evita
+     * prompts malformados sin tener que reinventar el escape de JSON.
+     */
     private String serializarItinerarioParaPrompt(Itinerario itinerario) {
-        StringBuilder sb = new StringBuilder("{\"dias\":[");
-        List<ItinerarioDia> dias = itinerario.getDias();
-        for (int i = 0; i < dias.size(); i++) {
-            ItinerarioDia dia = dias.get(i);
-            sb.append("{\"numeroDia\":").append(dia.getNumeroDia()).append(",\"actividades\":[");
-            List<ItinerarioActividad> actividades = dia.getActividades();
-            for (int j = 0; j < actividades.size(); j++) {
-                ItinerarioActividad actividad = actividades.get(j);
-                sb.append("{\"id\":\"").append(actividad.getId()).append("\",")
-                        .append("\"nombre\":\"").append(escaparJson(actividad.getNombre())).append("\",")
-                        .append("\"horario\":\"").append(actividad.getHorario()).append("\",")
-                        .append("\"establecimientoRecomendado\":\"")
-                        .append(escaparJson(actividad.getEstablecimientoRecomendado())).append("\",")
-                        .append("\"provincia\":\"").append(actividad.getProvincia()).append("\"}");
-                if (j < actividades.size() - 1) sb.append(",");
-            }
-            sb.append("]}");
-            if (i < dias.size() - 1) sb.append(",");
+        List<DiaPromptDTO> dias = itinerario.getDias().stream()
+                .map(dia -> new DiaPromptDTO(dia.getNumeroDia(), dia.getActividades().stream()
+                        .map(actividad -> new ActividadPromptDTO(
+                                String.valueOf(actividad.getId()),
+                                actividad.getNombre(),
+                                String.valueOf(actividad.getHorario()),
+                                actividad.getEstablecimientoRecomendado(),
+                                String.valueOf(actividad.getProvincia())))
+                        .toList()))
+                .toList();
+        try {
+            return objectMapper.writeValueAsString(new ItinerarioPromptDTO(dias));
+        } catch (JsonProcessingException e) {
+            log.error("No fue posible serializar el itinerario {} para el prompt de refinamiento.",
+                    itinerario.getId(), e);
+            throw ApiException.errorInterno("No fue posible actualizar el itinerario. Intenta nuevamente.");
         }
-        sb.append("]}");
-        return sb.toString();
     }
 
-    private String escaparJson(String texto) {
-        return texto == null ? "" : texto.replace("\"", "'");
+    /** Solo incluye los últimos {@link #MAX_TURNOS_HISTORIAL_EN_PROMPT} turnos en el prompt. */
+    private List<MensajeConversacionDTO> ultimosTurnos(List<MensajeConversacionDTO> historial) {
+        int maxMensajes = MAX_TURNOS_HISTORIAL_EN_PROMPT * 2;
+        if (historial.size() <= maxMensajes) {
+            return historial;
+        }
+        return historial.subList(historial.size() - maxMensajes, historial.size());
+    }
+
+    /**
+     * Valida el contexto conversacional que el cliente reenvía contra el itinerario recién
+     * cargado: un {@code itinerarioId} de otro itinerario (400) o una {@code versionItinerario}
+     * vieja (409) no deberían usarse para armar el prompt ni terminar pisando cambios más
+     * recientes hechos desde otra pestaña o sesión. Ambos campos son opcionales — un cliente que
+     * todavía no los mande (primer mensaje de la sesión) no se bloquea por esto.
+     */
+    private void validarContextoConversacional(UUID itinerarioId, Itinerario itinerario,
+                                                 ConversacionContextoDTO contexto) {
+        if (contexto == null) {
+            return;
+        }
+        if (contexto.getItinerarioId() != null && !contexto.getItinerarioId().equals(itinerarioId)) {
+            throw ApiException.datosInvalidos(
+                    "El contexto de la conversación no corresponde a este itinerario.");
+        }
+        if (contexto.getVersionItinerario() != null
+                && !contexto.getVersionItinerario().equals(itinerario.getVersion())) {
+            throw ApiException.itinerarioVersionDesactualizada();
+        }
     }
 
     /**

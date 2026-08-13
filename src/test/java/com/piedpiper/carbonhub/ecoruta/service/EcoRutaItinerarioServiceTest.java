@@ -35,6 +35,7 @@ import com.piedpiper.carbonhub.user.models.enums.Rol;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataAccessResourceFailureException;
@@ -100,7 +101,7 @@ class EcoRutaItinerarioServiceTest {
                 mock(ImaClient.class),
                 mock(BenchmarkClient.class),
                 mock(PuntuacionAmbientalCalculator.class),
-                empresaRepository, mapper);
+                empresaRepository, mapper, new com.fasterxml.jackson.databind.ObjectMapper());
 
         // Stub default para empresaRepository usado en extraerEstablecimientosRankeados
         lenient().when(empresaRepository.findByEstado(any()))
@@ -544,15 +545,87 @@ class EcoRutaItinerarioServiceTest {
     }
 
     @Test
-    void refinarConItinerarioInexistenteLanza404() {
+    void refinarConItinerarioInexistenteOAjenoLanza403ConMensajeExacto() {
         UUID itinerarioId = UUID.randomUUID();
         when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.refinar(itinerarioId, USUARIO_ID, mensaje("Quiero más playas.")))
                 .isInstanceOf(ApiException.class)
-                .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.NOT_FOUND));
+                .satisfies(ex -> {
+                    assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.FORBIDDEN);
+                    assertThat(ex.getMessage()).isEqualTo("No tienes permiso para modificar este itinerario.");
+                });
 
         verify(itinerarioIaClienteService, never()).refinar(any(), anyInt());
+    }
+
+    @Test
+    void refinarConContextoDeOtroItinerarioLanza400() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioExistente(itinerarioId);
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+
+        var contexto = new com.piedpiper.carbonhub.ecoruta.models.dtos.ConversacionContextoDTO(
+                UUID.randomUUID(), List.of(), null);
+        var request = new RefinamientoItinerarioRequestDTO("Quiero más playas.", contexto);
+
+        assertThatThrownBy(() -> service.refinar(itinerarioId, USUARIO_ID, request))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
+
+        verify(itinerarioIaClienteService, never()).refinar(any(), anyInt());
+    }
+
+    @Test
+    void refinarConVersionDesactualizadaLanza409() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioExistente(itinerarioId);
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+
+        var contexto = new com.piedpiper.carbonhub.ecoruta.models.dtos.ConversacionContextoDTO(
+                itinerarioId, List.of(), itinerario.getVersion() + 1);
+        var request = new RefinamientoItinerarioRequestDTO("Quiero más playas.", contexto);
+
+        assertThatThrownBy(() -> service.refinar(itinerarioId, USUARIO_ID, request))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.CONFLICT));
+
+        verify(itinerarioIaClienteService, never()).refinar(any(), anyInt());
+    }
+
+    @Test
+    void refinarConHistorialLargoSoloUsaLosUltimosTurnosEnElPrompt() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioExistente(itinerarioId);
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+        RefinamientoIaResponseDTO respuestaIa = new RefinamientoIaResponseDTO(
+                true, "¿A qué actividad te referís?", null, null);
+        when(itinerarioIaClienteService.refinar(any(), anyInt())).thenReturn(
+                new ResultadoRefinamientoIA(respuestaIa, ResultadoValidacionItinerario.VALIDO_COMPLETO));
+
+        List<com.piedpiper.carbonhub.ecoruta.models.dtos.MensajeConversacionDTO> historialLargo =
+                new ArrayList<>();
+        for (int i = 1; i <= 15; i++) {
+            historialLargo.add(new com.piedpiper.carbonhub.ecoruta.models.dtos.MensajeConversacionDTO(
+                    "USUARIO", "mensaje-turno-" + i));
+            historialLargo.add(new com.piedpiper.carbonhub.ecoruta.models.dtos.MensajeConversacionDTO(
+                    "ASISTENTE", "respuesta-turno-" + i));
+        }
+        var contexto = new com.piedpiper.carbonhub.ecoruta.models.dtos.ConversacionContextoDTO(
+                itinerarioId, historialLargo, itinerario.getVersion());
+        var request = new RefinamientoItinerarioRequestDTO("Último mensaje.", contexto);
+
+        ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+
+        RefinamientoItinerarioResponseDTO response = service.refinar(itinerarioId, USUARIO_ID, request);
+
+        verify(itinerarioIaClienteService).refinar(promptCaptor.capture(), anyInt());
+        assertThat(promptCaptor.getValue()).doesNotContain("mensaje-turno-1\n");
+        assertThat(promptCaptor.getValue()).contains("mensaje-turno-15");
+        assertThat(response.getHistorialMensajes()).hasSize(32); // 15 turnos (30) + el nuevo turno (2)
     }
 
     // --- listar (PP-89) ---
@@ -582,10 +655,12 @@ class EcoRutaItinerarioServiceTest {
                         Sort.by(Sort.Direction.DESC, "fechaGeneracion")),
                 2);
         when(itinerarioRepository.findByUsuario_Id(eq(USUARIO_ID), any())).thenReturn(pagina);
-        when(itinerarioRepository.findProvinciasVisitadasByItinerarioId(itin1.getId()))
-                .thenReturn(List.of(com.piedpiper.carbonhub.ecoruta.models.enums.Provincia.PUNTARENAS));
-        when(itinerarioRepository.findProvinciasVisitadasByItinerarioId(itin2.getId()))
-                .thenReturn(List.of());
+        var filaProvincia = org.mockito.Mockito.mock(ItinerarioRepository.ProvinciaPorItinerario.class);
+        when(filaProvincia.getItinerarioId()).thenReturn(itin1.getId());
+        when(filaProvincia.getProvincia())
+                .thenReturn(com.piedpiper.carbonhub.ecoruta.models.enums.Provincia.PUNTARENAS);
+        when(itinerarioRepository.findProvinciasVisitadasPorItinerarios(List.of(itin1.getId(), itin2.getId())))
+                .thenReturn(List.of(filaProvincia));
 
         PaginaItinerariosResponseDTO respuesta = service.listar(USUARIO_ID, new FiltrarItinerariosRequestDTO(1));
 
@@ -625,16 +700,16 @@ class EcoRutaItinerarioServiceTest {
     }
 
     @Test
-    void eliminarConItinerarioInexistenteLanza404ConMensajeExacto() {
+    void eliminarConItinerarioInexistenteOAjenoLanza403ConMensajeExacto() {
         UUID itinerarioId = UUID.randomUUID();
         when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.eliminar(itinerarioId, USUARIO_ID))
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> {
-                    assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.NOT_FOUND);
+                    assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.FORBIDDEN);
                     assertThat(ex.getMessage()).isEqualTo(
-                            "El itinerario solicitado no existe o ya no está disponible.");
+                            "No tienes permiso para modificar este itinerario.");
                 });
 
         verify(itinerarioRepository, never()).delete(any());

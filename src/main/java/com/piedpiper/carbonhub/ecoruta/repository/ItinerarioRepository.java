@@ -30,13 +30,23 @@ public interface ItinerarioRepository extends JpaRepository<Itinerario, UUID> {
     List<Provincia> findProvinciasVisitadasByUsuarioId(@Param("usuarioId") UUID usuarioId);
 
     /**
-     * Provincias distinct de un único itinerario — usado por el listado (PP-89) para armar el
-     * título de cada tarjeta sin traer las actividades completas.
+     * Provincias distinct de un conjunto de itinerarios, en una sola consulta — usada por el
+     * listado (PP-89) para armar el título de cada tarjeta sin traer las actividades completas.
+     * Reemplaza una versión anterior de un solo itinerario que el listado llamaba una vez por
+     * fila (N+1 con página fija de 12, señalado en revisión).
      */
     @Query("""
-            select distinct a.provincia
+            select i.id as itinerarioId, a.provincia as provincia
             from Itinerario i join i.dias d join d.actividades a
-            where i.id = :itinerarioId
+            where i.id in :itinerarioIds
+            group by i.id, a.provincia
             """)
-    List<Provincia> findProvinciasVisitadasByItinerarioId(@Param("itinerarioId") UUID itinerarioId);
+    List<ProvinciaPorItinerario> findProvinciasVisitadasPorItinerarios(
+            @Param("itinerarioIds") List<UUID> itinerarioIds);
+
+    /** Proyección de {@link #findProvinciasVisitadasPorItinerarios}. */
+    interface ProvinciaPorItinerario {
+        UUID getItinerarioId();
+        Provincia getProvincia();
+    }
 }
