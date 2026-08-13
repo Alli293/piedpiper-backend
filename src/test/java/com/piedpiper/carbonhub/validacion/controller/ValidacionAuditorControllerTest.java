@@ -4,9 +4,12 @@ import com.piedpiper.carbonhub.auth.config.SecurityConfig;
 import com.piedpiper.carbonhub.auth.service.JwtService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
+import com.piedpiper.carbonhub.validacion.models.dtos.DocumentoCredencialResumenResponseDTO;
 import com.piedpiper.carbonhub.validacion.models.dtos.PaginaSolicitudesResponseDTO;
+import com.piedpiper.carbonhub.validacion.models.dtos.SolicitudDetalleResponseDTO;
 import com.piedpiper.carbonhub.validacion.models.dtos.SolicitudPendienteResponseDTO;
 import com.piedpiper.carbonhub.validacion.models.dtos.SolicitudResueltaResponseDTO;
+import com.piedpiper.carbonhub.validacion.models.entities.DocumentoCredencialAuditor;
 import com.piedpiper.carbonhub.validacion.service.ValidacionAuditorService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +19,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -23,6 +27,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -32,6 +37,8 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -140,5 +147,59 @@ class ValidacionAuditorControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void obtenerDetalleDevuelve200ConElPerfilYLosDocumentos() throws Exception {
+        UUID solicitudId = UUID.randomUUID();
+        when(validacionAuditorService.obtenerDetalle(any(), any())).thenReturn(new SolicitudDetalleResponseDTO(
+                solicitudId, "Ana Mora", "ana@correo.com", "PENDIENTE", Instant.now(), 8,
+                List.of("AGROINDUSTRIA", "MANUFACTURA"), "Descripción profesional", null,
+                List.of(new DocumentoCredencialResumenResponseDTO(UUID.randomUUID(), "cert.pdf", 1024L))));
+
+        mockMvc.perform(get("/api/admin/solicitudes-auditor/" + solicitudId).principal(AUTHENTICATION))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nombreAuditor").value("Ana Mora"))
+                .andExpect(jsonPath("$.especialidades[0]").value("AGROINDUSTRIA"))
+                .andExpect(jsonPath("$.documentos[0].nombreArchivo").value("cert.pdf"))
+                .andExpect(jsonPath("$.documentos[0].contenido").doesNotExist());
+    }
+
+    @Test
+    void obtenerDetalleDeSolicitudInexistenteDevuelve404() throws Exception {
+        when(validacionAuditorService.obtenerDetalle(any(), any()))
+                .thenThrow(ApiException.solicitudNoEncontrada());
+
+        mockMvc.perform(get("/api/admin/solicitudes-auditor/" + UUID.randomUUID()).principal(AUTHENTICATION))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void descargarDocumentoDevuelveElPdfComoAdjunto() throws Exception {
+        when(validacionAuditorService.obtenerDocumento(any(), any(), any())).thenReturn(
+                DocumentoCredencialAuditor.builder()
+                        .nombreArchivo("cert.pdf")
+                        .tipoContenido("application/pdf")
+                        .contenido("%PDF-1.4 contenido".getBytes(StandardCharsets.UTF_8))
+                        .build());
+
+        mockMvc.perform(get("/api/admin/solicitudes-auditor/" + UUID.randomUUID()
+                        + "/documentos/" + UUID.randomUUID())
+                        .principal(AUTHENTICATION))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_PDF))
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION,
+                        org.hamcrest.Matchers.containsString("cert.pdf")));
+    }
+
+    @Test
+    void descargarDocumentoDeOtraSolicitudDevuelve404() throws Exception {
+        when(validacionAuditorService.obtenerDocumento(any(), any(), any()))
+                .thenThrow(ApiException.documentoCredencialNoEncontrado());
+
+        mockMvc.perform(get("/api/admin/solicitudes-auditor/" + UUID.randomUUID()
+                        + "/documentos/" + UUID.randomUUID())
+                        .principal(AUTHENTICATION))
+                .andExpect(status().isNotFound());
     }
 }

@@ -74,4 +74,23 @@ class ValidacionAuditorControllerSecurityTest {
 
         verify(validacionAuditorService, never()).resolver(any(), any(), any());
     }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
+    void obtenerDetalleConRolNoAdminPlataformaDevuelve403() throws Exception {
+        mockMvc.perform(get("/api/admin/solicitudes-auditor/" + UUID.randomUUID()))
+                .andExpect(status().isForbidden());
+
+        verify(validacionAuditorService, never()).obtenerDetalle(any(), any());
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
+    void descargarDocumentoConRolNoAdminPlataformaDevuelve403() throws Exception {
+        mockMvc.perform(get("/api/admin/solicitudes-auditor/" + UUID.randomUUID()
+                        + "/documentos/" + UUID.randomUUID()))
+                .andExpect(status().isForbidden());
+
+        verify(validacionAuditorService, never()).obtenerDocumento(any(), any(), any());
+    }
 }

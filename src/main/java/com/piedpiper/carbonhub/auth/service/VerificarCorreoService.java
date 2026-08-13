@@ -7,9 +7,6 @@ import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
 import com.piedpiper.carbonhub.user.models.enums.Rol;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
-import com.piedpiper.carbonhub.validacion.models.entities.SolicitudValidacion;
-import com.piedpiper.carbonhub.validacion.models.enums.EstadoSolicitud;
-import com.piedpiper.carbonhub.validacion.repository.SolicitudValidacionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -31,14 +28,11 @@ public class VerificarCorreoService {
             "Si tu cuenta requiere verificación, te enviamos un nuevo enlace.";
 
     private final UsuarioRepository usuarioRepository;
-    private final SolicitudValidacionRepository solicitudValidacionRepository;
     private final EnvioCorreoVerificacionService envioCorreoVerificacionService;
 
     public VerificarCorreoService(UsuarioRepository usuarioRepository,
-                                  SolicitudValidacionRepository solicitudValidacionRepository,
                                   EnvioCorreoVerificacionService envioCorreoVerificacionService) {
         this.usuarioRepository = usuarioRepository;
-        this.solicitudValidacionRepository = solicitudValidacionRepository;
         this.envioCorreoVerificacionService = envioCorreoVerificacionService;
     }
 
@@ -70,14 +64,6 @@ public class VerificarCorreoService {
             usuario.setTokenVerificacionHash(null);
             usuario.setTokenVerificacionExpiracion(null);
             usuarioRepository.saveAndFlush(usuario);
-
-            if (esAuditor) {
-                solicitudValidacionRepository.save(SolicitudValidacion.builder()
-                        .auditor(usuario)
-                        .estado(EstadoSolicitud.PENDIENTE)
-                        .fechaSolicitud(Instant.now())
-                        .build());
-            }
         } catch (Exception e) {
             log.error("Error inesperado al verificar el correo del usuario {}", usuario.getId(), e);
             throw ApiException.errorInterno("No se pudo verificar tu correo. Intenta nuevamente.");
@@ -138,8 +124,8 @@ public class VerificarCorreoService {
 
     private String mensajeDeExito(Rol rol) {
         if (rol == Rol.AUDITOR_CERTIFICADO) {
-            return "Tu correo fue verificado. Tu cuenta de auditor está en revisión; "
-                    + "te avisaremos cuando el administrador la apruebe.";
+            return "Tu correo fue verificado. Inicia sesión para completar tu configuración inicial "
+                    + "y enviar tus credenciales profesionales.";
         }
         return "Tu correo fue verificado. Ya puedes iniciar sesión.";
     }

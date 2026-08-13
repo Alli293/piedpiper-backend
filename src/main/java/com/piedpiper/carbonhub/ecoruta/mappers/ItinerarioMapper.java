@@ -33,6 +33,8 @@ public interface ItinerarioMapper {
 
     @Mapping(target = "moneda",
             expression = "java(entidad.getMoneda() != null ? entidad.getMoneda().name() : null)")
+    @Mapping(target = "empresaId",
+            expression = "java(entidad.getEmpresa() != null ? entidad.getEmpresa().getId() : null)")
     @Mapping(target = "provincia", expression = "java(entidad.getProvincia().name())")
     @Mapping(target = "puntuacionAmbiental", ignore = true)
     ItinerarioActividadResponseDTO toDto(ItinerarioActividad entidad);

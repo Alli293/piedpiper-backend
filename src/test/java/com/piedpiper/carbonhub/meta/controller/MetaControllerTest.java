@@ -2,9 +2,13 @@ package com.piedpiper.carbonhub.meta.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -171,6 +175,90 @@ class MetaControllerTest {
     @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
     void getRolNoAutorizadoDevuelve403() throws Exception {
         mockMvc.perform(get("/api/metas")
+                        .principal(principal("ROLE_AUDITOR_CERTIFICADO")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("No tiene permisos para realizar esta acción."));
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
+    void putValidoRetornaOk() throws Exception {
+        UUID metaId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        CrearMetaRequestDTO request = new CrearMetaRequestDTO(
+                "Meta renombrada", new BigDecimal("80.0000"), LocalDate.of(2027, 12, 31));
+        when(metaService.actualizar(eq(UUID.fromString(USUARIO_ID)), eq(metaId), any(CrearMetaRequestDTO.class)))
+                .thenReturn(metaResponse());
+
+        mockMvc.perform(put("/api/metas/{id}", metaId)
+                        .principal(principal("ROLE_ADMINISTRADOR_EMPRESA"))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nombreMeta").value("Reducir huella total"));
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
+    void putSobreUnaMetaInexistenteDevuelve404() throws Exception {
+        UUID metaId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        CrearMetaRequestDTO request = new CrearMetaRequestDTO(
+                "Meta renombrada", new BigDecimal("80.0000"), LocalDate.of(2027, 12, 31));
+        when(metaService.actualizar(eq(UUID.fromString(USUARIO_ID)), eq(metaId), any(CrearMetaRequestDTO.class)))
+                .thenThrow(ApiException.recursoNoEncontrado("No se encontró la meta solicitada."));
+
+        mockMvc.perform(put("/api/metas/{id}", metaId)
+                        .principal(principal("ROLE_ADMINISTRADOR_EMPRESA"))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("No se encontró la meta solicitada."));
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
+    void putRolNoAutorizadoDevuelve403() throws Exception {
+        UUID metaId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        CrearMetaRequestDTO request = new CrearMetaRequestDTO(
+                "Meta renombrada", new BigDecimal("80.0000"), LocalDate.of(2027, 12, 31));
+
+        mockMvc.perform(put("/api/metas/{id}", metaId)
+                        .principal(principal("ROLE_AUDITOR_CERTIFICADO"))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("No tiene permisos para realizar esta acción."));
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
+    void deleteValidoRetornaNoContent() throws Exception {
+        UUID metaId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        doNothing().when(metaService).eliminar(UUID.fromString(USUARIO_ID), metaId);
+
+        mockMvc.perform(delete("/api/metas/{id}", metaId)
+                        .principal(principal("ROLE_ADMINISTRADOR_EMPRESA")))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
+    void deleteSobreUnaMetaInexistenteDevuelve404() throws Exception {
+        UUID metaId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        doThrow(ApiException.recursoNoEncontrado("No se encontró la meta solicitada."))
+                .when(metaService).eliminar(UUID.fromString(USUARIO_ID), metaId);
+
+        mockMvc.perform(delete("/api/metas/{id}", metaId)
+                        .principal(principal("ROLE_ADMINISTRADOR_EMPRESA")))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("No se encontró la meta solicitada."));
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
+    void deleteRolNoAutorizadoDevuelve403() throws Exception {
+        UUID metaId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+
+        mockMvc.perform(delete("/api/metas/{id}", metaId)
                         .principal(principal("ROLE_AUDITOR_CERTIFICADO")))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value("No tiene permisos para realizar esta acción."));

@@ -145,6 +145,11 @@ public class ApiException extends RuntimeException {
                 "Debes completar la configuración de tu empresa antes de invitar colaboradores.");
     }
 
+    public static ApiException empresaDeInvitacionNoEncontrada() {
+        return new ApiException(HttpStatus.NOT_FOUND,
+                "La empresa asociada a la invitación no existe.");
+    }
+
     public static ApiException invitacionNoEncontrada() {
         return new ApiException(HttpStatus.NOT_FOUND,
                 "La invitación no existe.");
@@ -173,6 +178,11 @@ public class ApiException extends RuntimeException {
     public static ApiException invitacionYaUtilizada() {
         return new ApiException(HttpStatus.CONFLICT,
                 "Esta invitación ya fue utilizada.");
+    }
+
+    public static ApiException limiteInvitacionesExcedido() {
+        return new ApiException(HttpStatus.TOO_MANY_REQUESTS,
+                "Alcanzaste el límite de invitaciones por hora. Intenta nuevamente más tarde.");
     }
 
     public static ApiException solicitudNoEncontrada() {
@@ -279,6 +289,12 @@ public class ApiException extends RuntimeException {
     public static ApiException itinerarioGeneracionesExcedidas() {
         return new ApiException(HttpStatus.TOO_MANY_REQUESTS,
                 "Has alcanzado el límite de itinerarios generados. Intenta de nuevo en una hora.");
+    }
+
+    /** Rate limit del chat de refinamiento (PP-88) — ver {@code ItinerarioCuotaService.reservarRefinamiento}. */
+    public static ApiException itinerarioRefinamientosExcedidos() {
+        return new ApiException(HttpStatus.TOO_MANY_REQUESTS,
+                "Has alcanzado el límite de mensajes de ajuste. Intenta de nuevo en una hora.");
     }
 
     /**
@@ -509,5 +525,47 @@ public class ApiException extends RuntimeException {
     public static ApiException fechaLimiteMetaInvalida() {
         return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
                 "La fecha límite debe ser una fecha futura.");
+    }
+
+    public static ApiException configuracionAuditorNoDisponible() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Esta acción solo está disponible mientras tu cuenta de auditor está pendiente "
+                        + "de validación y no has completado tu configuración inicial.");
+    }
+
+    public static ApiException solicitudValidacionNoEncontrada() {
+        return new ApiException(HttpStatus.NOT_FOUND,
+                "No se encontró una solicitud de validación para tu cuenta.");
+    }
+
+    public static ApiException documentoCredencialNoEncontrado() {
+        return new ApiException(HttpStatus.NOT_FOUND,
+                "Este documento no fue encontrado.");
+    }
+
+    public static ApiException documentoCredencialMetadatosInvalidos(int posicion) {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "El documento #" + posicion + " no tiene un nombre de archivo o tipo de contenido "
+                        + "válido. Intenta subirlo de nuevo.");
+    }
+
+    public static ApiException documentosCredencialesRequeridos() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Debes adjuntar al menos un documento de credencial.");
+    }
+
+    public static ApiException documentosCredencialesExcedenMaximo() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Puedes adjuntar un máximo de 10 documentos.");
+    }
+
+    public static ApiException documentoCredencialExcedeTamanio() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "El archivo no puede superar 15 MB.");
+    }
+
+    public static ApiException documentoCredencialNoEsPdf() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Solo se aceptan archivos en formato PDF.");
     }
 }

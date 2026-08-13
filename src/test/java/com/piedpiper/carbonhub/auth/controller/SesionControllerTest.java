@@ -23,7 +23,6 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -100,7 +99,9 @@ class SesionControllerTest {
         when(verificarCorreoService.verificar(tokenValido))
                 .thenReturn(new MensajeResponseDTO("Tu correo fue verificado. Ya puedes iniciar sesión."));
 
-        mockMvc.perform(get("/api/auth/verificar-correo").param("token", tokenValido))
+        mockMvc.perform(post("/api/auth/verificar-correo")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"" + tokenValido + "\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.mensaje").value("Tu correo fue verificado. Ya puedes iniciar sesión."));
     }
@@ -111,16 +112,17 @@ class SesionControllerTest {
         when(verificarCorreoService.verificar(token))
                 .thenThrow(ApiException.tokenVerificacionInvalido());
 
-        mockMvc.perform(get("/api/auth/verificar-correo").param("token", token))
+        mockMvc.perform(post("/api/auth/verificar-correo")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"" + token + "\"}"))
                 .andExpect(status().isGone());
     }
 
     @Test
     void verificarCorreoConTokenMalFormadoDevuelve400() throws Exception {
-        when(verificarCorreoService.verificar("token-corto"))
-                .thenThrow(ApiException.tokenVerificacionMalFormado());
-
-        mockMvc.perform(get("/api/auth/verificar-correo").param("token", "token-corto"))
+        mockMvc.perform(post("/api/auth/verificar-correo")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"token-corto\"}"))
                 .andExpect(status().isBadRequest());
     }
 
@@ -130,7 +132,9 @@ class SesionControllerTest {
         when(verificarCorreoService.verificar(token))
                 .thenThrow(ApiException.correoYaVerificado());
 
-        mockMvc.perform(get("/api/auth/verificar-correo").param("token", token))
+        mockMvc.perform(post("/api/auth/verificar-correo")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"" + token + "\"}"))
                 .andExpect(status().isConflict());
     }
 

@@ -7,9 +7,6 @@ import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
 import com.piedpiper.carbonhub.user.models.enums.Rol;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
-import com.piedpiper.carbonhub.validacion.models.entities.SolicitudValidacion;
-import com.piedpiper.carbonhub.validacion.models.enums.EstadoSolicitud;
-import com.piedpiper.carbonhub.validacion.repository.SolicitudValidacionRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -39,8 +36,6 @@ class VerificarCorreoServiceTest {
 
     @Mock
     private UsuarioRepository usuarioRepository;
-    @Mock
-    private SolicitudValidacionRepository solicitudValidacionRepository;
     @Mock
     private EnvioCorreoVerificacionService envioCorreoVerificacionService;
 
@@ -78,11 +73,10 @@ class VerificarCorreoServiceTest {
         assertThat(guardado.getTokenVerificacionHash()).isNull();
         assertThat(guardado.getTokenVerificacionExpiracion()).isNull();
         assertThat(response.getMensaje()).isEqualTo("Tu correo fue verificado. Ya puedes iniciar sesión.");
-        verify(solicitudValidacionRepository, never()).save(any());
     }
 
     @Test
-    void tokenValidoAuditorQuedaPendienteDeValidacionYCreaLaSolicitud() {
+    void tokenValidoAuditorQuedaPendienteDeValidacionSinCrearSolicitudTodavia() {
         Usuario usuario = usuarioPendiente(Rol.AUDITOR_CERTIFICADO, TOKEN_VALIDO,
                 Instant.now().plus(Duration.ofHours(1)));
         when(usuarioRepository.findByTokenVerificacionHashForUpdate(TokenVerificacionGenerator.hash(TOKEN_VALIDO)))
@@ -95,14 +89,9 @@ class VerificarCorreoServiceTest {
         verify(usuarioRepository).saveAndFlush(captor.capture());
         assertThat(captor.getValue().getEstado()).isEqualTo(EstadoUsuario.PENDIENTE_VALIDACION);
 
-        ArgumentCaptor<SolicitudValidacion> solicitudCaptor = ArgumentCaptor.forClass(SolicitudValidacion.class);
-        verify(solicitudValidacionRepository).save(solicitudCaptor.capture());
-        SolicitudValidacion solicitud = solicitudCaptor.getValue();
-        assertThat(solicitud.getAuditor()).isEqualTo(usuario);
-        assertThat(solicitud.getEstado()).isEqualTo(EstadoSolicitud.PENDIENTE);
-        assertThat(solicitud.getFechaSolicitud()).isNotNull();
-
-        assertThat(response.getMensaje()).contains("en revisión");
+        // La SolicitudValidacion ahora se crea al completar la configuración inicial
+        // (ConfiguracionInicialAuditorService), no en la verificación de correo.
+        assertThat(response.getMensaje()).contains("configuración inicial");
     }
 
     @Test

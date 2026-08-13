@@ -4,6 +4,7 @@ import com.piedpiper.carbonhub.auditoria.models.entities.DocumentoRespaldo;
 import com.piedpiper.carbonhub.auditoria.service.DocumentoRespaldoDescargaService;
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
 import com.piedpiper.carbonhub.auth.service.JwtService;
+import com.piedpiper.carbonhub.common.NombresArchivo;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
@@ -118,7 +119,7 @@ class DocumentoRespaldoControllerTest {
 
         mockMvc.perform(peticion())
                 .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION,
-                        org.hamcrest.Matchers.containsString(DocumentoRespaldoController.NOMBRE_POR_DEFECTO)));
+                        org.hamcrest.Matchers.containsString(NombresArchivo.NOMBRE_POR_DEFECTO)));
     }
 
     @Test
