@@ -26,6 +26,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -189,6 +190,74 @@ class MetaServiceTest {
         assertThatThrownBy(() -> service.listar(USUARIO_ID, "mes_actual", anioInvalido))
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
+    }
+
+    @Test
+    void actualizarModificaLosCamposYRecalculaElProgreso() {
+        UUID metaId = UUID.randomUUID();
+        Meta meta = metaActiva(new BigDecimal("50.0000"), HOY.plusMonths(3));
+        meta.setId(metaId);
+        CrearMetaRequestDTO request = new CrearMetaRequestDTO(
+                "Meta renombrada", new BigDecimal("80.0000"), HOY.plusMonths(6));
+        when(metaRepository.findByIdAndEmpresaId(metaId, EMPRESA_ID)).thenReturn(Optional.of(meta));
+        when(metaRepository.save(any(Meta.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(emisionRepository.sumCarbonKgByEmpresaIdAndFechaActividadEntre(eq(EMPRESA_ID), any(), any()))
+                .thenReturn(BigDecimal.ZERO);
+
+        MetaResponseDTO resultado = service.actualizar(USUARIO_ID, metaId, request);
+
+        assertThat(resultado.getNombreMeta()).isEqualTo("Meta renombrada");
+        assertThat(resultado.getValorObjetivoHuellaT()).isEqualByComparingTo("80.0000");
+        assertThat(resultado.getFechaLimite()).isEqualTo(HOY.plusMonths(6));
+    }
+
+    @Test
+    void actualizarConFechaLimitePasadaLanzaApiException422SinGuardarNada() {
+        UUID metaId = UUID.randomUUID();
+        CrearMetaRequestDTO request = new CrearMetaRequestDTO(
+                "Meta invalida", new BigDecimal("50.0000"), HOY.minusDays(1));
+
+        assertThatThrownBy(() -> service.actualizar(USUARIO_ID, metaId, request))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY));
+        verify(metaRepository, never()).findByIdAndEmpresaId(any(), any());
+        verify(metaRepository, never()).save(any());
+    }
+
+    @Test
+    void actualizarUnaMetaInexistenteOAjenaLanzaApiException404() {
+        UUID metaId = UUID.randomUUID();
+        CrearMetaRequestDTO request = new CrearMetaRequestDTO(
+                "Meta renombrada", new BigDecimal("80.0000"), HOY.plusMonths(6));
+        when(metaRepository.findByIdAndEmpresaId(metaId, EMPRESA_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.actualizar(USUARIO_ID, metaId, request))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.NOT_FOUND));
+        verify(metaRepository, never()).save(any());
+    }
+
+    @Test
+    void eliminarBorraLaMetaDeLaEmpresaAutenticada() {
+        UUID metaId = UUID.randomUUID();
+        Meta meta = metaActiva(new BigDecimal("50.0000"), HOY.plusMonths(3));
+        meta.setId(metaId);
+        when(metaRepository.findByIdAndEmpresaId(metaId, EMPRESA_ID)).thenReturn(Optional.of(meta));
+
+        service.eliminar(USUARIO_ID, metaId);
+
+        verify(metaRepository).delete(meta);
+    }
+
+    @Test
+    void eliminarUnaMetaInexistenteOAjenaLanzaApiException404() {
+        UUID metaId = UUID.randomUUID();
+        when(metaRepository.findByIdAndEmpresaId(metaId, EMPRESA_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.eliminar(USUARIO_ID, metaId))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.NOT_FOUND));
+        verify(metaRepository, never()).delete(any(Meta.class));
     }
 
     private Meta metaActiva(BigDecimal valorObjetivoHuellaT, LocalDate fechaLimite) {

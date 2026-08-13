@@ -96,6 +96,9 @@ public class PerfilAuditor {
     @Column(name = "descripcion_profesional", length = 500)
     private String descripcionProfesional;
 
+    @Column(name = "sitio_web", length = 300)
+    private String sitioWeb;
+
     @Column(name = "actualizado_en")
     private Instant actualizadoEn;
 }

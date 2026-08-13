@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.util.HtmlUtils;
 
 import com.piedpiper.carbonhub.notification.EmailPlantillaHtml;
+import com.piedpiper.carbonhub.notification.EnlaceTokenCorreo;
 
 @Service
 @ConditionalOnProperty(name = "app.email.provider", havingValue = "gmail")
@@ -60,7 +61,7 @@ public class EmailResetContrasenaServiceImpl implements EmailResetContrasenaServ
 
     @Override
     public void enviarResetContrasena(String nombreDestinatario, String email, String token) {
-        String enlace = resetContrasenaUrl + "?token=" + token;
+        String enlace = EnlaceTokenCorreo.construir(resetContrasenaUrl, token);
         String nombreEscapado = HtmlUtils.htmlEscape(nombreDestinatario);
         String boton = EmailPlantillaHtml.boton(enlace, "Restablecer contraseña");
         String cuerpo = EmailPlantillaHtml.cuerpoConBotonYAviso(

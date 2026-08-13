@@ -18,6 +18,8 @@ public class ConfiguracionInicialEmpresaRequestDTO {
 
     @NotBlank(message = "Ingresa el nombre legal de la empresa.")
     @Size(min = 2, max = 150, message = "Ingresa el nombre legal de la empresa.")
+    @Pattern(regexp = "^[^\\p{Cc}\\p{Cf}]*$",
+            message = "El nombre legal de la empresa contiene caracteres no permitidos.")
     private String nombreEmpresa;
 
     @NotBlank(message = "Ingresa la cédula jurídica de la empresa.")

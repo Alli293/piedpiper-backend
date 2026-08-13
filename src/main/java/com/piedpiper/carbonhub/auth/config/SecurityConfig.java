@@ -44,9 +44,6 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/auth/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/auth/verificar-correo").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/auth/reset-contrasena").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/auth/invitaciones/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/catalogos/**").permitAll()
                         // Un verificador externo de credenciales OpenBadges no tiene sesion:
                         // debe poder resolver el perfil del emisor, su clave publica y la

@@ -3,6 +3,7 @@ package com.piedpiper.carbonhub.ecoruta.models.entities;
 import com.piedpiper.carbonhub.ecoruta.models.enums.InteresTuristico;
 import com.piedpiper.carbonhub.ecoruta.models.enums.Moneda;
 import com.piedpiper.carbonhub.ecoruta.models.enums.Provincia;
+import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -63,6 +64,10 @@ public class ItinerarioActividad {
 
     @Column(name = "establecimiento_recomendado", length = 200)
     private String establecimientoRecomendado;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "empresa_id")
+    private Empresa empresa;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

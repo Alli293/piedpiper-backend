@@ -18,6 +18,8 @@ import java.util.UUID;
 
 public interface SolicitudAuditoriaRepository extends JpaRepository<SolicitudAuditoria, UUID> {
 
+    List<SolicitudAuditoria> findByAuditorIdAndEstado(UUID auditorId, EstadoSolicitudAuditoria estado);
+
     @Query("""
             select count(s) > 0 from SolicitudAuditoria s
             where s.empresa.id = :empresaId

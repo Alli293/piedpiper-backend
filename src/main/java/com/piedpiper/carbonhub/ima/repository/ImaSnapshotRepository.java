@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -17,6 +18,8 @@ public interface ImaSnapshotRepository extends JpaRepository<ImaSnapshot, UUID> 
     List<ImaSnapshot> findByInterpretacion(String interpretacion);
 
     void deleteAllByEmpresaId(UUID empresaId);
+
+    void deleteAllByEmpresaIdIn(Collection<UUID> empresaIds);
 
     /**
      * Snapshots de la empresa dentro de una ventana [desde, hasta] expresada como (anio, mes).

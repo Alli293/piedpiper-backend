@@ -1,5 +1,8 @@
 package com.piedpiper.carbonhub.validacion.service;
 
+import com.piedpiper.carbonhub.auditor.models.entities.PerfilAuditor;
+import com.piedpiper.carbonhub.auditor.models.enums.EspecialidadAuditor;
+import com.piedpiper.carbonhub.auditor.repository.PerfilAuditorRepository;
 import com.piedpiper.carbonhub.auditor.service.PerfilAuditorService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
@@ -8,11 +11,15 @@ import com.piedpiper.carbonhub.user.models.enums.Rol;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 import com.piedpiper.carbonhub.validacion.mappers.ValidacionAuditorMapper;
 import com.piedpiper.carbonhub.validacion.models.dtos.DecisionSolicitudRequestDTO;
+import com.piedpiper.carbonhub.validacion.models.dtos.DocumentoCredencialResumenResponseDTO;
 import com.piedpiper.carbonhub.validacion.models.dtos.PaginaSolicitudesResponseDTO;
+import com.piedpiper.carbonhub.validacion.models.dtos.SolicitudDetalleResponseDTO;
 import com.piedpiper.carbonhub.validacion.models.dtos.SolicitudResueltaResponseDTO;
+import com.piedpiper.carbonhub.validacion.models.entities.DocumentoCredencialAuditor;
 import com.piedpiper.carbonhub.validacion.models.entities.RegistroAuditoriaInterna;
 import com.piedpiper.carbonhub.validacion.models.entities.SolicitudValidacion;
 import com.piedpiper.carbonhub.validacion.models.enums.EstadoSolicitud;
+import com.piedpiper.carbonhub.validacion.repository.DocumentoCredencialAuditorRepository;
 import com.piedpiper.carbonhub.validacion.repository.RegistroAuditoriaInternaRepository;
 import com.piedpiper.carbonhub.validacion.repository.SolicitudValidacionRepository;
 import org.junit.jupiter.api.Test;
@@ -30,6 +37,7 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -53,6 +61,10 @@ class ValidacionAuditorServiceTest {
     private EnvioCorreoValidacionService envioCorreoValidacionService;
     @Mock
     private PerfilAuditorService perfilAuditorService;
+    @Mock
+    private PerfilAuditorRepository perfilAuditorRepository;
+    @Mock
+    private DocumentoCredencialAuditorRepository documentoCredencialAuditorRepository;
     @Spy
     private ValidacionAuditorMapper validacionAuditorMapper =
             Mappers.getMapper(ValidacionAuditorMapper.class);
@@ -255,6 +267,160 @@ class ValidacionAuditorServiceTest {
         when(usuarioRepository.findById(ADMIN_ID)).thenReturn(Optional.of(otro));
 
         assertThatThrownBy(() -> service.listarPendientes(ADMIN_ID, 0))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void obtenerDetalleDevuelveElPerfilYElResumenDeDocumentos() {
+        SolicitudValidacion pendiente = solicitud(EstadoSolicitud.PENDIENTE);
+        PerfilAuditor perfil = PerfilAuditor.builder()
+                .auditor(pendiente.getAuditor())
+                .aniosExperiencia(8)
+                .descripcionProfesional("Especialista en manufactura sostenible.")
+                .sitioWeb("https://ana-mora.example.com")
+                .especialidades(Set.of(EspecialidadAuditor.MANUFACTURA, EspecialidadAuditor.AGROINDUSTRIA))
+                .build();
+        List<DocumentoCredencialResumenResponseDTO> documentos = List.of(
+                new DocumentoCredencialResumenResponseDTO(UUID.randomUUID(), "cert.pdf", 1024L));
+
+        when(usuarioRepository.findById(ADMIN_ID)).thenReturn(Optional.of(administrador()));
+        when(solicitudValidacionRepository.findById(pendiente.getId())).thenReturn(Optional.of(pendiente));
+        when(perfilAuditorRepository.findByAuditorId(pendiente.getAuditor().getId()))
+                .thenReturn(Optional.of(perfil));
+        when(documentoCredencialAuditorRepository.resumenPorSolicitudId(pendiente.getId()))
+                .thenReturn(documentos);
+
+        SolicitudDetalleResponseDTO detalle = service.obtenerDetalle(ADMIN_ID, pendiente.getId());
+
+        assertThat(detalle.getId()).isEqualTo(pendiente.getId());
+        assertThat(detalle.getNombreAuditor()).isEqualTo("Ana Mora");
+        assertThat(detalle.getEmail()).isEqualTo("ana@correo.com");
+        assertThat(detalle.getEstado()).isEqualTo("PENDIENTE");
+        assertThat(detalle.getAniosExperiencia()).isEqualTo(8);
+        assertThat(detalle.getEspecialidades()).containsExactly("AGROINDUSTRIA", "MANUFACTURA");
+        assertThat(detalle.getDescripcionProfesional()).isEqualTo("Especialista en manufactura sostenible.");
+        assertThat(detalle.getSitioWeb()).isEqualTo("https://ana-mora.example.com");
+        assertThat(detalle.getDocumentos()).hasSize(1);
+        assertThat(detalle.getDocumentos().getFirst().getNombreArchivo()).isEqualTo("cert.pdf");
+    }
+
+    @Test
+    void obtenerDetalleSinPerfilAunNoConfiguradoDevuelveCamposNulos() {
+        SolicitudValidacion pendiente = solicitud(EstadoSolicitud.PENDIENTE);
+        when(usuarioRepository.findById(ADMIN_ID)).thenReturn(Optional.of(administrador()));
+        when(solicitudValidacionRepository.findById(pendiente.getId())).thenReturn(Optional.of(pendiente));
+        when(perfilAuditorRepository.findByAuditorId(pendiente.getAuditor().getId())).thenReturn(Optional.empty());
+        when(documentoCredencialAuditorRepository.resumenPorSolicitudId(pendiente.getId())).thenReturn(List.of());
+
+        SolicitudDetalleResponseDTO detalle = service.obtenerDetalle(ADMIN_ID, pendiente.getId());
+
+        assertThat(detalle.getAniosExperiencia()).isNull();
+        assertThat(detalle.getDescripcionProfesional()).isNull();
+        assertThat(detalle.getSitioWeb()).isNull();
+        assertThat(detalle.getEspecialidades()).isEmpty();
+        assertThat(detalle.getDocumentos()).isEmpty();
+    }
+
+    @Test
+    void obtenerDetalleDeSolicitudInexistenteLanza404() {
+        when(usuarioRepository.findById(ADMIN_ID)).thenReturn(Optional.of(administrador()));
+        UUID solicitudId = UUID.randomUUID();
+        when(solicitudValidacionRepository.findById(solicitudId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.obtenerDetalle(ADMIN_ID, solicitudId))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void obtenerDetalleSinRolAdministradorPlataformaLanza403() {
+        Usuario otro = Usuario.builder().id(ADMIN_ID).rol(Rol.AUDITOR_CERTIFICADO).build();
+        when(usuarioRepository.findById(ADMIN_ID)).thenReturn(Optional.of(otro));
+
+        assertThatThrownBy(() -> service.obtenerDetalle(ADMIN_ID, UUID.randomUUID()))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void obtenerDocumentoDevuelveElDocumentoCuandoPerteneceALaSolicitud() {
+        SolicitudValidacion pendiente = solicitud(EstadoSolicitud.PENDIENTE);
+        DocumentoCredencialAuditor documento = DocumentoCredencialAuditor.builder()
+                .id(UUID.randomUUID())
+                .solicitud(pendiente)
+                .nombreArchivo("cert.pdf")
+                .tipoContenido("application/pdf")
+                .contenido(new byte[] {1, 2, 3})
+                .build();
+        when(usuarioRepository.findById(ADMIN_ID)).thenReturn(Optional.of(administrador()));
+        when(solicitudValidacionRepository.existsById(pendiente.getId())).thenReturn(true);
+        when(documentoCredencialAuditorRepository.findById(documento.getId())).thenReturn(Optional.of(documento));
+
+        DocumentoCredencialAuditor resultado =
+                service.obtenerDocumento(ADMIN_ID, pendiente.getId(), documento.getId());
+
+        assertThat(resultado).isSameAs(documento);
+    }
+
+    @Test
+    void obtenerDocumentoDeSolicitudInexistenteLanza404() {
+        when(usuarioRepository.findById(ADMIN_ID)).thenReturn(Optional.of(administrador()));
+        UUID solicitudId = UUID.randomUUID();
+        when(solicitudValidacionRepository.existsById(solicitudId)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.obtenerDocumento(ADMIN_ID, solicitudId, UUID.randomUUID()))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.NOT_FOUND);
+        verify(documentoCredencialAuditorRepository, never()).findById(any());
+    }
+
+    @Test
+    void obtenerDocumentoInexistenteLanza404() {
+        SolicitudValidacion pendiente = solicitud(EstadoSolicitud.PENDIENTE);
+        when(usuarioRepository.findById(ADMIN_ID)).thenReturn(Optional.of(administrador()));
+        when(solicitudValidacionRepository.existsById(pendiente.getId())).thenReturn(true);
+        UUID documentoId = UUID.randomUUID();
+        when(documentoCredencialAuditorRepository.findById(documentoId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.obtenerDocumento(ADMIN_ID, pendiente.getId(), documentoId))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void obtenerDocumentoDeOtraSolicitudLanza404SinFiltrarPorSoloExistir() {
+        SolicitudValidacion propia = solicitud(EstadoSolicitud.PENDIENTE);
+        SolicitudValidacion ajena = solicitud(EstadoSolicitud.PENDIENTE);
+        DocumentoCredencialAuditor documentoDeOtraSolicitud = DocumentoCredencialAuditor.builder()
+                .id(UUID.randomUUID())
+                .solicitud(ajena)
+                .nombreArchivo("cert.pdf")
+                .tipoContenido("application/pdf")
+                .contenido(new byte[] {1})
+                .build();
+        when(usuarioRepository.findById(ADMIN_ID)).thenReturn(Optional.of(administrador()));
+        when(solicitudValidacionRepository.existsById(propia.getId())).thenReturn(true);
+        when(documentoCredencialAuditorRepository.findById(documentoDeOtraSolicitud.getId()))
+                .thenReturn(Optional.of(documentoDeOtraSolicitud));
+
+        assertThatThrownBy(() -> service.obtenerDocumento(ADMIN_ID, propia.getId(), documentoDeOtraSolicitud.getId()))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void obtenerDocumentoSinRolAdministradorPlataformaLanza403() {
+        Usuario otro = Usuario.builder().id(ADMIN_ID).rol(Rol.AUDITOR_CERTIFICADO).build();
+        when(usuarioRepository.findById(ADMIN_ID)).thenReturn(Optional.of(otro));
+
+        assertThatThrownBy(() -> service.obtenerDocumento(ADMIN_ID, UUID.randomUUID(), UUID.randomUUID()))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.FORBIDDEN);

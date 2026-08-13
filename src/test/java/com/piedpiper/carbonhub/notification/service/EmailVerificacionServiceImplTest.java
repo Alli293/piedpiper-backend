@@ -50,7 +50,7 @@ class EmailVerificacionServiceImplTest {
         String html = (String) mensaje.getContent();
         assertThat(html)
                 .contains("Ana Perez")
-                .contains("http://localhost:4200/verificar-correo?token=token-123")
+                .contains("http://localhost:4200/verificar-correo#token=token-123")
                 .contains("Verificar mi correo")
                 .contains("#1f8a5b");
     }
