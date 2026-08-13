@@ -23,6 +23,15 @@ public class AuditorRecomendadoResponseDTO {
     private List<String> especialidades;
     private BigDecimal calificacionPromedio;
     private boolean disponible;
+
+    /**
+     * Primitivo a propósito, aunque {@code PerfilAuditor.auditoriasCompletadas} es {@code Integer}
+     * nullable: la pantalla muestra un número y "sin datos" ahí significa cero. Quien arme este DTO
+     * tiene que normalizar el nulo antes, como hace
+     * {@code RecomendacionAuditoresConsultaService.auditoriasCompletadasDe}; asignar el campo de la
+     * entidad directo desempaquetaría el nulo y lanzaría {@code NullPointerException}.
+     */
     private int auditoriasCompletadas;
+
     private String justificacion;
 }

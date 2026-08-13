@@ -35,10 +35,16 @@ public class RecomendacionAuditoresIaService {
 
     private static final Logger log = LoggerFactory.getLogger(RecomendacionAuditoresIaService.class);
 
+    /**
+     * El pedido de repetir el nombre no es cosmético: es lo que {@link #emparejar} usa para
+     * comprobar que cada justificación se le atribuye a quien corresponde. Sin nombre, y con más de
+     * un candidato en el lote, la justificación se descarta.
+     */
     static final String SYSTEM_MESSAGE = "Eres un asistente de selección de auditores ambientales. "
             + "Responde en español de Costa Rica, en tono claro y profesional. Para cada auditor "
             + "listado, genera una justificación de máximo 2 oraciones que explique por qué es "
-            + "adecuado para la solicitud, basándote únicamente en los datos provistos. No inventes "
+            + "adecuado para la solicitud, basándote únicamente en los datos provistos. Repite "
+            + "siempre el nombre del auditor tal como aparece en la lista. No inventes "
             + "información. No menciones nombres de empresas.";
 
     private final ChatClient chatClient;
@@ -104,8 +110,9 @@ public class RecomendacionAuditoresIaService {
      * bastante peor que no mostrar justificación.</p>
      *
      * <p>Por eso se comprueba contra el nombre que el propio modelo devuelve. La comparación es
-     * laxa (sin tildes, sin mayúsculas y por prefijo) porque el modelo suele acortar "Ana Mora
-     * Vargas" a "Ana Mora", y descartar por eso seria tirar justificaciones buenas.</p>
+     * laxa —sin tildes, sin mayúsculas y palabra por palabra, ver {@link #mismoAuditor}— porque el
+     * modelo suele acortar "Ana Mora Vargas" a "Ana Mora", y descartar por eso seria tirar
+     * justificaciones buenas.</p>
      */
     Map<UUID, String> emparejar(List<CandidatoIa> candidatos, List<JustificacionIa> justificaciones) {
         Map<UUID, String> porAuditor = new HashMap<>();
@@ -134,11 +141,17 @@ public class RecomendacionAuditoresIaService {
      * "Ana", esa respuesta encaja con las dos, así que aceptarla equivale a confiar de nuevo en el
      * orden, que es justo lo que este control existe para no hacer. Ante ambigüedad se descarta:
      * quedarse sin justificación es mucho mejor que atribuírsela a la persona equivocada.</p>
+     *
+     * <p><b>Un nombre ausente se trata igual que uno ambiguo, salvo con un solo candidato.</b>
+     * Sin nombre no hay nada contra qué contrastar, así que aceptarlo es emparejar por posición a
+     * secas: el modelo pudo haber devuelto el lote en otro orden y cada auditor se llevaría la
+     * justificación de otro, sin ninguna señal. Con un único candidato la posición no puede
+     * confundirse con nada y el texto se aprovecha; con dos o más se descarta.</p>
      */
     private boolean identificaSoloA(CandidatoIa candidato, String nombreRespuesta,
                                     List<CandidatoIa> candidatos) {
         if (nombreRespuesta == null || nombreRespuesta.isBlank()) {
-            return true;
+            return candidatos.size() == 1;
         }
         if (!mismoAuditor(candidato.nombre(), nombreRespuesta)) {
             return false;
@@ -149,7 +162,9 @@ public class RecomendacionAuditoresIaService {
     }
 
     /**
-     * Un nombre ausente en la respuesta no invalida nada: solo se usa para detectar un cruce.
+     * Compara dos nombres del mismo lote. Llega siempre con {@code nombreRespuesta} no vacío:
+     * {@link #identificaSoloA} resuelve la ausencia antes, porque ahí depende de cuántos
+     * candidatos haya y acá no se sabría.
      *
      * <p>La comparación es por <b>palabras completas</b> y no por prefijo de cadena. Un prefijo de
      * cadena daría por bueno el cruce entre dos personas distintas cuando un nombre empieza igual
@@ -159,9 +174,6 @@ public class RecomendacionAuditoresIaService {
      * "Ana Mora" se sigue reconociendo, que es el motivo por el que la comparación no es exacta.</p>
      */
     private boolean mismoAuditor(String nombreCandidato, String nombreRespuesta) {
-        if (nombreRespuesta == null || nombreRespuesta.isBlank()) {
-            return true;
-        }
         List<String> esperado = palabras(nombreCandidato);
         List<String> recibido = palabras(nombreRespuesta);
         if (esperado.isEmpty() || recibido.isEmpty()) {

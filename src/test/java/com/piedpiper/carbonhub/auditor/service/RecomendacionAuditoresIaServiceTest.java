@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.entry;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -256,9 +257,12 @@ class RecomendacionAuditoresIaServiceTest {
         assertThat(resultado).containsEntry(ana, "Texto de Ana.");
     }
 
-    /** Si el modelo no devuelve el nombre no hay cruce que detectar, y el texto se aprovecha. */
+    /**
+     * Con un solo candidato la posición no puede confundirse con nadie más, así que un nombre
+     * ausente no impide aprovechar el texto.
+     */
     @Test
-    void siLaRespuestaNoTraeNombreLaJustificacionSeAsignaIgual() {
+    void conUnSoloCandidatoLaJustificacionSinNombreSeAsignaIgual() {
         UUID ana = UUID.randomUUID();
         List<CandidatoIa> candidatos = List.of(
                 new CandidatoIa(ana, "Ana Mora", List.of("Manufactura"), "4.8", List.of(), 10));
@@ -267,6 +271,43 @@ class RecomendacionAuditoresIaServiceTest {
                 justificacion(null, "Texto de Ana.")));
 
         assertThat(resultado).containsEntry(ana, "Texto de Ana.");
+    }
+
+    /**
+     * Con varios candidatos, aceptar una justificación sin nombre es emparejar por posición a
+     * secas: si el modelo devolvió el lote en otro orden, cada auditor se lleva la de otro y nada
+     * lo delata. Es el mismo riesgo que el resto de este bloque previene desde otros ángulos.
+     */
+    @Test
+    void conVariosCandidatosLasJustificacionesSinNombreSeDescartan() {
+        UUID ana = UUID.randomUUID();
+        UUID luis = UUID.randomUUID();
+        List<CandidatoIa> candidatos = List.of(
+                new CandidatoIa(ana, "Ana Mora", List.of("Manufactura"), "4.8", List.of(), 10),
+                new CandidatoIa(luis, "Luis Rojas", List.of("Manufactura"), "4.0", List.of(), 5));
+
+        Map<UUID, String> resultado = emparejar(candidatos, List.of(
+                justificacion(null, "Texto sin dueño."),
+                justificacion("   ", "Otro texto sin dueño.")));
+
+        assertThat(resultado).isEmpty();
+    }
+
+    /** El descarte es por justificación, no por lote: la que sí trae nombre se sigue aprovechando. */
+    @Test
+    void unaJustificacionSinNombreNoArrastraALasQueSiLoTraen() {
+        UUID ana = UUID.randomUUID();
+        UUID luis = UUID.randomUUID();
+        List<CandidatoIa> candidatos = List.of(
+                new CandidatoIa(ana, "Ana Mora", List.of("Manufactura"), "4.8", List.of(), 10),
+                new CandidatoIa(luis, "Luis Rojas", List.of("Manufactura"), "4.0", List.of(), 5));
+
+        Map<UUID, String> resultado = emparejar(candidatos, List.of(
+                justificacion(null, "Texto sin dueño."),
+                justificacion("Luis Rojas", "Texto de Luis.")));
+
+        assertThat(resultado)
+                .containsExactly(entry(luis, "Texto de Luis."));
     }
 
     @Test
