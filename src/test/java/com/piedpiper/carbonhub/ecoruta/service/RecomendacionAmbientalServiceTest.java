@@ -150,8 +150,10 @@ class RecomendacionAmbientalServiceTest {
     }
 
     @Test
-    void obtenerRecomendacionesRetornaMensajeInformativoCuandoNoHayActividadesMejorables() {
-        // BUENA pero sin actividades bajo el umbral: no hay nada que recomendar
+    void obtenerRecomendacionesRetornaMensajeNeutroCuandoNoHayActividadesMejorablesYClasificacionNoEsExcelente() {
+        // BUENA (no EXCELENTE) y sin actividades bajo el umbral: no hay nada que recomendar,
+        // pero afirmar "excelente desempeño" acá sería engañoso (regresión del bug reportado
+        // en producción: EcoScore Moderado mostrando el mensaje de itinerario excelente).
         Itinerario itinerario = itinerarioCon(
                 ClasificacionAmbiental.BUENA, new BigDecimal("65.0"),
                 actividad("Canopy Tour", 65));
@@ -162,7 +164,28 @@ class RecomendacionAmbientalServiceTest {
         RecomendacionesResponseDTO resultado = service.obtenerRecomendaciones(itinerarioId, usuarioId);
 
         assertThat(resultado.getRecomendaciones()).isEmpty();
-        assertThat(resultado.getMensaje()).isEqualTo("Tu itinerario ya presenta un excelente desempeño ambiental.");
+        assertThat(resultado.getMensaje())
+                .isEqualTo("No encontramos actividades específicas que sustituir para mejorar tu EcoScore en este momento.")
+                .isNotEqualTo("Tu itinerario ya presenta un excelente desempeño ambiental.");
+    }
+
+    @Test
+    void obtenerRecomendacionesRetornaMensajeNeutroCuandoIaNoEncuentraAlternativasYClasificacionEsModerada() {
+        // Reproduce el caso reportado: EcoScore 47.3 (Moderada) impulsado por el componente de
+        // establecimientos, con actividades individuales que puntúan bien (>= umbral) y por lo
+        // tanto no generan recomendaciones. El mensaje no debe afirmar "excelente desempeño".
+        ItinerarioActividad actividad = actividad("Llegada y check-in en hotel sostenible", 90);
+        Itinerario itinerario = itinerarioCon(ClasificacionAmbiental.MODERADA, new BigDecimal("47.3"), actividad);
+
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, usuarioId))
+                .thenReturn(Optional.of(itinerario));
+
+        RecomendacionesResponseDTO resultado = service.obtenerRecomendaciones(itinerarioId, usuarioId);
+
+        assertThat(resultado.getRecomendaciones()).isEmpty();
+        assertThat(resultado.getMensaje())
+                .isEqualTo("No encontramos actividades específicas que sustituir para mejorar tu EcoScore en este momento.");
+        verify(alternativasIaClienteService, never()).buscarAlternativas(any(), any());
     }
 
     // --- Generación de recomendaciones a partir del EcoScore ---
@@ -252,7 +275,8 @@ class RecomendacionAmbientalServiceTest {
         RecomendacionesResponseDTO resultado = service.obtenerRecomendaciones(itinerarioId, usuarioId);
 
         assertThat(resultado.getRecomendaciones()).isEmpty();
-        assertThat(resultado.getMensaje()).isEqualTo("Tu itinerario ya presenta un excelente desempeño ambiental.");
+        assertThat(resultado.getMensaje())
+                .isEqualTo("No encontramos actividades específicas que sustituir para mejorar tu EcoScore en este momento.");
     }
 
     @Test

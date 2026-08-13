@@ -48,6 +48,16 @@ public class RecomendacionAmbientalService {
 
     static final String MENSAJE_ITINERARIO_OPTIMIZADO = "Tu itinerario ya presenta un excelente desempeño ambiental.";
 
+    /**
+     * Se usa cuando no hay actividades por debajo del umbral mejorable pero el itinerario NO está
+     * en la banda EXCELENTE (p. ej. el EcoScore quedó en Moderada por el componente IMA/indicadores
+     * a nivel de establecimiento, no por las actividades). {@code MENSAJE_ITINERARIO_OPTIMIZADO} es
+     * una afirmación específica de esa banda y no debe reutilizarse para este caso: decirle a un
+     * usuario con EcoScore Moderado que su itinerario es "excelente" es engañoso.
+     */
+    static final String MENSAJE_SIN_ACTIVIDADES_MEJORABLES =
+            "No encontramos actividades específicas que sustituir para mejorar tu EcoScore en este momento.";
+
     private final ItinerarioRepository itinerarioRepository;
     private final ComparacionAlternativasService comparacionAlternativasService;
     private final AlternativasIaClienteService alternativasIaClienteService;
@@ -62,6 +72,9 @@ public class RecomendacionAmbientalService {
 
     /**
      * Analiza el EcoScore del itinerario (Req PP-91) e identifica oportunidades de mejora.
+     * {@code mensaje} solo viene con la afirmación "excelente desempeño" cuando la clasificación
+     * realmente es EXCELENTE; cualquier otro caso sin recomendaciones usa un texto neutro
+     * ({@link #MENSAJE_SIN_ACTIVIDADES_MEJORABLES}) para no contradecir el EcoScore mostrado.
      *
      * @throws ApiException {@code accesoDenegado()} si el itinerario no existe o no pertenece a {@code usuarioId};
      *                      {@code ecoScoreNoDisponible()} si aún no se calculó un EcoScore para el itinerario.
@@ -91,7 +104,7 @@ public class RecomendacionAmbientalService {
                 .toList();
 
         if (recomendaciones.isEmpty()) {
-            return new RecomendacionesResponseDTO(List.of(), MENSAJE_ITINERARIO_OPTIMIZADO);
+            return new RecomendacionesResponseDTO(List.of(), MENSAJE_SIN_ACTIVIDADES_MEJORABLES);
         }
 
         return new RecomendacionesResponseDTO(new ArrayList<>(recomendaciones), null);
