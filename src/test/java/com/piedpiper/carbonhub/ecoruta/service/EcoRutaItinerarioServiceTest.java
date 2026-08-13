@@ -2,11 +2,13 @@ package com.piedpiper.carbonhub.ecoruta.service;
 
 import com.piedpiper.carbonhub.ecoruta.mappers.ItinerarioMapper;
 import com.piedpiper.carbonhub.ecoruta.mappers.ItinerarioMapperImpl;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.ConversacionContextoDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.EcoScoreResultado;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO.ActividadIaDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO.DiaIaDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioResponseDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.MensajeConversacionDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoIaResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoItinerarioRequestDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoItinerarioResponseDTO;
@@ -33,6 +35,7 @@ import com.piedpiper.carbonhub.user.models.enums.Rol;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataAccessResourceFailureException;
@@ -539,14 +542,56 @@ class EcoRutaItinerarioServiceTest {
     }
 
     @Test
-    void refinarConItinerarioInexistenteLanza404() {
+    void refinarConItinerarioInexistenteOAjenoLanza403ConMensajeExacto() {
+        // findByIdAndUsuario_Id ya filtra por dueño: refinar() hace esta única consulta (ya no hay
+        // un chequeo de ownership duplicado en el controlador) y trata "no existe" e "es de otro
+        // usuario" igual, con 403 -- coincide con el AC de PP-88 para itinerario ajeno.
         UUID itinerarioId = UUID.randomUUID();
         when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.refinar(itinerarioId, USUARIO_ID, mensaje("Quiero más playas.")))
                 .isInstanceOf(ApiException.class)
-                .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.NOT_FOUND));
+                .satisfies(ex -> {
+                    assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.FORBIDDEN);
+                    assertThat(ex.getMessage()).isEqualTo("No tienes permiso para modificar este itinerario.");
+                });
 
         verify(itinerarioIaClienteService, never()).refinar(any(), anyInt());
+    }
+
+    // --- poda del historial en el prompt (revisión de nanoulloa en el PR #86) ---
+
+    @Test
+    void refinarConHistorialLargoSoloUsaLosUltimosTurnosEnElPrompt() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioExistente(itinerarioId);
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+        RefinamientoIaResponseDTO respuestaIa = new RefinamientoIaResponseDTO(
+                true, "¿Podrías ser más específico?", null, null);
+        when(itinerarioIaClienteService.refinar(any(), eq(2))).thenReturn(
+                new ResultadoRefinamientoIA(respuestaIa, ResultadoValidacionItinerario.VALIDO_COMPLETO));
+
+        // 15 turnos (30 mensajes) -- muy por encima de MAX_TURNOS_HISTORIAL_EN_PROMPT (10).
+        List<MensajeConversacionDTO> historialLargo = new ArrayList<>();
+        for (int i = 1; i <= 15; i++) {
+            historialLargo.add(new MensajeConversacionDTO("USUARIO", "mensaje-viejo-" + i));
+            historialLargo.add(new MensajeConversacionDTO("ASISTENTE", "respuesta-vieja-" + i));
+        }
+        historialLargo.set(historialLargo.size() - 1, new MensajeConversacionDTO("ASISTENTE", "el-mas-reciente"));
+
+        RefinamientoItinerarioRequestDTO request = new RefinamientoItinerarioRequestDTO(
+                "Cámbialo.",
+                new ConversacionContextoDTO(itinerarioId, historialLargo, 1));
+
+        service.refinar(itinerarioId, USUARIO_ID, request);
+
+        ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+        verify(itinerarioIaClienteService).refinar(promptCaptor.capture(), eq(2));
+        String prompt = promptCaptor.getValue();
+
+        assertThat(prompt).contains("el-mas-reciente");
+        assertThat(prompt).doesNotContain("mensaje-viejo-1\n");
+        assertThat(prompt).doesNotContain("respuesta-vieja-1\n");
     }
 }

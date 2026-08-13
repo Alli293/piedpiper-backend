@@ -61,6 +61,15 @@ public class EcoRutaItinerarioService {
 
     private static final Logger log = LoggerFactory.getLogger(EcoRutaItinerarioService.class);
 
+    /**
+     * Cuántos turnos (mensaje del usuario + respuesta del asistente) del historial se incluyen en
+     * el prompt de refinamiento. El cliente puede reenviar toda la conversación acumulada — acá se
+     * usan solo los últimos, para que el prompt no crezca sin límite: sin esto, una conversación
+     * larga (15-20 turnos) sumaba decenas de mensajes al prompt además del JSON del itinerario, y
+     * con el timeout de 10s de Gemini eso se iba poniendo lento hasta fallar.
+     */
+    static final int MAX_TURNOS_HISTORIAL_EN_PROMPT = 10;
+
     private final PreferenciasViajeRepository preferenciasViajeRepository;
     private final ItinerarioRepository itinerarioRepository;
     private final ItinerarioIaClienteService itinerarioIaClienteService;
@@ -187,16 +196,21 @@ public class EcoRutaItinerarioService {
     /**
      * Interpreta un mensaje libre del chat de refinamiento (PP-88) y, si corresponde, regenera
      * parcialmente el itinerario. A propósito NO {@code @Transactional} por la misma razón que
-     * {@link #generar}: la llamada a Gemini puede tardar hasta 10s. El controlador ya validó
-     * ownership antes de llegar acá (403), así que este método solo maneja el caso "no encontrado"
-     * con 404 — no debería ocurrir en la práctica dado ese chequeo previo, pero se cubre por si
-     * el itinerario fue borrado entre la validación y esta llamada.
+     * {@link #generar}: la llamada a Gemini puede tardar hasta 10s.
+     *
+     * <p>La verificación de ownership vive acá (una sola consulta) y no en el controlador: antes
+     * había una llamada a {@code perteneceAlUsuario} en el controlador seguida de esta misma
+     * consulta acá — dos vueltas a la base por la misma comprobación, y además
+     * {@code docs/CONVENTIONS.md} §3.7 pide no meter lógica de negocio en el controlador.
      */
     public RefinamientoItinerarioResponseDTO refinar(UUID itinerarioId, UUID usuarioId,
                                                        RefinamientoItinerarioRequestDTO request) {
         Itinerario itinerario = itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, usuarioId)
-                .orElseThrow(() -> ApiException.recursoNoEncontrado(
-                        "No fue posible encontrar el itinerario solicitado."));
+                .orElseThrow(() -> {
+                    log.warn("Intento de modificar itinerario {} por usuario {}: no es el propietario o no existe",
+                            itinerarioId, usuarioId);
+                    return ApiException.accesoDenegado("No tienes permiso para modificar este itinerario.");
+                });
 
         List<MensajeConversacionDTO> historialPrevio = obtenerHistorialPrevio(request.getContextoConversacional());
 
@@ -254,6 +268,21 @@ public class EcoRutaItinerarioService {
                 responseDTO, respuesta.getRespuestaTexto(), historialActualizado, null);
     }
 
+    /**
+     * Se queda con los últimos {@code MAX_TURNOS_HISTORIAL_EN_PROMPT} turnos (2 mensajes por
+     * turno: usuario + asistente) — el resto del historial más viejo no entra al prompt. Esto es
+     * independiente del {@code @Size} de {@link ConversacionContextoDTO#getHistorialMensajes()},
+     * que solo pone un tope duro contra un historial manipulado o inflado; esta poda es la que
+     * evita que el prompt crezca sin límite en una conversación real y larga.
+     */
+    private List<MensajeConversacionDTO> ultimosTurnos(List<MensajeConversacionDTO> historial) {
+        int maxMensajes = MAX_TURNOS_HISTORIAL_EN_PROMPT * 2;
+        if (historial.size() <= maxMensajes) {
+            return historial;
+        }
+        return historial.subList(historial.size() - maxMensajes, historial.size());
+    }
+
     private List<MensajeConversacionDTO> obtenerHistorialPrevio(ConversacionContextoDTO contexto) {
         if (contexto == null || contexto.getHistorialMensajes() == null) {
             return new ArrayList<>();
@@ -264,7 +293,8 @@ public class EcoRutaItinerarioService {
     /**
      * Arma el prompt de refinamiento: el itinerario actual completo (con el id de cada actividad,
      * para que la IA pueda señalar una en concreto vía {@code actividadParaComparar}), el historial
-     * de la conversación y el mensaje nuevo del usuario.
+     * de la conversación (podado a los últimos turnos, ver {@link #ultimosTurnos}) y el mensaje
+     * nuevo del usuario.
      */
     private String construirContextoRefinamiento(Itinerario itinerario, List<MensajeConversacionDTO> historial,
                                                    String mensajeUsuario) {
@@ -275,9 +305,10 @@ public class EcoRutaItinerarioService {
                 .append(monedaPreferidaDe(itinerario.getUsuario())).append("\n\n");
         sb.append("Itinerario actual (JSON):\n").append(serializarItinerarioParaPrompt(itinerario)).append("\n\n");
 
-        if (!historial.isEmpty()) {
+        List<MensajeConversacionDTO> historialPodado = ultimosTurnos(historial);
+        if (!historialPodado.isEmpty()) {
             sb.append("Historial de la conversación:\n");
-            for (MensajeConversacionDTO mensaje : historial) {
+            for (MensajeConversacionDTO mensaje : historialPodado) {
                 sb.append(mensaje.getRol()).append(": ").append(mensaje.getContenido()).append("\n");
             }
             sb.append("\n");

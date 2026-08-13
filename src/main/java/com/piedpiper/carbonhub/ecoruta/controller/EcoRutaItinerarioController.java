@@ -51,14 +51,19 @@ public class EcoRutaItinerarioController {
         return ResponseEntity.ok(service.obtener(id, usuarioId));
     }
 
-    /** Conversación continua de refinamiento del itinerario (PP-88). */
+    /**
+     * Conversación continua de refinamiento del itinerario (PP-88). A diferencia de {@link #obtener},
+     * no hace un chequeo de ownership previo en el controlador: {@code service.refinar(...)} ya
+     * hace su propia consulta por {@code itinerarioId + usuarioId} y devuelve el 403 con el mensaje
+     * correcto — agregar una verificación acá sería una segunda consulta idéntica para la misma
+     * comprobación, y CONVENTIONS.md §3.7 pide no meter esa lógica en el controlador.
+     */
     @PostMapping("/{id}/mensajes")
     public ResponseEntity<RefinamientoItinerarioResponseDTO> refinar(
             @PathVariable UUID id,
             @Valid @RequestBody RefinamientoItinerarioRequestDTO request,
             Authentication authentication) {
         UUID usuarioId = Autenticaciones.usuarioId(authentication);
-        verificarPropiedadItinerarioParaModificar(id, usuarioId);
         return ResponseEntity.ok(service.refinar(id, usuarioId, request));
     }
 
@@ -76,8 +81,11 @@ public class EcoRutaItinerarioController {
     }
 
     /**
-     * Misma validación que {@link #verificarPropiedadItinerario}, con el mensaje específico que
-     * pide el AC de PP-88 para un intento de modificación (no solo lectura) de un itinerario ajeno.
+     * Misma validación que {@link #verificarPropiedadItinerario}, con el mensaje específico de
+     * "modificar" en vez de "acceder". Ya no la usa {@link #refinar} (esa ownership vive ahora en
+     * {@code EcoRutaItinerarioService.refinar}, una sola consulta en vez de dos) — queda acá porque
+     * la rama de PP-89 (que arranca desde esta y ya está abierta como PR dependiente) la reutiliza
+     * para el endpoint de eliminar itinerario.
      */
     private void verificarPropiedadItinerarioParaModificar(UUID itinerarioId, UUID usuarioId) {
         if (!service.perteneceAlUsuario(itinerarioId, usuarioId)) {

@@ -1,5 +1,7 @@
 package com.piedpiper.carbonhub.ecoruta.models.dtos;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -19,6 +21,17 @@ import java.util.UUID;
 public class ConversacionContextoDTO {
 
     private UUID itinerarioId;
+
+    /**
+     * Tope generoso (nunca debería tocarse en una sesión real: son ~2 mensajes por turno) que
+     * actúa como piso de defensa contra un cliente que reenvíe un historial manipulado o inflado —
+     * el backend igual solo usa los últimos turnos al armar el prompt
+     * ({@code EcoRutaItinerarioService.MAX_TURNOS_HISTORIAL_EN_PROMPT}), esto es una cota dura
+     * independiente de esa poda.
+     */
+    @Valid
+    @Size(max = 200, message = "El historial de la conversación es demasiado largo.")
     private List<MensajeConversacionDTO> historialMensajes;
+
     private Integer versionItinerario;
 }

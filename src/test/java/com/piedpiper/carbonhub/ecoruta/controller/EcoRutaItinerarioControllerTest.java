@@ -219,7 +219,6 @@ class EcoRutaItinerarioControllerTest {
     void postMensajesConMensajeValidoDevuelve200() throws Exception {
         UUID itinerarioId = UUID.randomUUID();
         UUID usuarioId = UUID.fromString(USUARIO_ID);
-        when(service.perteneceAlUsuario(eq(itinerarioId), eq(usuarioId))).thenReturn(true);
         when(service.refinar(eq(itinerarioId), eq(usuarioId), any())).thenReturn(respuestaRefinamiento());
 
         RefinamientoItinerarioRequestDTO request =
@@ -238,10 +237,28 @@ class EcoRutaItinerarioControllerTest {
     @WithMockUser(username = USUARIO_ID, authorities = "ROLE_USUARIO_INDIVIDUAL")
     void postMensajesConMensajeVacioDevuelve400() throws Exception {
         UUID itinerarioId = UUID.randomUUID();
-        UUID usuarioId = UUID.fromString(USUARIO_ID);
-        when(service.perteneceAlUsuario(eq(itinerarioId), eq(usuarioId))).thenReturn(true);
 
         RefinamientoItinerarioRequestDTO request = new RefinamientoItinerarioRequestDTO("", null);
+
+        mockMvc.perform(post("/api/ecoruta/itinerarios/" + itinerarioId + "/mensajes")
+                        .principal(authentication("ROLE_USUARIO_INDIVIDUAL"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_USUARIO_INDIVIDUAL")
+    void postMensajesConHistorialDemasiadoLargoDevuelve400() throws Exception {
+        UUID itinerarioId = UUID.randomUUID();
+        List<MensajeConversacionDTO> historialEnorme = new java.util.ArrayList<>();
+        for (int i = 0; i < 201; i++) {
+            historialEnorme.add(new MensajeConversacionDTO("USUARIO", "Mensaje " + i));
+        }
+        RefinamientoItinerarioRequestDTO request = new RefinamientoItinerarioRequestDTO(
+                "Quiero más playas.",
+                new com.piedpiper.carbonhub.ecoruta.models.dtos.ConversacionContextoDTO(
+                        itinerarioId, historialEnorme, 1));
 
         mockMvc.perform(post("/api/ecoruta/itinerarios/" + itinerarioId + "/mensajes")
                         .principal(authentication("ROLE_USUARIO_INDIVIDUAL"))
@@ -255,7 +272,8 @@ class EcoRutaItinerarioControllerTest {
     void postMensajesConItinerarioAjenoDevuelve403ConMensajeExacto() throws Exception {
         UUID itinerarioId = UUID.randomUUID();
         UUID usuarioId = UUID.fromString(USUARIO_ID);
-        when(service.perteneceAlUsuario(eq(itinerarioId), eq(usuarioId))).thenReturn(false);
+        when(service.refinar(eq(itinerarioId), eq(usuarioId), any()))
+                .thenThrow(ApiException.accesoDenegado("No tienes permiso para modificar este itinerario."));
 
         RefinamientoItinerarioRequestDTO request =
                 new RefinamientoItinerarioRequestDTO("Quiero más playas.", null);
