@@ -96,9 +96,15 @@ public class RecomendacionAuditoresService {
      * (2) experiencia en el sector de la empresa, (3) calificación, (4) auditorías completadas.
      *
      * <p>Los cuatro criterios van de mejor a peor, y por eso los cuatro se invierten: por defecto
-     * un comparador ordena de menor a mayor, y ahí quedarían primero los que no cumplen. La
-     * calificación se compara aparte porque es la única que admite nulos (un auditor sin reseñas),
-     * y esos van al final en vez de reventar.</p>
+     * un comparador ordena de menor a mayor, y ahí quedarían primero los que no cumplen.</p>
+     *
+     * <p>Dos de los criterios admiten nulos y ninguno puede reventar el orden. La calificación es
+     * nula mientras el auditor no tenga reseñas, y va al final con {@code nullsLast}. Las auditorías
+     * completadas también son nulas: {@code MetricasReputacionAuditorService.dejarSinDatos()}
+     * representa "todavía no completó ninguna" con {@code null} y no con cero, así que un auditor
+     * recién certificado —el caso más común en un sistema nuevo— llega hasta acá con el campo en
+     * nulo. Desempaquetarlo con {@code comparingInt} lanzaría {@code NullPointerException} y el
+     * endpoint respondería 500, que es justo lo que el diseño de esta historia promete evitar.</p>
      */
     private Comparator<PerfilAuditor> porIdoneidad(EspecialidadAuditor tipoAuditoria, String sector) {
         Comparator<PerfilAuditor> porEspecialidad =
@@ -106,7 +112,7 @@ public class RecomendacionAuditoresService {
         Comparator<PerfilAuditor> porSector =
                 Comparator.comparingInt(p -> auditoriasEnSector(p, sector));
         Comparator<PerfilAuditor> porAuditorias =
-                Comparator.comparingInt(PerfilAuditor::getAuditoriasCompletadas);
+                Comparator.comparingInt(RecomendacionAuditoresService::auditoriasCompletadasDe);
 
         return porEspecialidad.reversed()
                 .thenComparing(porSector.reversed())
@@ -117,6 +123,11 @@ public class RecomendacionAuditoresService {
 
     private boolean cubreTipoAuditoria(PerfilAuditor perfil, EspecialidadAuditor tipoAuditoria) {
         return perfil.getEspecialidades() != null && perfil.getEspecialidades().contains(tipoAuditoria);
+    }
+
+    /** Un auditor sin auditorías completadas se ordena como cero, que es lo que el nulo significa. */
+    private static int auditoriasCompletadasDe(PerfilAuditor perfil) {
+        return perfil.getAuditoriasCompletadas() == null ? 0 : perfil.getAuditoriasCompletadas();
     }
 
     /** Cuántas auditorías hizo el candidato en el sector de la empresa, 0 si nunca auditó ahí. */
@@ -139,7 +150,7 @@ public class RecomendacionAuditoresService {
                 perfil.getCalificacionPromedio() == null
                         ? "sin calificaciones" : perfil.getCalificacionPromedio().toPlainString(),
                 top3Sectores(perfil),
-                perfil.getAuditoriasCompletadas());
+                auditoriasCompletadasDe(perfil));
     }
 
     private AuditorRecomendadoResponseDTO aRecomendado(PerfilAuditor perfil, String justificacion) {
@@ -150,7 +161,7 @@ public class RecomendacionAuditoresService {
                 etiquetasEspecialidades(perfil),
                 perfil.getCalificacionPromedio(),
                 perfil.isDisponible(),
-                perfil.getAuditoriasCompletadas(),
+                auditoriasCompletadasDe(perfil),
                 justificacion);
     }
 
