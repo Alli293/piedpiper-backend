@@ -95,16 +95,24 @@ public class RecomendacionAuditoresService {
      * Orden pedido por la historia: (1) el auditor tiene la especialidad del tipo de auditoría,
      * (2) experiencia en el sector de la empresa, (3) calificación, (4) auditorías completadas.
      *
-     * <p>Los cuatro criterios son descendentes: primero los que sí cumplen. Los booleanos se
-     * invierten con {@code !} porque {@code Comparator.comparing} ordena false antes que true.</p>
+     * <p>Los cuatro criterios van de mejor a peor, y por eso los cuatro se invierten: por defecto
+     * un comparador ordena de menor a mayor, y ahí quedarían primero los que no cumplen. La
+     * calificación se compara aparte porque es la única que admite nulos (un auditor sin reseñas),
+     * y esos van al final en vez de reventar.</p>
      */
     private Comparator<PerfilAuditor> porIdoneidad(EspecialidadAuditor tipoAuditoria, String sector) {
-        return Comparator
-                .comparing((PerfilAuditor p) -> !cubreTipoAuditoria(p, tipoAuditoria))
-                .thenComparing(p -> -auditoriasEnSector(p, sector))
+        Comparator<PerfilAuditor> porEspecialidad =
+                Comparator.comparing(p -> cubreTipoAuditoria(p, tipoAuditoria));
+        Comparator<PerfilAuditor> porSector =
+                Comparator.comparingInt(p -> auditoriasEnSector(p, sector));
+        Comparator<PerfilAuditor> porAuditorias =
+                Comparator.comparingInt(PerfilAuditor::getAuditoriasCompletadas);
+
+        return porEspecialidad.reversed()
+                .thenComparing(porSector.reversed())
                 .thenComparing(PerfilAuditor::getCalificacionPromedio,
                         Comparator.nullsLast(Comparator.reverseOrder()))
-                .thenComparing(Comparator.comparingInt(PerfilAuditor::getAuditoriasCompletadas).reversed());
+                .thenComparing(porAuditorias.reversed());
     }
 
     private boolean cubreTipoAuditoria(PerfilAuditor perfil, EspecialidadAuditor tipoAuditoria) {
