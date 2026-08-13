@@ -83,17 +83,17 @@ class PerfilPublicoAuditorMetricasPropertyTest {
         assertThat(metricas).isNotNull();
 
         // calificacionPromedio comes directly from perfil
-        assertThat(metricas.getCalificacionPromedio())
+        assertThat(metricas.calificacionPromedio())
                 .as("calificacionPromedio should match the value from PerfilAuditor")
                 .isEqualByComparingTo(calificacionPromedio);
 
         // totalResenas comes directly from perfil
-        assertThat(metricas.getTotalResenas())
+        assertThat(metricas.totalResenas())
                 .as("totalResenas should match the value from PerfilAuditor")
                 .isEqualTo(totalResenas);
 
         // auditoriasCompletadas == size of the list
-        assertThat(metricas.getAuditoriasCompletadas())
+        assertThat(metricas.auditoriasCompletadas())
                 .as("auditoriasCompletadas should equal the count of solicitudes")
                 .isEqualTo(solicitudes.size());
 
@@ -109,14 +109,14 @@ class PerfilPublicoAuditorMetricasPropertyTest {
             BigDecimal expectedDias = BigDecimal.valueOf(totalHoras)
                     .divide(BigDecimal.valueOf((long) conFechas.size() * 24L), 1, RoundingMode.HALF_UP);
 
-            assertThat(metricas.getTiempoPromedioRespuestaDias())
+            assertThat(metricas.tiempoPromedioRespuestaDias())
                     .as("tiempoPromedioRespuestaDias should be the average days between fechaAsignacion and fechaAceptacion")
                     .isEqualByComparingTo(expectedDias);
         } else {
             // Fallback: uses perfil.getTiempoRespuestaHoras() / 24
             BigDecimal expectedFallback = BigDecimal.valueOf(48)
                     .divide(BigDecimal.valueOf(24), 1, RoundingMode.HALF_UP);
-            assertThat(metricas.getTiempoPromedioRespuestaDias())
+            assertThat(metricas.tiempoPromedioRespuestaDias())
                     .as("tiempoPromedioRespuestaDias should fallback to perfil.tiempoRespuestaHoras/24")
                     .isEqualByComparingTo(expectedFallback);
         }

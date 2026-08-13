@@ -166,7 +166,7 @@ class AuditorControllerTest {
     @Test
     @DisplayName("GET /{auditorId} con UUID válido retorna 200 con JSON del DTO")
     @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
-    void obtenerPerfilPublico_uuidValido_retorna200ConDto() throws Exception {
+    void obtenerPerfilPublicoConUuidValidoRetorna200ConDto() throws Exception {
         UUID auditorId = UUID.fromString("a1b2c3d4-e5f6-7890-abcd-ef1234567890");
 
         PerfilPublicoAuditorResponseDTO dto = new PerfilPublicoAuditorResponseDTO(
@@ -210,7 +210,7 @@ class AuditorControllerTest {
     @Test
     @DisplayName("GET /{auditorId} con UUID inválido retorna 400 con mensaje de error")
     @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
-    void obtenerPerfilPublico_uuidInvalido_retorna400() throws Exception {
+    void obtenerPerfilPublicoConUuidInvalidoRetorna400() throws Exception {
         mockMvc.perform(get("/api/auditores/{auditorId}", "not-a-uuid")
                         .principal(principal("ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isBadRequest())
@@ -221,7 +221,7 @@ class AuditorControllerTest {
     @Test
     @DisplayName("GET /{auditorId} cuando perfil no existe retorna 404")
     @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
-    void obtenerPerfilPublico_perfilNoExiste_retorna404() throws Exception {
+    void obtenerPerfilPublicoPerfilNoExisteRetorna404() throws Exception {
         UUID auditorId = UUID.fromString("00000000-0000-0000-0000-000000000001");
 
         when(perfilPublicoAuditorService.obtenerPerfilPublico(auditorId))
@@ -237,7 +237,7 @@ class AuditorControllerTest {
     @Test
     @DisplayName("GET /{auditorId} con error inesperado retorna 500")
     @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
-    void obtenerPerfilPublico_errorInesperado_retorna500() throws Exception {
+    void obtenerPerfilPublicoErrorInesperadoRetorna500() throws Exception {
         UUID auditorId = UUID.fromString("00000000-0000-0000-0000-000000000002");
 
         when(perfilPublicoAuditorService.obtenerPerfilPublico(auditorId))

@@ -17,6 +17,11 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Verifies that reviews sorted by fechaCalificacion descending maintain the invariant:
  * for every consecutive pair (reseña[i], reseña[i+1]), fechaCalificacion[i] >= fechaCalificacion[i+1].
  *
+ * <p>Nota: El servicio ahora ordena reseñas vía el repositorio
+ * (findByAuditorIdOrderByCreadoEnDesc desde PP-56), por lo que la ordenación
+ * real ocurre en la query. Este test valida el contrato de ordenamiento de
+ * forma independiente como propiedad algebraica del comparador.</p>
+ *
  * Validates: Requirements 6.3
  */
 class PerfilPublicoAuditorResenasPropertyTest {

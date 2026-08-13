@@ -35,10 +35,10 @@ public interface PerfilPublicoAuditorMapper {
         dto.setDisponible(perfil.isDisponible());
 
         if (metricas != null) {
-            dto.setCalificacionPromedio(metricas.getCalificacionPromedio());
-            dto.setTotalResenas(metricas.getTotalResenas());
-            dto.setAuditoriasCompletadas(metricas.getAuditoriasCompletadas());
-            dto.setTiempoPromedioRespuestaDias(metricas.getTiempoPromedioRespuestaDias());
+            dto.setCalificacionPromedio(metricas.calificacionPromedio());
+            dto.setTotalResenas(metricas.totalResenas());
+            dto.setAuditoriasCompletadas(metricas.auditoriasCompletadas());
+            dto.setTiempoPromedioRespuestaDias(metricas.tiempoPromedioRespuestaDias());
         }
 
         dto.setCertificaciones(certificaciones);
