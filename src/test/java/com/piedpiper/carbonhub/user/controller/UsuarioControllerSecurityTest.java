@@ -26,6 +26,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -107,11 +108,40 @@ class UsuarioControllerSecurityTest {
                 .build()));
         when(preferenciasUsuarioService.obtenerPreferencias(any(UUID.class)))
                 .thenReturn(new PreferenciasUsuarioResponseDTO("ESPANOL", "CRC", "METRICO"));
-        when(jwtService.generar(any(Usuario.class))).thenReturn("token-renovado");
+        when(jwtService.puedeRenovarse(claims)).thenReturn(true);
+        when(jwtService.inicioSesionDe(claims)).thenReturn(Optional.of(1_786_000_000L));
+        when(jwtService.renovar(any(Usuario.class), anyLong())).thenReturn("token-renovado");
 
         mockMvc.perform(get("/api/usuarios/me/preferencias")
                         .header("Authorization", "Bearer token-valido"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("X-Refresh-Token", "token-renovado"));
+    }
+
+    /**
+     * Pasado el tope absoluto la peticion en curso sigue funcionando, pero ya no se entrega token
+     * nuevo: la sesion deja de estirarse sola y el token que alguien tenga en la mano caduca solo.
+     */
+    @Test
+    void unaSesionPasadaDelTopeResponde200PeroYaNoRenueva() throws Exception {
+        Claims claims = mock(Claims.class);
+        when(claims.getSubject()).thenReturn(USUARIO_ID.toString());
+        when(jwtService.parsear(anyString())).thenReturn(claims);
+        when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(Usuario.builder()
+                .id(USUARIO_ID)
+                .email("usuario@correo.com")
+                .rol(Rol.USUARIO_INDIVIDUAL)
+                .estado(EstadoUsuario.ACTIVO)
+                .metodoAuth(MetodoAuth.CORREO)
+                .fechaRegistro(Instant.now())
+                .build()));
+        when(preferenciasUsuarioService.obtenerPreferencias(any(UUID.class)))
+                .thenReturn(new PreferenciasUsuarioResponseDTO("ESPANOL", "CRC", "METRICO"));
+        when(jwtService.puedeRenovarse(claims)).thenReturn(false);
+
+        mockMvc.perform(get("/api/usuarios/me/preferencias")
+                        .header("Authorization", "Bearer token-valido"))
+                .andExpect(status().isOk())
+                .andExpect(header().doesNotExist("X-Refresh-Token"));
     }
 }
