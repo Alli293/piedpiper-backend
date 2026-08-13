@@ -29,10 +29,14 @@ public class PerfilAuditorService {
 
     private PerfilAuditor crear(Usuario usuario) {
         try {
-            return perfilAuditorRepository.save(PerfilAuditor.builder().auditor(usuario).build());
+            // saveAndFlush, no save: PerfilAuditor.id usa GenerationType.UUID, asi que Hibernate no
+            // necesita el round-trip a la base para asignar el id y difiere el INSERT al proximo
+            // flush. Con save() la violacion de uk_perfiles_auditor_auditor ocurriria fuera de este
+            // catch, en un flush posterior fuera de nuestro control.
+            return perfilAuditorRepository.saveAndFlush(PerfilAuditor.builder().auditor(usuario).build());
         } catch (DataIntegrityViolationException e) {
-            // uk_perfiles_auditor_auditor: otra llamada concurrente (mismo patron que
-            // AuditorPerfilService.actualizar) ya creo el perfil entre el findByAuditorId y este save.
+            // otra llamada concurrente (mismo patron que AuditorPerfilService.actualizar) ya creo el
+            // perfil entre el findByAuditorId y este save.
             return perfilAuditorRepository.findByAuditorId(usuario.getId())
                     .orElseThrow(() -> ApiException.errorInterno("No se pudo crear el perfil del auditor."));
         }

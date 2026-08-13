@@ -43,12 +43,12 @@ class PerfilAuditorServiceTest {
     void creaElPerfilCuandoElAuditorNoTieneUno() {
         Usuario auditor = auditor();
         when(perfilAuditorRepository.findByAuditorId(auditor.getId())).thenReturn(Optional.empty());
-        when(perfilAuditorRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(perfilAuditorRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         PerfilAuditor perfil = service.asegurarPerfil(auditor);
 
         ArgumentCaptor<PerfilAuditor> captor = ArgumentCaptor.forClass(PerfilAuditor.class);
-        verify(perfilAuditorRepository).save(captor.capture());
+        verify(perfilAuditorRepository).saveAndFlush(captor.capture());
         assertThat(perfil).isSameAs(captor.getValue());
         assertThat(perfil.getAuditor()).isEqualTo(auditor);
         assertThat(perfil.isDisponible()).isTrue();
@@ -66,7 +66,7 @@ class PerfilAuditorServiceTest {
         PerfilAuditor perfil = service.asegurarPerfil(auditor);
 
         assertThat(perfil).isSameAs(existente);
-        verify(perfilAuditorRepository, never()).save(any());
+        verify(perfilAuditorRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -76,7 +76,7 @@ class PerfilAuditorServiceTest {
         when(perfilAuditorRepository.findByAuditorId(auditor.getId()))
                 .thenReturn(Optional.empty())
                 .thenReturn(Optional.of(creadoPorLaOtraLlamada));
-        when(perfilAuditorRepository.save(any())).thenThrow(new DataIntegrityViolationException(
+        when(perfilAuditorRepository.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException(
                 "duplicate key value violates unique constraint \"uk_perfiles_auditor_auditor\""));
 
         PerfilAuditor perfil = service.asegurarPerfil(auditor);
@@ -88,7 +88,7 @@ class PerfilAuditorServiceTest {
     void siElConflictoPersisteLanzaErrorInterno() {
         Usuario auditor = auditor();
         when(perfilAuditorRepository.findByAuditorId(auditor.getId())).thenReturn(Optional.empty());
-        when(perfilAuditorRepository.save(any())).thenThrow(new DataIntegrityViolationException("conflicto"));
+        when(perfilAuditorRepository.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException("conflicto"));
 
         assertThatThrownBy(() -> service.asegurarPerfil(auditor))
                 .isInstanceOf(ApiException.class);
@@ -105,6 +105,6 @@ class PerfilAuditorServiceTest {
 
         assertThat(perfil).isNull();
         verify(perfilAuditorRepository, never()).findByAuditorId(any());
-        verify(perfilAuditorRepository, never()).save(any());
+        verify(perfilAuditorRepository, never()).saveAndFlush(any());
     }
 }

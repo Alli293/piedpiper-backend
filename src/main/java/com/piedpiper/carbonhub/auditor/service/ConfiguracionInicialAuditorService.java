@@ -73,9 +73,12 @@ public class ConfiguracionInicialAuditorService {
         }
 
         Set<EspecialidadAuditor> especialidades = resolverEspecialidades(datos.getEspecialidades());
+        // Antes que validarYLeer: es un chequeo de metadatos en memoria, mientras que validarYLeer
+        // lee todos los bytes y parsea cada PDF con PDFBox -- no tiene sentido pagar ese costo si el
+        // archivo ya viene sin nombre o content-type.
+        validarMetadatosDocumentos(documentos);
         List<byte[]> contenidosDocumentos = validadorDocumentosPdf.validarYLeer(
                 documentos, TipoDocumentoAdjunto.CREDENCIAL_AUDITOR);
-        validarMetadatosDocumentos(documentos);
 
         PerfilAuditor perfil = perfilAuditorService.asegurarPerfil(auditor);
 
@@ -110,11 +113,12 @@ public class ConfiguracionInicialAuditorService {
     }
 
     private void validarMetadatosDocumentos(List<MultipartFile> documentos) {
-        for (MultipartFile documento : documentos) {
+        for (int i = 0; i < documentos.size(); i++) {
+            MultipartFile documento = documentos.get(i);
             String nombreArchivo = documento.getOriginalFilename();
             String tipoContenido = documento.getContentType();
             if (nombreArchivo == null || nombreArchivo.isBlank() || tipoContenido == null || tipoContenido.isBlank()) {
-                throw ApiException.documentoCredencialMetadatosInvalidos();
+                throw ApiException.documentoCredencialMetadatosInvalidos(i + 1);
             }
         }
     }

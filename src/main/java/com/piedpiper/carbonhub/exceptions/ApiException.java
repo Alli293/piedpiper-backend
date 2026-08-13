@@ -516,10 +516,10 @@ public class ApiException extends RuntimeException {
                 "Este documento no fue encontrado.");
     }
 
-    public static ApiException documentoCredencialMetadatosInvalidos() {
+    public static ApiException documentoCredencialMetadatosInvalidos(int posicion) {
         return new ApiException(HttpStatus.BAD_REQUEST,
-                "Uno de los documentos no tiene un nombre de archivo o tipo de contenido válido. "
-                        + "Intenta subirlo de nuevo.");
+                "El documento #" + posicion + " no tiene un nombre de archivo o tipo de contenido "
+                        + "válido. Intenta subirlo de nuevo.");
     }
 
     public static ApiException documentosCredencialesRequeridos() {
