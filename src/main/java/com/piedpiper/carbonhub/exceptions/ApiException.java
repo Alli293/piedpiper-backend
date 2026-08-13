@@ -505,6 +505,11 @@ public class ApiException extends RuntimeException {
                 "La fecha límite debe ser una fecha futura.");
     }
 
+    public static ApiException ecoScoreNoDisponible() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "Aún no se ha calculado un EcoScore para este itinerario.");
+    }
+
     public static ApiException configuracionAuditorNoDisponible() {
         return new ApiException(HttpStatus.CONFLICT,
                 "Esta acción solo está disponible mientras tu cuenta de auditor está pendiente "

@@ -73,7 +73,7 @@ class CertificacionControllerTest {
 
     private CertificacionResponseDTO respuesta(String nombre) {
         return new CertificacionResponseDTO(UUID.randomUUID(), UUID.randomUUID(),
-                UUID.randomUUID(), UUID.randomUUID(), "CARBONO_NEUTRAL", nombre,
+                UUID.randomUUID(), UUID.randomUUID(), "CARBONO_NEUTRAL", nombre, "Ana Mora",
                 Instant.now(), LocalDate.of(2027, 1, 10), "ACTIVA", true, "jwt.firmado.aqui", false,
                 "https://carbonhub.example/api/certificaciones/verificar", "CH-2027-8F4A19KD");
     }

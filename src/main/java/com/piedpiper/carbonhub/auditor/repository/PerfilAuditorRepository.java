@@ -42,7 +42,6 @@ public interface PerfilAuditorRepository extends JpaRepository<PerfilAuditor, UU
 
     @Query("""
             select p.auditor.id from PerfilAuditor p
-            where p.auditor is not null
             """)
     List<UUID> listarAuditorIdsConPerfil();
 

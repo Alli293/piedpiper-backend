@@ -16,8 +16,7 @@ import java.util.UUID;
 @ConditionalOnProperty(
         prefix = "app.auditor.metricas",
         name = "sincronizar-al-iniciar",
-        havingValue = "true",
-        matchIfMissing = true)
+        havingValue = "true")
 public class MetricasReputacionAuditorInicializador {
 
     private static final Logger log =
