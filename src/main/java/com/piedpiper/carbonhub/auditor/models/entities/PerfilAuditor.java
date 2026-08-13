@@ -82,6 +82,7 @@ public class PerfilAuditor {
             name = "perfil_auditor_distribucion_sectores",
             joinColumns = @JoinColumn(name = "perfil_auditor_id"))
     @OrderColumn(name = "orden", nullable = false, columnDefinition = "integer default 0")
+    @BatchSize(size = 50)
     @Builder.Default
     private List<DistribucionSectorAuditor> distribucionSectores = new ArrayList<>();
 

@@ -60,7 +60,7 @@ class PerfilPublicoAuditorMapperTest {
                         LocalDate.of(2027, 3, 1), false));
 
         List<DistribucionSectorDTO> distribucion = List.of(
-                new DistribucionSectorDTO("MANUFACTURA", new BigDecimal("75.0")));
+                new DistribucionSectorDTO("MANUFACTURA", 6, new BigDecimal("75.0")));
 
         List<ResenaVerificadaDTO> resenas = List.of(
                 new ResenaVerificadaDTO(new BigDecimal("5.0"), "Excelente", LocalDate.of(2024, 10, 5)));
