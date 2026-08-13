@@ -122,6 +122,65 @@ class RecomendacionAuditoresServiceTest {
         assertThat(respuesta.getRecomendaciones().get(0).getNombre()).isEqualTo("Con Auditor");
     }
 
+    /**
+     * Un auditor recién certificado llega con {@code auditoriasCompletadas} en nulo, porque
+     * {@code MetricasReputacionAuditorService.dejarSinDatos()} representa "ninguna" con nulo y no
+     * con cero. Es el caso más común en un sistema nuevo, y desempaquetarlo al ordenar tiraba el
+     * endpoint entero con un 500.
+     */
+    @Test
+    void unCandidatoSinAuditoriasCompletadasNoRompeElOrden() {
+        PerfilAuditor recienCertificado = auditor("Nuevo", BigDecimal.valueOf(5), null, 0,
+                EspecialidadAuditor.MANUFACTURA);
+        PerfilAuditor conHistorial = auditor("Veterano", BigDecimal.valueOf(5), 20, 0,
+                EspecialidadAuditor.MANUFACTURA);
+        when(perfilAuditorRepository.buscarCandidatosRecomendacion(any(), any(), any(), any(), anyBoolean()))
+                .thenReturn(List.of(recienCertificado, conHistorial));
+
+        RecomendacionAuditoresResponseDTO respuesta = service.recomendar(filtros(), ADMIN_ID);
+
+        assertThat(respuesta.getRecomendaciones()).hasSize(2);
+        // El nulo cuenta como cero, así que el que sí tiene historial queda primero.
+        assertThat(respuesta.getRecomendaciones().get(0).getNombre()).isEqualTo("Veterano Auditor");
+    }
+
+    /** Con todos los candidatos en nulo tampoco puede reventar: es el arranque del sistema. */
+    @Test
+    void todosLosCandidatosSinAuditoriasCompletadasSiguenSaliendo() {
+        when(perfilAuditorRepository.buscarCandidatosRecomendacion(any(), any(), any(), any(), anyBoolean()))
+                .thenReturn(List.of(
+                        auditor("Uno", BigDecimal.valueOf(4), null, 0, EspecialidadAuditor.MANUFACTURA),
+                        auditor("Dos", null, null, 0, EspecialidadAuditor.MANUFACTURA)));
+
+        RecomendacionAuditoresResponseDTO respuesta = service.recomendar(filtros(), ADMIN_ID);
+
+        assertThat(respuesta.getRecomendaciones()).hasSize(2);
+    }
+
+    /**
+     * {@code tipoAuditoria} y {@code especialidadBuscada} son campos distintos del mismo catálogo.
+     * Si en las pruebas siempre coinciden, la consulta ya devuelve solo candidatos que cumplen el
+     * primer criterio y ese nivel del orden nunca se ejercita de verdad.
+     */
+    @Test
+    void cuandoElTipoDeAuditoriaDifiereDeLaEspecialidadBuscadaElOrdenLoDistingue() {
+        PerfilAuditor soloEspecialidadBuscada = auditor("Solo", BigDecimal.valueOf(5), 100, 0,
+                EspecialidadAuditor.MANUFACTURA);
+        PerfilAuditor ambas = auditor("Ambas", BigDecimal.valueOf(1), 0, 0,
+                EspecialidadAuditor.MANUFACTURA, EspecialidadAuditor.ENERGIA_RENOVABLE);
+        when(perfilAuditorRepository.buscarCandidatosRecomendacion(any(), any(), any(), any(), anyBoolean()))
+                .thenReturn(List.of(soloEspecialidadBuscada, ambas));
+
+        RecomendarAuditoresRequestDTO filtros = filtros();
+        filtros.setEspecialidadBuscada("MANUFACTURA");
+        filtros.setTipoAuditoria("ENERGIA_RENOVABLE");
+
+        RecomendacionAuditoresResponseDTO respuesta = service.recomendar(filtros, ADMIN_ID);
+
+        // Gana quien cubre el tipo de auditoría, aunque tenga peor calificación e historial.
+        assertThat(respuesta.getRecomendaciones().get(0).getNombre()).isEqualTo("Ambas Auditor");
+    }
+
     /** Segundo criterio: a igualdad de especialidad, gana quien ya auditó el sector de la empresa. */
     @Test
     void aIgualEspecialidadGanaQuienTieneExperienciaEnElSectorDeLaEmpresa() {
@@ -326,7 +385,7 @@ class RecomendacionAuditoresServiceTest {
         return new RecomendarAuditoresRequestDTO("MANUFACTURA", "MANUFACTURA", "SAN_JOSE", true);
     }
 
-    private static PerfilAuditor auditor(String nombre, BigDecimal calificacion, int auditorias,
+    private static PerfilAuditor auditor(String nombre, BigDecimal calificacion, Integer auditorias,
                                         int auditoriasEnManufactura,
                                         EspecialidadAuditor... especialidades) {
         Set<EspecialidadAuditor> set = new LinkedHashSet<>(List.of(especialidades));

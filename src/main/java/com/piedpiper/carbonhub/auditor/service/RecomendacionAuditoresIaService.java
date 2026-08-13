@@ -126,21 +126,35 @@ public class RecomendacionAuditoresIaService {
         return porAuditor;
     }
 
-    /** Un nombre ausente en la respuesta no invalida nada: solo se usa para detectar un cruce. */
+    /**
+     * Un nombre ausente en la respuesta no invalida nada: solo se usa para detectar un cruce.
+     *
+     * <p>La comparación es por <b>palabras completas</b> y no por prefijo de cadena. Un prefijo de
+     * cadena daría por bueno el cruce entre dos personas distintas cuando un nombre empieza igual
+     * que otro: {@code "ana morales".startsWith("ana mora")} es cierto, y con apellidos compuestos
+     * eso es habitual. Justo el caso que este control existe para detectar quedaría sin detectar.
+     * Palabra por palabra, "Ana Mora" y "Ana Morales" son distintas, y "Ana Mora Vargas" acortado a
+     * "Ana Mora" se sigue reconociendo, que es el motivo por el que la comparación no es exacta.</p>
+     */
     private boolean mismoAuditor(String nombreCandidato, String nombreRespuesta) {
         if (nombreRespuesta == null || nombreRespuesta.isBlank()) {
             return true;
         }
-        String esperado = normalizar(nombreCandidato);
-        String recibido = normalizar(nombreRespuesta);
-        return esperado.startsWith(recibido) || recibido.startsWith(esperado);
+        List<String> esperado = palabras(nombreCandidato);
+        List<String> recibido = palabras(nombreRespuesta);
+        if (esperado.isEmpty() || recibido.isEmpty()) {
+            return false;
+        }
+        int comunes = Math.min(esperado.size(), recibido.size());
+        return esperado.subList(0, comunes).equals(recibido.subList(0, comunes));
     }
 
-    private String normalizar(String valor) {
-        return Normalizer.normalize(valor == null ? "" : valor, Normalizer.Form.NFD)
+    private List<String> palabras(String valor) {
+        String normalizado = Normalizer.normalize(valor == null ? "" : valor, Normalizer.Form.NFD)
                 .replaceAll("\\p{M}", "")
                 .toLowerCase(Locale.ROOT)
                 .trim();
+        return normalizado.isEmpty() ? List.of() : List.of(normalizado.split("\\s+"));
     }
 
     String construirPromptUsuario(String sector, String tipoAuditoria, String zonaGeografica,

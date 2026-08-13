@@ -157,6 +157,26 @@ class RecomendacionAuditoresIaServiceTest {
         assertThat(resultado).containsEntry(ana, "Texto de Ana.").containsEntry(luis, "Texto de Luis.");
     }
 
+    /**
+     * El caso que un prefijo de cadena no detectaba: "ana morales" empieza con "ana mora", asi que
+     * comparando cadenas se daba por bueno el cruce entre dos personas distintas. Con apellidos
+     * compuestos es habitual, y es exactamente lo que este control existe para impedir.
+     */
+    @Test
+    void dosCandidatosCuyoNombreEmpiezaIgualNoSeConfundenEntreSi() {
+        UUID ana = UUID.randomUUID();
+        UUID anaMorales = UUID.randomUUID();
+        List<CandidatoIa> candidatos = List.of(
+                new CandidatoIa(ana, "Ana Mora", List.of("Manufactura"), "4.8", List.of(), 10),
+                new CandidatoIa(anaMorales, "Ana Morales", List.of("Manufactura"), "4.0", List.of(), 5));
+
+        Map<UUID, String> resultado = emparejar(candidatos, List.of(
+                justificacion("Ana Morales", "Texto de Morales."),
+                justificacion("Ana Mora", "Texto de Mora.")));
+
+        assertThat(resultado).isEmpty();
+    }
+
     /** El modelo suele acortar el nombre completo; descartar por eso tiraria texto bueno. */
     @Test
     void unNombreAcortadoOConTildesDistintasSigueContandoComoElMismoAuditor() {
