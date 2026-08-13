@@ -16,6 +16,8 @@ import java.util.UUID;
 
 public interface CertificacionRepository extends JpaRepository<Certificacion, UUID> {
 
+    List<Certificacion> findByAuditorId(UUID auditorId);
+
     Optional<Certificacion> findByIdAuditoria(UUID idAuditoria);
 
     Optional<Certificacion> findByCodigoVerificacion(String codigoVerificacion);
