@@ -93,7 +93,8 @@ class EcoRutaItinerarioServiceTest {
                 mock(PuntuacionAmbientalCalculator.class),
                 empresaRepository, mapper);
 
-        // Stub default para empresaRepository usado en extraerEstablecimientosRankeados
+        // Stub default para empresaRepository, usado tanto en construirActividad/EcoScore
+        // (matching de empresa) como en el prompt de la IA (obtenerNombresEstablecimientosVerificados)
         lenient().when(empresaRepository.findByEstado(any()))
                 .thenReturn(java.util.List.of());
     }

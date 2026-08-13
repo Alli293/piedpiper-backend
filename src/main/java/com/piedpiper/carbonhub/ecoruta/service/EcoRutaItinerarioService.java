@@ -125,7 +125,12 @@ public class EcoRutaItinerarioService {
         ResultadoGeneracionIA resultadoIA = itinerarioIaClienteService.generar(
                 contexto, preferencias.getCantidadDias());
 
-        Itinerario itinerario = construirItinerario(preferencias, resultadoIA);
+        // Pre-cargar empresas activas una sola vez por generación y reutilizar la misma lista en
+        // construirItinerario (matching por actividad) y en aplicarPriorizacionAmbiental (EcoScore)
+        // — antes de esto cada uno hacía su propio fetch, duplicando la consulta.
+        List<Empresa> empresasActivas = empresaRepository.findByEstado(EstadoEmpresa.ACTIVO);
+
+        Itinerario itinerario = construirItinerario(preferencias, resultadoIA, empresasActivas);
 
         try {
             itinerarioRepository.saveAndFlush(itinerario);
@@ -137,7 +142,8 @@ public class EcoRutaItinerarioService {
 
         // Aplicar priorización ambiental: calcula scores y persiste registros de auditoría
         // dentro de la misma transacción (@Transactional)
-        ResultadoPriorizacion resultadoPriorizacion = aplicarPriorizacionAmbiental(itinerario, usuarioId);
+        ResultadoPriorizacion resultadoPriorizacion =
+                aplicarPriorizacionAmbiental(itinerario, usuarioId, empresasActivas);
 
         // Calcular y persistir el EcoScore del itinerario (Req PP-91)
         calcularYPersistirEcoScore(itinerario, resultadoPriorizacion);
@@ -256,7 +262,8 @@ public class EcoRutaItinerarioService {
         }
     }
 
-    private Itinerario construirItinerario(PreferenciasViaje preferencias, ResultadoGeneracionIA resultadoIA) {
+    private Itinerario construirItinerario(PreferenciasViaje preferencias, ResultadoGeneracionIA resultadoIA,
+                                            List<Empresa> empresasActivas) {
         ItinerarioIaResponseDTO respuesta = resultadoIA.respuesta();
         boolean parcial = resultadoIA.resultado() == ResultadoValidacionItinerario.VALIDO_PARCIAL;
 
@@ -276,14 +283,6 @@ public class EcoRutaItinerarioService {
                         : null)
                 .fechaGeneracion(Instant.now())
                 .build();
-
-        // Pre-cargar empresas activas una sola vez (evita N+1 al matchear cada actividad)
-        List<Empresa> empresasActivas = empresaRepository.findByEstado(EstadoEmpresa.ACTIVO);
-        if (empresasActivas.size() > 100) {
-            log.warn("Catálogo de empresas activas ({}) supera el tope de matching (100) usado en "
-                    + "extraerEstablecimientosRankeados. El vínculo empresa-actividad de este itinerario "
-                    + "puede quedar inconsistente con el cálculo de EcoScore.", empresasActivas.size());
-        }
 
         List<ItinerarioDia> dias = new ArrayList<>();
         for (DiaIaDTO diaIa : respuesta.getDias()) {
@@ -355,7 +354,7 @@ public class EcoRutaItinerarioService {
      * Busca, por coincidencia parcial de nombre (case-insensitive, en cualquier dirección), la
      * empresa activa registrada en CarbonHub que corresponde al establecimiento recomendado por la
      * IA. Compartido entre la construcción de la actividad y el cálculo de EcoScore
-     * ({@link #extraerEstablecimientosRankeados(Itinerario)}) para no duplicar el criterio de
+     * ({@link #extraerEstablecimientosRankeados(Itinerario, List)}) para no duplicar el criterio de
      * matching.
      */
     private Optional<Empresa> matchearEmpresaPorNombre(String nombreEstablecimiento, List<Empresa> empresasActivas) {
@@ -403,8 +402,10 @@ public class EcoRutaItinerarioService {
      * coincidan con empresas registradas en CarbonHub. No altera el orden del itinerario;
      * los registros de ponderación se persisten para auditoría (Req 5.4).
      */
-    private ResultadoPriorizacion aplicarPriorizacionAmbiental(Itinerario itinerario, UUID usuarioId) {
-        List<EstablecimientoRankeado> establecimientos = extraerEstablecimientosRankeados(itinerario);
+    private ResultadoPriorizacion aplicarPriorizacionAmbiental(Itinerario itinerario, UUID usuarioId,
+                                                                List<Empresa> empresasActivas) {
+        List<EstablecimientoRankeado> establecimientos =
+                extraerEstablecimientosRankeados(itinerario, empresasActivas);
 
         if (establecimientos.isEmpty()) {
             return new ResultadoPriorizacion(establecimientos, 0, 0);
@@ -454,15 +455,18 @@ public class EcoRutaItinerarioService {
      * itinerario. Solo incluye establecimientos que coincidan con una empresa registrada en
      * CarbonHub (por nombre parcial, case-insensitive). Los que no matchean se omiten del
      * cálculo ambiental — su puntuación será calculada por la IA si disponible.
+     *
+     * <p>Recibe {@code empresasActivas} ya cargada en vez de consultarla — así el flujo de
+     * {@code generar()} reutiliza el mismo fetch que ya hizo para vincular cada actividad con su
+     * empresa, en lugar de duplicar la consulta.
      */
-    private List<EstablecimientoRankeado> extraerEstablecimientosRankeados(Itinerario itinerario) {
+    private List<EstablecimientoRankeado> extraerEstablecimientosRankeados(Itinerario itinerario,
+                                                                             List<Empresa> empresasActivas) {
         List<EstablecimientoRankeado> establecimientos = new ArrayList<>();
         int totalActividades = itinerario.getDias().stream()
                 .mapToInt(dia -> dia.getActividades().size())
                 .sum();
 
-        // Pre-cargar todas las empresas activas para matching por nombre
-        List<Empresa> empresasActivas = empresaRepository.findByEstado(EstadoEmpresa.ACTIVO);
         if (empresasActivas.size() > 100) {
             log.warn("Catálogo de empresas activas ({}) supera el tope de matching (100). "
                     + "Establecimientos fuera del primer bloque no se vincularán con scores reales.",
@@ -558,7 +562,11 @@ public class EcoRutaItinerarioService {
      * de auditoría. Usado al obtener un itinerario ya guardado para enriquecer la visualización.
      */
     private void enriquecerConPuntuacionesCalculadas(ItinerarioResponseDTO responseDTO, Itinerario itinerario) {
-        List<EstablecimientoRankeado> establecimientos = extraerEstablecimientosRankeados(itinerario);
+        // Este flujo (obtener() ya persistido) no tiene una lista de empresas activas precargada
+        // de antes, a diferencia de generar() — se hace el fetch acá, una sola vez.
+        List<Empresa> empresasActivas = empresaRepository.findByEstado(EstadoEmpresa.ACTIVO);
+        List<EstablecimientoRankeado> establecimientos =
+                extraerEstablecimientosRankeados(itinerario, empresasActivas);
         if (establecimientos.isEmpty()) {
             return;
         }
