@@ -177,6 +177,62 @@ class RecomendacionAuditoresIaServiceTest {
         assertThat(resultado).isEmpty();
     }
 
+    /**
+     * Comprobar solo contra el candidato de esa posicion no alcanza si el nombre es ambiguo entre
+     * varios: "Ana" encaja con "Ana Mora" y con "Ana Solis", asi que aceptarlo seria confiar otra
+     * vez en el orden. Ante ambiguedad se descarta.
+     */
+    @Test
+    void unNombreQueEncajaConVariosCandidatosSeDescartaPorAmbiguo() {
+        UUID mora = UUID.randomUUID();
+        UUID solis = UUID.randomUUID();
+        List<CandidatoIa> candidatos = List.of(
+                new CandidatoIa(mora, "Ana Mora", List.of("Manufactura"), "4.8", List.of(), 10),
+                new CandidatoIa(solis, "Ana Solis", List.of("Manufactura"), "4.0", List.of(), 5));
+
+        Map<UUID, String> resultado = emparejar(candidatos, List.of(
+                justificacion("Ana", "Texto ambiguo."),
+                justificacion("Ana", "Otro texto ambiguo.")));
+
+        assertThat(resultado).isEmpty();
+    }
+
+    /** Con un solo candidato el nombre corto no es ambiguo, asi que el texto se aprovecha. */
+    @Test
+    void unNombreCortoConUnSoloCandidatoSiSeAsigna() {
+        UUID ana = UUID.randomUUID();
+        List<CandidatoIa> candidatos = List.of(
+                new CandidatoIa(ana, "Ana Mora", List.of("Manufactura"), "4.8", List.of(), 10));
+
+        Map<UUID, String> resultado = emparejar(candidatos, List.of(justificacion("Ana", "Texto.")));
+
+        assertThat(resultado).containsEntry(ana, "Texto.");
+    }
+
+    /** Caso que planteo Andres: nombre de una sola palabra, sin apellidos. */
+    @Test
+    void unAuditorConNombreDeUnaSolaPalabraSeEmparejaIgual() {
+        UUID rojas = UUID.randomUUID();
+        List<CandidatoIa> candidatos = List.of(
+                new CandidatoIa(rojas, "Rojas", List.of("Manufactura"), "4.5", List.of(), 3));
+
+        Map<UUID, String> resultado = emparejar(candidatos, List.of(justificacion("Rojas", "Texto.")));
+
+        assertThat(resultado).containsEntry(rojas, "Texto.");
+    }
+
+    /** Y si el modelo lo devuelve truncado a una letra, no se atribuye nada. */
+    @Test
+    void unNombreTruncadoQueNoCoincideSeDescarta() {
+        UUID rojas = UUID.randomUUID();
+        List<CandidatoIa> candidatos = List.of(
+                new CandidatoIa(rojas, "Rojas", List.of("Manufactura"), "4.5", List.of(), 3));
+
+        Map<UUID, String> resultado = emparejar(candidatos, List.of(justificacion("R", "Texto.")));
+
+        assertThat(resultado).isEmpty();
+    }
+
     /** El modelo suele acortar el nombre completo; descartar por eso tiraria texto bueno. */
     @Test
     void unNombreAcortadoOConTildesDistintasSigueContandoComoElMismoAuditor() {
