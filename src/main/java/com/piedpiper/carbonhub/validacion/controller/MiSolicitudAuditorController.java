@@ -11,9 +11,12 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+// hasAnyRole incluye AUDITOR_RECHAZADO: un auditor RECHAZADO no recibe ROLE_AUDITOR_CERTIFICADO
+// (ver JwtAuthenticationFilter.autoridadesPara), pero sigue necesitando este endpoint para ver
+// el motivo de su rechazo.
 @RestController
 @RequestMapping("/api/auditor/mi-solicitud")
-@PreAuthorize("hasRole('AUDITOR_CERTIFICADO')")
+@PreAuthorize("hasAnyRole('AUDITOR_CERTIFICADO', 'AUDITOR_RECHAZADO')")
 public class MiSolicitudAuditorController {
 
     private final MiSolicitudAuditorService miSolicitudAuditorService;

@@ -2,6 +2,8 @@ package com.piedpiper.carbonhub.auth.config;
 
 import com.piedpiper.carbonhub.auth.service.JwtService;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
+import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
+import com.piedpiper.carbonhub.user.models.enums.Rol;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
@@ -43,8 +45,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         .orElse(null);
                 if (usuario != null && habilitado(usuario)) {
                     UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                            usuario.getId().toString(), null,
-                            List.of(new SimpleGrantedAuthority("ROLE_" + usuario.getRol().name())));
+                            usuario.getId().toString(), null, autoridadesPara(usuario));
                     auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(auth);
                     renovarSiLaSesionSigueVigente(response, claims, usuario);
@@ -79,5 +80,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     // Regla centralizada en Usuario.estaHabilitado() -- ver su Javadoc para el porque.
     private boolean habilitado(Usuario usuario) {
         return usuario.estaHabilitado();
+    }
+
+    /**
+     * Un auditor RECHAZADO queda autenticado (ver {@code habilitado()}) pero no debe arrastrar el
+     * rol operativo: si le dieramos ROLE_AUDITOR_CERTIFICADO completo, todo endpoint gateado con
+     * {@code hasRole('AUDITOR_CERTIFICADO')} que no valide estado explicitamente (por ejemplo
+     * {@code DecisionAuditorController}) quedaria alcanzable para alguien a quien la plataforma le
+     * retiro la credencial. En su lugar recibe solo ROLE_AUDITOR_RECHAZADO, que
+     * {@code MiSolicitudAuditorController} acepta ademas de ROLE_AUDITOR_CERTIFICADO para que pueda
+     * consultar el motivo de su rechazo y nada mas.
+     */
+    private List<SimpleGrantedAuthority> autoridadesPara(Usuario usuario) {
+        if (usuario.getRol() == Rol.AUDITOR_CERTIFICADO && usuario.getEstado() == EstadoUsuario.RECHAZADO) {
+            return List.of(new SimpleGrantedAuthority("ROLE_AUDITOR_RECHAZADO"));
+        }
+        return List.of(new SimpleGrantedAuthority("ROLE_" + usuario.getRol().name()));
     }
 }

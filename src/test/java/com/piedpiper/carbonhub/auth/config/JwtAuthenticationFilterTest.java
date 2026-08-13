@@ -27,8 +27,9 @@ class JwtAuthenticationFilterTest {
 
     private static final String SECRET = "clave-secreta-de-pruebas-para-firmar-tokens-jwt-123456";
     private static final long EXPIRATION_MS = 1_800_000L;
+    private static final long SESION_MAXIMA_MS = 43_200_000L;
 
-    private final JwtService jwtService = new JwtService(SECRET, EXPIRATION_MS);
+    private final JwtService jwtService = new JwtService(SECRET, EXPIRATION_MS, SESION_MAXIMA_MS);
     private final UsuarioRepository usuarioRepository = mock(UsuarioRepository.class);
     private final JwtAuthenticationFilter filter = new JwtAuthenticationFilter(jwtService, usuarioRepository);
     private final FilterChain chain = mock(FilterChain.class);
@@ -50,6 +51,22 @@ class JwtAuthenticationFilterTest {
         assertThat(auth.getName()).isEqualTo(rechazado.getId().toString());
     }
 
+    // No debe arrastrar el rol operativo: si un auditor RECHAZADO recibiera ROLE_AUDITOR_CERTIFICADO
+    // podria seguir aceptando/emitiendo resultados de auditorias via DecisionAuditorController pese
+    // a que la plataforma le retiro la credencial.
+    @Test
+    void usuarioRechazadoNoRecibeRolDeAuditorCertificado() throws Exception {
+        Usuario rechazado = usuario(EstadoUsuario.RECHAZADO);
+        when(usuarioRepository.findById(rechazado.getId())).thenReturn(Optional.of(rechazado));
+
+        filter.doFilterInternal(peticionConToken(rechazado), new MockHttpServletResponse(), chain);
+
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        assertThat(auth.getAuthorities())
+                .extracting(Object::toString)
+                .containsExactly("ROLE_AUDITOR_RECHAZADO");
+    }
+
     @Test
     void usuarioPendienteDeValidacionConTokenValidoQuedaAutenticado() throws Exception {
         Usuario pendiente = usuario(EstadoUsuario.PENDIENTE_VALIDACION);
@@ -58,6 +75,21 @@ class JwtAuthenticationFilterTest {
         filter.doFilterInternal(peticionConToken(pendiente), new MockHttpServletResponse(), chain);
 
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNotNull();
+    }
+
+    // A diferencia de RECHAZADO, PENDIENTE_VALIDACION si necesita el rol operativo completo: lo usa
+    // para completar su configuracion inicial en ConfiguracionInicialAuditorController.
+    @Test
+    void usuarioPendienteDeValidacionRecibeRolDeAuditorCertificado() throws Exception {
+        Usuario pendiente = usuario(EstadoUsuario.PENDIENTE_VALIDACION);
+        when(usuarioRepository.findById(pendiente.getId())).thenReturn(Optional.of(pendiente));
+
+        filter.doFilterInternal(peticionConToken(pendiente), new MockHttpServletResponse(), chain);
+
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        assertThat(auth.getAuthorities())
+                .extracting(Object::toString)
+                .containsExactly("ROLE_AUDITOR_CERTIFICADO");
     }
 
     @Test

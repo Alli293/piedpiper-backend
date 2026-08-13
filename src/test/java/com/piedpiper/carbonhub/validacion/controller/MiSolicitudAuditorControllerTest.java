@@ -71,6 +71,21 @@ class MiSolicitudAuditorControllerTest {
                 .andExpect(jsonPath("$.fechaResolucion").doesNotExist());
     }
 
+    // El auditor RECHAZADO solo recibe ROLE_AUDITOR_RECHAZADO (ver
+    // JwtAuthenticationFilter.autoridadesPara), y este es el unico endpoint de auditor al que ese
+    // rol da acceso: le permite ver el motivo de su rechazo sin destrabar el resto del rol operativo.
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_RECHAZADO")
+    void auditorRechazadoPuedeConsultarSuPropiaSolicitud() throws Exception {
+        when(miSolicitudAuditorService.obtener(any())).thenReturn(
+                new MiSolicitudAuditorResponseDTO("RECHAZADA", Instant.parse("2026-08-01T12:00:00Z"),
+                        Instant.parse("2026-08-05T09:00:00Z"), "Documentos ilegibles"));
+
+        mockMvc.perform(get("/api/auditor/mi-solicitud").principal(principal()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("RECHAZADA"));
+    }
+
     @Test
     @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_PLATAFORMA")
     void rolNoAutorizadoDevuelve403() throws Exception {
