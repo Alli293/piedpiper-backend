@@ -39,8 +39,14 @@ public class RecomendacionAmbientalService {
 
     /** Debajo de este puntaje una actividad se considera candidata a recomendación (rango BUENA de PP-91). */
     static final int UMBRAL_PUNTUACION_MEJORABLE = 60;
+    /** Intencional: por debajo de {@link #UMBRAL_PUNTUACION_MEJORABLE} (60), así que una actividad
+     *  sin puntuar siempre se trata como mejorable. */
     static final int ECO_SCORE_DEFAULT = 50;
     static final int MAX_RECOMENDACIONES = 3;
+    /** Colchón sobre {@link #MAX_RECOMENDACIONES} antes de llamar a la IA: acota llamadas a Gemini
+     *  (de hasta 10 a como máximo 5 por petición) sin perder casi nunca las 3 recomendaciones finales,
+     *  ya que algunas candidatas pueden no tener alternativa viable. */
+    static final int MAX_CANDIDATAS_IA = 5;
 
     /** Mismo peso de "factor_actividad" usado por {@link EcoScoreService#calcular}, para estimar
      *  cuánto subiría el EcoScore del itinerario al aplicar una recomendación. */
@@ -63,8 +69,8 @@ public class RecomendacionAmbientalService {
     private final AlternativasIaClienteService alternativasIaClienteService;
 
     public RecomendacionAmbientalService(ItinerarioRepository itinerarioRepository,
-                                          ComparacionAlternativasService comparacionAlternativasService,
-                                          AlternativasIaClienteService alternativasIaClienteService) {
+                                         ComparacionAlternativasService comparacionAlternativasService,
+                                         AlternativasIaClienteService alternativasIaClienteService) {
         this.itinerarioRepository = itinerarioRepository;
         this.comparacionAlternativasService = comparacionAlternativasService;
         this.alternativasIaClienteService = alternativasIaClienteService;
@@ -94,9 +100,13 @@ public class RecomendacionAmbientalService {
         List<ItinerarioActividad> actividades = recopilarActividades(itinerario);
         List<String> nombresExcluidos = actividades.stream().map(ItinerarioActividad::getNombre).toList();
 
-        List<RecomendacionAmbientalDTO> recomendaciones = actividades.stream()
+        List<ItinerarioActividad> candidatas = actividades.stream()
                 .filter(this::esMejorable)
                 .sorted(Comparator.comparingInt(this::puntuacionOrDefault))
+                .limit(MAX_CANDIDATAS_IA)
+                .toList();
+
+        List<RecomendacionAmbientalDTO> recomendaciones = candidatas.stream()
                 .map(actividad -> generarRecomendacion(actividad, nombresExcluidos, actividades.size()))
                 .filter(java.util.Objects::nonNull)
                 .sorted(Comparator.comparing(RecomendacionAmbientalDTO::getIncrementoEstimado).reversed())
@@ -117,7 +127,7 @@ public class RecomendacionAmbientalService {
      */
     @Transactional
     public ItinerarioResponseDTO aplicarRecomendacion(UUID itinerarioId, UUID actividadId,
-                                                       SustitucionRequestDTO request, UUID usuarioId) {
+                                                      SustitucionRequestDTO request, UUID usuarioId) {
         return comparacionAlternativasService.sustituirActividad(itinerarioId, actividadId, request, usuarioId);
     }
 
@@ -152,8 +162,8 @@ public class RecomendacionAmbientalService {
      * la lista (misma degradación graciosa que aplica el resto del dominio {@code ecoruta}).
      */
     private RecomendacionAmbientalDTO generarRecomendacion(ItinerarioActividad actividad,
-                                                            List<String> nombresExcluidos,
-                                                            int totalActividades) {
+                                                           List<String> nombresExcluidos,
+                                                           int totalActividades) {
         List<AlternativaIaDTO> alternativas;
         try {
             alternativas = alternativasIaClienteService.buscarAlternativas(actividad, nombresExcluidos);
