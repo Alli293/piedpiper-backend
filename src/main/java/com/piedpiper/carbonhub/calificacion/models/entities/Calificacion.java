@@ -57,6 +57,9 @@ public class Calificacion {
     @Column(length = 500)
     private String comentario;
 
+    @Column(name = "nombre_calificador", length = 200)
+    private String nombreCalificador;
+
     @Column(name = "creado_en", nullable = false)
     private Instant creadoEn;
 

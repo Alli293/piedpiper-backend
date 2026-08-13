@@ -4,6 +4,7 @@ import com.piedpiper.carbonhub.auditor.mappers.PerfilPublicoAuditorMapper;
 import com.piedpiper.carbonhub.auditor.models.dtos.CertificacionPublicaDTO;
 import com.piedpiper.carbonhub.auditor.repository.PerfilAuditorRepository;
 import com.piedpiper.carbonhub.auditoria.repository.SolicitudAuditoriaRepository;
+import com.piedpiper.carbonhub.calificacion.repository.CalificacionRepository;
 import com.piedpiper.carbonhub.certificacion.config.CatalogoTiposCertificacion;
 import com.piedpiper.carbonhub.certificacion.config.DefinicionCertificacion;
 import com.piedpiper.carbonhub.certificacion.models.entities.Certificacion;
@@ -47,6 +48,7 @@ class PerfilPublicoAuditorVigenciaPropertyTest {
         PerfilAuditorRepository perfilRepo = mock(PerfilAuditorRepository.class);
         CertificacionRepository certRepo = mock(CertificacionRepository.class);
         SolicitudAuditoriaRepository solicitudRepo = mock(SolicitudAuditoriaRepository.class);
+        CalificacionRepository calificacionRepo = mock(CalificacionRepository.class);
         CatalogoTiposCertificacion catalogo = mock(CatalogoTiposCertificacion.class);
         PerfilPublicoAuditorMapper mapper = mock(PerfilPublicoAuditorMapper.class);
 
@@ -62,7 +64,7 @@ class PerfilPublicoAuditorVigenciaPropertyTest {
         when(catalogo.buscar(any())).thenReturn(Optional.of(defMock));
 
         this.service = new PerfilPublicoAuditorService(
-                perfilRepo, certRepo, solicitudRepo, catalogo, mapper, FIXED_CLOCK
+                perfilRepo, certRepo, solicitudRepo, calificacionRepo, catalogo, mapper, FIXED_CLOCK
         );
     }
 

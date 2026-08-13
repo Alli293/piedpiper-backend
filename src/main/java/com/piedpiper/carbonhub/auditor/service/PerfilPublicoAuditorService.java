@@ -11,6 +11,8 @@ import com.piedpiper.carbonhub.auditor.repository.PerfilAuditorRepository;
 import com.piedpiper.carbonhub.auditoria.models.entities.SolicitudAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.EstadoSolicitudAuditoria;
 import com.piedpiper.carbonhub.auditoria.repository.SolicitudAuditoriaRepository;
+import com.piedpiper.carbonhub.calificacion.models.entities.Calificacion;
+import com.piedpiper.carbonhub.calificacion.repository.CalificacionRepository;
 import com.piedpiper.carbonhub.certificacion.config.CatalogoTiposCertificacion;
 import com.piedpiper.carbonhub.certificacion.models.entities.Certificacion;
 import com.piedpiper.carbonhub.certificacion.repository.CertificacionRepository;
@@ -37,6 +39,7 @@ public class PerfilPublicoAuditorService {
     private final PerfilAuditorRepository perfilAuditorRepository;
     private final CertificacionRepository certificacionRepository;
     private final SolicitudAuditoriaRepository solicitudAuditoriaRepository;
+    private final CalificacionRepository calificacionRepository;
     private final CatalogoTiposCertificacion catalogoTiposCertificacion;
     private final PerfilPublicoAuditorMapper mapper;
     private final Clock clock;
@@ -44,12 +47,14 @@ public class PerfilPublicoAuditorService {
     public PerfilPublicoAuditorService(PerfilAuditorRepository perfilAuditorRepository,
                                        CertificacionRepository certificacionRepository,
                                        SolicitudAuditoriaRepository solicitudAuditoriaRepository,
+                                       CalificacionRepository calificacionRepository,
                                        CatalogoTiposCertificacion catalogoTiposCertificacion,
                                        PerfilPublicoAuditorMapper mapper,
                                        Clock clock) {
         this.perfilAuditorRepository = perfilAuditorRepository;
         this.certificacionRepository = certificacionRepository;
         this.solicitudAuditoriaRepository = solicitudAuditoriaRepository;
+        this.calificacionRepository = calificacionRepository;
         this.catalogoTiposCertificacion = catalogoTiposCertificacion;
         this.mapper = mapper;
         this.clock = clock;
@@ -79,13 +84,27 @@ public class PerfilPublicoAuditorService {
         // 6. Calcular distribución de sectores
         List<DistribucionSectorDTO> distribucionSectores = calcularDistribucionSectores(auditoriasCompletadas);
 
-        // 7. Obtener reseñas verificadas
-        // TODO: Implementar cuando PP-56 cree la entidad Calificacion
-        List<ResenaVerificadaDTO> resenas = Collections.emptyList();
+        // 7. Obtener reseñas verificadas desde calificaciones_auditoria
+        List<ResenaVerificadaDTO> resenas = calificacionRepository.findByAuditorIdOrderByCreadoEnDesc(auditorId)
+                .stream()
+                .map(cal -> new ResenaVerificadaDTO(
+                        cal.getId(),
+                        cal.getEmpresa().getId(),
+                        BigDecimal.valueOf(cal.getCalificacion()),
+                        cal.getComentario(),
+                        cal.getCreadoEn().atZone(java.time.ZoneId.systemDefault()).toLocalDate(),
+                        cal.getNombreCalificador() != null ? cal.getNombreCalificador() : cal.getEmpresa().getNombreEmpresa(),
+                        cal.getEmpresa().getNombreEmpresa()))
+                .toList();
 
         // 8. Ensamblar y retornar el DTO
-        return mapper.aPerfilPublicoDto(perfil, metricas, certificacionesPublicas,
-                distribucionSectores, resenas);
+        PerfilPublicoAuditorResponseDTO dto = mapper.aPerfilPublicoDto(perfil, metricas,
+                certificacionesPublicas, distribucionSectores, resenas);
+
+        // Usar el conteo real de calificaciones en lugar del valor cacheado en perfil
+        dto.setTotalResenas(resenas.size());
+
+        return dto;
     }
 
     MetricasAuditor calcularMetricas(PerfilAuditor perfil, List<SolicitudAuditoria> auditoriasCompletadas) {

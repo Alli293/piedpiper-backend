@@ -3,6 +3,7 @@ package com.piedpiper.carbonhub.auditor.service;
 import com.piedpiper.carbonhub.auditor.mappers.PerfilPublicoAuditorMapper;
 import com.piedpiper.carbonhub.auditor.repository.PerfilAuditorRepository;
 import com.piedpiper.carbonhub.auditoria.repository.SolicitudAuditoriaRepository;
+import com.piedpiper.carbonhub.calificacion.repository.CalificacionRepository;
 import com.piedpiper.carbonhub.certificacion.config.CatalogoTiposCertificacion;
 import com.piedpiper.carbonhub.certificacion.repository.CertificacionRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
@@ -34,6 +35,7 @@ class PerfilPublicoAuditor404PropertyTest {
     private final PerfilAuditorRepository perfilAuditorRepository = mock(PerfilAuditorRepository.class);
     private final CertificacionRepository certificacionRepository = mock(CertificacionRepository.class);
     private final SolicitudAuditoriaRepository solicitudAuditoriaRepository = mock(SolicitudAuditoriaRepository.class);
+    private final CalificacionRepository calificacionRepository = mock(CalificacionRepository.class);
     private final CatalogoTiposCertificacion catalogoTiposCertificacion = mock(CatalogoTiposCertificacion.class);
     private final PerfilPublicoAuditorMapper mapper = mock(PerfilPublicoAuditorMapper.class);
     private final Clock clock = Clock.systemDefaultZone();
@@ -42,6 +44,7 @@ class PerfilPublicoAuditor404PropertyTest {
             perfilAuditorRepository,
             certificacionRepository,
             solicitudAuditoriaRepository,
+            calificacionRepository,
             catalogoTiposCertificacion,
             mapper,
             clock

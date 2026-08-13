@@ -13,6 +13,7 @@ import com.piedpiper.carbonhub.auditoria.models.entities.SolicitudAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.EstadoSolicitudAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.TipoCertificacionSolicitud;
 import com.piedpiper.carbonhub.auditoria.repository.SolicitudAuditoriaRepository;
+import com.piedpiper.carbonhub.calificacion.repository.CalificacionRepository;
 import com.piedpiper.carbonhub.certificacion.config.CatalogoTiposCertificacion;
 import com.piedpiper.carbonhub.certificacion.models.entities.Certificacion;
 import com.piedpiper.carbonhub.certificacion.repository.CertificacionRepository;
@@ -60,6 +61,9 @@ class PerfilPublicoAuditorServiceTest {
     private SolicitudAuditoriaRepository solicitudAuditoriaRepository;
 
     @Mock
+    private CalificacionRepository calificacionRepository;
+
+    @Mock
     private CatalogoTiposCertificacion catalogoTiposCertificacion;
 
     @Mock
@@ -77,6 +81,7 @@ class PerfilPublicoAuditorServiceTest {
                 perfilAuditorRepository,
                 certificacionRepository,
                 solicitudAuditoriaRepository,
+                calificacionRepository,
                 catalogoTiposCertificacion,
                 mapper,
                 FIXED_CLOCK);
@@ -136,6 +141,8 @@ class PerfilPublicoAuditorServiceTest {
                 .thenReturn(certificaciones);
         when(solicitudAuditoriaRepository.findByAuditorIdAndEstado(AUDITOR_ID, EstadoSolicitudAuditoria.CERTIFICACION_EMITIDA))
                 .thenReturn(auditoriasCompletadas);
+        when(calificacionRepository.findByAuditorIdOrderByCreadoEnDesc(AUDITOR_ID))
+                .thenReturn(Collections.emptyList());
 
         PerfilPublicoAuditorResponseDTO expectedDto = new PerfilPublicoAuditorResponseDTO();
         expectedDto.setAuditorId(AUDITOR_ID);
@@ -159,7 +166,7 @@ class PerfilPublicoAuditorServiceTest {
         assertThat(result.getFotoPerfil()).isEqualTo("https://cdn.example.com/foto.jpg");
         assertThat(result.isDisponible()).isTrue();
         assertThat(result.getCalificacionPromedio()).isEqualTo(new BigDecimal("4.5"));
-        assertThat(result.getTotalResenas()).isEqualTo(10);
+        assertThat(result.getTotalResenas()).isEqualTo(0);
         assertThat(result.getAuditoriasCompletadas()).isEqualTo(1);
 
         // Verify mapper was called with correct args
@@ -244,6 +251,8 @@ class PerfilPublicoAuditorServiceTest {
                 .thenReturn(Collections.emptyList());
         when(solicitudAuditoriaRepository.findByAuditorIdAndEstado(AUDITOR_ID, EstadoSolicitudAuditoria.CERTIFICACION_EMITIDA))
                 .thenReturn(Collections.emptyList());
+        when(calificacionRepository.findByAuditorIdOrderByCreadoEnDesc(AUDITOR_ID))
+                .thenReturn(Collections.emptyList());
 
         PerfilPublicoAuditorResponseDTO dtoSinMetricas = new PerfilPublicoAuditorResponseDTO();
         dtoSinMetricas.setAuditorId(AUDITOR_ID);
@@ -273,7 +282,7 @@ class PerfilPublicoAuditorServiceTest {
 
         // Assert on the result DTO
         assertThat(result.getCalificacionPromedio()).isNull();
-        assertThat(result.getTotalResenas()).isNull();
+        assertThat(result.getTotalResenas()).isEqualTo(0);
         assertThat(result.getAuditoriasCompletadas()).isNull();
         assertThat(result.getTiempoPromedioRespuestaDias()).isNull();
         assertThat(result.getDistribucionSectores()).isEmpty();

@@ -7,6 +7,7 @@ import com.piedpiper.carbonhub.auditor.repository.PerfilAuditorRepository;
 import com.piedpiper.carbonhub.auditoria.models.entities.SolicitudAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.TipoCertificacionSolicitud;
 import com.piedpiper.carbonhub.auditoria.repository.SolicitudAuditoriaRepository;
+import com.piedpiper.carbonhub.calificacion.repository.CalificacionRepository;
 import com.piedpiper.carbonhub.certificacion.config.CatalogoTiposCertificacion;
 import com.piedpiper.carbonhub.certificacion.repository.CertificacionRepository;
 
@@ -37,6 +38,7 @@ class PerfilPublicoAuditorMetricasPropertyTest {
     private final PerfilAuditorRepository perfilAuditorRepository = mock(PerfilAuditorRepository.class);
     private final CertificacionRepository certificacionRepository = mock(CertificacionRepository.class);
     private final SolicitudAuditoriaRepository solicitudAuditoriaRepository = mock(SolicitudAuditoriaRepository.class);
+    private final CalificacionRepository calificacionRepository = mock(CalificacionRepository.class);
     private final CatalogoTiposCertificacion catalogoTiposCertificacion = mock(CatalogoTiposCertificacion.class);
     private final PerfilPublicoAuditorMapper mapper = mock(PerfilPublicoAuditorMapper.class);
     private final Clock clock = Clock.fixed(
@@ -47,6 +49,7 @@ class PerfilPublicoAuditorMetricasPropertyTest {
             perfilAuditorRepository,
             certificacionRepository,
             solicitudAuditoriaRepository,
+            calificacionRepository,
             catalogoTiposCertificacion,
             mapper,
             clock);

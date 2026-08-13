@@ -65,6 +65,7 @@ public class CalificacionCreacionService {
                 .empresa(usuario.getEmpresa())
                 .calificacion(request.getCalificacion())
                 .comentario(request.getComentario())
+                .nombreCalificador(usuario.getNombre() + " " + usuario.getApellidos())
                 .creadoEn(ahora)
                 .actualizadoEn(ahora)
                 .build();
