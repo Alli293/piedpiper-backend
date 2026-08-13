@@ -244,8 +244,10 @@ public class EcoRutaItinerarioService {
         historialActualizado.add(new MensajeConversacionDTO("ASISTENTE", respuesta.getRespuestaTexto()));
 
         // Misma empresasActivas pre-cargada que usa generar(): construirDias (matching por
-        // actividad) y aplicarPriorizacionAmbiental (EcoScore) la reutilizan en vez de que cada
-        // uno haga su propia consulta.
+        // actividad, vía construirActividad) la usa para vincular cada actividad con su empresa
+        // (persistido en ItinerarioActividad.empresa). aplicarPriorizacionAmbiental ya NO la
+        // necesita — lee el vínculo ya persistido en cada actividad en vez de volver a matchear
+        // por nombre (ver extraerEstablecimientosRankeados).
         List<Empresa> empresasActivas = empresaRepository.findByEstado(EstadoEmpresa.ACTIVO);
 
         if (respuesta.isRequiereAclaracion() || respuesta.getItinerarioActualizado() == null) {
@@ -295,8 +297,7 @@ public class EcoRutaItinerarioService {
                     "No fue posible guardar los cambios del itinerario. Intenta nuevamente.");
         }
 
-        ResultadoPriorizacion resultadoPriorizacion =
-                aplicarPriorizacionAmbiental(itinerario, usuarioId, empresasActivas);
+        ResultadoPriorizacion resultadoPriorizacion = aplicarPriorizacionAmbiental(itinerario, usuarioId);
         calcularYPersistirEcoScore(itinerario, resultadoPriorizacion);
 
         ItinerarioResponseDTO responseDTO = mapper.toDto(itinerario);
