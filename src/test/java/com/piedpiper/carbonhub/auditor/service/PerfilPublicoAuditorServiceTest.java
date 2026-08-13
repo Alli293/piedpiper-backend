@@ -237,13 +237,73 @@ class PerfilPublicoAuditorServiceTest {
                 });
     }
 
-    // ── Test 4: Auditor sin auditorías completadas retorna métricas null ──
+    // ── Test 4: Auditor sin auditorías completadas pero con calificación previa retorna métricas parciales ──
 
     @Test
-    void auditorSinAuditoriasCompletadasRetornaMetricasNullYDistribucionVacia() {
+    void auditorSinAuditoriasCompletadasPeroConCalificacionRetornaMetricasParciales() {
         // Arrange
         Usuario auditor = auditorActivo();
-        PerfilAuditor perfil = perfilCompleto(auditor);
+        PerfilAuditor perfil = perfilCompleto(auditor); // has calificacionPromedio=4.5, totalResenas=10
+
+        when(perfilAuditorRepository.findByAuditorIdAndAuditorEstado(AUDITOR_ID, EstadoUsuario.ACTIVO))
+                .thenReturn(Optional.of(perfil));
+        when(certificacionRepository.findByAuditorId(AUDITOR_ID))
+                .thenReturn(Collections.emptyList());
+        when(solicitudAuditoriaRepository.findByAuditorIdAndEstado(AUDITOR_ID, EstadoSolicitudAuditoria.CERTIFICACION_EMITIDA))
+                .thenReturn(Collections.emptyList());
+
+        PerfilPublicoAuditorResponseDTO dtoConMetricasParciales = new PerfilPublicoAuditorResponseDTO();
+        dtoConMetricasParciales.setAuditorId(AUDITOR_ID);
+        dtoConMetricasParciales.setCalificacionPromedio(new BigDecimal("4.5"));
+        dtoConMetricasParciales.setTotalResenas(10);
+        dtoConMetricasParciales.setAuditoriasCompletadas(0);
+        dtoConMetricasParciales.setDistribucionSectores(Collections.emptyList());
+
+        when(mapper.aPerfilPublicoDto(any(), any(), any(), any(), any()))
+                .thenReturn(dtoConMetricasParciales);
+
+        // Act
+        PerfilPublicoAuditorResponseDTO result = service.obtenerPerfilPublico(AUDITOR_ID);
+
+        // Assert — verify mapper is called with non-null metricas (partial) and empty distribucion
+        ArgumentCaptor<MetricasAuditor> metricasCaptor = ArgumentCaptor.forClass(MetricasAuditor.class);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<DistribucionSectorDTO>> distribucionCaptor =
+                ArgumentCaptor.forClass(List.class);
+
+        verify(mapper).aPerfilPublicoDto(
+                eq(perfil),
+                metricasCaptor.capture(),
+                any(),
+                distribucionCaptor.capture(),
+                any());
+
+        MetricasAuditor metricas = metricasCaptor.getValue();
+        assertThat(metricas).isNotNull();
+        assertThat(metricas.calificacionPromedio()).isEqualByComparingTo(new BigDecimal("4.5"));
+        assertThat(metricas.totalResenas()).isEqualTo(10);
+        assertThat(metricas.auditoriasCompletadas()).isEqualTo(0);
+        assertThat(metricas.tiempoPromedioRespuestaDias()).isNull();
+        assertThat(distribucionCaptor.getValue()).isEmpty();
+    }
+
+    // ── Test 4b: Auditor sin auditorías y sin calificación retorna métricas null ──
+
+    @Test
+    void auditorSinAuditoriasYSinCalificacionRetornaMetricasNull() {
+        // Arrange
+        Usuario auditor = auditorActivo();
+        PerfilAuditor perfil = PerfilAuditor.builder()
+                .id(UUID.randomUUID())
+                .auditor(auditor)
+                .fotoPerfil("https://cdn.example.com/foto.jpg")
+                .disponible(true)
+                .auditoriasCompletadas(0)
+                .calificacionPromedio(null)
+                .totalResenas(0)
+                .especialidades(Set.of(EspecialidadAuditor.ENERGIA_RENOVABLE))
+                .descripcionProfesional("Auditor nuevo")
+                .build();
 
         when(perfilAuditorRepository.findByAuditorIdAndAuditorEstado(AUDITOR_ID, EstadoUsuario.ACTIVO))
                 .thenReturn(Optional.of(perfil));

@@ -28,6 +28,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -108,12 +109,19 @@ public class PerfilPublicoAuditorService {
     }
 
     MetricasAuditor calcularMetricas(PerfilAuditor perfil, List<SolicitudAuditoria> auditoriasCompletadas) {
-        if (auditoriasCompletadas.isEmpty()) {
+        if (auditoriasCompletadas.isEmpty()
+                && (perfil.getTotalResenas() == 0 || perfil.getCalificacionPromedio() == null)) {
             return null;
         }
 
         BigDecimal calificacionPromedio = perfil.getCalificacionPromedio();
         Integer totalResenas = perfil.getTotalResenas();
+
+        if (auditoriasCompletadas.isEmpty()) {
+            // Perfil tiene calificación previa pero sin auditorías completadas en el listado actual
+            return new MetricasAuditor(calificacionPromedio, totalResenas, 0, null);
+        }
+
         Integer numAuditoriasCompletadas = auditoriasCompletadas.size();
         BigDecimal tiempoPromedioRespuestaDias = calcularTiempoPromedioRespuesta(perfil, auditoriasCompletadas);
 
@@ -178,7 +186,8 @@ public class PerfilPublicoAuditorService {
                             .divide(BigDecimal.valueOf(total), 1, RoundingMode.HALF_UP);
                     return new DistribucionSectorDTO(entry.getKey(), porcentaje);
                 })
-                .sorted((a, b) -> b.getPorcentaje().compareTo(a.getPorcentaje()))
+                .sorted(Comparator.comparing(DistribucionSectorDTO::getPorcentaje).reversed()
+                        .thenComparing(DistribucionSectorDTO::getSector))
                 .toList();
     }
 }
