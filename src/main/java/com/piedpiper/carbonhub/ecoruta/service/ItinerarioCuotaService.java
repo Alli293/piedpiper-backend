@@ -26,6 +26,13 @@ public class ItinerarioCuotaService {
 
     private static final int MAX_GENERACIONES_POR_HORA = 5;
 
+    /**
+     * Cada mensaje del chat de refinamiento (PP-88) dispara su propia llamada a Gemini, igual que
+     * una generación — más generoso que {@link #MAX_GENERACIONES_POR_HORA} porque una sesión de
+     * ajuste real conversa varias veces sobre el mismo itinerario.
+     */
+    private static final int MAX_REFINAMIENTOS_POR_HORA = 20;
+
     private final PreferenciasViajeRepository preferenciasViajeRepository;
 
     public ItinerarioCuotaService(PreferenciasViajeRepository preferenciasViajeRepository) {
@@ -62,6 +69,33 @@ public class ItinerarioCuotaService {
         }
 
         preferencias.setItinerarioGeneracionContador(preferencias.getItinerarioGeneracionContador() + 1);
+        preferenciasViajeRepository.saveAndFlush(preferencias);
+    }
+
+    /**
+     * Mismo mecanismo que {@link #reservarGeneracion}, ventana y contador propios, para el chat de
+     * refinamiento (PP-88) — señalado en revisión: antes ningún límite protegía la cuota de Gemini
+     * en ese endpoint.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void reservarRefinamiento(UUID usuarioId) {
+        PreferenciasViaje preferencias = preferenciasViajeRepository.findByUsuario_IdForUpdate(usuarioId)
+                .orElseThrow(() -> ApiException.recursoNoEncontrado(
+                        "No has completado tus preferencias de viaje todavía."));
+
+        Instant ahora = Instant.now();
+        Instant ventanaInicio = preferencias.getItinerarioRefinamientoVentanaInicio();
+
+        if (ventanaInicio == null || ventanaInicio.isBefore(ahora.minus(1, ChronoUnit.HOURS))) {
+            preferencias.setItinerarioRefinamientoVentanaInicio(ahora);
+            preferencias.setItinerarioRefinamientoContador(0);
+        }
+
+        if (preferencias.getItinerarioRefinamientoContador() >= MAX_REFINAMIENTOS_POR_HORA) {
+            throw ApiException.itinerarioRefinamientosExcedidos();
+        }
+
+        preferencias.setItinerarioRefinamientoContador(preferencias.getItinerarioRefinamientoContador() + 1);
         preferenciasViajeRepository.saveAndFlush(preferencias);
     }
 }

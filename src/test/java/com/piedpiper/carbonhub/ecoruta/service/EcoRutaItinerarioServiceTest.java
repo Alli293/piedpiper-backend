@@ -2,23 +2,30 @@ package com.piedpiper.carbonhub.ecoruta.service;
 
 import com.piedpiper.carbonhub.ecoruta.mappers.ItinerarioMapper;
 import com.piedpiper.carbonhub.ecoruta.mappers.ItinerarioMapperImpl;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.ConversacionContextoDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.EcoScoreResultado;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.EstablecimientoRankeado;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO.ActividadIaDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO.DiaIaDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioResponseDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.MensajeConversacionDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.PuntuacionAmbientalResponseDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoIaResponseDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoItinerarioRequestDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoItinerarioResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ResultadoPriorizacion;
 import com.piedpiper.carbonhub.ecoruta.models.entities.Itinerario;
 import com.piedpiper.carbonhub.ecoruta.models.entities.PreferenciasViaje;
 import com.piedpiper.carbonhub.ecoruta.models.enums.ClasificacionAmbiental;
+import com.piedpiper.carbonhub.ecoruta.models.enums.EstadoItinerario;
 import com.piedpiper.carbonhub.ecoruta.models.enums.InteresTuristico;
 import com.piedpiper.carbonhub.ecoruta.models.enums.ResultadoValidacionItinerario;
 import com.piedpiper.carbonhub.ecoruta.models.enums.TipoViaje;
 import com.piedpiper.carbonhub.ecoruta.repository.ItinerarioRepository;
 import com.piedpiper.carbonhub.ecoruta.repository.PreferenciasViajeRepository;
 import com.piedpiper.carbonhub.ecoruta.service.ItinerarioIaClienteService.ResultadoGeneracionIA;
+import com.piedpiper.carbonhub.ecoruta.service.ItinerarioIaClienteService.ResultadoRefinamientoIA;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.reconocimiento.models.enums.EventoReconocimientoCodigo;
@@ -31,6 +38,7 @@ import com.piedpiper.carbonhub.user.models.enums.Rol;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataAccessResourceFailureException;
@@ -93,7 +101,7 @@ class EcoRutaItinerarioServiceTest {
                 mock(ImaClient.class),
                 mock(BenchmarkClient.class),
                 mock(PuntuacionAmbientalCalculator.class),
-                empresaRepository, mapper);
+                empresaRepository, mapper, new com.fasterxml.jackson.databind.ObjectMapper());
 
         // Stub default para empresaRepository, usado tanto en construirActividad/EcoScore
         // (matching de empresa) como en el prompt de la IA (obtenerNombresEstablecimientosVerificados)
@@ -527,5 +535,316 @@ class EcoRutaItinerarioServiceTest {
         assertThatThrownBy(() -> service.obtener(itinerarioId, USUARIO_ID))
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.NOT_FOUND));
+    }
+
+    // --- refinar (PP-88) ---
+
+    private Itinerario itinerarioExistente(UUID itinerarioId) {
+        return Itinerario.builder()
+                .id(itinerarioId)
+                .usuario(usuario())
+                .cantidadDias(2)
+                .fechaInicio(LocalDate.now().plusDays(10))
+                .tipoViaje(TipoViaje.INDIVIDUAL)
+                .estado(EstadoItinerario.GENERADO)
+                .version(1)
+                .fechaGeneracion(Instant.now())
+                .dias(new ArrayList<>())
+                .build();
+    }
+
+    private RefinamientoItinerarioRequestDTO mensaje(String texto) {
+        return new RefinamientoItinerarioRequestDTO(texto, null);
+    }
+
+    @Test
+    void refinarConAjusteExitosoModificaEIncrementaLaVersion() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioExistente(itinerarioId);
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+        RefinamientoIaResponseDTO respuestaIa = new RefinamientoIaResponseDTO(
+                false, "Agregué una caminata al aire libre.", null, respuestaValida(2));
+        when(itinerarioIaClienteService.refinar(any(), eq(2))).thenReturn(
+                new ResultadoRefinamientoIA(respuestaIa, ResultadoValidacionItinerario.VALIDO_COMPLETO));
+        when(itinerarioRepository.saveAndFlush(any(Itinerario.class))).thenAnswer(i -> i.getArgument(0));
+
+        RefinamientoItinerarioResponseDTO response = service.refinar(
+                itinerarioId, USUARIO_ID, mensaje("Quiero más actividades al aire libre."));
+
+        assertThat(response.getItinerario().getVersion()).isEqualTo(2);
+        assertThat(response.getItinerario().getDias()).hasSize(2);
+        assertThat(response.getRespuestaAsistente()).isEqualTo("Agregué una caminata al aire libre.");
+        assertThat(response.getHistorialMensajes()).hasSize(2);
+        assertThat(response.getHistorialMensajes().get(0).getRol()).isEqualTo("USUARIO");
+        assertThat(response.getHistorialMensajes().get(1).getRol()).isEqualTo("ASISTENTE");
+        assertThat(response.getActividadParaComparar()).isNull();
+    }
+
+    @Test
+    void refinarConSolicitudAmbiguaNoModificaElItinerario() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioExistente(itinerarioId);
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+        RefinamientoIaResponseDTO respuestaIa = new RefinamientoIaResponseDTO(
+                true, "¿A qué actividad te referís?", null, null);
+        when(itinerarioIaClienteService.refinar(any(), eq(2))).thenReturn(
+                new ResultadoRefinamientoIA(respuestaIa, ResultadoValidacionItinerario.VALIDO_COMPLETO));
+
+        RefinamientoItinerarioResponseDTO response = service.refinar(
+                itinerarioId, USUARIO_ID, mensaje("Cámbiala."));
+
+        assertThat(response.getItinerario().getVersion()).isEqualTo(1);
+        assertThat(response.getRespuestaAsistente()).isEqualTo("¿A qué actividad te referís?");
+        verify(itinerarioRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void refinarConSolicitudDeAlternativasNoModificaYDevuelveLaActividad() {
+        UUID itinerarioId = UUID.randomUUID();
+        UUID actividadId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioExistente(itinerarioId);
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+        RefinamientoIaResponseDTO respuestaIa = new RefinamientoIaResponseDTO(
+                false, "Te muestro otras opciones de hospedaje.", actividadId, null);
+        when(itinerarioIaClienteService.refinar(any(), eq(2))).thenReturn(
+                new ResultadoRefinamientoIA(respuestaIa, ResultadoValidacionItinerario.VALIDO_COMPLETO));
+
+        RefinamientoItinerarioResponseDTO response = service.refinar(
+                itinerarioId, USUARIO_ID, mensaje("¿Hay opciones de hospedaje con menor huella?"));
+
+        assertThat(response.getItinerario().getVersion()).isEqualTo(1);
+        assertThat(response.getActividadParaComparar()).isEqualTo(actividadId);
+        verify(itinerarioRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void refinarConTimeoutDeIaNoPersisteNadaYPropagaElError() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioExistente(itinerarioId);
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+        when(itinerarioIaClienteService.refinar(any(), eq(2)))
+                .thenThrow(ApiException.itinerarioRefinamientoFallido());
+
+        assertThatThrownBy(() -> service.refinar(itinerarioId, USUARIO_ID, mensaje("Quiero más playas.")))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.GATEWAY_TIMEOUT));
+
+        verify(itinerarioRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void refinarConErrorDePersistenciaLanza500ConMensajeExacto() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioExistente(itinerarioId);
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+        RefinamientoIaResponseDTO respuestaIa = new RefinamientoIaResponseDTO(
+                false, "Listo.", null, respuestaValida(2));
+        when(itinerarioIaClienteService.refinar(any(), eq(2))).thenReturn(
+                new ResultadoRefinamientoIA(respuestaIa, ResultadoValidacionItinerario.VALIDO_COMPLETO));
+        when(itinerarioRepository.saveAndFlush(any(Itinerario.class)))
+                .thenThrow(new DataAccessResourceFailureException("fallo de conexion"));
+
+        assertThatThrownBy(() -> service.refinar(itinerarioId, USUARIO_ID, mensaje("Quiero más playas.")))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> {
+                    assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+                    assertThat(ex.getMessage()).isEqualTo(
+                            "No fue posible guardar los cambios del itinerario. Intenta nuevamente.");
+                });
+    }
+
+    @Test
+    void refinarConItinerarioInexistenteOAjenoLanza403ConMensajeExacto() {
+        // findByIdAndUsuario_Id ya filtra por dueño: refinar() hace esta única consulta (ya no hay
+        // un chequeo de ownership duplicado en el controlador) y trata "no existe" e "es de otro
+        // usuario" igual, con 403 -- coincide con el AC de PP-88 para itinerario ajeno.
+        UUID itinerarioId = UUID.randomUUID();
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.refinar(itinerarioId, USUARIO_ID, mensaje("Quiero más playas.")))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> {
+                    assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.FORBIDDEN);
+                    assertThat(ex.getMessage()).isEqualTo("No tienes permiso para modificar este itinerario.");
+                });
+
+        verify(itinerarioIaClienteService, never()).refinar(any(), anyInt());
+    }
+
+    // --- poda del historial en el prompt (revisión de nanoulloa en el PR #86) ---
+
+    @Test
+    void refinarConHistorialLargoSoloUsaLosUltimosTurnosEnElPrompt() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioExistente(itinerarioId);
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+        RefinamientoIaResponseDTO respuestaIa = new RefinamientoIaResponseDTO(
+                true, "¿Podrías ser más específico?", null, null);
+        when(itinerarioIaClienteService.refinar(any(), eq(2))).thenReturn(
+                new ResultadoRefinamientoIA(respuestaIa, ResultadoValidacionItinerario.VALIDO_COMPLETO));
+
+        // 15 turnos (30 mensajes) -- muy por encima de MAX_TURNOS_HISTORIAL_EN_PROMPT (10).
+        List<MensajeConversacionDTO> historialLargo = new ArrayList<>();
+        for (int i = 1; i <= 15; i++) {
+            historialLargo.add(new MensajeConversacionDTO("USUARIO", "mensaje-viejo-" + i));
+            historialLargo.add(new MensajeConversacionDTO("ASISTENTE", "respuesta-vieja-" + i));
+        }
+        historialLargo.set(historialLargo.size() - 1, new MensajeConversacionDTO("ASISTENTE", "el-mas-reciente"));
+
+        RefinamientoItinerarioRequestDTO request = new RefinamientoItinerarioRequestDTO(
+                "Cámbialo.",
+                new ConversacionContextoDTO(itinerarioId, historialLargo, 1));
+
+        service.refinar(itinerarioId, USUARIO_ID, request);
+
+        ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+        verify(itinerarioIaClienteService).refinar(promptCaptor.capture(), eq(2));
+        String prompt = promptCaptor.getValue();
+
+        assertThat(prompt).contains("el-mas-reciente");
+        assertThat(prompt).doesNotContain("mensaje-viejo-1\n");
+        assertThat(prompt).doesNotContain("respuesta-vieja-1\n");
+    }
+
+    // --- moneda preferida en el prompt de refinar() (revisión de carias03 en el PR #86) ---
+
+    @Test
+    void refinarUsaLaMonedaPreferidaDelUsuarioEnElPrompt() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioExistente(itinerarioId);
+        itinerario.getUsuario().setMoneda("USD");
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+        RefinamientoIaResponseDTO respuestaIa = new RefinamientoIaResponseDTO(
+                true, "¿Podrías ser más específico?", null, null);
+        when(itinerarioIaClienteService.refinar(any(), eq(2))).thenReturn(
+                new ResultadoRefinamientoIA(respuestaIa, ResultadoValidacionItinerario.VALIDO_COMPLETO));
+
+        service.refinar(itinerarioId, USUARIO_ID, mensaje("Cámbiala."));
+
+        ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+        verify(itinerarioIaClienteService).refinar(promptCaptor.capture(), eq(2));
+        assertThat(promptCaptor.getValue()).contains("USD");
+    }
+
+    @Test
+    void refinarUsaCrcPorDefectoCuandoElUsuarioNoTieneMonedaConfigurada() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioExistente(itinerarioId);
+        itinerario.getUsuario().setMoneda(null);
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+        RefinamientoIaResponseDTO respuestaIa = new RefinamientoIaResponseDTO(
+                true, "¿Podrías ser más específico?", null, null);
+        when(itinerarioIaClienteService.refinar(any(), eq(2))).thenReturn(
+                new ResultadoRefinamientoIA(respuestaIa, ResultadoValidacionItinerario.VALIDO_COMPLETO));
+
+        service.refinar(itinerarioId, USUARIO_ID, mensaje("Cámbiala."));
+
+        ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+        verify(itinerarioIaClienteService).refinar(promptCaptor.capture(), eq(2));
+        assertThat(promptCaptor.getValue()).contains("CRC");
+    }
+
+    // --- cuota de mensajes de refinamiento (Major de Arielajr15 en el PR #86) ---
+
+    @Test
+    void refinarRespetaLaCuotaDeMensajesDeRefinamiento() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioExistente(itinerarioId);
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+        org.mockito.Mockito.doThrow(ApiException.itinerarioRefinamientosExcedidos())
+                .when(itinerarioCuotaService).reservarRefinamiento(USUARIO_ID);
+
+        assertThatThrownBy(() -> service.refinar(itinerarioId, USUARIO_ID, mensaje("Quiero más playas.")))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS));
+
+        verify(itinerarioIaClienteService, never()).refinar(any(), anyInt());
+    }
+
+    // --- validación de itinerarioId/versionItinerario del contexto (Major de Arielajr15 en el PR #86) ---
+
+    @Test
+    void refinarConContextoDeOtroItinerarioLanza400() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioExistente(itinerarioId);
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+
+        var contexto = new ConversacionContextoDTO(UUID.randomUUID(), List.of(), null);
+        var request = new RefinamientoItinerarioRequestDTO("Quiero más playas.", contexto);
+
+        assertThatThrownBy(() -> service.refinar(itinerarioId, USUARIO_ID, request))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
+
+        verify(itinerarioIaClienteService, never()).refinar(any(), anyInt());
+    }
+
+    @Test
+    void refinarConVersionDesactualizadaLanza409() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioExistente(itinerarioId);
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+
+        var contexto = new ConversacionContextoDTO(itinerarioId, List.of(), itinerario.getVersion() + 1);
+        var request = new RefinamientoItinerarioRequestDTO("Quiero más playas.", contexto);
+
+        assertThatThrownBy(() -> service.refinar(itinerarioId, USUARIO_ID, request))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.CONFLICT));
+
+        verify(itinerarioIaClienteService, never()).refinar(any(), anyInt());
+    }
+
+    // --- VALIDO_PARCIAL en refinar() (Major de carias03 en el PR #86) ---
+
+    @Test
+    void refinarConRespuestaParcialMarcaGeneradoParcialConMensaje() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioExistente(itinerarioId);
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+        RefinamientoIaResponseDTO respuestaIa = new RefinamientoIaResponseDTO(
+                false, "Solo pude ajustar un día.", null, respuestaValida(1));
+        when(itinerarioIaClienteService.refinar(any(), eq(2))).thenReturn(
+                new ResultadoRefinamientoIA(respuestaIa, ResultadoValidacionItinerario.VALIDO_PARCIAL));
+        when(itinerarioRepository.saveAndFlush(any(Itinerario.class))).thenAnswer(i -> i.getArgument(0));
+
+        RefinamientoItinerarioResponseDTO response = service.refinar(
+                itinerarioId, USUARIO_ID, mensaje("Ajustá todo el itinerario."));
+
+        assertThat(response.getItinerario().isGeneradoParcial()).isTrue();
+        assertThat(response.getItinerario().getMensajeParcial()).isNotBlank();
+    }
+
+    @Test
+    void refinarConRespuestaCompletaNoQuedaMarcadoComoParcial() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioExistente(itinerarioId);
+        itinerario.setGeneradoParcial(true);
+        itinerario.setMensajeParcial("parcial de una generación anterior");
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+        RefinamientoIaResponseDTO respuestaIa = new RefinamientoIaResponseDTO(
+                false, "Listo.", null, respuestaValida(2));
+        when(itinerarioIaClienteService.refinar(any(), eq(2))).thenReturn(
+                new ResultadoRefinamientoIA(respuestaIa, ResultadoValidacionItinerario.VALIDO_COMPLETO));
+        when(itinerarioRepository.saveAndFlush(any(Itinerario.class))).thenAnswer(i -> i.getArgument(0));
+
+        RefinamientoItinerarioResponseDTO response = service.refinar(
+                itinerarioId, USUARIO_ID, mensaje("Quiero más actividades al aire libre."));
+
+        assertThat(response.getItinerario().isGeneradoParcial()).isFalse();
+        assertThat(response.getItinerario().getMensajeParcial()).isNull();
     }
 }

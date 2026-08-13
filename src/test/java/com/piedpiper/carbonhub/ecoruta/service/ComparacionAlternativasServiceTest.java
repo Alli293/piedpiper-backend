@@ -272,6 +272,29 @@ class ComparacionAlternativasServiceTest {
     }
 
     @Test
+    void sustituirActividadIncrementaLaVersionDelItinerario() {
+        ItinerarioActividad actividad = actividadOriginal();
+        Itinerario itinerario = crearItinerarioConActividad(actividad);
+        assertThat(itinerario.getVersion()).isEqualTo(1); // valor por defecto del builder
+
+        SustitucionRequestDTO request = new SustitucionRequestDTO(
+                "Kayak en manglar", "Recorrido guiado",
+                new BigDecimal("15000"), "CRC", "EcoTours CR", 85,
+                "AVENTURA", "PUNTARENAS");
+
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, usuarioId))
+                .thenReturn(Optional.of(itinerario));
+        when(itinerarioActividadRepository.findByIdAndItinerarioDia_Itinerario_Id(actividadId, itinerarioId))
+                .thenReturn(Optional.of(actividad));
+        when(itinerarioActividadRepository.save(any(ItinerarioActividad.class))).thenReturn(actividad);
+        when(mapper.toDto(itinerario)).thenReturn(new ItinerarioResponseDTO());
+
+        service.sustituirActividad(itinerarioId, actividadId, request, usuarioId);
+
+        assertThat(itinerario.getVersion()).isEqualTo(2);
+    }
+
+    @Test
     void sustituirActividadMantieneOrdenYDia() {
         ItinerarioActividad actividad = actividadOriginal();
         actividad.setOrden(3);

@@ -291,6 +291,33 @@ public class ApiException extends RuntimeException {
                 "Has alcanzado el límite de itinerarios generados. Intenta de nuevo en una hora.");
     }
 
+    /** Rate limit del chat de refinamiento (PP-88) — ver {@code ItinerarioCuotaService.reservarRefinamiento}. */
+    public static ApiException itinerarioRefinamientosExcedidos() {
+        return new ApiException(HttpStatus.TOO_MANY_REQUESTS,
+                "Has alcanzado el límite de mensajes de ajuste. Intenta de nuevo en una hora.");
+    }
+
+    /**
+     * El cliente reenvía {@code versionItinerario} en cada mensaje del chat de refinamiento
+     * (PP-88); si no coincide con la versión actual del itinerario en el servidor, alguien más
+     * (otra pestaña, otra sesión) ya lo modificó entretanto — 409 en vez de sobrescribir en
+     * silencio con un contexto desactualizado.
+     */
+    public static ApiException itinerarioVersionDesactualizada() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Este itinerario cambió en otra sesión. Recargalo para ver los cambios más recientes "
+                        + "antes de seguir editando.");
+    }
+
+    /**
+     * Cubre tanto el timeout de la llamada a Gemini como una respuesta que se agota reintentando
+     * durante el refinamiento conversacional (PP-88) — el AC les da la misma redacción a ambos.
+     */
+    public static ApiException itinerarioRefinamientoFallido() {
+        return new ApiException(HttpStatus.GATEWAY_TIMEOUT,
+                "No fue posible actualizar el itinerario. Intenta nuevamente.");
+    }
+
     public static ApiException periodoImaInvalido(String mensaje) {
         return new ApiException(HttpStatus.BAD_REQUEST, mensaje);
     }

@@ -3,6 +3,7 @@ package com.piedpiper.carbonhub.ecoruta.service;
 import com.piedpiper.carbonhub.common.Catalogos;
 import com.piedpiper.carbonhub.ecoruta.mappers.ItinerarioMapper;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.BenchmarkDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.ConversacionContextoDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.EcoScoreResultado;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.EstablecimientoEcoScoreResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.EstablecimientoRankeado;
@@ -13,7 +14,11 @@ import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO.ActividadIaDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO.DiaIaDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioResponseDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.MensajeConversacionDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.PuntuacionAmbientalResponseDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoIaResponseDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoItinerarioRequestDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoItinerarioResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ResultadoPriorizacion;
 import com.piedpiper.carbonhub.ecoruta.models.entities.Itinerario;
 import com.piedpiper.carbonhub.ecoruta.models.entities.ItinerarioActividad;
@@ -27,12 +32,16 @@ import com.piedpiper.carbonhub.ecoruta.models.enums.ResultadoValidacionItinerari
 import com.piedpiper.carbonhub.ecoruta.repository.ItinerarioRepository;
 import com.piedpiper.carbonhub.ecoruta.repository.PreferenciasViajeRepository;
 import com.piedpiper.carbonhub.ecoruta.service.ItinerarioIaClienteService.ResultadoGeneracionIA;
+import com.piedpiper.carbonhub.ecoruta.service.ItinerarioIaClienteService.ResultadoRefinamientoIA;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.empresa.models.enums.EstadoEmpresa;
 import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.reconocimiento.models.enums.EventoReconocimientoCodigo;
 import com.piedpiper.carbonhub.reconocimiento.service.EventoReconocimientoService;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,6 +67,15 @@ public class EcoRutaItinerarioService {
 
     private static final Logger log = LoggerFactory.getLogger(EcoRutaItinerarioService.class);
 
+    /**
+     * Cuántos turnos (mensaje del usuario + respuesta del asistente) del historial se incluyen en
+     * el prompt de refinamiento. El cliente puede reenviar toda la conversación acumulada — acá se
+     * usan solo los últimos, para que el prompt no crezca sin límite: sin esto, una conversación
+     * larga (15-20 turnos) sumaba decenas de mensajes al prompt además del JSON del itinerario, y
+     * con el timeout de 10s de Gemini eso se iba poniendo lento hasta fallar.
+     */
+    static final int MAX_TURNOS_HISTORIAL_EN_PROMPT = 10;
+
     private final PreferenciasViajeRepository preferenciasViajeRepository;
     private final ItinerarioRepository itinerarioRepository;
     private final ItinerarioIaClienteService itinerarioIaClienteService;
@@ -71,6 +89,7 @@ public class EcoRutaItinerarioService {
     private final PuntuacionAmbientalCalculator puntuacionCalculator;
     private final EmpresaRepository empresaRepository;
     private final ItinerarioMapper mapper;
+    private final ObjectMapper objectMapper;
 
     public EcoRutaItinerarioService(PreferenciasViajeRepository preferenciasViajeRepository,
                                     ItinerarioRepository itinerarioRepository,
@@ -84,7 +103,8 @@ public class EcoRutaItinerarioService {
                                     BenchmarkClient benchmarkClient,
                                     PuntuacionAmbientalCalculator puntuacionCalculator,
                                     EmpresaRepository empresaRepository,
-                                    ItinerarioMapper mapper) {
+                                    ItinerarioMapper mapper,
+                                    ObjectMapper objectMapper) {
         this.preferenciasViajeRepository = preferenciasViajeRepository;
         this.itinerarioRepository = itinerarioRepository;
         this.itinerarioIaClienteService = itinerarioIaClienteService;
@@ -97,6 +117,7 @@ public class EcoRutaItinerarioService {
         this.benchmarkClient = benchmarkClient;
         this.puntuacionCalculator = puntuacionCalculator;
         this.empresaRepository = empresaRepository;
+        this.objectMapper = objectMapper;
         this.mapper = mapper;
     }
 
@@ -189,6 +210,227 @@ public class EcoRutaItinerarioService {
     }
 
     /**
+     * Interpreta un mensaje libre del chat de refinamiento (PP-88) y, si corresponde, regenera
+     * parcialmente el itinerario. A propósito NO {@code @Transactional} por la misma razón que
+     * {@link #generar}: la llamada a Gemini puede tardar hasta 10s.
+     *
+     * <p>La verificación de ownership vive acá (una sola consulta) y no en el controlador: antes
+     * había una llamada a {@code perteneceAlUsuario} en el controlador seguida de esta misma
+     * consulta acá — dos vueltas a la base por la misma comprobación, y además
+     * {@code docs/CONVENTIONS.md} §3.7 pide no meter lógica de negocio en el controlador.
+     */
+    public RefinamientoItinerarioResponseDTO refinar(UUID itinerarioId, UUID usuarioId,
+                                                       RefinamientoItinerarioRequestDTO request) {
+        Itinerario itinerario = itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, usuarioId)
+                .orElseThrow(() -> {
+                    log.warn("Intento de modificar itinerario {} por usuario {}: no es el propietario o no existe",
+                            itinerarioId, usuarioId);
+                    return ApiException.accesoDenegado("No tienes permiso para modificar este itinerario.");
+                });
+
+        validarContextoConversacional(itinerarioId, itinerario, request.getContextoConversacional());
+        itinerarioCuotaService.reservarRefinamiento(usuarioId);
+
+        List<MensajeConversacionDTO> historialPrevio = obtenerHistorialPrevio(request.getContextoConversacional());
+
+        String contexto = construirContextoRefinamiento(itinerario, historialPrevio, request.getMensajeUsuario());
+
+        ResultadoRefinamientoIA resultadoIA = itinerarioIaClienteService.refinar(
+                contexto, itinerario.getCantidadDias());
+        RefinamientoIaResponseDTO respuesta = resultadoIA.respuesta();
+
+        List<MensajeConversacionDTO> historialActualizado = new ArrayList<>(historialPrevio);
+        historialActualizado.add(new MensajeConversacionDTO("USUARIO", request.getMensajeUsuario()));
+        historialActualizado.add(new MensajeConversacionDTO("ASISTENTE", respuesta.getRespuestaTexto()));
+
+        // Misma empresasActivas pre-cargada que usa generar(): construirDias (matching por
+        // actividad, vía construirActividad) la usa para vincular cada actividad con su empresa
+        // (persistido en ItinerarioActividad.empresa). aplicarPriorizacionAmbiental ya NO la
+        // necesita — lee el vínculo ya persistido en cada actividad en vez de volver a matchear
+        // por nombre (ver extraerEstablecimientosRankeados).
+        List<Empresa> empresasActivas = empresaRepository.findByEstado(EstadoEmpresa.ACTIVO);
+
+        if (respuesta.isRequiereAclaracion() || respuesta.getItinerarioActualizado() == null) {
+            // Ni una aclaración pedida ni una comparación de alternativas modifican el itinerario,
+            // pero la respuesta igual debe traer las mismas puntuaciones ambientales que un GET
+            // normal traería — si no, el frontend ve badges de eco-score que aparecen/desaparecen
+            // según el tipo de respuesta del chat (señalado en revisión).
+            ItinerarioResponseDTO sinCambios = mapper.toDto(itinerario);
+            sinCambios.setEstablecimientosEvaluados(List.of());
+            enriquecerConPuntuacionesCalculadas(sinCambios, itinerario);
+            return new RefinamientoItinerarioResponseDTO(
+                    sinCambios, respuesta.getRespuestaTexto(), historialActualizado,
+                    respuesta.getActividadParaComparar());
+        }
+
+        // No usar setDias(nuevaLista): Itinerario.dias es un @OneToMany(orphanRemoval = true) ya
+        // administrado por Hibernate para este itinerario persistido. Reemplazar la referencia de
+        // la colección (en vez de mutar la misma instancia) la "desreferencia" del lado de
+        // Hibernate y el flush revienta con "A collection with orphan deletion was no longer
+        // referenced by the owning entity instance" — hay que limpiar y volver a llenar la MISMA
+        // colección para que el orphan removal seguido de las inserciones nuevas funcione.
+        List<ItinerarioDia> diasNuevos = construirDias(itinerario, respuesta.getItinerarioActualizado().getDias(),
+                itinerario.getFechaInicio(), empresasActivas);
+        itinerario.getDias().clear();
+        itinerario.getDias().addAll(diasNuevos);
+        itinerario.setVersion(itinerario.getVersion() + 1);
+
+        // Igual que en generar(): si la IA devolvió menos días de los que tiene el itinerario
+        // actual, el ajuste se aplicó parcial — antes esto no se distinguía acá y el día faltante
+        // desaparecía en silencio (borrado real de datos del usuario, señalado en revisión).
+        boolean parcial = resultadoIA.resultado() == ResultadoValidacionItinerario.VALIDO_PARCIAL;
+        itinerario.setGeneradoParcial(parcial);
+        itinerario.setMensajeParcial(parcial
+                ? "El ajuste se aplicó parcialmente: no se encontraron suficientes actividades "
+                        + "compatibles con tu pedido para todos los días del itinerario."
+                : null);
+        if (respuesta.getItinerarioActualizado().getPuntuacionAmbientalPreliminar() != null) {
+            itinerario.setPuntuacionAmbientalPreliminar(
+                    BigDecimal.valueOf(respuesta.getItinerarioActualizado().getPuntuacionAmbientalPreliminar()));
+        }
+
+        try {
+            itinerarioRepository.saveAndFlush(itinerario);
+        } catch (DataAccessException e) {
+            log.error("Error al guardar los cambios del itinerario {} tras refinamiento", itinerarioId, e);
+            throw ApiException.errorInterno(
+                    "No fue posible guardar los cambios del itinerario. Intenta nuevamente.");
+        }
+
+        ResultadoPriorizacion resultadoPriorizacion = aplicarPriorizacionAmbiental(itinerario, usuarioId);
+        calcularYPersistirEcoScore(itinerario, resultadoPriorizacion);
+
+        ItinerarioResponseDTO responseDTO = mapper.toDto(itinerario);
+        responseDTO.setEstablecimientosEvaluados(List.of());
+        enriquecerConPuntuacionAmbiental(responseDTO, resultadoPriorizacion);
+
+        return new RefinamientoItinerarioResponseDTO(
+                responseDTO, respuesta.getRespuestaTexto(), historialActualizado, null);
+    }
+
+    /**
+     * Se queda con los últimos {@code MAX_TURNOS_HISTORIAL_EN_PROMPT} turnos (2 mensajes por
+     * turno: usuario + asistente) — el resto del historial más viejo no entra al prompt. Esto es
+     * independiente del {@code @Size} de {@link ConversacionContextoDTO#getHistorialMensajes()},
+     * que solo pone un tope duro contra un historial manipulado o inflado; esta poda es la que
+     * evita que el prompt crezca sin límite en una conversación real y larga.
+     */
+    private List<MensajeConversacionDTO> ultimosTurnos(List<MensajeConversacionDTO> historial) {
+        int maxMensajes = MAX_TURNOS_HISTORIAL_EN_PROMPT * 2;
+        if (historial.size() <= maxMensajes) {
+            return historial;
+        }
+        return historial.subList(historial.size() - maxMensajes, historial.size());
+    }
+
+    private List<MensajeConversacionDTO> obtenerHistorialPrevio(ConversacionContextoDTO contexto) {
+        if (contexto == null || contexto.getHistorialMensajes() == null) {
+            return new ArrayList<>();
+        }
+        return new ArrayList<>(contexto.getHistorialMensajes());
+    }
+
+    /**
+     * Arma el prompt de refinamiento: el itinerario actual completo (con el id de cada actividad,
+     * para que la IA pueda señalar una en concreto vía {@code actividadParaComparar}), el historial
+     * de la conversación (podado a los últimos turnos, ver {@link #ultimosTurnos}) y el mensaje
+     * nuevo del usuario.
+     */
+    private String construirContextoRefinamiento(Itinerario itinerario, List<MensajeConversacionDTO> historial,
+                                                   String mensajeUsuario) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Moneda preferida del usuario (usar SIEMPRE esta moneda si modificás o agregás ")
+                .append("costoAproximado/moneda de alguna actividad, salvo que el establecimiento real ")
+                .append("solo opere en otra): ")
+                .append(monedaPreferidaDe(itinerario.getUsuario())).append("\n\n");
+        sb.append("Itinerario actual (JSON):\n").append(serializarItinerarioParaPrompt(itinerario)).append("\n\n");
+
+        List<MensajeConversacionDTO> historialPodado = ultimosTurnos(historial);
+        if (!historialPodado.isEmpty()) {
+            sb.append("Historial de la conversación:\n");
+            for (MensajeConversacionDTO mensaje : historialPodado) {
+                sb.append(mensaje.getRol()).append(": ").append(mensaje.getContenido()).append("\n");
+            }
+            sb.append("\n");
+        }
+
+        sb.append("Mensaje nuevo del usuario: ").append(mensajeUsuario);
+        return sb.toString();
+    }
+
+    /**
+     * Shape del itinerario actual que se serializa hacia el prompt de refinamiento. Incluye TODOS
+     * los campos que {@code SYSTEM_MESSAGE_REFINAMIENTO} le pide a la IA "conservar intactos" en
+     * los días/actividades que el usuario no pidió modificar — antes solo mandaba id/nombre/
+     * horario/establecimiento/provincia, así que la IA nunca veía costoAproximado, moneda,
+     * duracionMinutos, categoriaTuristica, puntuacionAmbientalEstimada ni descripcion, y no podía
+     * "conservarlos" porque nunca los recibió: cada refinamiento los regeneraba de cero, distinto
+     * del propio diseño descrito en el PR (señalado en revisión).
+     */
+    private record ActividadPromptDTO(String id, String nombre, String descripcion, String horario,
+                                       Integer duracionMinutos, BigDecimal costoAproximado, String moneda,
+                                       String establecimientoRecomendado, String provincia,
+                                       String categoriaTuristica, Integer puntuacionAmbientalEstimada) { }
+
+    private record DiaPromptDTO(int numeroDia, List<ActividadPromptDTO> actividades) { }
+
+    private record ItinerarioPromptDTO(List<DiaPromptDTO> dias) { }
+
+    /**
+     * Antes armaba el JSON a mano con un {@code StringBuilder} y solo escapaba comillas — no
+     * saltos de línea ni backslashes. Serializar con Jackson (ya dependencia del proyecto) evita
+     * prompts malformados sin tener que reinventar el escape de JSON.
+     */
+    private String serializarItinerarioParaPrompt(Itinerario itinerario) {
+        List<DiaPromptDTO> dias = itinerario.getDias().stream()
+                .map(dia -> new DiaPromptDTO(dia.getNumeroDia(), dia.getActividades().stream()
+                        .map(actividad -> new ActividadPromptDTO(
+                                String.valueOf(actividad.getId()),
+                                actividad.getNombre(),
+                                actividad.getDescripcion(),
+                                String.valueOf(actividad.getHorario()),
+                                actividad.getDuracionMinutos(),
+                                actividad.getCostoAproximado(),
+                                actividad.getMoneda() != null ? actividad.getMoneda().name() : null,
+                                actividad.getEstablecimientoRecomendado(),
+                                String.valueOf(actividad.getProvincia()),
+                                actividad.getCategoriaTuristica() != null
+                                        ? actividad.getCategoriaTuristica().name() : null,
+                                actividad.getPuntuacionAmbientalEstimada()))
+                        .toList()))
+                .toList();
+        try {
+            return objectMapper.writeValueAsString(new ItinerarioPromptDTO(dias));
+        } catch (JsonProcessingException e) {
+            log.error("No fue posible serializar el itinerario {} para el prompt de refinamiento.",
+                    itinerario.getId(), e);
+            throw ApiException.errorInterno("No fue posible actualizar el itinerario. Intenta nuevamente.");
+        }
+    }
+
+    /**
+     * Valida el contexto conversacional que el cliente reenvía contra el itinerario recién
+     * cargado: un {@code itinerarioId} de otro itinerario (400) o una {@code versionItinerario}
+     * vieja (409) no deberían usarse para armar el prompt ni terminar pisando cambios más
+     * recientes hechos desde otra pestaña o sesión. Ambos campos son opcionales — un cliente que
+     * todavía no los mande (primer mensaje de la sesión) no se bloquea por esto.
+     */
+    private void validarContextoConversacional(UUID itinerarioId, Itinerario itinerario,
+                                                 ConversacionContextoDTO contexto) {
+        if (contexto == null) {
+            return;
+        }
+        if (contexto.getItinerarioId() != null && !contexto.getItinerarioId().equals(itinerarioId)) {
+            throw ApiException.datosInvalidos(
+                    "El contexto de la conversación no corresponde a este itinerario.");
+        }
+        if (contexto.getVersionItinerario() != null
+                && !contexto.getVersionItinerario().equals(itinerario.getVersion())) {
+            throw ApiException.itinerarioVersionDesactualizada();
+        }
+    }
+
+    /**
      * Historial derivado únicamente de datos del usuario autenticado — nunca se acepta desde el
      * cliente, así que el criterio "debe corresponder al usuario de la sesión activa" se cumple
      * por construcción.
@@ -227,6 +469,9 @@ public class EcoRutaItinerarioService {
             sb.append("Restricciones de accesibilidad: ").append(preferencias.getLimitacionesMovilidad()).append("\n");
         }
         sb.append("Requiere hospedaje: ").append(preferencias.isRequiereHospedaje()).append("\n");
+        sb.append("Moneda preferida del usuario (usar SIEMPRE esta moneda en costoAproximado/moneda ")
+                .append("de cada actividad, salvo que el establecimiento real solo opere en otra): ")
+                .append(monedaPreferidaDe(preferencias.getUsuario())).append("\n");
         sb.append("Itinerarios generados previamente por el usuario: ")
                 .append(historial.getTotalItinerariosGenerados()).append("\n");
         if (!historial.getProvinciasVisitadas().isEmpty()) {
@@ -243,6 +488,20 @@ public class EcoRutaItinerarioService {
         }
 
         return sb.toString();
+    }
+
+    /**
+     * El usuario configura su moneda preferida al completar su perfil inicial
+     * ({@code PerfilInicialService}/{@code PreferenciasUsuarioService}), pero hasta ahora ningún
+     * flujo de EcoRuta se la pasaba a la IA — Gemini elegía CRC/USD libremente por actividad, sin
+     * relación con lo que el usuario configuró. Se resuelve acá con el mismo catálogo que usa el
+     * resto de la app ({@code user.models.enums.Moneda}), con CRC como default si el usuario nunca
+     * lo configuró explícitamente.
+     */
+    private String monedaPreferidaDe(com.piedpiper.carbonhub.user.models.entities.Usuario usuario) {
+        return com.piedpiper.carbonhub.user.models.enums.Moneda.desde(usuario.getMoneda())
+                .orElse(com.piedpiper.carbonhub.user.models.enums.Moneda.POR_DEFECTO)
+                .name();
     }
 
     /**
@@ -285,12 +544,24 @@ public class EcoRutaItinerarioService {
                 .fechaGeneracion(Instant.now())
                 .build();
 
+        itinerario.setDias(construirDias(itinerario, respuesta.getDias(), preferencias.getFechaInicio(), empresasActivas));
+        return itinerario;
+    }
+
+    /**
+     * Construye la lista de {@link ItinerarioDia} (con sus actividades) a partir del shape crudo
+     * de la IA. Compartido entre {@link #generar} y {@link #refinar} — ambos flujos arman un
+     * itinerario completo a partir de una respuesta de Gemini, solo cambia de dónde sale la fecha
+     * de inicio (preferencias vs. el itinerario ya existente).
+     */
+    private List<ItinerarioDia> construirDias(Itinerario itinerario, List<DiaIaDTO> diasIa, LocalDate fechaInicio,
+                                                List<Empresa> empresasActivas) {
         List<ItinerarioDia> dias = new ArrayList<>();
-        for (DiaIaDTO diaIa : respuesta.getDias()) {
+        for (DiaIaDTO diaIa : diasIa) {
             ItinerarioDia dia = ItinerarioDia.builder()
                     .itinerario(itinerario)
                     .numeroDia(diaIa.getNumeroDia())
-                    .fecha(preferencias.getFechaInicio().plusDays(diaIa.getNumeroDia() - 1L))
+                    .fecha(fechaInicio.plusDays(diaIa.getNumeroDia() - 1L))
                     .orden(diaIa.getNumeroDia())
                     .build();
 
@@ -302,8 +573,7 @@ public class EcoRutaItinerarioService {
             dia.setActividades(actividades);
             dias.add(dia);
         }
-        itinerario.setDias(dias);
-        return itinerario;
+        return dias;
     }
 
     /**
