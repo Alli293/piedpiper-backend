@@ -116,14 +116,36 @@ public class RecomendacionAuditoresIaService {
             if (texto == null || texto.isBlank()) {
                 continue;
             }
-            if (!mismoAuditor(candidato.nombre(), justificacion.nombre())) {
-                log.warn("La IA devolvió una justificación que no corresponde al candidato en esa posición; "
-                        + "se descarta para no atribuirla a quien no es");
+            if (!identificaSoloA(candidato, justificacion.nombre(), candidatos)) {
+                log.warn("La IA devolvió una justificación que no se puede atribuir con certeza al "
+                        + "candidato de esa posición; se descarta para no asignarla a quien no es");
                 continue;
             }
             porAuditor.put(candidato.auditorId(), texto.trim());
         }
         return porAuditor;
+    }
+
+    /**
+     * El nombre devuelto tiene que señalar a este candidato y a ningún otro.
+     *
+     * <p>Comprobar solo que coincida con el candidato de esa posición no alcanza cuando el nombre
+     * es ambiguo entre varios. Si compiten "Ana Mora" y "Ana Solís" y el modelo responde apenas
+     * "Ana", esa respuesta encaja con las dos, así que aceptarla equivale a confiar de nuevo en el
+     * orden, que es justo lo que este control existe para no hacer. Ante ambigüedad se descarta:
+     * quedarse sin justificación es mucho mejor que atribuírsela a la persona equivocada.</p>
+     */
+    private boolean identificaSoloA(CandidatoIa candidato, String nombreRespuesta,
+                                    List<CandidatoIa> candidatos) {
+        if (nombreRespuesta == null || nombreRespuesta.isBlank()) {
+            return true;
+        }
+        if (!mismoAuditor(candidato.nombre(), nombreRespuesta)) {
+            return false;
+        }
+        return candidatos.stream()
+                .filter(otro -> mismoAuditor(otro.nombre(), nombreRespuesta))
+                .count() == 1;
     }
 
     /**
