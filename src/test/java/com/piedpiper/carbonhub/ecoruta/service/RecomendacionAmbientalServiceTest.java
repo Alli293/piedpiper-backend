@@ -11,6 +11,7 @@ import com.piedpiper.carbonhub.ecoruta.models.entities.ItinerarioDia;
 import com.piedpiper.carbonhub.ecoruta.models.enums.ClasificacionAmbiental;
 import com.piedpiper.carbonhub.ecoruta.models.enums.InteresTuristico;
 import com.piedpiper.carbonhub.ecoruta.models.enums.Provincia;
+import com.piedpiper.carbonhub.ecoruta.models.enums.TipoRecomendacion;
 import com.piedpiper.carbonhub.ecoruta.repository.ItinerarioRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
@@ -34,6 +35,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -120,7 +122,7 @@ class RecomendacionAmbientalServiceTest {
     }
 
     @Test
-    void obtenerRecomendacionesLanza400CuandoNoHayEcoScoreCalculado() {
+    void obtenerRecomendacionesLanza422CuandoNoHayEcoScoreCalculado() {
         Itinerario itinerario = itinerarioCon(null, null, actividad("Canopy Tour", 60));
 
         when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, usuarioId))
@@ -128,7 +130,7 @@ class RecomendacionAmbientalServiceTest {
 
         assertThatThrownBy(() -> service.obtenerRecomendaciones(itinerarioId, usuarioId))
                 .isInstanceOf(ApiException.class)
-                .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
+                .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY));
     }
 
     // --- Itinerario ya optimizado ---
@@ -207,7 +209,7 @@ class RecomendacionAmbientalServiceTest {
         assertThat(resultado.getRecomendaciones()).hasSize(1);
 
         RecomendacionAmbientalDTO recomendacion = resultado.getRecomendaciones().get(0);
-        assertThat(recomendacion.getTipo()).isEqualTo("ACTIVIDAD_ALTERNATIVA");
+        assertThat(recomendacion.getTipo()).isEqualTo(TipoRecomendacion.ACTIVIDAD_ALTERNATIVA);
         assertThat(recomendacion.getActividadId()).isEqualTo(actividad.getId());
         assertThat(recomendacion.getActividadNombre()).isEqualTo("Canopy Tour");
         assertThat(recomendacion.getAlternativa().getNombre()).isEqualTo("Senderismo en reserva");
@@ -263,20 +265,27 @@ class RecomendacionAmbientalServiceTest {
     }
 
     @Test
-    void obtenerRecomendacionesDescartaActividadCuandoIaNoDevuelveAlternativas() {
-        ItinerarioActividad actividad = actividad("Canopy Tour", 50);
-        Itinerario itinerario = itinerarioCon(ClasificacionAmbiental.MODERADA, new BigDecimal("55.0"), actividad);
+    void obtenerRecomendacionesNoLlamaALaIaParaActividadSinCategoriaTuristicaNiProvincia() {
+        // ComparacionAlternativasService.sustituirActividad (PP-92) exige categoriaTuristica y
+        // provincia para validar la equivalencia; una recomendación sin esos datos nunca podría
+        // aplicarse, así que se filtra antes de gastar una llamada a Gemini.
+        ItinerarioActividad sinDatos = ItinerarioActividad.builder()
+                .id(UUID.randomUUID())
+                .nombre("Actividad sin categoría")
+                .puntuacionAmbientalEstimada(40)
+                .horario(LocalTime.of(9, 0))
+                .duracionMinutos(120)
+                .orden(1)
+                .build();
+        Itinerario itinerario = itinerarioCon(ClasificacionAmbiental.MODERADA, new BigDecimal("40.0"), sinDatos);
 
         when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, usuarioId))
                 .thenReturn(Optional.of(itinerario));
-        when(alternativasIaClienteService.buscarAlternativas(eq(actividad), any()))
-                .thenReturn(List.of());
 
         RecomendacionesResponseDTO resultado = service.obtenerRecomendaciones(itinerarioId, usuarioId);
 
         assertThat(resultado.getRecomendaciones()).isEmpty();
-        assertThat(resultado.getMensaje())
-                .isEqualTo("No encontramos actividades específicas que sustituir para mejorar tu EcoScore en este momento.");
+        verify(alternativasIaClienteService, never()).buscarAlternativas(any(), any());
     }
 
     @Test
@@ -320,6 +329,32 @@ class RecomendacionAmbientalServiceTest {
         RecomendacionesResponseDTO resultado = service.obtenerRecomendaciones(itinerarioId, usuarioId);
 
         assertThat(resultado.getRecomendaciones()).hasSize(3);
+    }
+
+    @Test
+    void obtenerRecomendacionesNuncaLlamaALaIaMasDeMaxCandidatasIaVeces() {
+        // 7 actividades mejorables: si el tope de MAX_CANDIDATAS_IA (5) se pierde en un refactor
+        // futuro, este test lo detecta aunque el resultado final siga teniendo como máximo 3
+        // recomendaciones (obtenerRecomendacionesLimitaATresRecomendaciones no distingue si el
+        // límite real fue MAX_RECOMENDACIONES o MAX_CANDIDATAS_IA).
+        List<ItinerarioActividad> actividades = List.of(
+                actividad("Actividad 1", 10), actividad("Actividad 2", 15),
+                actividad("Actividad 3", 20), actividad("Actividad 4", 25),
+                actividad("Actividad 5", 30), actividad("Actividad 6", 35),
+                actividad("Actividad 7", 40));
+        Itinerario itinerario = itinerarioCon(ClasificacionAmbiental.MEJORABLE, new BigDecimal("25.0"),
+                actividades.toArray(new ItinerarioActividad[0]));
+
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, usuarioId))
+                .thenReturn(Optional.of(itinerario));
+        when(alternativasIaClienteService.buscarAlternativas(any(), any()))
+                .thenReturn(List.of(new AlternativaIaDTO("Alt", "Desc",
+                        new BigDecimal("10000"), "CRC", "Est", 90)));
+
+        service.obtenerRecomendaciones(itinerarioId, usuarioId);
+
+        verify(alternativasIaClienteService, times(RecomendacionAmbientalService.MAX_CANDIDATAS_IA))
+                .buscarAlternativas(any(), any());
     }
 
     // --- Aplicación de recomendaciones al itinerario (PP-92) ---

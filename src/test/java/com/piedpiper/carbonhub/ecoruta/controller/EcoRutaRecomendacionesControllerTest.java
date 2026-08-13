@@ -10,6 +10,7 @@ import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.RecomendacionAmbientalDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.RecomendacionesResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.SustitucionRequestDTO;
+import com.piedpiper.carbonhub.ecoruta.models.enums.TipoRecomendacion;
 import com.piedpiper.carbonhub.ecoruta.service.RecomendacionAmbientalService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.exceptions.GlobalExceptionHandler;
@@ -88,13 +89,13 @@ class EcoRutaRecomendacionesControllerTest {
 
     @Test
     @WithMockUser(username = USUARIO_ID, roles = "USUARIO_INDIVIDUAL")
-    void getRecomendacionesSinEcoScorePrevioRetorna400() throws Exception {
+    void getRecomendacionesSinEcoScorePrevioRetorna422() throws Exception {
         when(service.obtenerRecomendaciones(eq(ITINERARIO_ID), eq(UUID.fromString(USUARIO_ID))))
                 .thenThrow(ApiException.ecoScoreNoDisponible());
 
         mockMvc.perform(get("/api/ecoruta/itinerarios/{id}/recomendaciones", ITINERARIO_ID)
                         .with(user(USUARIO_ID).roles("USUARIO_INDIVIDUAL")))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.message").value("Aún no se ha calculado un EcoScore para este itinerario."));
     }
 
@@ -137,6 +138,40 @@ class EcoRutaRecomendacionesControllerTest {
     }
 
     @Test
+    @WithMockUser(username = USUARIO_ID, roles = "USUARIO_INDIVIDUAL")
+    void putAplicarRecomendacionConItinerarioAjenoRetorna403() throws Exception {
+        SustitucionRequestDTO request = sustitucionRequest();
+
+        when(service.aplicarRecomendacion(eq(ITINERARIO_ID), eq(ACTIVIDAD_ID), any(SustitucionRequestDTO.class),
+                eq(UUID.fromString(USUARIO_ID))))
+                .thenThrow(ApiException.accesoDenegado("No tienes permiso para acceder a este itinerario."));
+
+        mockMvc.perform(put("/api/ecoruta/itinerarios/{id}/recomendaciones/{actividadId}/aplicar",
+                        ITINERARIO_ID, ACTIVIDAD_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+                        .with(user(USUARIO_ID).roles("USUARIO_INDIVIDUAL")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("No tienes permiso para acceder a este itinerario."));
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "USUARIO_INDIVIDUAL")
+    void putAplicarRecomendacionConRequestInvalidoRetorna400() throws Exception {
+        // nombre en blanco y ecoScore ausente violan @NotBlank/@NotNull de SustitucionRequestDTO
+        SustitucionRequestDTO requestInvalido = sustitucionRequest();
+        requestInvalido.setNombre("");
+        requestInvalido.setEcoScore(null);
+
+        mockMvc.perform(put("/api/ecoruta/itinerarios/{id}/recomendaciones/{actividadId}/aplicar",
+                        ITINERARIO_ID, ACTIVIDAD_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestInvalido))
+                        .with(user(USUARIO_ID).roles("USUARIO_INDIVIDUAL")))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void putAplicarRecomendacionSinAutenticacionRetorna401() throws Exception {
         SustitucionRequestDTO request = sustitucionRequest();
 
@@ -161,7 +196,7 @@ class EcoRutaRecomendacionesControllerTest {
         alternativa.setMejorDesempeno(true);
 
         RecomendacionAmbientalDTO recomendacion = new RecomendacionAmbientalDTO(
-                "ACTIVIDAD_ALTERNATIVA",
+                TipoRecomendacion.ACTIVIDAD_ALTERNATIVA,
                 ACTIVIDAD_ID,
                 "Canopy en Monteverde",
                 "Sustituye \"Canopy en Monteverde\" por \"Senderismo en Reserva Biológica\".",

@@ -1,5 +1,7 @@
 package com.piedpiper.carbonhub.ecoruta.models.dtos;
 
+import com.piedpiper.carbonhub.ecoruta.models.enums.TipoRecomendacion;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -21,7 +23,7 @@ import java.util.UUID;
 @AllArgsConstructor
 public class RecomendacionAmbientalDTO {
 
-    private String tipo;
+    private TipoRecomendacion tipo;
     private UUID actividadId;
     private String actividadNombre;
     private String descripcion;

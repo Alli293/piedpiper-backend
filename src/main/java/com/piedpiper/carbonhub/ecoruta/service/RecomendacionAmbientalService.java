@@ -10,6 +10,7 @@ import com.piedpiper.carbonhub.ecoruta.models.entities.Itinerario;
 import com.piedpiper.carbonhub.ecoruta.models.entities.ItinerarioActividad;
 import com.piedpiper.carbonhub.ecoruta.models.entities.ItinerarioDia;
 import com.piedpiper.carbonhub.ecoruta.models.enums.ClasificacionAmbiental;
+import com.piedpiper.carbonhub.ecoruta.models.enums.TipoRecomendacion;
 import com.piedpiper.carbonhub.ecoruta.repository.ItinerarioRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 
@@ -23,6 +24,7 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -102,13 +104,14 @@ public class RecomendacionAmbientalService {
 
         List<ItinerarioActividad> candidatas = actividades.stream()
                 .filter(this::esMejorable)
+                .filter(this::tieneDatosParaAplicar)
                 .sorted(Comparator.comparingInt(this::puntuacionOrDefault))
                 .limit(MAX_CANDIDATAS_IA)
                 .toList();
 
         List<RecomendacionAmbientalDTO> recomendaciones = candidatas.stream()
                 .map(actividad -> generarRecomendacion(actividad, nombresExcluidos, actividades.size()))
-                .filter(java.util.Objects::nonNull)
+                .filter(Objects::nonNull)
                 .sorted(Comparator.comparing(RecomendacionAmbientalDTO::getIncrementoEstimado).reversed())
                 .limit(MAX_RECOMENDACIONES)
                 .toList();
@@ -149,6 +152,17 @@ public class RecomendacionAmbientalService {
         return puntuacionOrDefault(actividad) < UMBRAL_PUNTUACION_MEJORABLE;
     }
 
+    /**
+     * {@link ComparacionAlternativasService#sustituirActividad} (PP-92) exige categoría turística
+     * y provincia para validar la equivalencia contra la actividad original — si cualquiera de
+     * los dos es null, la sustitución nunca puede aplicarse. Se filtra acá, antes de gastar una
+     * llamada a Gemini, para no generar recomendaciones que el usuario vería en la UI pero que
+     * fallarían al tocar "Aplicar".
+     */
+    private boolean tieneDatosParaAplicar(ItinerarioActividad actividad) {
+        return actividad.getCategoriaTuristica() != null && actividad.getProvincia() != null;
+    }
+
     private int puntuacionOrDefault(ItinerarioActividad actividad) {
         return actividad.getPuntuacionAmbientalEstimada() != null
                 ? actividad.getPuntuacionAmbientalEstimada()
@@ -157,9 +171,9 @@ public class RecomendacionAmbientalService {
 
     /**
      * Busca la mejor alternativa disponible para {@code actividad} y arma la recomendación
-     * correspondiente. Retorna {@code null} (sin lanzar) si la IA no devuelve alternativas o
-     * falla: una recomendación individual que no se puede generar no debe tumbar el resto de
-     * la lista (misma degradación graciosa que aplica el resto del dominio {@code ecoruta}).
+     * correspondiente. Retorna {@code null} (sin lanzar) si la IA falla: una recomendación
+     * individual que no se puede generar no debe tumbar el resto de la lista (misma degradación
+     * graciosa que aplica el resto del dominio {@code ecoruta}).
      */
     private RecomendacionAmbientalDTO generarRecomendacion(ItinerarioActividad actividad,
                                                            List<String> nombresExcluidos,
@@ -170,10 +184,6 @@ public class RecomendacionAmbientalService {
         } catch (ApiException e) {
             log.warn("No se pudo obtener alternativas para la actividad {} al generar recomendaciones: {}",
                     actividad.getId(), e.getMessage());
-            return null;
-        }
-
-        if (alternativas == null || alternativas.isEmpty()) {
             return null;
         }
 
@@ -214,7 +224,7 @@ public class RecomendacionAmbientalService {
                 + "\" para mejorar el desempeño ambiental de tu itinerario.";
 
         return new RecomendacionAmbientalDTO(
-                "ACTIVIDAD_ALTERNATIVA",
+                TipoRecomendacion.ACTIVIDAD_ALTERNATIVA,
                 actividad.getId(),
                 actividad.getNombre(),
                 descripcion,
