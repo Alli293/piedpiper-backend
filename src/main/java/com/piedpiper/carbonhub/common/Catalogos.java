@@ -31,24 +31,25 @@ public final class Catalogos {
     }
 
     /**
-     * Valida una lista de valores contra un catálogo de enum (sin duplicados, todos válidos) y
-     * devuelve el conjunto resuelto. La deduplicación normaliza mayúsculas/espacios antes de
-     * comparar, para que valores como "manufactura" y "MANUFACTURA " se detecten como el mismo.
+     * Valida una lista de valores contra un catálogo de enum (todos válidos, sin duplicados) y
+     * devuelve el conjunto resuelto. Primero valida membership, para que valores inválidos siempre
+     * se reporten como tales aunque coincidan al normalizar. Solo entre valores ya válidos se
+     * detectan duplicados, normalizando mayúsculas/espacios (p.ej. "manufactura" y "MANUFACTURA ").
      */
     public static <E extends Enum<E>> Set<E> resolverConjunto(Class<E> tipo, List<String> valores,
                                                               Supplier<ApiException> siHayDuplicados,
                                                               Function<List<String>, ApiException> siHayInvalidos) {
-        List<String> normalizados = valores.stream()
-                .map(valor -> valor == null ? null : valor.trim().toUpperCase())
-                .toList();
-        if (normalizados.size() != new HashSet<>(normalizados).size()) {
-            throw siHayDuplicados.get();
-        }
         List<String> invalidos = valores.stream()
                 .filter(valor -> desde(tipo, valor).isEmpty())
                 .toList();
         if (!invalidos.isEmpty()) {
             throw siHayInvalidos.apply(invalidos);
+        }
+        List<String> normalizados = valores.stream()
+                .map(valor -> valor.trim().toUpperCase())
+                .toList();
+        if (normalizados.size() != new HashSet<>(normalizados).size()) {
+            throw siHayDuplicados.get();
         }
         return valores.stream()
                 .map(valor -> desde(tipo, valor).orElseThrow())
