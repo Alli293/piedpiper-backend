@@ -22,7 +22,6 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -77,7 +76,9 @@ class SesionControllerResetContrasenaTest {
         when(restablecerContrasenaService.validarToken(token))
                 .thenReturn(new ValidarTokenResetResponseDTO("ana.perez@example.com"));
 
-        mockMvc.perform(get("/api/auth/reset-contrasena").param("token", token))
+        mockMvc.perform(post("/api/auth/reset-contrasena/validar")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"" + token + "\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email").value("ana.perez@example.com"));
     }
@@ -88,16 +89,17 @@ class SesionControllerResetContrasenaTest {
         when(restablecerContrasenaService.validarToken(token))
                 .thenThrow(ApiException.tokenResetInvalido());
 
-        mockMvc.perform(get("/api/auth/reset-contrasena").param("token", token))
+        mockMvc.perform(post("/api/auth/reset-contrasena/validar")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"" + token + "\"}"))
                 .andExpect(status().isGone());
     }
 
     @Test
     void validarTokenResetMalFormadoDevuelve400() throws Exception {
-        when(restablecerContrasenaService.validarToken("token-corto"))
-                .thenThrow(ApiException.tokenResetMalFormado());
-
-        mockMvc.perform(get("/api/auth/reset-contrasena").param("token", "token-corto"))
+        mockMvc.perform(post("/api/auth/reset-contrasena/validar")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"token-corto\"}"))
                 .andExpect(status().isBadRequest());
     }
 

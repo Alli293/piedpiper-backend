@@ -19,7 +19,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -42,12 +42,15 @@ class InvitacionPublicaControllerTest {
 
     @Test
     void resolverTokenValidoDevuelve200ConCorreoYEmpresa() throws Exception {
+        String token = "a".repeat(43);
         when(invitacionService.resolver(any()))
-                .thenReturn(new InvitacionPublicaResponseDTO("colab@correo.com", "Acme S.A."));
+                .thenReturn(new InvitacionPublicaResponseDTO("c***@correo.com", "Acme S.A."));
 
-        mockMvc.perform(get("/api/auth/invitaciones/token-valido"))
+        mockMvc.perform(post("/api/auth/invitaciones/resolver")
+                        .contentType("application/json")
+                        .content("{\"token\":\"" + token + "\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.email").value("colab@correo.com"))
+                .andExpect(jsonPath("$.emailEnmascarado").value("c***@correo.com"))
                 .andExpect(jsonPath("$.nombreEmpresa").value("Acme S.A."));
     }
 
@@ -55,7 +58,9 @@ class InvitacionPublicaControllerTest {
     void resolverTokenInexistenteDevuelve404() throws Exception {
         when(invitacionService.resolver(any())).thenThrow(ApiException.invitacionInvalida());
 
-        mockMvc.perform(get("/api/auth/invitaciones/token-falso"))
+        mockMvc.perform(post("/api/auth/invitaciones/resolver")
+                        .contentType("application/json")
+                        .content("{\"token\":\"" + "a".repeat(43) + "\"}"))
                 .andExpect(status().isNotFound());
     }
 
@@ -63,7 +68,17 @@ class InvitacionPublicaControllerTest {
     void resolverTokenExpiradoDevuelve410() throws Exception {
         when(invitacionService.resolver(any())).thenThrow(ApiException.invitacionExpirada());
 
-        mockMvc.perform(get("/api/auth/invitaciones/token-viejo"))
+        mockMvc.perform(post("/api/auth/invitaciones/resolver")
+                        .contentType("application/json")
+                        .content("{\"token\":\"" + "a".repeat(43) + "\"}"))
                 .andExpect(status().isGone());
+    }
+
+    @Test
+    void resolverTokenMalFormadoDevuelve400SinConsultarElServicio() throws Exception {
+        mockMvc.perform(post("/api/auth/invitaciones/resolver")
+                        .contentType("application/json")
+                        .content("{\"token\":\"token-corto\"}"))
+                .andExpect(status().isBadRequest());
     }
 }

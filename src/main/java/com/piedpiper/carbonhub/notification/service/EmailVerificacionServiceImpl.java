@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.util.HtmlUtils;
 
 import com.piedpiper.carbonhub.notification.EmailPlantillaHtml;
+import com.piedpiper.carbonhub.notification.EnlaceTokenCorreo;
 
 @Service
 @ConditionalOnProperty(name = "app.email.provider", havingValue = "gmail")
@@ -35,7 +36,7 @@ public class EmailVerificacionServiceImpl implements EmailVerificacionService {
 
     @Override
     public void enviarCorreoVerificacion(String nombreDestinatario, String email, String token) {
-        String enlace = verificarCorreoUrl + "?token=" + token;
+        String enlace = EnlaceTokenCorreo.construir(verificarCorreoUrl, token);
         String html = construirHtml(nombreDestinatario, enlace);
 
         try {

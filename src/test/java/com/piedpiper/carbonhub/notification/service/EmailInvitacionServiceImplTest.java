@@ -42,7 +42,7 @@ class EmailInvitacionServiceImplTest {
         MimeMessage mensaje = captor.getValue();
         mensaje.saveChanges();
 
-        assertThat(mensaje.getSubject()).isEqualTo("Invitación a CarbonHub de Consultora Verde CR");
+        assertThat(mensaje.getSubject()).isEqualTo("Invitacion para unirte a CarbonHub");
         assertThat(mensaje.getAllRecipients()[0]).hasToString("ana.perez@example.com");
         assertThat(mensaje.getFrom()[0]).hasToString("no-reply@carbonhub.com");
         assertThat(mensaje.getContentType()).contains("text/html");
@@ -50,7 +50,8 @@ class EmailInvitacionServiceImplTest {
         String html = (String) mensaje.getContent();
         assertThat(html)
                 .contains("Consultora Verde CR")
-                .contains("http://localhost:4200/registro/invitacion?token=token-123")
+                .contains("http://localhost:4200/registro/invitacion#token=token-123")
+                .contains("expira en 7 dias")
                 .contains("Completar registro")
                 .contains("#1f8a5b");
     }
