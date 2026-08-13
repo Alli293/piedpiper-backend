@@ -1,7 +1,9 @@
 package com.piedpiper.carbonhub.ecoruta.controller;
 
 import com.piedpiper.carbonhub.common.Autenticaciones;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.FiltrarItinerariosRequestDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioResponseDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.PaginaItinerariosResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoItinerarioRequestDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoItinerarioResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.service.EcoRutaItinerarioService;
@@ -15,7 +17,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -49,6 +53,23 @@ public class EcoRutaItinerarioController {
         UUID usuarioId = Autenticaciones.usuarioId(authentication);
         verificarPropiedadItinerario(id, usuarioId);
         return ResponseEntity.ok(service.obtener(id, usuarioId));
+    }
+
+    /** Listado paginado de "Mis itinerarios" (PP-89). */
+    @GetMapping
+    public ResponseEntity<PaginaItinerariosResponseDTO> listar(
+            @ModelAttribute FiltrarItinerariosRequestDTO filtros, Authentication authentication) {
+        UUID usuarioId = Autenticaciones.usuarioId(authentication);
+        return ResponseEntity.ok(service.listar(usuarioId, filtros));
+    }
+
+    /** Eliminar itinerario (PP-89) — fuera del AC de la historia, pedido explícito del equipo. */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminar(@PathVariable UUID id, Authentication authentication) {
+        UUID usuarioId = Autenticaciones.usuarioId(authentication);
+        verificarPropiedadItinerarioParaModificar(id, usuarioId);
+        service.eliminar(id, usuarioId);
+        return ResponseEntity.noContent().build();
     }
 
     /** Conversación continua de refinamiento del itinerario (PP-88). */

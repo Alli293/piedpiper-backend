@@ -3,10 +3,12 @@ package com.piedpiper.carbonhub.ecoruta.service;
 import com.piedpiper.carbonhub.ecoruta.mappers.ItinerarioMapper;
 import com.piedpiper.carbonhub.ecoruta.mappers.ItinerarioMapperImpl;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.EcoScoreResultado;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.FiltrarItinerariosRequestDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO.ActividadIaDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO.DiaIaDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioResponseDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.PaginaItinerariosResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoIaResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoItinerarioRequestDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoItinerarioResponseDTO;
@@ -36,6 +38,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
@@ -548,5 +553,90 @@ class EcoRutaItinerarioServiceTest {
                 .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.NOT_FOUND));
 
         verify(itinerarioIaClienteService, never()).refinar(any(), anyInt());
+    }
+
+    // --- listar (PP-89) ---
+
+    private Itinerario itinerarioResumen(UUID id) {
+        return Itinerario.builder()
+                .id(id)
+                .usuario(usuario())
+                .cantidadDias(3)
+                .fechaInicio(LocalDate.now().plusDays(5))
+                .tipoViaje(TipoViaje.INDIVIDUAL)
+                .estado(EstadoItinerario.GENERADO)
+                .version(1)
+                .ecoScore(new BigDecimal("70.0"))
+                .clasificacionAmbiental(ClasificacionAmbiental.BUENA)
+                .fechaGeneracion(Instant.now())
+                .dias(List.of())
+                .build();
+    }
+
+    @Test
+    void listarDevuelveElContenidoPaginadoConProvinciasPorItinerario() {
+        Itinerario itin1 = itinerarioResumen(UUID.randomUUID());
+        Itinerario itin2 = itinerarioResumen(UUID.randomUUID());
+        var pagina = new PageImpl<>(List.of(itin1, itin2),
+                PageRequest.of(0, EcoRutaItinerarioService.TAMANIO_PAGINA,
+                        Sort.by(Sort.Direction.DESC, "fechaGeneracion")),
+                2);
+        when(itinerarioRepository.findByUsuario_Id(eq(USUARIO_ID), any())).thenReturn(pagina);
+        when(itinerarioRepository.findProvinciasVisitadasByItinerarioId(itin1.getId()))
+                .thenReturn(List.of(com.piedpiper.carbonhub.ecoruta.models.enums.Provincia.PUNTARENAS));
+        when(itinerarioRepository.findProvinciasVisitadasByItinerarioId(itin2.getId()))
+                .thenReturn(List.of());
+
+        PaginaItinerariosResponseDTO respuesta = service.listar(USUARIO_ID, new FiltrarItinerariosRequestDTO(1));
+
+        assertThat(respuesta.getContenido()).hasSize(2);
+        assertThat(respuesta.getContenido().get(0).getProvinciasVisitadas()).containsExactly("PUNTARENAS");
+        assertThat(respuesta.getContenido().get(1).getProvinciasVisitadas()).isEmpty();
+        assertThat(respuesta.getTotalResultados()).isEqualTo(2);
+        assertThat(respuesta.getPaginaActual()).isEqualTo(1);
+        assertThat(respuesta.getTamanioPagina()).isEqualTo(EcoRutaItinerarioService.TAMANIO_PAGINA);
+    }
+
+    @Test
+    void listarConErrorDeBdLanza500ConMensajeExacto() {
+        when(itinerarioRepository.findByUsuario_Id(eq(USUARIO_ID), any()))
+                .thenThrow(new DataAccessResourceFailureException("fallo de conexion"));
+
+        assertThatThrownBy(() -> service.listar(USUARIO_ID, new FiltrarItinerariosRequestDTO(1)))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> {
+                    assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+                    assertThat(ex.getMessage()).isEqualTo("No fue posible recuperar la información solicitada.");
+                });
+    }
+
+    // --- eliminar (PP-89, fuera del AC — pedido explícito del equipo) ---
+
+    @Test
+    void eliminarConItinerarioPropioLoBorra() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioResumen(itinerarioId);
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+
+        service.eliminar(itinerarioId, USUARIO_ID);
+
+        verify(itinerarioRepository).delete(itinerario);
+    }
+
+    @Test
+    void eliminarConItinerarioInexistenteLanza404ConMensajeExacto() {
+        UUID itinerarioId = UUID.randomUUID();
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.eliminar(itinerarioId, USUARIO_ID))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> {
+                    assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.NOT_FOUND);
+                    assertThat(ex.getMessage()).isEqualTo(
+                            "El itinerario solicitado no existe o ya no está disponible.");
+                });
+
+        verify(itinerarioRepository, never()).delete(any());
     }
 }

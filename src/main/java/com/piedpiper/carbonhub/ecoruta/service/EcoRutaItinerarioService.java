@@ -7,6 +7,7 @@ import com.piedpiper.carbonhub.ecoruta.models.dtos.ConversacionContextoDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.EcoScoreResultado;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.EstablecimientoEcoScoreResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.EstablecimientoRankeado;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.FiltrarItinerariosRequestDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.HistorialEcoRutaDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.IMADTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.IndicadorAmbientalDTO;
@@ -14,7 +15,9 @@ import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO.ActividadIaDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO.DiaIaDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioResponseDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioResumenResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.MensajeConversacionDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.PaginaItinerariosResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.PuntuacionAmbientalResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoIaResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoItinerarioRequestDTO;
@@ -41,6 +44,10 @@ import com.piedpiper.carbonhub.reconocimiento.service.EventoReconocimientoServic
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -60,6 +67,12 @@ import java.util.stream.Collectors;
 public class EcoRutaItinerarioService {
 
     private static final Logger log = LoggerFactory.getLogger(EcoRutaItinerarioService.class);
+
+    /** Fijado para esta pantalla; ver {@code SolicitudAuditoriaListadoService} para el mismo patrón. */
+    static final int TAMANIO_PAGINA = 12;
+
+    /** Tope para que {@code (pagina - 1) * tamanio} nunca desborde el {@code int} que usa Spring Data. */
+    static final int PAGINA_MAXIMA = Integer.MAX_VALUE / TAMANIO_PAGINA;
 
     private final PreferenciasViajeRepository preferenciasViajeRepository;
     private final ItinerarioRepository itinerarioRepository;
@@ -182,6 +195,55 @@ public class EcoRutaItinerarioService {
     @Transactional(readOnly = true)
     public boolean perteneceAlUsuario(UUID itinerarioId, UUID usuarioId) {
         return itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, usuarioId).isPresent();
+    }
+
+    /**
+     * Listado paginado de "Mis itinerarios" (PP-89), más recientes primero. Una página fuera de
+     * rango (incluida la que desborda el límite de Spring Data) cae en un resultado vacío, no en
+     * un error — es un parámetro de paginación de la propia pantalla, no un dato que el usuario
+     * escriba a mano.
+     */
+    @Transactional(readOnly = true)
+    public PaginaItinerariosResponseDTO listar(UUID usuarioId, FiltrarItinerariosRequestDTO filtros) {
+        try {
+            Page<Itinerario> pagina = itinerarioRepository.findByUsuario_Id(usuarioId, paginaDe(filtros.getPagina()));
+            List<ItinerarioResumenResponseDTO> contenido = pagina.getContent().stream()
+                    .map(this::aResumen)
+                    .toList();
+            return new PaginaItinerariosResponseDTO(
+                    contenido, pagina.getTotalElements(), pagina.getNumber() + 1,
+                    pagina.getTotalPages(), TAMANIO_PAGINA);
+        } catch (DataAccessException e) {
+            log.error("Error al listar los itinerarios del usuario {}", usuarioId, e);
+            throw ApiException.errorInterno("No fue posible recuperar la información solicitada.");
+        }
+    }
+
+    /**
+     * Elimina un itinerario del usuario. El controlador ya validó ownership antes de llegar acá
+     * (403 si el itinerario es ajeno); este método solo maneja el caso "no encontrado" con 404.
+     */
+    @Transactional
+    public void eliminar(UUID itinerarioId, UUID usuarioId) {
+        Itinerario itinerario = itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, usuarioId)
+                .orElseThrow(() -> ApiException.recursoNoEncontrado(
+                        "El itinerario solicitado no existe o ya no está disponible."));
+        itinerarioRepository.delete(itinerario);
+    }
+
+    private ItinerarioResumenResponseDTO aResumen(Itinerario itinerario) {
+        ItinerarioResumenResponseDTO resumen = mapper.toResumenDto(itinerario);
+        resumen.setProvinciasVisitadas(
+                itinerarioRepository.findProvinciasVisitadasByItinerarioId(itinerario.getId()).stream()
+                        .map(Enum::name)
+                        .toList());
+        return resumen;
+    }
+
+    private static Pageable paginaDe(Integer pagina) {
+        int solicitada = pagina == null ? 1 : Math.clamp(pagina, 1, PAGINA_MAXIMA);
+        return PageRequest.of(solicitada - 1, TAMANIO_PAGINA,
+                Sort.by(Sort.Direction.DESC, "fechaGeneracion"));
     }
 
     /**
