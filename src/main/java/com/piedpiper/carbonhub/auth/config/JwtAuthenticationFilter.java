@@ -48,7 +48,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             List.of(new SimpleGrantedAuthority("ROLE_" + usuario.getRol().name())));
                     auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(auth);
-                    response.setHeader("X-Refresh-Token", jwtService.generar(usuario));
+                    renovarSiLaSesionSigueVigente(response, claims, usuario);
                 } else {
                     SecurityContextHolder.clearContext();
                 }
@@ -57,6 +57,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
         }
         filterChain.doFilter(request, response);
+    }
+
+    /**
+     * Cada peticion autenticada devuelve un token nuevo, asi que quien usa la aplicacion no tiene
+     * que volver a escribir su contrasena. El efecto no buscado es que una sesion no vence jamas:
+     * con tocar cualquier endpoint una vez por hora, un token robado sirve para siempre. Pasado el
+     * tope absoluto se deja de renovar y el token que el atacante tenga en la mano caduca solo.
+     *
+     * <p>El token en curso sigue valido hasta su propia expiracion: no se corta la peticion, solo
+     * se deja de extender la sesion.</p>
+     */
+    private void renovarSiLaSesionSigueVigente(HttpServletResponse response, Claims claims,
+                                               Usuario usuario) {
+        if (!jwtService.puedeRenovarse(claims)) {
+            return;
+        }
+        jwtService.inicioSesionDe(claims).ifPresent(inicio ->
+                response.setHeader("X-Refresh-Token", jwtService.renovar(usuario, inicio)));
     }
 
     private boolean habilitado(Usuario usuario) {

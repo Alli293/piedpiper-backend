@@ -2,6 +2,8 @@ package com.piedpiper.carbonhub.auditoria.controller;
 
 import com.piedpiper.carbonhub.auditoria.models.dtos.AsignarAuditorRequestDTO;
 import com.piedpiper.carbonhub.auditoria.models.dtos.CrearSolicitudAuditoriaRequestDTO;
+import com.piedpiper.carbonhub.auditoria.models.dtos.FiltrarSolicitudesAuditoriaRequestDTO;
+import com.piedpiper.carbonhub.auditoria.models.dtos.PaginaSolicitudesAuditoriaResponseDTO;
 import com.piedpiper.carbonhub.auditoria.models.dtos.SolicitudAuditoriaDetalleResponseDTO;
 import com.piedpiper.carbonhub.auditoria.models.dtos.SolicitudAuditoriaResponseDTO;
 import com.piedpiper.carbonhub.auditoria.models.dtos.SolicitudAuditoriaResumenResponseDTO;
@@ -19,6 +21,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -53,13 +56,19 @@ public class SolicitudAuditoriaController {
     }
 
     /**
-     * Listado de las solicitudes de la empresa autenticada. No recibe el id de la empresa por
-     * parametro: sale del usuario, asi que no hay forma de pedir el listado de otra.
+     * Listado paginado de las solicitudes del usuario autenticado.
+     *
+     * <p>El rol se amplia respecto del resto del controlador porque los tres roles tienen un
+     * listado que mirar, y cual les toca lo decide el servicio a partir del token. La empresa y el
+     * auditor no pueden pedir el de otro; el administrador de plataforma si, indicando el id.</p>
      */
     @GetMapping
-    public ResponseEntity<List<SolicitudAuditoriaResumenResponseDTO>> listar(Authentication authentication) {
-        return ResponseEntity.ok(solicitudAuditoriaListadoService.listarDeMiEmpresa(
-                Autenticaciones.usuarioId(authentication)));
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'AUDITOR_CERTIFICADO', 'ADMINISTRADOR_PLATAFORMA')")
+    public ResponseEntity<PaginaSolicitudesAuditoriaResponseDTO> listar(
+            @ModelAttribute FiltrarSolicitudesAuditoriaRequestDTO filtros,
+            Authentication authentication) {
+        return ResponseEntity.ok(solicitudAuditoriaListadoService.listar(
+                filtros, Autenticaciones.usuarioId(authentication)));
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

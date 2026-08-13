@@ -365,6 +365,20 @@ public class ApiException extends RuntimeException {
                 "Esta solicitud de auditoría no fue encontrada.");
     }
 
+    /**
+     * El administrador de plataforma no es empresa ni auditor, asi que no tiene un listado propio:
+     * tiene que decir de quien lo quiere.
+     */
+    public static ApiException listadoAuditoriasSinDestinatario() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Indica la empresa o el auditor cuyo listado de auditorías quieres consultar.");
+    }
+
+    public static ApiException listadoAuditoriasAjeno() {
+        return new ApiException(HttpStatus.FORBIDDEN,
+                "Solo puedes consultar tu propio listado de auditorías.");
+    }
+
     public static ApiException solicitudAuditoriaAjena() {
         return new ApiException(HttpStatus.FORBIDDEN,
                 "No tienes permiso para gestionar esta solicitud de auditoría.");
@@ -408,6 +422,27 @@ public class ApiException extends RuntimeException {
     public static ApiException resultadoAuditoriaAjena() {
         return new ApiException(HttpStatus.FORBIDDEN,
                 "No tienes permiso para emitir el resultado de esta solicitud de auditor\u00eda.");
+    }
+
+    public static ApiException observacionesResultadoRequeridas() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "Describe las observaciones con al menos 20 caracteres.");
+    }
+
+    public static ApiException observacionesResultadoExcedidas() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "Las observaciones no pueden superar los 1000 caracteres.");
+    }
+
+    public static ApiException fechaVencimientoCertExcedeVigencia(int vigenciaMeses) {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "La vigencia de esta certificación no puede superar los " + vigenciaMeses
+                        + " meses desde la fecha de la auditoría.");
+    }
+
+    public static ApiException fechaVencimientoCertRequerida() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "Indica la fecha de vencimiento de la certificaci\u00f3n.");
     }
 
     public static ApiException decisionAuditorInvalida() {
