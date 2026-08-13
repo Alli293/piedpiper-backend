@@ -230,6 +230,29 @@ class EcoRutaItinerarioServiceTest {
     }
 
     @Test
+    void nombreDeEmpresaMuyCortoNoActivaMatchingPorContains() {
+        // "Sel" es substring de "Reserva Selvatura" (el establecimientoRecomendado de
+        // actividadValida()), pero un nombre de empresa tan corto actuaría como comodín si se
+        // acepta por `contains` — no debe quedar vinculado.
+        Empresa nombreCorto = Empresa.builder()
+                .id(UUID.randomUUID())
+                .nombreEmpresa("Sel")
+                .build();
+        when(empresaRepository.findByEstado(any())).thenReturn(List.of(nombreCorto));
+
+        PreferenciasViaje preferencias = preferencias();
+        when(preferenciasViajeRepository.findByUsuario_Id(USUARIO_ID)).thenReturn(Optional.of(preferencias));
+        when(itinerarioIaClienteService.generar(any(), eq(2))).thenReturn(
+                new ResultadoGeneracionIA(respuestaValida(2), ResultadoValidacionItinerario.VALIDO_COMPLETO));
+        when(itinerarioRepository.saveAndFlush(any(Itinerario.class))).thenAnswer(i -> i.getArgument(0));
+        when(itinerarioRepository.countByUsuario_Id(USUARIO_ID)).thenReturn(1L);
+
+        ItinerarioResponseDTO response = service.generar(USUARIO_ID);
+
+        assertThat(response.getDias().get(0).getActividades().get(0).getEmpresaId()).isNull();
+    }
+
+    @Test
     void ecoScoreCalculadoSePersisteYSeIncluyeEnLaRespuesta() {
         PreferenciasViaje preferencias = preferencias();
         when(preferenciasViajeRepository.findByUsuario_Id(USUARIO_ID)).thenReturn(Optional.of(preferencias));

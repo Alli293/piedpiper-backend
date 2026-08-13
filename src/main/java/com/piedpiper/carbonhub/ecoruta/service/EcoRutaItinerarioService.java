@@ -279,6 +279,11 @@ public class EcoRutaItinerarioService {
 
         // Pre-cargar empresas activas una sola vez (evita N+1 al matchear cada actividad)
         List<Empresa> empresasActivas = empresaRepository.findByEstado(EstadoEmpresa.ACTIVO);
+        if (empresasActivas.size() > 100) {
+            log.warn("Catálogo de empresas activas ({}) supera el tope de matching (100) usado en "
+                    + "extraerEstablecimientosRankeados. El vínculo empresa-actividad de este itinerario "
+                    + "puede quedar inconsistente con el cálculo de EcoScore.", empresasActivas.size());
+        }
 
         List<ItinerarioDia> dias = new ArrayList<>();
         for (DiaIaDTO diaIa : respuesta.getDias()) {
@@ -339,6 +344,14 @@ public class EcoRutaItinerarioService {
     }
 
     /**
+     * Nombres de empresa más cortos que esto quedan fuera del matching por {@code contains}: un
+     * nombre corto (ej. "Sol") actuaría como comodín y matchearía cualquier establecimiento que
+     * lo contenga como substring ("Hotel Solarium", "Soluciones Verdes"), atribuyendo
+     * incorrectamente el establecimiento a esa empresa.
+     */
+    private static final int LONGITUD_MINIMA_NOMBRE_EMPRESA_PARA_MATCHING = 4;
+
+    /**
      * Busca, por coincidencia parcial de nombre (case-insensitive, en cualquier dirección), la
      * empresa activa registrada en CarbonHub que corresponde al establecimiento recomendado por la
      * IA. Compartido entre la construcción de la actividad y el cálculo de EcoScore
@@ -349,8 +362,9 @@ public class EcoRutaItinerarioService {
         String nombreNormalizado = nombreEstablecimiento.toLowerCase();
         return empresasActivas.stream()
                 .filter(e -> e.getNombreEmpresa() != null
-                        && (e.getNombreEmpresa().toLowerCase().contains(nombreNormalizado)
-                                || nombreNormalizado.contains(e.getNombreEmpresa().toLowerCase())))
+                        && e.getNombreEmpresa().length() >= LONGITUD_MINIMA_NOMBRE_EMPRESA_PARA_MATCHING)
+                .filter(e -> e.getNombreEmpresa().toLowerCase().contains(nombreNormalizado)
+                        || nombreNormalizado.contains(e.getNombreEmpresa().toLowerCase()))
                 .findFirst();
     }
 
