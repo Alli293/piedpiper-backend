@@ -11,6 +11,7 @@ import com.piedpiper.carbonhub.ecoruta.models.dtos.FiltrarItinerariosRequestDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.HistorialEcoRutaDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.IMADTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.IndicadorAmbientalDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioFavoritoResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO.ActividadIaDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO.DiaIaDTO;
@@ -230,7 +231,10 @@ public class EcoRutaItinerarioService {
     @Transactional(readOnly = true)
     public PaginaItinerariosResponseDTO listar(UUID usuarioId, FiltrarItinerariosRequestDTO filtros) {
         try {
-            Page<Itinerario> pagina = itinerarioRepository.findByUsuario_Id(usuarioId, paginaDe(filtros.getPagina()));
+            Pageable pageable = paginaDe(filtros.getPagina());
+            Page<Itinerario> pagina = Boolean.TRUE.equals(filtros.getSoloFavoritos())
+                    ? itinerarioRepository.findByUsuario_IdAndFavorito(usuarioId, true, pageable)
+                    : itinerarioRepository.findByUsuario_Id(usuarioId, pageable);
             List<ItinerarioResumenResponseDTO> contenido = aResumenes(pagina.getContent());
             return new PaginaItinerariosResponseDTO(
                     contenido, pagina.getTotalElements(), pagina.getNumber() + 1,
@@ -238,6 +242,27 @@ public class EcoRutaItinerarioService {
         } catch (DataAccessException e) {
             log.error("Error al listar los itinerarios del usuario {}", usuarioId, e);
             throw ApiException.errorInterno("No fue posible recuperar la información solicitada.");
+        }
+    }
+
+    @Transactional
+    public ItinerarioFavoritoResponseDTO actualizarFavorito(
+            UUID itinerarioId, UUID usuarioId, boolean favorito) {
+        Itinerario itinerario = itinerarioRepository.findById(itinerarioId)
+                .orElseThrow(ApiException::itinerarioNoDisponible);
+
+        if (!usuarioId.equals(itinerario.getUsuario().getId())) {
+            throw ApiException.itinerarioNoPropio();
+        }
+
+        try {
+            itinerario.setFavorito(favorito);
+            Itinerario actualizado = itinerarioRepository.save(itinerario);
+            return mapper.toFavoritoDto(actualizado);
+        } catch (DataAccessException e) {
+            log.error("Error al actualizar favorito del itinerario {} para usuario {}",
+                    itinerarioId, usuarioId, e);
+            throw ApiException.errorInterno("No fue posible actualizar el estado del favorito.");
         }
     }
 

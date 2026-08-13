@@ -5,6 +5,7 @@ import com.piedpiper.carbonhub.ecoruta.mappers.ItinerarioMapperImpl;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ConversacionContextoDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.EcoScoreResultado;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.FiltrarItinerariosRequestDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioFavoritoResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO.ActividadIaDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO.DiaIaDTO;
@@ -839,7 +840,7 @@ class EcoRutaItinerarioServiceTest {
         when(itinerarioRepository.findProvinciasVisitadasPorItinerarios(List.of(itin1.getId(), itin2.getId())))
                 .thenReturn(List.of(filaProvincia));
 
-        PaginaItinerariosResponseDTO respuesta = service.listar(USUARIO_ID, new FiltrarItinerariosRequestDTO(1));
+        PaginaItinerariosResponseDTO respuesta = service.listar(USUARIO_ID, new FiltrarItinerariosRequestDTO(1, null));
 
         assertThat(respuesta.getContenido()).hasSize(2);
         assertThat(respuesta.getContenido().get(0).getProvinciasVisitadas()).containsExactly("PUNTARENAS");
@@ -854,12 +855,105 @@ class EcoRutaItinerarioServiceTest {
         when(itinerarioRepository.findByUsuario_Id(eq(USUARIO_ID), any()))
                 .thenThrow(new DataAccessResourceFailureException("fallo de conexion"));
 
-        assertThatThrownBy(() -> service.listar(USUARIO_ID, new FiltrarItinerariosRequestDTO(1)))
+        assertThatThrownBy(() -> service.listar(USUARIO_ID, new FiltrarItinerariosRequestDTO(1, null)))
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> {
                     assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
                     assertThat(ex.getMessage()).isEqualTo("No fue posible recuperar la información solicitada.");
                 });
+    }
+
+    @Test
+    void listarFiltraFavoritosPorUsuario() {
+        Itinerario favorito = itinerarioResumen(UUID.randomUUID());
+        favorito.setFavorito(true);
+        var pagina = new PageImpl<>(List.of(favorito),
+                PageRequest.of(0, EcoRutaItinerarioService.TAMANIO_PAGINA,
+                        Sort.by(Sort.Direction.DESC, "fechaGeneracion")),
+                1);
+        when(itinerarioRepository.findByUsuario_IdAndFavorito(eq(USUARIO_ID), eq(true), any()))
+                .thenReturn(pagina);
+        var filaProvincia = org.mockito.Mockito.mock(ItinerarioRepository.ProvinciaPorItinerario.class);
+        when(filaProvincia.getItinerarioId()).thenReturn(favorito.getId());
+        when(filaProvincia.getProvincia())
+                .thenReturn(com.piedpiper.carbonhub.ecoruta.models.enums.Provincia.SAN_JOSE);
+        when(itinerarioRepository.findProvinciasVisitadasPorItinerarios(List.of(favorito.getId())))
+                .thenReturn(List.of(filaProvincia));
+
+        PaginaItinerariosResponseDTO respuesta = service.listar(
+                USUARIO_ID, new FiltrarItinerariosRequestDTO(1, true));
+
+        assertThat(respuesta.getContenido()).hasSize(1);
+        assertThat(respuesta.getContenido().get(0).isFavorito()).isTrue();
+        assertThat(respuesta.getContenido().get(0).getProvinciasVisitadas()).containsExactly("SAN_JOSE");
+        verify(itinerarioRepository, never()).findByUsuario_Id(eq(USUARIO_ID), any());
+    }
+
+    // --- favoritos (PP-90) ---
+
+    @Test
+    void actualizarFavoritoMarcaElItinerario() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioResumen(itinerarioId);
+        when(itinerarioRepository.findById(itinerarioId)).thenReturn(Optional.of(itinerario));
+        when(itinerarioRepository.save(any(Itinerario.class))).thenAnswer(i -> i.getArgument(0));
+
+        ItinerarioFavoritoResponseDTO respuesta = service.actualizarFavorito(itinerarioId, USUARIO_ID, true);
+
+        assertThat(respuesta.getId()).isEqualTo(itinerarioId);
+        assertThat(respuesta.isFavorito()).isTrue();
+        assertThat(itinerario.isFavorito()).isTrue();
+        verify(itinerarioRepository).save(itinerario);
+    }
+
+    @Test
+    void actualizarFavoritoDesmarcaElItinerario() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioResumen(itinerarioId);
+        itinerario.setFavorito(true);
+        when(itinerarioRepository.findById(itinerarioId)).thenReturn(Optional.of(itinerario));
+        when(itinerarioRepository.save(any(Itinerario.class))).thenAnswer(i -> i.getArgument(0));
+
+        ItinerarioFavoritoResponseDTO respuesta = service.actualizarFavorito(itinerarioId, USUARIO_ID, false);
+
+        assertThat(respuesta.isFavorito()).isFalse();
+        assertThat(itinerario.isFavorito()).isFalse();
+        verify(itinerarioRepository).save(itinerario);
+    }
+
+    @Test
+    void actualizarFavoritoConItinerarioAjenoLanza403AntesDeGuardar() {
+        UUID itinerarioId = UUID.randomUUID();
+        Usuario otroUsuario = Usuario.builder()
+                .id(UUID.randomUUID())
+                .email("otro@example.com")
+                .nombre("Otro")
+                .rol(Rol.USUARIO_INDIVIDUAL)
+                .estado(EstadoUsuario.ACTIVO)
+                .metodoAuth(MetodoAuth.CORREO)
+                .fechaRegistro(Instant.now())
+                .build();
+        Itinerario itinerario = itinerarioResumen(itinerarioId);
+        itinerario.setUsuario(otroUsuario);
+        when(itinerarioRepository.findById(itinerarioId)).thenReturn(Optional.of(itinerario));
+
+        assertThatThrownBy(() -> service.actualizarFavorito(itinerarioId, USUARIO_ID, true))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.FORBIDDEN));
+
+        verify(itinerarioRepository, never()).save(any());
+    }
+
+    @Test
+    void actualizarFavoritoConItinerarioInexistenteLanza404() {
+        UUID itinerarioId = UUID.randomUUID();
+        when(itinerarioRepository.findById(itinerarioId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.actualizarFavorito(itinerarioId, USUARIO_ID, true))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.NOT_FOUND));
+
+        verify(itinerarioRepository, never()).save(any());
     }
 
     // --- eliminar (PP-89, fuera del AC — pedido explícito del equipo) ---

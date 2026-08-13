@@ -26,6 +26,7 @@ public class ItinerarioResponseDTO {
     private String clasificacionAmbiental;
     private boolean ecoScoreParcial;
     private Instant ecoScoreCalculadoEn;
+    private boolean favorito;
     private Instant fechaGeneracion;
     private boolean generadoParcial;
     private String mensajeParcial;

@@ -22,6 +22,8 @@ public interface ItinerarioRepository extends JpaRepository<Itinerario, UUID> {
     /** Listado paginado de "Mis itinerarios" (PP-89). */
     Page<Itinerario> findByUsuario_Id(UUID usuarioId, Pageable pageable);
 
+    Page<Itinerario> findByUsuario_IdAndFavorito(UUID usuarioId, boolean favorito, Pageable pageable);
+
     @Query("""
             select distinct a.provincia
             from Itinerario i join i.dias d join d.actividades a

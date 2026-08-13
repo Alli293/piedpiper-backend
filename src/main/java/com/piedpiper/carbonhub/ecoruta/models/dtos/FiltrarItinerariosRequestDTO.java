@@ -14,4 +14,5 @@ import lombok.NoArgsConstructor;
 public class FiltrarItinerariosRequestDTO {
 
     private Integer pagina;
+    private Boolean soloFavoritos;
 }

@@ -1,7 +1,9 @@
 package com.piedpiper.carbonhub.ecoruta.controller;
 
 import com.piedpiper.carbonhub.common.Autenticaciones;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.ActualizarFavoritoItinerarioRequestDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.FiltrarItinerariosRequestDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioFavoritoResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.PaginaItinerariosResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoItinerarioRequestDTO;
@@ -22,6 +24,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -61,6 +64,15 @@ public class EcoRutaItinerarioController {
             @ModelAttribute FiltrarItinerariosRequestDTO filtros, Authentication authentication) {
         UUID usuarioId = Autenticaciones.usuarioId(authentication);
         return ResponseEntity.ok(service.listar(usuarioId, filtros));
+    }
+
+    @PutMapping("/{id}/favorito")
+    public ResponseEntity<ItinerarioFavoritoResponseDTO> actualizarFavorito(
+            @PathVariable UUID id,
+            @Valid @RequestBody ActualizarFavoritoItinerarioRequestDTO request,
+            Authentication authentication) {
+        UUID usuarioId = Autenticaciones.usuarioId(authentication);
+        return ResponseEntity.ok(service.actualizarFavorito(id, usuarioId, request.isFavorito()));
     }
 
     /**

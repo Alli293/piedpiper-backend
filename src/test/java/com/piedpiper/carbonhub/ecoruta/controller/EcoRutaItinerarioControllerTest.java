@@ -4,7 +4,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.piedpiper.carbonhub.auth.config.CorsConfig;
 import com.piedpiper.carbonhub.auth.config.JwtAuthenticationFilter;
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.ActualizarFavoritoItinerarioRequestDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.EstablecimientoEcoScoreResponseDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.FiltrarItinerariosRequestDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioFavoritoResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioResumenResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.MensajeConversacionDTO;
@@ -35,12 +38,15 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentCaptor.forClass;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -80,6 +86,7 @@ class EcoRutaItinerarioControllerTest {
         response.setClasificacionAmbiental("BUENA");
         response.setEcoScoreParcial(false);
         response.setEcoScoreCalculadoEn(Instant.now());
+        response.setFavorito(false);
         response.setFechaGeneracion(Instant.now());
         response.setGeneradoParcial(false);
         response.setDias(List.of());
@@ -312,7 +319,7 @@ class EcoRutaItinerarioControllerTest {
     private PaginaItinerariosResponseDTO paginaDePrueba() {
         ItinerarioResumenResponseDTO resumen = new ItinerarioResumenResponseDTO(
                 UUID.randomUUID(), 3, LocalDate.now().plusDays(5), "INDIVIDUAL",
-                new BigDecimal("70.0"), "BUENA", false, List.of("PUNTARENAS"),
+                new BigDecimal("70.0"), "BUENA", false, true, List.of("PUNTARENAS"),
                 Instant.now(), Instant.now());
         return new PaginaItinerariosResponseDTO(List.of(resumen), 1, 1, 1, 12);
     }
@@ -334,11 +341,82 @@ class EcoRutaItinerarioControllerTest {
     }
 
     @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_USUARIO_INDIVIDUAL")
+    void getListadoConSoloFavoritosPropagaElFiltroAlServicio() throws Exception {
+        UUID usuarioId = UUID.fromString(USUARIO_ID);
+        when(service.listar(eq(usuarioId), any())).thenReturn(paginaDePrueba());
+        var captor = forClass(FiltrarItinerariosRequestDTO.class);
+
+        mockMvc.perform(get("/api/ecoruta/itinerarios")
+                        .param("soloFavoritos", "true")
+                        .principal(authentication("ROLE_USUARIO_INDIVIDUAL")))
+                .andExpect(status().isOk());
+
+        verify(service).listar(eq(usuarioId), captor.capture());
+        org.assertj.core.api.Assertions.assertThat(captor.getValue().getSoloFavoritos()).isTrue();
+    }
+
+    @Test
     @WithMockUser(username = USUARIO_ID, authorities = "ROLE_ADMINISTRADOR_EMPRESA")
     void getListadoConRolNoAutorizadoDevuelve403() throws Exception {
         mockMvc.perform(get("/api/ecoruta/itinerarios")
                         .principal(authentication("ROLE_ADMINISTRADOR_EMPRESA")))
                 .andExpect(status().isForbidden());
+    }
+
+    // --- PUT /api/ecoruta/itinerarios/{id}/favorito (PP-90) ---
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_USUARIO_INDIVIDUAL")
+    void putFavoritoValidoDevuelve200() throws Exception {
+        UUID itinerarioId = UUID.randomUUID();
+        UUID usuarioId = UUID.fromString(USUARIO_ID);
+        when(service.actualizarFavorito(eq(itinerarioId), eq(usuarioId), eq(true)))
+                .thenReturn(new ItinerarioFavoritoResponseDTO(itinerarioId, true));
+
+        mockMvc.perform(put("/api/ecoruta/itinerarios/" + itinerarioId + "/favorito")
+                        .principal(authentication("ROLE_USUARIO_INDIVIDUAL"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new ActualizarFavoritoItinerarioRequestDTO(true))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(itinerarioId.toString()))
+                .andExpect(jsonPath("$.favorito").value(true));
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_USUARIO_INDIVIDUAL")
+    void putFavoritoConItinerarioAjenoDevuelve403() throws Exception {
+        UUID itinerarioId = UUID.randomUUID();
+        UUID usuarioId = UUID.fromString(USUARIO_ID);
+        when(service.actualizarFavorito(eq(itinerarioId), eq(usuarioId), eq(true)))
+                .thenThrow(ApiException.itinerarioNoPropio());
+
+        mockMvc.perform(put("/api/ecoruta/itinerarios/" + itinerarioId + "/favorito")
+                        .principal(authentication("ROLE_USUARIO_INDIVIDUAL"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new ActualizarFavoritoItinerarioRequestDTO(true))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("No tienes permiso para modificar este itinerario."));
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_USUARIO_INDIVIDUAL")
+    void putFavoritoConItinerarioInexistenteDevuelve404() throws Exception {
+        UUID itinerarioId = UUID.randomUUID();
+        UUID usuarioId = UUID.fromString(USUARIO_ID);
+        when(service.actualizarFavorito(eq(itinerarioId), eq(usuarioId), eq(true)))
+                .thenThrow(ApiException.itinerarioNoDisponible());
+
+        mockMvc.perform(put("/api/ecoruta/itinerarios/" + itinerarioId + "/favorito")
+                        .principal(authentication("ROLE_USUARIO_INDIVIDUAL"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new ActualizarFavoritoItinerarioRequestDTO(true))))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message")
+                        .value("El itinerario solicitado no existe o ya no está disponible."));
     }
 
     // --- DELETE /api/ecoruta/itinerarios/{id} (PP-89, fuera del AC — pedido explícito del equipo) ---

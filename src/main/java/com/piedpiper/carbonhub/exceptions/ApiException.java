@@ -318,6 +318,16 @@ public class ApiException extends RuntimeException {
                 "No fue posible actualizar el itinerario. Intenta nuevamente.");
     }
 
+    public static ApiException itinerarioNoDisponible() {
+        return new ApiException(HttpStatus.NOT_FOUND,
+                "El itinerario solicitado no existe o ya no está disponible.");
+    }
+
+    public static ApiException itinerarioNoPropio() {
+        return new ApiException(HttpStatus.FORBIDDEN,
+                "No tienes permiso para modificar este itinerario.");
+    }
+
     public static ApiException periodoImaInvalido(String mensaje) {
         return new ApiException(HttpStatus.BAD_REQUEST, mensaje);
     }

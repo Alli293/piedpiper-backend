@@ -2,6 +2,7 @@ package com.piedpiper.carbonhub.ecoruta.mappers;
 
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioActividadResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioDiaResponseDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioFavoritoResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioResumenResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.entities.Itinerario;
@@ -21,6 +22,8 @@ public interface ItinerarioMapper {
                     + "? entidad.getClasificacionAmbiental().name() : null)")
     @Mapping(target = "establecimientosEvaluados", ignore = true)
     ItinerarioResponseDTO toDto(Itinerario entidad);
+
+    ItinerarioFavoritoResponseDTO toFavoritoDto(Itinerario entidad);
 
     @Mapping(target = "tipoViaje", expression = "java(entidad.getTipoViaje().name())")
     @Mapping(target = "clasificacionAmbiental",

@@ -26,6 +26,7 @@ public class ItinerarioResumenResponseDTO {
     private BigDecimal ecoScore;
     private String clasificacionAmbiental;
     private boolean ecoScoreParcial;
+    private boolean favorito;
 
     /** Distinct de las provincias de todas las actividades — el frontend arma el título de la tarjeta con esto. */
     private List<String> provinciasVisitadas;
