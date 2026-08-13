@@ -1,6 +1,9 @@
 package com.piedpiper.carbonhub.meta.repository;
 
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
+import com.piedpiper.carbonhub.empresa.models.enums.EstadoEmpresa;
+import com.piedpiper.carbonhub.empresa.models.enums.SectorIndustrial;
+import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 import com.piedpiper.carbonhub.meta.models.entities.Meta;
 
 import org.junit.jupiter.api.Test;
@@ -13,6 +16,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -30,6 +34,37 @@ class MetaRepositoryFlushIntegrationTest {
 
     @Autowired
     private MetaRepository metaRepository;
+
+    @Autowired
+    private EmpresaRepository empresaRepository;
+
+    @Test
+    void findByIdAndEmpresaIdEncuentraLaMetaDeSuPropiaEmpresa() {
+        Empresa empresa = empresaRepository.save(empresaDePrueba());
+        Meta meta = metaRepository.saveAndFlush(Meta.builder()
+                .empresa(empresa)
+                .nombreMeta("Meta de prueba")
+                .valorObjetivoHuellaT(new BigDecimal("50.0000"))
+                .fechaLimite(LocalDate.now().plusMonths(6))
+                .fechaCreacion(Instant.now())
+                .build());
+
+        assertThat(metaRepository.findByIdAndEmpresaId(meta.getId(), empresa.getId())).isPresent();
+    }
+
+    @Test
+    void findByIdAndEmpresaIdNoEncuentraLaMetaDeOtraEmpresa() {
+        Empresa empresa = empresaRepository.save(empresaDePrueba());
+        Meta meta = metaRepository.saveAndFlush(Meta.builder()
+                .empresa(empresa)
+                .nombreMeta("Meta de prueba")
+                .valorObjetivoHuellaT(new BigDecimal("50.0000"))
+                .fechaLimite(LocalDate.now().plusMonths(6))
+                .fechaCreacion(Instant.now())
+                .build());
+
+        assertThat(metaRepository.findByIdAndEmpresaId(meta.getId(), UUID.randomUUID())).isEmpty();
+    }
 
     @Test
     void saveNoFallaDeInmediatoParaUnaEmpresaInexistente() {
@@ -50,6 +85,20 @@ class MetaRepositoryFlushIntegrationTest {
         // en vez de dejar que escale sin control al terminar la transaccion.
         assertThatThrownBy(() -> metaRepository.saveAndFlush(meta))
                 .isInstanceOf(DataAccessException.class);
+    }
+
+    private Empresa empresaDePrueba() {
+        String sufijo = UUID.randomUUID().toString();
+        return Empresa.builder()
+                .nombreEmpresa("Empresa de prueba " + sufijo)
+                .cedulaJuridica(sufijo)
+                .sectorIndustrial(SectorIndustrial.SERVICIOS)
+                .pais("Costa Rica")
+                .correoCorporativo(sufijo + "@empresa-prueba.test")
+                .slug("empresa-prueba-" + sufijo)
+                .estado(EstadoEmpresa.ACTIVO)
+                .fechaRegistro(Instant.now())
+                .build();
     }
 
     private Meta metaConEmpresaInexistente() {
