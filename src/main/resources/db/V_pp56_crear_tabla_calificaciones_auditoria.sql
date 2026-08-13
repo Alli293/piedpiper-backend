@@ -1,3 +1,6 @@
+-- NOTA: Script de referencia. El proyecto usa ddl-auto=update; este archivo
+-- documenta el esquema esperado pero no se ejecuta automáticamente.
+
 -- PP-56: Crear tabla calificaciones_auditoria
 -- Almacena las calificaciones verificadas que empresas otorgan a auditores
 -- tras la emisión de certificación de una auditoría.

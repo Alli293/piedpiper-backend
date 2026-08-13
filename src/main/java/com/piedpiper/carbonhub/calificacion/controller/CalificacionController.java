@@ -1,16 +1,11 @@
 package com.piedpiper.carbonhub.calificacion.controller;
 
-import com.piedpiper.carbonhub.calificacion.mappers.CalificacionMapper;
 import com.piedpiper.carbonhub.calificacion.models.dtos.CalificacionResponseDTO;
 import com.piedpiper.carbonhub.calificacion.models.dtos.CrearCalificacionRequestDTO;
 import com.piedpiper.carbonhub.calificacion.models.dtos.EditarCalificacionRequestDTO;
-import com.piedpiper.carbonhub.calificacion.repository.CalificacionRepository;
+import com.piedpiper.carbonhub.calificacion.service.CalificacionConsultaService;
 import com.piedpiper.carbonhub.calificacion.service.CalificacionCreacionService;
 import com.piedpiper.carbonhub.calificacion.service.CalificacionEdicionService;
-import com.piedpiper.carbonhub.common.Autenticaciones;
-import com.piedpiper.carbonhub.exceptions.ApiException;
-import com.piedpiper.carbonhub.user.models.entities.Usuario;
-import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import jakarta.validation.Valid;
 
@@ -35,20 +30,14 @@ public class CalificacionController {
 
     private final CalificacionCreacionService calificacionCreacionService;
     private final CalificacionEdicionService calificacionEdicionService;
-    private final CalificacionRepository calificacionRepository;
-    private final CalificacionMapper calificacionMapper;
-    private final UsuarioRepository usuarioRepository;
+    private final CalificacionConsultaService calificacionConsultaService;
 
     public CalificacionController(CalificacionCreacionService calificacionCreacionService,
                                   CalificacionEdicionService calificacionEdicionService,
-                                  CalificacionRepository calificacionRepository,
-                                  CalificacionMapper calificacionMapper,
-                                  UsuarioRepository usuarioRepository) {
+                                  CalificacionConsultaService calificacionConsultaService) {
         this.calificacionCreacionService = calificacionCreacionService;
         this.calificacionEdicionService = calificacionEdicionService;
-        this.calificacionRepository = calificacionRepository;
-        this.calificacionMapper = calificacionMapper;
-        this.usuarioRepository = usuarioRepository;
+        this.calificacionConsultaService = calificacionConsultaService;
     }
 
     @PostMapping
@@ -72,14 +61,6 @@ public class CalificacionController {
     public ResponseEntity<CalificacionResponseDTO> obtenerPorAuditoria(
             @PathVariable UUID auditoriaId,
             Authentication authentication) {
-        UUID usuarioId = Autenticaciones.usuarioId(authentication);
-        Usuario usuario = usuarioRepository.findById(usuarioId)
-                .orElseThrow(() -> ApiException.accesoDenegado("No tiene permiso."));
-        UUID empresaId = usuario.getEmpresa().getId();
-        return calificacionRepository.findByAuditoriaIdAndEmpresaId(auditoriaId, empresaId)
-                .map(calificacionMapper::toDto)
-                .map(ResponseEntity::ok)
-                .orElseThrow(() -> ApiException.recursoNoEncontrado(
-                        "No se encontró una calificación para esta auditoría."));
+        return ResponseEntity.ok(calificacionConsultaService.obtenerPorAuditoria(auditoriaId, authentication));
     }
 }
