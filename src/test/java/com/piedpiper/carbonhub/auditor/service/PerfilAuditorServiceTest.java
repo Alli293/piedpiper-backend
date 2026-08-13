@@ -52,8 +52,9 @@ class PerfilAuditorServiceTest {
         assertThat(perfil).isSameAs(captor.getValue());
         assertThat(perfil.getAuditor()).isEqualTo(auditor);
         assertThat(perfil.isDisponible()).isTrue();
-        assertThat(perfil.getAuditoriasCompletadas()).isZero();
+        assertThat(perfil.getAuditoriasCompletadas()).isNull();
         assertThat(perfil.getCalificacionPromedio()).isNull();
+        assertThat(perfil.getTiempoPromedioRespuestaDias()).isNull();
         assertThat(perfil.getEspecialidades()).isEmpty();
     }
 

@@ -2,7 +2,6 @@ package com.piedpiper.carbonhub.auditor.service;
 
 import com.piedpiper.carbonhub.auditor.mappers.PerfilPublicoAuditorMapper;
 import com.piedpiper.carbonhub.auditor.repository.PerfilAuditorRepository;
-import com.piedpiper.carbonhub.auditoria.repository.SolicitudAuditoriaRepository;
 import com.piedpiper.carbonhub.certificacion.config.CatalogoTiposCertificacion;
 import com.piedpiper.carbonhub.certificacion.repository.CertificacionRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
@@ -16,7 +15,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -33,7 +31,6 @@ class PerfilPublicoAuditor404PropertyTest {
 
     private final PerfilAuditorRepository perfilAuditorRepository = mock(PerfilAuditorRepository.class);
     private final CertificacionRepository certificacionRepository = mock(CertificacionRepository.class);
-    private final SolicitudAuditoriaRepository solicitudAuditoriaRepository = mock(SolicitudAuditoriaRepository.class);
     private final CatalogoTiposCertificacion catalogoTiposCertificacion = mock(CatalogoTiposCertificacion.class);
     private final PerfilPublicoAuditorMapper mapper = mock(PerfilPublicoAuditorMapper.class);
     private final Clock clock = Clock.systemDefaultZone();
@@ -41,7 +38,6 @@ class PerfilPublicoAuditor404PropertyTest {
     private final PerfilPublicoAuditorService service = new PerfilPublicoAuditorService(
             perfilAuditorRepository,
             certificacionRepository,
-            solicitudAuditoriaRepository,
             catalogoTiposCertificacion,
             mapper,
             clock
@@ -62,7 +58,8 @@ class PerfilPublicoAuditor404PropertyTest {
     @Tag("Feature: PP-53-consulta-perfil-publico-auditor, Property 2: Respuestas 404 indistinguibles")
     void auditorInexistente_retorna404ConMensajeEstandar(@ForAll("uuidAleatorio") UUID auditorId) {
         // Arrange: repository returns empty for any UUID with ACTIVO state
-        when(perfilAuditorRepository.findByAuditorIdAndAuditorEstado(eq(auditorId), eq(EstadoUsuario.ACTIVO)))
+        when(perfilAuditorRepository.findByAuditorIdAndAuditorEstadoConDistribucion(
+                eq(auditorId), eq(EstadoUsuario.ACTIVO)))
                 .thenReturn(Optional.empty());
 
         // Act & Assert
@@ -93,7 +90,8 @@ class PerfilPublicoAuditor404PropertyTest {
             @ForAll("estadoNoActivo") EstadoUsuario estadoIgnorado) {
 
         // Arrange: the repo query filters by ACTIVO, so non-active auditors also return empty
-        when(perfilAuditorRepository.findByAuditorIdAndAuditorEstado(eq(auditorId), eq(EstadoUsuario.ACTIVO)))
+        when(perfilAuditorRepository.findByAuditorIdAndAuditorEstadoConDistribucion(
+                eq(auditorId), eq(EstadoUsuario.ACTIVO)))
                 .thenReturn(Optional.empty());
 
         // Act & Assert: same exception and same message as non-existent

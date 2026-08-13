@@ -20,7 +20,7 @@ public class AuditorResumenResponseDTO {
     private BigDecimal calificacionPromedio;
     private int totalResenas;
     private boolean disponible;
-    private int auditoriasCompletadas;
+    private Integer auditoriasCompletadas;
     private Integer aniosExperiencia;
     private String provincia;
 }

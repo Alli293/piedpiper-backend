@@ -162,6 +162,7 @@ class AuditorDirectorioServiceTest {
         Sort.Order orden = pageableCaptor.getValue().getSort().getOrderFor("auditoriasCompletadas");
         assertThat(orden).isNotNull();
         assertThat(orden.getDirection()).isEqualTo(Sort.Direction.DESC);
+        assertThat(orden.getNullHandling()).isEqualTo(Sort.NullHandling.NULLS_LAST);
     }
 
     @Test
@@ -174,7 +175,7 @@ class AuditorDirectorioServiceTest {
 
         servicio().listar(f);
 
-        Sort.Order orden = pageableCaptor.getValue().getSort().getOrderFor("tiempoRespuestaHoras");
+        Sort.Order orden = pageableCaptor.getValue().getSort().getOrderFor("tiempoPromedioRespuestaDias");
         assertThat(orden).isNotNull();
         assertThat(orden.getDirection()).isEqualTo(Sort.Direction.ASC);
         assertThat(orden.getNullHandling()).isEqualTo(Sort.NullHandling.NULLS_LAST);

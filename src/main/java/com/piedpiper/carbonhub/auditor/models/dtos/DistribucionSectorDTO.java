@@ -12,5 +12,6 @@ import java.math.BigDecimal;
 public class DistribucionSectorDTO {
 
     private String sector;
+    private int cantidad;
     private BigDecimal porcentaje;
 }
