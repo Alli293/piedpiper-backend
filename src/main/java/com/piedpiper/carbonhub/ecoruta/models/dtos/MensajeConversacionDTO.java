@@ -1,5 +1,6 @@
 package com.piedpiper.carbonhub.ecoruta.models.dtos;
 
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -11,6 +12,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class MensajeConversacionDTO {
 
+    /** Solo estos dos roles participan de la conversación de refinamiento; nada más es válido. */
+    @Pattern(regexp = "USUARIO|ASISTENTE", message = "El rol del mensaje no es válido.")
     private String rol;
 
     /**

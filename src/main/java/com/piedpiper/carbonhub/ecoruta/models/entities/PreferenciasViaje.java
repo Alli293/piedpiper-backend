@@ -105,6 +105,19 @@ public class PreferenciasViaje {
     @Column(name = "itinerario_generacion_ventana_inicio")
     private Instant itinerarioGeneracionVentanaInicio;
 
+    /**
+     * Rate limit del chat de refinamiento (PP-88), separado del de generación: cada mensaje libre
+     * dispara su propia llamada a Gemini y, a diferencia de {@code generar()}, no tenía ningún
+     * techo — un usuario (o un script) podía mandar mensajes sin límite. Mismo patrón de ventana
+     * fija de 1 hora que el de arriba.
+     */
+    @Column(name = "itinerario_refinamiento_contador", nullable = false, columnDefinition = "integer default 0")
+    @Builder.Default
+    private int itinerarioRefinamientoContador = 0;
+
+    @Column(name = "itinerario_refinamiento_ventana_inicio")
+    private Instant itinerarioRefinamientoVentanaInicio;
+
     @Column(name = "creado_en", nullable = false, updatable = false)
     private Instant creadoEn;
 

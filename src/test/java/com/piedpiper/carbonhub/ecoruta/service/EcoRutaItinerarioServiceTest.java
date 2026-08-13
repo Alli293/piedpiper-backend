@@ -98,7 +98,7 @@ class EcoRutaItinerarioServiceTest {
                 mock(ImaClient.class),
                 mock(BenchmarkClient.class),
                 mock(PuntuacionAmbientalCalculator.class),
-                empresaRepository, mapper);
+                empresaRepository, mapper, new com.fasterxml.jackson.databind.ObjectMapper());
 
         // Stub default para empresaRepository usado en extraerEstablecimientosRankeados
         lenient().when(empresaRepository.findByEstado(any()))
@@ -593,5 +593,141 @@ class EcoRutaItinerarioServiceTest {
         assertThat(prompt).contains("el-mas-reciente");
         assertThat(prompt).doesNotContain("mensaje-viejo-1\n");
         assertThat(prompt).doesNotContain("respuesta-vieja-1\n");
+    }
+
+    // --- moneda preferida en el prompt de refinar() (revisión de carias03 en el PR #86) ---
+
+    @Test
+    void refinarUsaLaMonedaPreferidaDelUsuarioEnElPrompt() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioExistente(itinerarioId);
+        itinerario.getUsuario().setMoneda("USD");
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+        RefinamientoIaResponseDTO respuestaIa = new RefinamientoIaResponseDTO(
+                true, "¿Podrías ser más específico?", null, null);
+        when(itinerarioIaClienteService.refinar(any(), eq(2))).thenReturn(
+                new ResultadoRefinamientoIA(respuestaIa, ResultadoValidacionItinerario.VALIDO_COMPLETO));
+
+        service.refinar(itinerarioId, USUARIO_ID, mensaje("Cámbiala."));
+
+        ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+        verify(itinerarioIaClienteService).refinar(promptCaptor.capture(), eq(2));
+        assertThat(promptCaptor.getValue()).contains("USD");
+    }
+
+    @Test
+    void refinarUsaCrcPorDefectoCuandoElUsuarioNoTieneMonedaConfigurada() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioExistente(itinerarioId);
+        itinerario.getUsuario().setMoneda(null);
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+        RefinamientoIaResponseDTO respuestaIa = new RefinamientoIaResponseDTO(
+                true, "¿Podrías ser más específico?", null, null);
+        when(itinerarioIaClienteService.refinar(any(), eq(2))).thenReturn(
+                new ResultadoRefinamientoIA(respuestaIa, ResultadoValidacionItinerario.VALIDO_COMPLETO));
+
+        service.refinar(itinerarioId, USUARIO_ID, mensaje("Cámbiala."));
+
+        ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+        verify(itinerarioIaClienteService).refinar(promptCaptor.capture(), eq(2));
+        assertThat(promptCaptor.getValue()).contains("CRC");
+    }
+
+    // --- cuota de mensajes de refinamiento (Major de Arielajr15 en el PR #86) ---
+
+    @Test
+    void refinarRespetaLaCuotaDeMensajesDeRefinamiento() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioExistente(itinerarioId);
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+        org.mockito.Mockito.doThrow(ApiException.itinerarioRefinamientosExcedidos())
+                .when(itinerarioCuotaService).reservarRefinamiento(USUARIO_ID);
+
+        assertThatThrownBy(() -> service.refinar(itinerarioId, USUARIO_ID, mensaje("Quiero más playas.")))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS));
+
+        verify(itinerarioIaClienteService, never()).refinar(any(), anyInt());
+    }
+
+    // --- validación de itinerarioId/versionItinerario del contexto (Major de Arielajr15 en el PR #86) ---
+
+    @Test
+    void refinarConContextoDeOtroItinerarioLanza400() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioExistente(itinerarioId);
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+
+        var contexto = new ConversacionContextoDTO(UUID.randomUUID(), List.of(), null);
+        var request = new RefinamientoItinerarioRequestDTO("Quiero más playas.", contexto);
+
+        assertThatThrownBy(() -> service.refinar(itinerarioId, USUARIO_ID, request))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
+
+        verify(itinerarioIaClienteService, never()).refinar(any(), anyInt());
+    }
+
+    @Test
+    void refinarConVersionDesactualizadaLanza409() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioExistente(itinerarioId);
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+
+        var contexto = new ConversacionContextoDTO(itinerarioId, List.of(), itinerario.getVersion() + 1);
+        var request = new RefinamientoItinerarioRequestDTO("Quiero más playas.", contexto);
+
+        assertThatThrownBy(() -> service.refinar(itinerarioId, USUARIO_ID, request))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.CONFLICT));
+
+        verify(itinerarioIaClienteService, never()).refinar(any(), anyInt());
+    }
+
+    // --- VALIDO_PARCIAL en refinar() (Major de carias03 en el PR #86) ---
+
+    @Test
+    void refinarConRespuestaParcialMarcaGeneradoParcialConMensaje() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioExistente(itinerarioId);
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+        RefinamientoIaResponseDTO respuestaIa = new RefinamientoIaResponseDTO(
+                false, "Solo pude ajustar un día.", null, respuestaValida(1));
+        when(itinerarioIaClienteService.refinar(any(), eq(2))).thenReturn(
+                new ResultadoRefinamientoIA(respuestaIa, ResultadoValidacionItinerario.VALIDO_PARCIAL));
+        when(itinerarioRepository.saveAndFlush(any(Itinerario.class))).thenAnswer(i -> i.getArgument(0));
+
+        RefinamientoItinerarioResponseDTO response = service.refinar(
+                itinerarioId, USUARIO_ID, mensaje("Ajustá todo el itinerario."));
+
+        assertThat(response.getItinerario().isGeneradoParcial()).isTrue();
+        assertThat(response.getItinerario().getMensajeParcial()).isNotBlank();
+    }
+
+    @Test
+    void refinarConRespuestaCompletaNoQuedaMarcadoComoParcial() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioExistente(itinerarioId);
+        itinerario.setGeneradoParcial(true);
+        itinerario.setMensajeParcial("parcial de una generación anterior");
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+        RefinamientoIaResponseDTO respuestaIa = new RefinamientoIaResponseDTO(
+                false, "Listo.", null, respuestaValida(2));
+        when(itinerarioIaClienteService.refinar(any(), eq(2))).thenReturn(
+                new ResultadoRefinamientoIA(respuestaIa, ResultadoValidacionItinerario.VALIDO_COMPLETO));
+        when(itinerarioRepository.saveAndFlush(any(Itinerario.class))).thenAnswer(i -> i.getArgument(0));
+
+        RefinamientoItinerarioResponseDTO response = service.refinar(
+                itinerarioId, USUARIO_ID, mensaje("Quiero más actividades al aire libre."));
+
+        assertThat(response.getItinerario().isGeneradoParcial()).isFalse();
+        assertThat(response.getItinerario().getMensajeParcial()).isNull();
     }
 }

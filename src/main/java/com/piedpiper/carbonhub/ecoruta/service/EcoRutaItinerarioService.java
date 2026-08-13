@@ -38,6 +38,9 @@ import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.reconocimiento.models.enums.EventoReconocimientoCodigo;
 import com.piedpiper.carbonhub.reconocimiento.service.EventoReconocimientoService;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
@@ -83,6 +86,7 @@ public class EcoRutaItinerarioService {
     private final PuntuacionAmbientalCalculator puntuacionCalculator;
     private final EmpresaRepository empresaRepository;
     private final ItinerarioMapper mapper;
+    private final ObjectMapper objectMapper;
 
     public EcoRutaItinerarioService(PreferenciasViajeRepository preferenciasViajeRepository,
                                     ItinerarioRepository itinerarioRepository,
@@ -96,7 +100,8 @@ public class EcoRutaItinerarioService {
                                     BenchmarkClient benchmarkClient,
                                     PuntuacionAmbientalCalculator puntuacionCalculator,
                                     EmpresaRepository empresaRepository,
-                                    ItinerarioMapper mapper) {
+                                    ItinerarioMapper mapper,
+                                    ObjectMapper objectMapper) {
         this.preferenciasViajeRepository = preferenciasViajeRepository;
         this.itinerarioRepository = itinerarioRepository;
         this.itinerarioIaClienteService = itinerarioIaClienteService;
@@ -109,6 +114,7 @@ public class EcoRutaItinerarioService {
         this.benchmarkClient = benchmarkClient;
         this.puntuacionCalculator = puntuacionCalculator;
         this.empresaRepository = empresaRepository;
+        this.objectMapper = objectMapper;
         this.mapper = mapper;
     }
 
@@ -212,6 +218,9 @@ public class EcoRutaItinerarioService {
                     return ApiException.accesoDenegado("No tienes permiso para modificar este itinerario.");
                 });
 
+        validarContextoConversacional(itinerarioId, itinerario, request.getContextoConversacional());
+        itinerarioCuotaService.reservarRefinamiento(usuarioId);
+
         List<MensajeConversacionDTO> historialPrevio = obtenerHistorialPrevio(request.getContextoConversacional());
 
         String contexto = construirContextoRefinamiento(itinerario, historialPrevio, request.getMensajeUsuario());
@@ -225,9 +234,13 @@ public class EcoRutaItinerarioService {
         historialActualizado.add(new MensajeConversacionDTO("ASISTENTE", respuesta.getRespuestaTexto()));
 
         if (respuesta.isRequiereAclaracion() || respuesta.getItinerarioActualizado() == null) {
-            // Ni una aclaración pedida ni una comparación de alternativas modifican el itinerario.
+            // Ni una aclaración pedida ni una comparación de alternativas modifican el itinerario,
+            // pero la respuesta igual debe traer las mismas puntuaciones ambientales que un GET
+            // normal traería — si no, el frontend ve badges de eco-score que aparecen/desaparecen
+            // según el tipo de respuesta del chat (señalado en revisión).
             ItinerarioResponseDTO sinCambios = mapper.toDto(itinerario);
             sinCambios.setEstablecimientosEvaluados(List.of());
+            enriquecerConPuntuacionesCalculadas(sinCambios, itinerario);
             return new RefinamientoItinerarioResponseDTO(
                     sinCambios, respuesta.getRespuestaTexto(), historialActualizado,
                     respuesta.getActividadParaComparar());
@@ -244,6 +257,16 @@ public class EcoRutaItinerarioService {
         itinerario.getDias().clear();
         itinerario.getDias().addAll(diasNuevos);
         itinerario.setVersion(itinerario.getVersion() + 1);
+
+        // Igual que en generar(): si la IA devolvió menos días de los que tiene el itinerario
+        // actual, el ajuste se aplicó parcial — antes esto no se distinguía acá y el día faltante
+        // desaparecía en silencio (borrado real de datos del usuario, señalado en revisión).
+        boolean parcial = resultadoIA.resultado() == ResultadoValidacionItinerario.VALIDO_PARCIAL;
+        itinerario.setGeneradoParcial(parcial);
+        itinerario.setMensajeParcial(parcial
+                ? "El ajuste se aplicó parcialmente: no se encontraron suficientes actividades "
+                        + "compatibles con tu pedido para todos los días del itinerario."
+                : null);
         if (respuesta.getItinerarioActualizado().getPuntuacionAmbientalPreliminar() != null) {
             itinerario.setPuntuacionAmbientalPreliminar(
                     BigDecimal.valueOf(respuesta.getItinerarioActualizado().getPuntuacionAmbientalPreliminar()));
@@ -318,32 +341,76 @@ public class EcoRutaItinerarioService {
         return sb.toString();
     }
 
+    /**
+     * Shape del itinerario actual que se serializa hacia el prompt de refinamiento. Incluye TODOS
+     * los campos que {@code SYSTEM_MESSAGE_REFINAMIENTO} le pide a la IA "conservar intactos" en
+     * los días/actividades que el usuario no pidió modificar — antes solo mandaba id/nombre/
+     * horario/establecimiento/provincia, así que la IA nunca veía costoAproximado, moneda,
+     * duracionMinutos, categoriaTuristica, puntuacionAmbientalEstimada ni descripcion, y no podía
+     * "conservarlos" porque nunca los recibió: cada refinamiento los regeneraba de cero, distinto
+     * del propio diseño descrito en el PR (señalado en revisión).
+     */
+    private record ActividadPromptDTO(String id, String nombre, String descripcion, String horario,
+                                       Integer duracionMinutos, BigDecimal costoAproximado, String moneda,
+                                       String establecimientoRecomendado, String provincia,
+                                       String categoriaTuristica, Integer puntuacionAmbientalEstimada) { }
+
+    private record DiaPromptDTO(int numeroDia, List<ActividadPromptDTO> actividades) { }
+
+    private record ItinerarioPromptDTO(List<DiaPromptDTO> dias) { }
+
+    /**
+     * Antes armaba el JSON a mano con un {@code StringBuilder} y solo escapaba comillas — no
+     * saltos de línea ni backslashes. Serializar con Jackson (ya dependencia del proyecto) evita
+     * prompts malformados sin tener que reinventar el escape de JSON.
+     */
     private String serializarItinerarioParaPrompt(Itinerario itinerario) {
-        StringBuilder sb = new StringBuilder("{\"dias\":[");
-        List<ItinerarioDia> dias = itinerario.getDias();
-        for (int i = 0; i < dias.size(); i++) {
-            ItinerarioDia dia = dias.get(i);
-            sb.append("{\"numeroDia\":").append(dia.getNumeroDia()).append(",\"actividades\":[");
-            List<ItinerarioActividad> actividades = dia.getActividades();
-            for (int j = 0; j < actividades.size(); j++) {
-                ItinerarioActividad actividad = actividades.get(j);
-                sb.append("{\"id\":\"").append(actividad.getId()).append("\",")
-                        .append("\"nombre\":\"").append(escaparJson(actividad.getNombre())).append("\",")
-                        .append("\"horario\":\"").append(actividad.getHorario()).append("\",")
-                        .append("\"establecimientoRecomendado\":\"")
-                        .append(escaparJson(actividad.getEstablecimientoRecomendado())).append("\",")
-                        .append("\"provincia\":\"").append(actividad.getProvincia()).append("\"}");
-                if (j < actividades.size() - 1) sb.append(",");
-            }
-            sb.append("]}");
-            if (i < dias.size() - 1) sb.append(",");
+        List<DiaPromptDTO> dias = itinerario.getDias().stream()
+                .map(dia -> new DiaPromptDTO(dia.getNumeroDia(), dia.getActividades().stream()
+                        .map(actividad -> new ActividadPromptDTO(
+                                String.valueOf(actividad.getId()),
+                                actividad.getNombre(),
+                                actividad.getDescripcion(),
+                                String.valueOf(actividad.getHorario()),
+                                actividad.getDuracionMinutos(),
+                                actividad.getCostoAproximado(),
+                                actividad.getMoneda() != null ? actividad.getMoneda().name() : null,
+                                actividad.getEstablecimientoRecomendado(),
+                                String.valueOf(actividad.getProvincia()),
+                                actividad.getCategoriaTuristica() != null
+                                        ? actividad.getCategoriaTuristica().name() : null,
+                                actividad.getPuntuacionAmbientalEstimada()))
+                        .toList()))
+                .toList();
+        try {
+            return objectMapper.writeValueAsString(new ItinerarioPromptDTO(dias));
+        } catch (JsonProcessingException e) {
+            log.error("No fue posible serializar el itinerario {} para el prompt de refinamiento.",
+                    itinerario.getId(), e);
+            throw ApiException.errorInterno("No fue posible actualizar el itinerario. Intenta nuevamente.");
         }
-        sb.append("]}");
-        return sb.toString();
     }
 
-    private String escaparJson(String texto) {
-        return texto == null ? "" : texto.replace("\"", "'");
+    /**
+     * Valida el contexto conversacional que el cliente reenvía contra el itinerario recién
+     * cargado: un {@code itinerarioId} de otro itinerario (400) o una {@code versionItinerario}
+     * vieja (409) no deberían usarse para armar el prompt ni terminar pisando cambios más
+     * recientes hechos desde otra pestaña o sesión. Ambos campos son opcionales — un cliente que
+     * todavía no los mande (primer mensaje de la sesión) no se bloquea por esto.
+     */
+    private void validarContextoConversacional(UUID itinerarioId, Itinerario itinerario,
+                                                 ConversacionContextoDTO contexto) {
+        if (contexto == null) {
+            return;
+        }
+        if (contexto.getItinerarioId() != null && !contexto.getItinerarioId().equals(itinerarioId)) {
+            throw ApiException.datosInvalidos(
+                    "El contexto de la conversación no corresponde a este itinerario.");
+        }
+        if (contexto.getVersionItinerario() != null
+                && !contexto.getVersionItinerario().equals(itinerario.getVersion())) {
+            throw ApiException.itinerarioVersionDesactualizada();
+        }
     }
 
     /**
