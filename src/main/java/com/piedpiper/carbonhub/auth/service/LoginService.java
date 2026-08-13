@@ -100,9 +100,10 @@ public class LoginService {
         usuarioRepository.save(usuario);
     }
 
+    // Regla centralizada en Usuario.estaHabilitado() -- ver su Javadoc para el porque (RECHAZADO
+    // puede iniciar sesion a proposito, para ver el motivo de su rechazo via RedirectResolver).
     private void verificarHabilitada(Usuario usuario) {
-        if (usuario.getEstado() == EstadoUsuario.RECHAZADO
-                || usuario.getEstado() == EstadoUsuario.DESHABILITADO) {
+        if (!usuario.estaHabilitado()) {
             throw new ApiException(HttpStatus.FORBIDDEN,
                     "Tu cuenta no está habilitada para iniciar sesión.");
         }

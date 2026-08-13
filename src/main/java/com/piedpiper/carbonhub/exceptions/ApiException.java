@@ -145,6 +145,11 @@ public class ApiException extends RuntimeException {
                 "Debes completar la configuración de tu empresa antes de invitar colaboradores.");
     }
 
+    public static ApiException empresaDeInvitacionNoEncontrada() {
+        return new ApiException(HttpStatus.NOT_FOUND,
+                "La empresa asociada a la invitación no existe.");
+    }
+
     public static ApiException invitacionNoEncontrada() {
         return new ApiException(HttpStatus.NOT_FOUND,
                 "La invitación no existe.");
@@ -173,6 +178,11 @@ public class ApiException extends RuntimeException {
     public static ApiException invitacionYaUtilizada() {
         return new ApiException(HttpStatus.CONFLICT,
                 "Esta invitación ya fue utilizada.");
+    }
+
+    public static ApiException limiteInvitacionesExcedido() {
+        return new ApiException(HttpStatus.TOO_MANY_REQUESTS,
+                "Alcanzaste el límite de invitaciones por hora. Intenta nuevamente más tarde.");
     }
 
     public static ApiException solicitudNoEncontrada() {
@@ -392,6 +402,20 @@ public class ApiException extends RuntimeException {
                 "Esta solicitud de auditoría no fue encontrada.");
     }
 
+    /**
+     * El administrador de plataforma no es empresa ni auditor, asi que no tiene un listado propio:
+     * tiene que decir de quien lo quiere.
+     */
+    public static ApiException listadoAuditoriasSinDestinatario() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Indica la empresa o el auditor cuyo listado de auditorías quieres consultar.");
+    }
+
+    public static ApiException listadoAuditoriasAjeno() {
+        return new ApiException(HttpStatus.FORBIDDEN,
+                "Solo puedes consultar tu propio listado de auditorías.");
+    }
+
     public static ApiException solicitudAuditoriaAjena() {
         return new ApiException(HttpStatus.FORBIDDEN,
                 "No tienes permiso para gestionar esta solicitud de auditoría.");
@@ -437,6 +461,27 @@ public class ApiException extends RuntimeException {
                 "No tienes permiso para emitir el resultado de esta solicitud de auditor\u00eda.");
     }
 
+    public static ApiException observacionesResultadoRequeridas() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "Describe las observaciones con al menos 20 caracteres.");
+    }
+
+    public static ApiException observacionesResultadoExcedidas() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "Las observaciones no pueden superar los 1000 caracteres.");
+    }
+
+    public static ApiException fechaVencimientoCertExcedeVigencia(int vigenciaMeses) {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "La vigencia de esta certificación no puede superar los " + vigenciaMeses
+                        + " meses desde la fecha de la auditoría.");
+    }
+
+    public static ApiException fechaVencimientoCertRequerida() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "Indica la fecha de vencimiento de la certificaci\u00f3n.");
+    }
+
     public static ApiException decisionAuditorInvalida() {
         return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
                 "La decisión debe ser 'aceptada' o 'rechazada'.");
@@ -480,5 +525,47 @@ public class ApiException extends RuntimeException {
     public static ApiException fechaLimiteMetaInvalida() {
         return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
                 "La fecha límite debe ser una fecha futura.");
+    }
+
+    public static ApiException configuracionAuditorNoDisponible() {
+        return new ApiException(HttpStatus.CONFLICT,
+                "Esta acción solo está disponible mientras tu cuenta de auditor está pendiente "
+                        + "de validación y no has completado tu configuración inicial.");
+    }
+
+    public static ApiException solicitudValidacionNoEncontrada() {
+        return new ApiException(HttpStatus.NOT_FOUND,
+                "No se encontró una solicitud de validación para tu cuenta.");
+    }
+
+    public static ApiException documentoCredencialNoEncontrado() {
+        return new ApiException(HttpStatus.NOT_FOUND,
+                "Este documento no fue encontrado.");
+    }
+
+    public static ApiException documentoCredencialMetadatosInvalidos(int posicion) {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "El documento #" + posicion + " no tiene un nombre de archivo o tipo de contenido "
+                        + "válido. Intenta subirlo de nuevo.");
+    }
+
+    public static ApiException documentosCredencialesRequeridos() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Debes adjuntar al menos un documento de credencial.");
+    }
+
+    public static ApiException documentosCredencialesExcedenMaximo() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Puedes adjuntar un máximo de 10 documentos.");
+    }
+
+    public static ApiException documentoCredencialExcedeTamanio() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "El archivo no puede superar 15 MB.");
+    }
+
+    public static ApiException documentoCredencialNoEsPdf() {
+        return new ApiException(HttpStatus.BAD_REQUEST,
+                "Solo se aceptan archivos en formato PDF.");
     }
 }

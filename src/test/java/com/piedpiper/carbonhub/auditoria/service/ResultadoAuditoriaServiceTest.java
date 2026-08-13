@@ -9,10 +9,12 @@ import com.piedpiper.carbonhub.auditoria.models.entities.TransicionEstadoAuditor
 import com.piedpiper.carbonhub.auditoria.models.enums.EstadoSolicitudAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.EventoTransicionAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.OrigenAsignacion;
+import com.piedpiper.carbonhub.auditoria.models.enums.ResultadoAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.TipoCertificacionSolicitud;
 import com.piedpiper.carbonhub.auditoria.repository.SolicitudAuditoriaRepository;
 import com.piedpiper.carbonhub.auditoria.repository.TransicionEstadoAuditoriaRepository;
 import com.piedpiper.carbonhub.certificacion.models.dtos.EmitirCertificacionRequestDTO;
+import com.piedpiper.carbonhub.certificacion.config.CatalogoTiposCertificacion;
 import com.piedpiper.carbonhub.certificacion.service.EmisionCertificacionPort;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.exceptions.ApiException;
@@ -55,6 +57,12 @@ class ResultadoAuditoriaServiceTest {
     private static final UUID AUDITOR_ID = UUID.fromString("c0ffee00-1111-2222-3333-444455556666");
     private static final UUID OTRO_AUDITOR_ID = UUID.fromString("deadbeef-1111-2222-3333-444455556666");
 
+    /** La solicitud de prueba tiene la auditoria realizada el 2026-08-05. */
+    private static final LocalDate FECHA_AUDITORIA = LocalDate.of(2026, 8, 5);
+    private static final LocalDate VENCIMIENTO_VALIDO = LocalDate.of(2027, 8, 5);
+    private static final String OBSERVACIONES_VALIDAS =
+            "Falta el desglose de alcance 3 y el respaldo de las facturas electricas.";
+
     @Mock
     private SolicitudAuditoriaRepository solicitudAuditoriaRepository;
     @Mock
@@ -80,6 +88,7 @@ class ResultadoAuditoriaServiceTest {
                 transicionEstadoAuditoriaRepository,
                 transiciones,
                 emisionCertificacionPort,
+                new CatalogoTiposCertificacion(),
                 new SolicitudAuditoriaMapperImpl(),
                 new TransicionEstadoAuditoriaMapperImpl());
 
@@ -171,6 +180,229 @@ class ResultadoAuditoriaServiceTest {
                 .isEqualTo(HttpStatus.CONFLICT);
     }
 
+    /**
+     * Sin la fecha, la certificacion nace sin vigencia y no hay forma de saber cuando caduca. Es
+     * obligatoria solo al aprobar, asi que Bean Validation no puede exigirla desde el DTO.
+     */
+    @Test
+    void aprobarSinFechaDeVencimientoDevuelve422() {
+        ResultadoAuditoriaRequestDTO sinFecha =
+                new ResultadoAuditoriaRequestDTO("aprobada", null, null);
+
+        assertThatThrownBy(() -> service.emitir(SOLICITUD_ID, sinFecha, AUDITOR_ID))
+                .isInstanceOf(ApiException.class)
+                .extracting(error -> ((ApiException) error).getStatus())
+                .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+
+        verify(solicitudAuditoriaRepository, never()).saveAndFlush(any());
+    }
+
+    /**
+     * La comparacion es contra la fecha de la auditoria y no contra hoy: una certificacion que
+     * vence antes del trabajo que la sustenta nace invalida.
+     */
+    @Test
+    void aprobarConVencimientoAnteriorALaAuditoriaDevuelve422() {
+        ResultadoAuditoriaRequestDTO vencidaAlNacer = new ResultadoAuditoriaRequestDTO(
+                "aprobada", null, FECHA_AUDITORIA.minusDays(1));
+
+        assertThatThrownBy(() -> service.emitir(SOLICITUD_ID, vencidaAlNacer, AUDITOR_ID))
+                .isInstanceOf(ApiException.class)
+                .extracting(error -> ((ApiException) error).getStatus())
+                .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
+    /** El mismo dia tampoco sirve: la vigencia tiene que ser posterior, no igual. */
+    @Test
+    void aprobarConVencimientoElMismoDiaDeLaAuditoriaDevuelve422() {
+        ResultadoAuditoriaRequestDTO mismoDia =
+                new ResultadoAuditoriaRequestDTO("aprobada", null, FECHA_AUDITORIA);
+
+        assertThatThrownBy(() -> service.emitir(SOLICITUD_ID, mismoDia, AUDITOR_ID))
+                .isInstanceOf(ApiException.class)
+                .extracting(error -> ((ApiException) error).getStatus())
+                .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
+    /**
+     * El catalogo le da 12 meses de vigencia a Inventario GEI. Sin tope, un error de tipeo del
+     * auditor emitiria una certificacion firmada valida por decadas: el catalogo existe justamente
+     * para que la vigencia no la decida quien llena el formulario.
+     */
+    @Test
+    void aprobarConVencimientoMasAllaDeLaVigenciaDelCatalogoDevuelve422() {
+        ResultadoAuditoriaRequestDTO exagerada = new ResultadoAuditoriaRequestDTO(
+                "aprobada", null, LocalDate.of(2099, 8, 5));
+
+        assertThatThrownBy(() -> service.emitir(SOLICITUD_ID, exagerada, AUDITOR_ID))
+                .isInstanceOf(ApiException.class)
+                .extracting(error -> ((ApiException) error).getStatus())
+                .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+
+        verify(solicitudAuditoriaRepository, never()).saveAndFlush(any());
+    }
+
+    /** El limite exacto si entra: 12 meses desde la auditoria es una vigencia valida. */
+    @Test
+    void aprobarConElVencimientoJustoEnElLimiteDeLaVigenciaSiEntra() {
+        ResultadoAuditoriaRequestDTO enElLimite = new ResultadoAuditoriaRequestDTO(
+                "aprobada", null, FECHA_AUDITORIA.plusMonths(12));
+
+        service.emitir(SOLICITUD_ID, enElLimite, AUDITOR_ID);
+
+        assertThat(capturarGuardada().getFechaVencimientoCert())
+                .isEqualTo(FECHA_AUDITORIA.plusMonths(12));
+    }
+
+    /** Un dia mas alla del limite ya no: el tope es el catalogo, no una aproximacion. */
+    @Test
+    void unDiaDespuesDelLimiteDeVigenciaYaNoEntra() {
+        ResultadoAuditoriaRequestDTO pasada = new ResultadoAuditoriaRequestDTO(
+                "aprobada", null, FECHA_AUDITORIA.plusMonths(12).plusDays(1));
+
+        assertThatThrownBy(() -> service.emitir(SOLICITUD_ID, pasada, AUDITOR_ID))
+                .isInstanceOf(ApiException.class)
+                .extracting(error -> ((ApiException) error).getStatus())
+                .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
+    /** Acortar la vigencia si es decision del auditor; lo que no puede es estirarla. */
+    @Test
+    void elAuditorPuedeAcortarLaVigenciaPorDebajoDelMaximo() {
+        ResultadoAuditoriaRequestDTO corta = new ResultadoAuditoriaRequestDTO(
+                "aprobada", null, FECHA_AUDITORIA.plusMonths(6));
+
+        service.emitir(SOLICITUD_ID, corta, AUDITOR_ID);
+
+        assertThat(capturarGuardada().getFechaVencimientoCert())
+                .isEqualTo(FECHA_AUDITORIA.plusMonths(6));
+    }
+
+    /**
+     * La fecha queda tambien en la solicitud, no solo en el comando de emision: la emision corre
+     * despues del commit, asi que si falla, este es el unico lugar donde el dato sobrevive para el
+     * reintento manual del administrador.
+     */
+    @Test
+    void aprobarGuardaLaVigenciaEnLaSolicitudYLaEnviaEnLaEmision() {
+        service.emitir(SOLICITUD_ID, datos("aprobada"), AUDITOR_ID);
+
+        assertThat(capturarGuardada().getFechaVencimientoCert()).isEqualTo(VENCIMIENTO_VALIDO);
+
+        ArgumentCaptor<EmitirCertificacionRequestDTO> captor =
+                ArgumentCaptor.forClass(EmitirCertificacionRequestDTO.class);
+        verify(emisionCertificacionPort).emitirPorAuditoriaAprobada(captor.capture());
+        assertThat(captor.getValue().getFechaVencimientoCert()).isEqualTo(VENCIMIENTO_VALIDO);
+    }
+
+    @Test
+    void observacionesDemasiadoCortasDevuelve422() {
+        ResultadoAuditoriaRequestDTO corta =
+                new ResultadoAuditoriaRequestDTO("observaciones", "revisar", null);
+
+        assertThatThrownBy(() -> service.emitir(SOLICITUD_ID, corta, AUDITOR_ID))
+                .isInstanceOf(ApiException.class)
+                .extracting(error -> ((ApiException) error).getStatus())
+                .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+
+        verify(solicitudAuditoriaRepository, never()).saveAndFlush(any());
+    }
+
+    /**
+     * Los espacios no cuentan como contenido: sin recortar, veinte espacios pasarian el minimo y la
+     * empresa recibiria una devolucion sin ninguna instruccion.
+     */
+    @Test
+    void observacionesDeSoloEspaciosNoAlcanzanElMinimo() {
+        ResultadoAuditoriaRequestDTO enBlanco =
+                new ResultadoAuditoriaRequestDTO("observaciones", " ".repeat(40), null);
+
+        assertThatThrownBy(() -> service.emitir(SOLICITUD_ID, enBlanco, AUDITOR_ID))
+                .isInstanceOf(ApiException.class)
+                .extracting(error -> ((ApiException) error).getStatus())
+                .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
+    @Test
+    void observacionesMasLargasQueElMaximoDevuelve422() {
+        ResultadoAuditoriaRequestDTO larga = new ResultadoAuditoriaRequestDTO(
+                "observaciones", "a".repeat(SolicitudAuditoria.OBSERVACIONES_MAX + 1), null);
+
+        assertThatThrownBy(() -> service.emitir(SOLICITUD_ID, larga, AUDITOR_ID))
+                .isInstanceOf(ApiException.class)
+                .extracting(error -> ((ApiException) error).getStatus())
+                .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
+    @Test
+    void observacionesQuedanGuardadasRecortadasEnLaSolicitud() {
+        ResultadoAuditoriaRequestDTO conEspacios = new ResultadoAuditoriaRequestDTO(
+                "observaciones", "  " + OBSERVACIONES_VALIDAS + "  ", null);
+
+        service.emitir(SOLICITUD_ID, conEspacios, AUDITOR_ID);
+
+        assertThat(capturarGuardada().getObservaciones()).isEqualTo(OBSERVACIONES_VALIDAS);
+    }
+
+    /**
+     * La historia nombra al resultado {@code observaciones_pendientes}; el frontend ya desplegado
+     * envia {@code observaciones}. Los dos tienen que entrar o una version del cliente deja de
+     * poder emitir resultados.
+     */
+    @Test
+    void observacionesPendientesEsElMismoResultadoQueObservaciones() {
+        service.emitir(SOLICITUD_ID, datos("observaciones_pendientes"), AUDITOR_ID);
+
+        assertThat(capturarGuardada().getEstado())
+                .isEqualTo(EstadoSolicitudAuditoria.OBSERVACIONES_PENDIENTES);
+    }
+
+    /**
+     * El resultado se guarda ademas del estado: el estado dice donde quedo la solicitud, el
+     * resultado dice que decidio el auditor, y la pantalla muestra las dos cosas.
+     */
+    @Test
+    void elResultadoYLaFechaDeResolucionQuedanEnLaSolicitud() {
+        Instant antes = Instant.now();
+
+        service.emitir(SOLICITUD_ID, datos("aprobada"), AUDITOR_ID);
+
+        SolicitudAuditoria guardada = capturarGuardada();
+        assertThat(guardada.getResultadoAuditoria()).isEqualTo(ResultadoAuditoria.APROBADA);
+        assertThat(guardada.getFechaResolucion()).isNotNull().isAfterOrEqualTo(antes);
+    }
+
+    /** Una devolucion con observaciones no emite certificacion, asi que no tiene vigencia. */
+    @Test
+    void observacionesNoDejanFechaDeVencimiento() {
+        service.emitir(SOLICITUD_ID, datos("observaciones"), AUDITOR_ID);
+
+        SolicitudAuditoria guardada = capturarGuardada();
+        assertThat(guardada.getResultadoAuditoria()).isEqualTo(ResultadoAuditoria.OBSERVACIONES);
+        assertThat(guardada.getFechaVencimientoCert()).isNull();
+    }
+
+    /**
+     * {@code CERTIFICACION_EMITIDA} y {@code OBSERVACIONES_PENDIENTES} son estados finales: ninguna
+     * segunda emision puede cambiar el resultado ya registrado.
+     */
+    @Test
+    void unaSolicitudEnEstadoFinalYaNoAceptaOtroResultado() {
+        for (EstadoSolicitudAuditoria estadoFinal : List.of(
+                EstadoSolicitudAuditoria.CERTIFICACION_EMITIDA,
+                EstadoSolicitudAuditoria.OBSERVACIONES_PENDIENTES)) {
+            SolicitudAuditoria cerrada = solicitud();
+            cerrada.setEstado(estadoFinal);
+            when(solicitudAuditoriaRepository.findById(SOLICITUD_ID)).thenReturn(Optional.of(cerrada));
+
+            assertThatThrownBy(() -> service.emitir(SOLICITUD_ID, datos("aprobada"), AUDITOR_ID))
+                    .as("desde %s no deberia poder emitirse otro resultado", estadoFinal)
+                    .isInstanceOf(ApiException.class)
+                    .extracting(error -> ((ApiException) error).getStatus())
+                    .isEqualTo(HttpStatus.CONFLICT);
+        }
+    }
+
     private SolicitudAuditoria capturarGuardada() {
         ArgumentCaptor<SolicitudAuditoria> captor = ArgumentCaptor.forClass(SolicitudAuditoria.class);
         verify(solicitudAuditoriaRepository).saveAndFlush(captor.capture());
@@ -184,8 +416,16 @@ class ResultadoAuditoriaServiceTest {
         return captor.getAllValues();
     }
 
+    /**
+     * Arma la peticion con el campo condicional que ese resultado exige, que es como llega desde el
+     * formulario. Los casos que prueban justamente la falta de ese campo lo construyen a mano.
+     */
     private static ResultadoAuditoriaRequestDTO datos(String resultado) {
-        return new ResultadoAuditoriaRequestDTO(resultado);
+        boolean aprueba = resultado.toLowerCase().startsWith("aprob");
+        return new ResultadoAuditoriaRequestDTO(
+                resultado,
+                aprueba ? null : OBSERVACIONES_VALIDAS,
+                aprueba ? VENCIMIENTO_VALIDO : null);
     }
 
     private static void limpiarSincronizacion() {

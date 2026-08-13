@@ -2,6 +2,7 @@ package com.piedpiper.carbonhub.auditoria.models.entities;
 
 import com.piedpiper.carbonhub.auditoria.models.enums.EstadoSolicitudAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.OrigenAsignacion;
+import com.piedpiper.carbonhub.auditoria.models.enums.ResultadoAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.TipoCertificacionSolicitud;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
@@ -45,6 +46,8 @@ public class SolicitudAuditoria {
     public static final int DESCRIPCION_MAX = 500;
     public static final int MOTIVO_RECHAZO_MIN = 10;
     public static final int MOTIVO_RECHAZO_MAX = 300;
+    public static final int OBSERVACIONES_MIN = 20;
+    public static final int OBSERVACIONES_MAX = 1000;
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -104,6 +107,32 @@ public class SolicitudAuditoria {
 
     @Column(name = "fecha_carga_reporte")
     private Instant fechaCargaReporte;
+
+    /**
+     * Resultado final que emitio el auditor. Se guarda ademas del estado porque son dos cosas
+     * distintas: el estado dice donde quedo la solicitud y sirve para el flujo, mientras que el
+     * resultado es la decision del auditor y es lo que la empresa lee. Van juntos por construccion
+     * (la transicion los fija en la misma operacion) pero derivar uno del otro obligaria a cada
+     * consumidor a conocer la tabla de transiciones.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "resultado_auditoria", length = 20)
+    private ResultadoAuditoria resultadoAuditoria;
+
+    /** Solo se llena cuando el resultado es con observaciones: es el texto que la empresa corrige. */
+    @Column(length = OBSERVACIONES_MAX)
+    private String observaciones;
+
+    @Column(name = "fecha_resolucion")
+    private Instant fechaResolucion;
+
+    /**
+     * Vigencia que el auditor le da a la certificacion al aprobar. Queda tambien en la solicitud y
+     * no solo en la certificacion emitida porque la emision ocurre despues del commit: si esa
+     * llamada falla, este es el unico lugar donde el dato sobrevive para el reintento manual.
+     */
+    @Column(name = "fecha_vencimiento_cert")
+    private LocalDate fechaVencimientoCert;
 
     @OneToOne(mappedBy = "solicitud", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private ReporteAuditoria reporteAuditoria;

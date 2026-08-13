@@ -10,12 +10,11 @@ import com.piedpiper.carbonhub.auditoria.models.enums.EstadoSolicitudAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.OrigenAsignacion;
 import com.piedpiper.carbonhub.auditoria.models.enums.TipoCertificacionSolicitud;
 import com.piedpiper.carbonhub.auditoria.repository.SolicitudAuditoriaRepository;
+import com.piedpiper.carbonhub.common.ValidacionesAuditor;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
-import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
-import com.piedpiper.carbonhub.user.models.enums.Rol;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.slf4j.Logger;
@@ -128,7 +127,7 @@ public class SolicitudAuditoriaService {
 
         Usuario auditor = usuarioRepository.findById(datos.getIdAuditor())
                 .orElseThrow(ApiException::auditorNoDisponible);
-        if (auditor.getRol() != Rol.AUDITOR_CERTIFICADO || auditor.getEstado() != EstadoUsuario.ACTIVO) {
+        if (!ValidacionesAuditor.esAuditorCertificadoActivo(auditor)) {
             throw ApiException.auditorNoDisponible();
         }
 

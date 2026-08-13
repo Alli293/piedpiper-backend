@@ -19,11 +19,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 public class AuditorPerfilService {
@@ -61,30 +58,16 @@ public class AuditorPerfilService {
             throw ApiException.accesoDenegado("Solo usuarios con rol AUDITOR_CERTIFICADO pueden gestionar su perfil.");
         }
 
-        // 4. Validar duplicados en listas
-        if (request.getEspecialidades().size() != new HashSet<>(request.getEspecialidades()).size()) {
-            throw ApiException.datosInvalidos("La lista de especialidades contiene duplicados.");
-        }
-        if (request.getZonasCobertura().size() != new HashSet<>(request.getZonasCobertura()).size()) {
-            throw ApiException.datosInvalidos("La lista de zonas de cobertura contiene duplicados.");
-        }
+        // 4-5. Validar duplicados y membership en catálogos (dedup normaliza mayúsculas/espacios)
+        Set<EspecialidadAuditor> especialidades = Catalogos.resolverConjunto(
+                EspecialidadAuditor.class, request.getEspecialidades(),
+                () -> ApiException.datosInvalidos("La lista de especialidades contiene duplicados."),
+                ApiException::especialidadesInvalidas);
 
-        // 5. Validar membership en catálogos usando Catalogos.desde()
-        List<String> especialidadesInvalidas = request.getEspecialidades().stream()
-                .filter(e -> Catalogos.desde(EspecialidadAuditor.class, e).isEmpty())
-                .toList();
-
-        if (!especialidadesInvalidas.isEmpty()) {
-            throw ApiException.especialidadesInvalidas(especialidadesInvalidas);
-        }
-
-        List<String> zonasInvalidas = request.getZonasCobertura().stream()
-                .filter(z -> Catalogos.desde(ProvinciaCR.class, z).isEmpty())
-                .toList();
-
-        if (!zonasInvalidas.isEmpty()) {
-            throw ApiException.zonasInvalidas(zonasInvalidas);
-        }
+        Set<ProvinciaCR> zonas = Catalogos.resolverConjunto(
+                ProvinciaCR.class, request.getZonasCobertura(),
+                () -> ApiException.datosInvalidos("La lista de zonas de cobertura contiene duplicados."),
+                ApiException::zonasInvalidas);
 
         // 6. Upsert PerfilAuditor — determinar si es creación o actualización
         var existente = perfilAuditorRepository.findByAuditorId(auditorId);
@@ -94,14 +77,7 @@ public class AuditorPerfilService {
                 .auditor(auditor)
                 .build());
 
-        Set<EspecialidadAuditor> especialidades = request.getEspecialidades().stream()
-                .map(e -> Catalogos.desde(EspecialidadAuditor.class, e).orElseThrow())
-                .collect(Collectors.toCollection(HashSet::new));
         perfil.setEspecialidades(especialidades);
-
-        Set<ProvinciaCR> zonas = request.getZonasCobertura().stream()
-                .map(z -> Catalogos.desde(ProvinciaCR.class, z).orElseThrow())
-                .collect(Collectors.toCollection(HashSet::new));
         perfil.setZonasCobertura(zonas);
 
         perfil.setDisponible(request.getDisponible());

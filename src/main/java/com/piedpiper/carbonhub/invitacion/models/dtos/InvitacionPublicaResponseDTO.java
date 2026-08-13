@@ -9,6 +9,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class InvitacionPublicaResponseDTO {
 
-    private String email;
+    private String emailEnmascarado;
     private String nombreEmpresa;
 }

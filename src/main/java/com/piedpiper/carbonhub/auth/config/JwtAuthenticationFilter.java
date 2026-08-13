@@ -3,6 +3,7 @@ package com.piedpiper.carbonhub.auth.config;
 import com.piedpiper.carbonhub.auth.service.JwtService;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
+import com.piedpiper.carbonhub.user.models.enums.Rol;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
@@ -44,11 +45,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         .orElse(null);
                 if (usuario != null && habilitado(usuario)) {
                     UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                            usuario.getId().toString(), null,
-                            List.of(new SimpleGrantedAuthority("ROLE_" + usuario.getRol().name())));
+                            usuario.getId().toString(), null, autoridadesPara(usuario));
                     auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(auth);
-                    response.setHeader("X-Refresh-Token", jwtService.generar(usuario));
+                    renovarSiLaSesionSigueVigente(response, claims, usuario);
                 } else {
                     SecurityContextHolder.clearContext();
                 }
@@ -59,8 +59,42 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
+    /**
+     * Cada peticion autenticada devuelve un token nuevo, asi que quien usa la aplicacion no tiene
+     * que volver a escribir su contrasena. El efecto no buscado es que una sesion no vence jamas:
+     * con tocar cualquier endpoint una vez por hora, un token robado sirve para siempre. Pasado el
+     * tope absoluto se deja de renovar y el token que el atacante tenga en la mano caduca solo.
+     *
+     * <p>El token en curso sigue valido hasta su propia expiracion: no se corta la peticion, solo
+     * se deja de extender la sesion.</p>
+     */
+    private void renovarSiLaSesionSigueVigente(HttpServletResponse response, Claims claims,
+                                               Usuario usuario) {
+        if (!jwtService.puedeRenovarse(claims)) {
+            return;
+        }
+        jwtService.inicioSesionDe(claims).ifPresent(inicio ->
+                response.setHeader("X-Refresh-Token", jwtService.renovar(usuario, inicio)));
+    }
+
+    // Regla centralizada en Usuario.estaHabilitado() -- ver su Javadoc para el porque.
     private boolean habilitado(Usuario usuario) {
-        return usuario.getEstado() != EstadoUsuario.RECHAZADO
-                && usuario.getEstado() != EstadoUsuario.DESHABILITADO;
+        return usuario.estaHabilitado();
+    }
+
+    /**
+     * Un auditor RECHAZADO queda autenticado (ver {@code habilitado()}) pero no debe arrastrar el
+     * rol operativo: si le dieramos ROLE_AUDITOR_CERTIFICADO completo, todo endpoint gateado con
+     * {@code hasRole('AUDITOR_CERTIFICADO')} que no valide estado explicitamente (por ejemplo
+     * {@code DecisionAuditorController}) quedaria alcanzable para alguien a quien la plataforma le
+     * retiro la credencial. En su lugar recibe solo ROLE_AUDITOR_RECHAZADO, que
+     * {@code MiSolicitudAuditorController} acepta ademas de ROLE_AUDITOR_CERTIFICADO para que pueda
+     * consultar el motivo de su rechazo y nada mas.
+     */
+    private List<SimpleGrantedAuthority> autoridadesPara(Usuario usuario) {
+        if (usuario.getRol() == Rol.AUDITOR_CERTIFICADO && usuario.getEstado() == EstadoUsuario.RECHAZADO) {
+            return List.of(new SimpleGrantedAuthority("ROLE_AUDITOR_RECHAZADO"));
+        }
+        return List.of(new SimpleGrantedAuthority("ROLE_" + usuario.getRol().name()));
     }
 }

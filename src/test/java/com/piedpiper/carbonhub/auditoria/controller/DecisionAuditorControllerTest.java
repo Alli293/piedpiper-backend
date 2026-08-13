@@ -1,5 +1,6 @@
 package com.piedpiper.carbonhub.auditoria.controller;
 
+import com.piedpiper.carbonhub.auditoria.models.dtos.ResultadoAuditoriaRequestDTO;
 import com.piedpiper.carbonhub.auditoria.service.SolicitudAuditoriaListadoService;
 import com.piedpiper.carbonhub.auditoria.service.DecisionAuditorService;
 import com.piedpiper.carbonhub.auditoria.service.ResultadoAuditoriaService;
@@ -9,6 +10,7 @@ import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.security.oauth2.client.OAuth2ClientAutoConfiguration;
 import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
@@ -28,6 +30,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
@@ -152,17 +155,110 @@ class DecisionAuditorControllerTest {
         verify(decisionAuditorService, never()).responder(any(), any(), any());
     }
 
+    // Regresion: un auditor RECHAZADO solo tiene ROLE_AUDITOR_RECHAZADO (no ROLE_AUDITOR_CERTIFICADO,
+    // ver JwtAuthenticationFilter.autoridadesPara), asi que la clase entera queda fuera de su alcance
+    // y no puede aceptar una asignacion previa ni emitir un resultado con ella.
     @Test
-    @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
-    void resultadoValidoDevuelve200() throws Exception {
+    @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_RECHAZADO")
+    void auditorRechazadoNoPuedeResponderUnaAsignacion() throws Exception {
+        mockMvc.perform(peticion("""
+                        {"decision":"aceptada"}"""))
+                .andExpect(status().isForbidden());
+
+        verify(decisionAuditorService, never()).responder(any(), any(), any());
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_RECHAZADO")
+    void auditorRechazadoNoPuedeEmitirUnResultado() throws Exception {
         mockMvc.perform(post("/api/auditorias/{idSolicitud}/resultado", SOLICITUD_ID)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"resultado":"aprobada"}""")
                         .principal(principal()))
+                .andExpect(status().isForbidden());
+
+        verify(resultadoAuditoriaService, never()).emitir(any(), any(), any());
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
+    void resultadoValidoDevuelve200() throws Exception {
+        mockMvc.perform(resultado("""
+                        {"resultado":"aprobada","fechaVencimientoCert":"2027-08-05"}"""))
                 .andExpect(status().isOk());
 
         verify(resultadoAuditoriaService).emitir(any(), any(), any());
+    }
+
+    /**
+     * La fecha viaja como texto ISO y tiene que llegar al servicio ya convertida: si Jackson no la
+     * deserializara, el servicio veria un nulo y rechazaria una aprobacion perfectamente valida.
+     */
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
+    void laFechaDeVencimientoLlegaAlServicioComoFecha() throws Exception {
+        mockMvc.perform(resultado("""
+                        {"resultado":"aprobada","fechaVencimientoCert":"2027-08-05"}"""))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<ResultadoAuditoriaRequestDTO> captor =
+                ArgumentCaptor.forClass(ResultadoAuditoriaRequestDTO.class);
+        verify(resultadoAuditoriaService).emitir(any(), captor.capture(), any());
+        assertThat(captor.getValue().getFechaVencimientoCert())
+                .isEqualTo(java.time.LocalDate.of(2027, 8, 5));
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
+    void observacionesInsuficientesDevuelve422() throws Exception {
+        doThrow(ApiException.observacionesResultadoRequeridas())
+                .when(resultadoAuditoriaService).emitir(any(), any(), any());
+
+        mockMvc.perform(resultado("""
+                        {"resultado":"observaciones","observaciones":"corto"}"""))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.message").value(
+                        "Describe las observaciones con al menos 20 caracteres."));
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
+    void resultadoSobreUnEstadoQueNoLoAdmiteDevuelve409() throws Exception {
+        doThrow(ApiException.resultadoAuditoriaNoDisponible())
+                .when(resultadoAuditoriaService).emitir(any(), any(), any());
+
+        mockMvc.perform(resultado("""
+                        {"resultado":"aprobada","fechaVencimientoCert":"2027-08-05"}"""))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
+    void resultadoDeUnAuditorQueNoEsElAsignadoDevuelve403() throws Exception {
+        doThrow(ApiException.resultadoAuditoriaAjena())
+                .when(resultadoAuditoriaService).emitir(any(), any(), any());
+
+        mockMvc.perform(resultado("""
+                        {"resultado":"aprobada","fechaVencimientoCert":"2027-08-05"}"""))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
+    void unaEmpresaNoPuedeEmitirElResultadoDeSuPropiaAuditoria() throws Exception {
+        mockMvc.perform(resultado("""
+                        {"resultado":"aprobada","fechaVencimientoCert":"2027-08-05"}"""))
+                .andExpect(status().isForbidden());
+
+        verify(resultadoAuditoriaService, never()).emitir(any(), any(), any());
+    }
+
+    private static org.springframework.test.web.servlet.RequestBuilder resultado(String cuerpo) {
+        return post("/api/auditorias/{idSolicitud}/resultado", SOLICITUD_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(cuerpo)
+                .principal(principal());
     }
 
     private static org.springframework.test.web.servlet.RequestBuilder peticion(String cuerpo) {

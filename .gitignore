@@ -8,7 +8,11 @@
 *.iml
 *.iws
 *.ipr
+# Cubre tambien respaldos y variantes por ambiente: un .env.bak se coló en un PR
+# porque el patron solo tomaba el nombre exacto.
 .env
+.env.*
+!.env.example
 
 ### Eclipse ###
 .apt_generated

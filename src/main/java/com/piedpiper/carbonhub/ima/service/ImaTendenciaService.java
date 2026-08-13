@@ -1,5 +1,6 @@
 package com.piedpiper.carbonhub.ima.service;
 
+import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.ima.models.dtos.ImaEventoDTO;
@@ -19,8 +20,10 @@ import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -31,17 +34,23 @@ public class ImaTendenciaService {
 
     private final ImaSnapshotRepository imaSnapshotRepository;
     private final AgregadoSectorialRepository agregadoSectorialRepository;
+    private final EmisionRepository emisionRepository;
     private final ImaService imaService;
     private final ImaEventosService imaEventosService;
+    private final ImaTendenciaBackfillService imaTendenciaBackfillService;
 
     public ImaTendenciaService(ImaSnapshotRepository imaSnapshotRepository,
                                AgregadoSectorialRepository agregadoSectorialRepository,
+                               EmisionRepository emisionRepository,
                                ImaService imaService,
-                               ImaEventosService imaEventosService) {
+                               ImaEventosService imaEventosService,
+                               ImaTendenciaBackfillService imaTendenciaBackfillService) {
         this.imaSnapshotRepository = imaSnapshotRepository;
         this.agregadoSectorialRepository = agregadoSectorialRepository;
+        this.emisionRepository = emisionRepository;
         this.imaService = imaService;
         this.imaEventosService = imaEventosService;
+        this.imaTendenciaBackfillService = imaTendenciaBackfillService;
     }
 
     @Transactional(readOnly = true)
@@ -52,7 +61,15 @@ public class ImaTendenciaService {
         YearMonth hasta = YearMonth.now(ZoneId.systemDefault());
         YearMonth desde = hasta.minusMonths(ventana - 1L);
 
-        Map<YearMonth, BigDecimal> imaPorMes = indexarSnapshots(empresa.getId(), desde, hasta);
+        List<ImaSnapshot> snapshots = imaSnapshotRepository.findVentana(
+                empresa.getId(), desde.getYear(), desde.getMonthValue(), hasta.getYear(), hasta.getMonthValue());
+
+        List<YearMonth> mesesPendientes = detectarMesesPendientes(empresa.getId(), desde, hasta, snapshots);
+        if (!mesesPendientes.isEmpty()) {
+            imaTendenciaBackfillService.completarMesesPendientes(usuarioId, mesesPendientes);
+        }
+
+        Map<YearMonth, BigDecimal> imaPorMes = indexarSnapshots(snapshots);
         Map<YearMonth, BigDecimal> promedioPorMes = indexarPromediosSectoriales(empresa, desde, hasta);
 
         List<ImaTendenciaPuntoDTO> serie = construirSerie(desde, ventana, imaPorMes, promedioPorMes);
@@ -63,6 +80,7 @@ public class ImaTendenciaService {
                 .serie(serie)
                 .sinDatosSectoriales(promedioPorMes.isEmpty())
                 .eventos(eventos)
+                .completando(!mesesPendientes.isEmpty())
                 .build();
     }
 
@@ -97,15 +115,41 @@ public class ImaTendenciaService {
         return serie;
     }
 
-    private Map<YearMonth, BigDecimal> indexarSnapshots(UUID empresaId, YearMonth desde, YearMonth hasta) {
-        List<ImaSnapshot> snapshots = imaSnapshotRepository.findVentana(
-                empresaId, desde.getYear(), desde.getMonthValue(), hasta.getYear(), hasta.getMonthValue());
-
+    private Map<YearMonth, BigDecimal> indexarSnapshots(List<ImaSnapshot> snapshots) {
         Map<YearMonth, BigDecimal> porMes = new HashMap<>();
         for (ImaSnapshot snapshot : snapshots) {
             porMes.put(YearMonth.of(snapshot.getAnio(), snapshot.getMes()), snapshot.getIma());
         }
         return porMes;
+    }
+
+    /**
+     * Un ImaSnapshot solo se crea cuando alguien pide GET /api/ima para ese mes puntual
+     * (ImaService.obtenerIma cachea al calcular). Si la tendencia solo leyera lo ya cacheado,
+     * un mes con emisiones reales pero que nadie abrió individualmente aparecería como hueco,
+     * igual que uno sin ningún dato — /tendencia no puede depender de qué meses visitó el
+     * usuario. Se detectan aquí los meses donde la empresa ya tenía alguna emisión registrada
+     * pero todavía no hay snapshot, para completarlos en segundo plano (ImaTendenciaBackfillService)
+     * sin bloquear esta respuesta. Los meses previos a que la empresa empezara a registrar se
+     * dejan sin calcular a propósito, para no dibujar una línea en cero antes de que existiera
+     * historial.
+     */
+    private List<YearMonth> detectarMesesPendientes(UUID empresaId, YearMonth desde, YearMonth hasta,
+                                                     List<ImaSnapshot> existentes) {
+        Set<YearMonth> mesesConSnapshot = new HashSet<>();
+        for (ImaSnapshot snapshot : existentes) {
+            mesesConSnapshot.add(YearMonth.of(snapshot.getAnio(), snapshot.getMes()));
+        }
+
+        List<YearMonth> pendientes = new ArrayList<>();
+        for (YearMonth periodo = desde; !periodo.isAfter(hasta); periodo = periodo.plusMonths(1)) {
+            if (mesesConSnapshot.contains(periodo)) continue;
+            if (emisionRepository.existsByEmpresaIdAndFechaActividadLessThanEqual(
+                    empresaId, periodo.atEndOfMonth())) {
+                pendientes.add(periodo);
+            }
+        }
+        return pendientes;
     }
 
     /**

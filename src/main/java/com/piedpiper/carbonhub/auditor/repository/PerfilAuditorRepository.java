@@ -21,6 +21,8 @@ public interface PerfilAuditorRepository extends JpaRepository<PerfilAuditor, UU
 
     Optional<PerfilAuditor> findByAuditorId(UUID auditorId);
 
+    Optional<PerfilAuditor> findByAuditorIdAndAuditorEstado(UUID auditorId, EstadoUsuario estado);
+
     boolean existsByAuditorId(UUID auditorId);
 
     // El cast de :termino es necesario, no es un no-op: al venir null sin tipo dentro de un

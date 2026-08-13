@@ -2,8 +2,10 @@ package com.piedpiper.carbonhub.auditor.service;
 
 import com.piedpiper.carbonhub.auditor.models.entities.PerfilAuditor;
 import com.piedpiper.carbonhub.auditor.repository.PerfilAuditorRepository;
+import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.models.enums.Rol;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,13 +19,26 @@ public class PerfilAuditorService {
     }
 
     @Transactional
-    public void asegurarPerfil(Usuario usuario) {
+    public PerfilAuditor asegurarPerfil(Usuario usuario) {
         if (usuario.getRol() != Rol.AUDITOR_CERTIFICADO) {
-            return;
+            return null;
         }
-        if (perfilAuditorRepository.existsByAuditorId(usuario.getId())) {
-            return;
+        return perfilAuditorRepository.findByAuditorId(usuario.getId())
+                .orElseGet(() -> crear(usuario));
+    }
+
+    private PerfilAuditor crear(Usuario usuario) {
+        try {
+            // saveAndFlush, no save: PerfilAuditor.id usa GenerationType.UUID, asi que Hibernate no
+            // necesita el round-trip a la base para asignar el id y difiere el INSERT al proximo
+            // flush. Con save() la violacion de uk_perfiles_auditor_auditor ocurriria fuera de este
+            // catch, en un flush posterior fuera de nuestro control.
+            return perfilAuditorRepository.saveAndFlush(PerfilAuditor.builder().auditor(usuario).build());
+        } catch (DataIntegrityViolationException e) {
+            // otra llamada concurrente (mismo patron que AuditorPerfilService.actualizar) ya creo el
+            // perfil entre el findByAuditorId y este save.
+            return perfilAuditorRepository.findByAuditorId(usuario.getId())
+                    .orElseThrow(() -> ApiException.errorInterno("No se pudo crear el perfil del auditor."));
         }
-        perfilAuditorRepository.save(PerfilAuditor.builder().auditor(usuario).build());
     }
 }

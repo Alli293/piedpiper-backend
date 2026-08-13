@@ -19,7 +19,9 @@ class JwtServiceTest {
     private static final String SECRET = "clave-secreta-de-pruebas-para-firmar-tokens-jwt-123456";
     private static final long EXPIRATION_MS = 1_800_000L;
 
-    private final JwtService jwtService = new JwtService(SECRET, EXPIRATION_MS);
+    private static final long SESION_MAXIMA_MS = 43_200_000L;
+
+    private final JwtService jwtService = new JwtService(SECRET, EXPIRATION_MS, SESION_MAXIMA_MS);
 
     private Usuario usuario() {
         return Usuario.builder()
@@ -53,15 +55,85 @@ class JwtServiceTest {
         assertThat(claims.getSubject()).isEqualTo(usuario.getId().toString());
         assertThat(claims)
                 .containsEntry("email", usuario.getEmail())
-                .containsEntry("rol", usuario.getRol().name());
+                .containsEntry("rol", usuario.getRol().name())
+                .containsEntry("estado", usuario.getEstado().name())
+                .containsEntry("configuracionCompleta", usuario.isConfiguracionCompleta());
     }
 
     @Test
     void parsearTokenExpiradoLanzaExcepcion() {
-        JwtService servicioExpirado = new JwtService(SECRET, -1_000L);
+        JwtService servicioExpirado = new JwtService(SECRET, -1_000L, SESION_MAXIMA_MS);
         String tokenExpirado = servicioExpirado.generar(usuario());
 
         assertThatThrownBy(() -> jwtService.parsear(tokenExpirado))
                 .isInstanceOf(ExpiredJwtException.class);
+    }
+
+    @Test
+    void elTokenDeInicioDeSesionMarcaCuandoEmpezoLaSesion() {
+        Claims claims = jwtService.parsear(jwtService.generar(usuario()));
+
+        assertThat(jwtService.inicioSesionDe(claims)).isPresent();
+        assertThat(jwtService.puedeRenovarse(claims)).isTrue();
+    }
+
+    /**
+     * El punto de todo el mecanismo: renovar no puede reiniciar el reloj de la sesion. Si lo
+     * reiniciara, el tope absoluto no llegaria nunca y un token robado seguiria vivo para siempre.
+     */
+    @Test
+    void renovarConservaElInicioDeSesionOriginal() {
+        Usuario usuario = usuario();
+        Claims original = jwtService.parsear(jwtService.generar(usuario));
+        long inicio = jwtService.inicioSesionDe(original).orElseThrow();
+
+        Claims renovado = jwtService.parsear(jwtService.renovar(usuario, inicio));
+
+        assertThat(jwtService.inicioSesionDe(renovado)).contains(inicio);
+    }
+
+    @Test
+    void unaSesionQueSuperaElTopeYaNoSeRenueva() {
+        Usuario usuario = usuario();
+        long haceTreceHoras = System.currentTimeMillis() / 1000 - 13 * 3600;
+
+        Claims claims = jwtService.parsear(jwtService.renovar(usuario, haceTreceHoras));
+
+        assertThat(jwtService.puedeRenovarse(claims)).isFalse();
+    }
+
+    @Test
+    void unaSesionDentroDelTopeSeSigueRenovando() {
+        Usuario usuario = usuario();
+        long haceOnceHoras = System.currentTimeMillis() / 1000 - 11 * 3600;
+
+        Claims claims = jwtService.parsear(jwtService.renovar(usuario, haceOnceHoras));
+
+        assertThat(jwtService.puedeRenovarse(claims)).isTrue();
+    }
+
+    /**
+     * Los tokens emitidos antes de que existiera el claim no lo traen. No se renuevan, asi que
+     * caducan solos al cumplir su hora, en vez de tumbar la sesion de todo el mundo al desplegar.
+     */
+    @Test
+    void unTokenViejoSinLaMarcaNoSeRenuevaPeroSigueSiendoValido() {
+        Claims sinMarca = jwtService.parsear(tokenSinInicioDeSesion(usuario()));
+
+        assertThat(jwtService.inicioSesionDe(sinMarca)).isEmpty();
+        assertThat(jwtService.puedeRenovarse(sinMarca)).isFalse();
+        assertThat(sinMarca.getSubject()).isNotBlank();
+    }
+
+    /** Reproduce el formato anterior al claim, que es lo que tendran los tokens ya emitidos. */
+    private String tokenSinInicioDeSesion(Usuario usuario) {
+        return io.jsonwebtoken.Jwts.builder()
+                .setSubject(usuario.getId().toString())
+                .setIssuedAt(new java.util.Date())
+                .setExpiration(new java.util.Date(System.currentTimeMillis() + EXPIRATION_MS))
+                .signWith(io.jsonwebtoken.security.Keys.hmacShaKeyFor(
+                                SECRET.getBytes(java.nio.charset.StandardCharsets.UTF_8)),
+                        io.jsonwebtoken.SignatureAlgorithm.HS256)
+                .compact();
     }
 }

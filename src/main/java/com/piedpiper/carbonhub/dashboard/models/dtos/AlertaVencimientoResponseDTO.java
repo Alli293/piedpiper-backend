@@ -16,6 +16,12 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AlertaVencimientoResponseDTO {
+    /**
+     * Id de la certificacion asociada. Deliberadamente no se duplica aqui
+     * {@code codigoVerificacion} ni otros campos propios de la certificacion
+     * (ver {@code CertificacionResumenResponseDTO}): el cliente ya tiene
+     * este id y puede cruzarlo con {@code GET /api/certificaciones}.
+     */
     private UUID idCertificacion;
     private String nombre;
     private LocalDate fechaVencimiento;
