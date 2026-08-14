@@ -7,14 +7,18 @@ import com.piedpiper.carbonhub.ecoruta.models.dtos.ConversacionContextoDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.EcoScoreResultado;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.EstablecimientoEcoScoreResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.EstablecimientoRankeado;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.FiltrarItinerariosRequestDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.HistorialEcoRutaDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.IMADTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.IndicadorAmbientalDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioFavoritoResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO.ActividadIaDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO.DiaIaDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioResponseDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioResumenResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.MensajeConversacionDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.PaginaItinerariosResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.PuntuacionAmbientalResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoIaResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoItinerarioRequestDTO;
@@ -46,6 +50,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -66,6 +74,12 @@ import java.util.stream.Collectors;
 public class EcoRutaItinerarioService {
 
     private static final Logger log = LoggerFactory.getLogger(EcoRutaItinerarioService.class);
+
+    /** Fijado para esta pantalla; ver {@code SolicitudAuditoriaListadoService} para el mismo patrón. */
+    static final int TAMANIO_PAGINA = 12;
+
+    /** Tope para que {@code (pagina - 1) * tamanio} nunca desborde el {@code int} que usa Spring Data. */
+    static final int PAGINA_MAXIMA = Integer.MAX_VALUE / TAMANIO_PAGINA;
 
     /**
      * Cuántos turnos (mensaje del usuario + respuesta del asistente) del historial se incluyen en
@@ -117,8 +131,8 @@ public class EcoRutaItinerarioService {
         this.benchmarkClient = benchmarkClient;
         this.puntuacionCalculator = puntuacionCalculator;
         this.empresaRepository = empresaRepository;
-        this.objectMapper = objectMapper;
         this.mapper = mapper;
+        this.objectMapper = objectMapper;
     }
 
     /**
@@ -210,14 +224,111 @@ public class EcoRutaItinerarioService {
     }
 
     /**
+     * Listado paginado de "Mis itinerarios" (PP-89), más recientes primero. Una página fuera de
+     * rango (incluida la que desborda el límite de Spring Data) cae en un resultado vacío, no en
+     * un error — es un parámetro de paginación de la propia pantalla, no un dato que el usuario
+     * escriba a mano.
+     */
+    @Transactional(readOnly = true)
+    public PaginaItinerariosResponseDTO listar(UUID usuarioId, FiltrarItinerariosRequestDTO filtros) {
+        try {
+            Pageable pageable = paginaDe(filtros.getPagina());
+            Page<Itinerario> pagina = Boolean.TRUE.equals(filtros.getSoloFavoritos())
+                    ? itinerarioRepository.findByUsuario_IdAndFavorito(usuarioId, true, pageable)
+                    : itinerarioRepository.findByUsuario_Id(usuarioId, pageable);
+            List<ItinerarioResumenResponseDTO> contenido = aResumenes(pagina.getContent());
+            return new PaginaItinerariosResponseDTO(
+                    contenido, pagina.getTotalElements(), pagina.getNumber() + 1,
+                    pagina.getTotalPages(), TAMANIO_PAGINA);
+        } catch (DataAccessException e) {
+            log.error("Error al listar los itinerarios del usuario {}", usuarioId, e);
+            throw ApiException.errorInterno("No fue posible recuperar la información solicitada.");
+        }
+    }
+
+    @Transactional
+    public ItinerarioFavoritoResponseDTO actualizarFavorito(
+            UUID itinerarioId, UUID usuarioId, boolean favorito) {
+        Itinerario itinerario = itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, usuarioId)
+                .orElseThrow(() -> {
+                    log.warn("Intento de modificar favorito de itinerario {} por usuario {}: no es el propietario o no existe",
+                            itinerarioId, usuarioId);
+                    return ApiException.accesoDenegado("No tienes permiso para modificar este itinerario.");
+                });
+
+        try {
+            itinerario.setFavorito(favorito);
+            Itinerario actualizado = itinerarioRepository.save(itinerario);
+            return mapper.toFavoritoDto(actualizado);
+        } catch (DataAccessException e) {
+            log.error("Error al actualizar favorito del itinerario {} para usuario {}",
+                    itinerarioId, usuarioId, e);
+            throw ApiException.errorInterno("No fue posible actualizar el estado del favorito.");
+        }
+    }
+
+    /**
+     * La propiedad ya se resuelve acá con una sola consulta (403 si el itinerario no existe o no
+     * es del usuario, sin distinguir los dos casos para no confirmarle a nadie que ese id existe),
+     * así que el controlador no necesita un chequeo de ownership propio antes de llamar a este
+     * método.
+     */
+    @Transactional
+    public void eliminar(UUID itinerarioId, UUID usuarioId) {
+        Itinerario itinerario = itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, usuarioId)
+                .orElseThrow(() -> {
+                    log.warn("Intento de eliminar itinerario {} por usuario {}: no es el propietario o no existe",
+                            itinerarioId, usuarioId);
+                    return ApiException.accesoDenegado("No tienes permiso para modificar este itinerario.");
+                });
+        itinerarioRepository.delete(itinerario);
+    }
+
+    /**
+     * Arma los resúmenes de una página completa con una sola consulta de provincias (en vez de
+     * una por itinerario, N+1 señalado en revisión) — con la página fija en {@link #TAMANIO_PAGINA}
+     * no era grave, pero tampoco cuesta nada resolverlo de una.
+     */
+    private List<ItinerarioResumenResponseDTO> aResumenes(List<Itinerario> itinerarios) {
+        if (itinerarios.isEmpty()) {
+            return List.of();
+        }
+        List<UUID> ids = itinerarios.stream().map(Itinerario::getId).toList();
+        Map<UUID, List<String>> provinciasPorItinerario = itinerarioRepository
+                .findProvinciasVisitadasPorItinerarios(ids).stream()
+                .collect(Collectors.groupingBy(
+                        ItinerarioRepository.ProvinciaPorItinerario::getItinerarioId,
+                        Collectors.mapping(p -> p.getProvincia().name(), Collectors.toList())));
+
+        return itinerarios.stream()
+                .map(itinerario -> {
+                    ItinerarioResumenResponseDTO resumen = mapper.toResumenDto(itinerario);
+                    resumen.setProvinciasVisitadas(
+                            provinciasPorItinerario.getOrDefault(itinerario.getId(), List.of()));
+                    return resumen;
+                })
+                .toList();
+    }
+
+    private static Pageable paginaDe(Integer pagina) {
+        int solicitada = pagina == null ? 1 : Math.clamp(pagina, 1, PAGINA_MAXIMA);
+        return PageRequest.of(solicitada - 1, TAMANIO_PAGINA,
+                Sort.by(Sort.Direction.DESC, "fechaGeneracion"));
+    }
+
+    /**
      * Interpreta un mensaje libre del chat de refinamiento (PP-88) y, si corresponde, regenera
      * parcialmente el itinerario. A propósito NO {@code @Transactional} por la misma razón que
-     * {@link #generar}: la llamada a Gemini puede tardar hasta 10s.
+     * {@link #generar}: la llamada a Gemini puede tardar hasta 10s y no debe retener una conexión
+     * del pool mientras espera. Esto depende de {@code spring.jpa.open-in-view} (deuda conocida,
+     * documentada en {@code CONVENTIONS.md} §12) para que las relaciones lazy usadas más abajo
+     * ({@code itinerario.getUsuario()}, {@code itinerario.getDias()}) sigan resolviendo fuera del
+     * método — separar esto en transacciones cortas de snapshot/guardado es un cambio de mayor
+     * alcance que se deja para una ronda aparte, no silenciosamente: se documenta acá a propósito.
      *
-     * <p>La verificación de ownership vive acá (una sola consulta) y no en el controlador: antes
-     * había una llamada a {@code perteneceAlUsuario} en el controlador seguida de esta misma
-     * consulta acá — dos vueltas a la base por la misma comprobación, y además
-     * {@code docs/CONVENTIONS.md} §3.7 pide no meter lógica de negocio en el controlador.
+     * <p>La propiedad se resuelve en esta misma consulta (403 si el itinerario no existe o no es
+     * del usuario), sin un chequeo de ownership separado en el controlador — evita la doble
+     * consulta que hacía antes.
      */
     public RefinamientoItinerarioResponseDTO refinar(UUID itinerarioId, UUID usuarioId,
                                                        RefinamientoItinerarioRequestDTO request) {
@@ -233,7 +344,8 @@ public class EcoRutaItinerarioService {
 
         List<MensajeConversacionDTO> historialPrevio = obtenerHistorialPrevio(request.getContextoConversacional());
 
-        String contexto = construirContextoRefinamiento(itinerario, historialPrevio, request.getMensajeUsuario());
+        String contexto = construirContextoRefinamiento(
+                itinerario, ultimosTurnos(historialPrevio), request.getMensajeUsuario());
 
         ResultadoRefinamientoIA resultadoIA = itinerarioIaClienteService.refinar(
                 contexto, itinerario.getCantidadDias());

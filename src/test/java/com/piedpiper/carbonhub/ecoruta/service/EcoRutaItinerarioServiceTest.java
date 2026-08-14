@@ -4,12 +4,15 @@ import com.piedpiper.carbonhub.ecoruta.mappers.ItinerarioMapper;
 import com.piedpiper.carbonhub.ecoruta.mappers.ItinerarioMapperImpl;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ConversacionContextoDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.EcoScoreResultado;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.FiltrarItinerariosRequestDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioFavoritoResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.EstablecimientoRankeado;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO.ActividadIaDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO.DiaIaDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.MensajeConversacionDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.PaginaItinerariosResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.PuntuacionAmbientalResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoIaResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoItinerarioRequestDTO;
@@ -42,6 +45,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
@@ -846,5 +852,168 @@ class EcoRutaItinerarioServiceTest {
 
         assertThat(response.getItinerario().isGeneradoParcial()).isFalse();
         assertThat(response.getItinerario().getMensajeParcial()).isNull();
+    }
+
+    // --- listar (PP-89) ---
+
+    private Itinerario itinerarioResumen(UUID id) {
+        return Itinerario.builder()
+                .id(id)
+                .usuario(usuario())
+                .cantidadDias(3)
+                .fechaInicio(LocalDate.now().plusDays(5))
+                .tipoViaje(TipoViaje.INDIVIDUAL)
+                .estado(EstadoItinerario.GENERADO)
+                .version(1)
+                .ecoScore(new BigDecimal("70.0"))
+                .clasificacionAmbiental(ClasificacionAmbiental.BUENA)
+                .fechaGeneracion(Instant.now())
+                .dias(List.of())
+                .build();
+    }
+
+    @Test
+    void listarDevuelveElContenidoPaginadoConProvinciasPorItinerario() {
+        Itinerario itin1 = itinerarioResumen(UUID.randomUUID());
+        Itinerario itin2 = itinerarioResumen(UUID.randomUUID());
+        var pagina = new PageImpl<>(List.of(itin1, itin2),
+                PageRequest.of(0, EcoRutaItinerarioService.TAMANIO_PAGINA,
+                        Sort.by(Sort.Direction.DESC, "fechaGeneracion")),
+                2);
+        when(itinerarioRepository.findByUsuario_Id(eq(USUARIO_ID), any())).thenReturn(pagina);
+        var filaProvincia = org.mockito.Mockito.mock(ItinerarioRepository.ProvinciaPorItinerario.class);
+        when(filaProvincia.getItinerarioId()).thenReturn(itin1.getId());
+        when(filaProvincia.getProvincia())
+                .thenReturn(com.piedpiper.carbonhub.ecoruta.models.enums.Provincia.PUNTARENAS);
+        when(itinerarioRepository.findProvinciasVisitadasPorItinerarios(List.of(itin1.getId(), itin2.getId())))
+                .thenReturn(List.of(filaProvincia));
+
+        PaginaItinerariosResponseDTO respuesta = service.listar(USUARIO_ID, new FiltrarItinerariosRequestDTO(1, null));
+
+        assertThat(respuesta.getContenido()).hasSize(2);
+        assertThat(respuesta.getContenido().get(0).getProvinciasVisitadas()).containsExactly("PUNTARENAS");
+        assertThat(respuesta.getContenido().get(1).getProvinciasVisitadas()).isEmpty();
+        assertThat(respuesta.getTotalResultados()).isEqualTo(2);
+        assertThat(respuesta.getPaginaActual()).isEqualTo(1);
+        assertThat(respuesta.getTamanioPagina()).isEqualTo(EcoRutaItinerarioService.TAMANIO_PAGINA);
+    }
+
+    @Test
+    void listarConErrorDeBdLanza500ConMensajeExacto() {
+        when(itinerarioRepository.findByUsuario_Id(eq(USUARIO_ID), any()))
+                .thenThrow(new DataAccessResourceFailureException("fallo de conexion"));
+
+        assertThatThrownBy(() -> service.listar(USUARIO_ID, new FiltrarItinerariosRequestDTO(1, null)))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> {
+                    assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+                    assertThat(ex.getMessage()).isEqualTo("No fue posible recuperar la información solicitada.");
+                });
+    }
+
+    @Test
+    void listarFiltraFavoritosPorUsuario() {
+        Itinerario favorito = itinerarioResumen(UUID.randomUUID());
+        favorito.setFavorito(true);
+        var pagina = new PageImpl<>(List.of(favorito),
+                PageRequest.of(0, EcoRutaItinerarioService.TAMANIO_PAGINA,
+                        Sort.by(Sort.Direction.DESC, "fechaGeneracion")),
+                1);
+        when(itinerarioRepository.findByUsuario_IdAndFavorito(eq(USUARIO_ID), eq(true), any()))
+                .thenReturn(pagina);
+        var filaProvincia = org.mockito.Mockito.mock(ItinerarioRepository.ProvinciaPorItinerario.class);
+        when(filaProvincia.getItinerarioId()).thenReturn(favorito.getId());
+        when(filaProvincia.getProvincia())
+                .thenReturn(com.piedpiper.carbonhub.ecoruta.models.enums.Provincia.SAN_JOSE);
+        when(itinerarioRepository.findProvinciasVisitadasPorItinerarios(List.of(favorito.getId())))
+                .thenReturn(List.of(filaProvincia));
+
+        PaginaItinerariosResponseDTO respuesta = service.listar(
+                USUARIO_ID, new FiltrarItinerariosRequestDTO(1, true));
+
+        assertThat(respuesta.getContenido()).hasSize(1);
+        assertThat(respuesta.getContenido().get(0).isFavorito()).isTrue();
+        assertThat(respuesta.getContenido().get(0).getProvinciasVisitadas()).containsExactly("SAN_JOSE");
+        verify(itinerarioRepository, never()).findByUsuario_Id(eq(USUARIO_ID), any());
+    }
+
+    // --- favoritos (PP-90) ---
+
+    @Test
+    void actualizarFavoritoMarcaElItinerario() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioResumen(itinerarioId);
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+        when(itinerarioRepository.save(any(Itinerario.class))).thenAnswer(i -> i.getArgument(0));
+
+        ItinerarioFavoritoResponseDTO respuesta = service.actualizarFavorito(itinerarioId, USUARIO_ID, true);
+
+        assertThat(respuesta.getId()).isEqualTo(itinerarioId);
+        assertThat(respuesta.isFavorito()).isTrue();
+        assertThat(itinerario.isFavorito()).isTrue();
+        verify(itinerarioRepository).save(itinerario);
+    }
+
+    @Test
+    void actualizarFavoritoDesmarcaElItinerario() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioResumen(itinerarioId);
+        itinerario.setFavorito(true);
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+        when(itinerarioRepository.save(any(Itinerario.class))).thenAnswer(i -> i.getArgument(0));
+
+        ItinerarioFavoritoResponseDTO respuesta = service.actualizarFavorito(itinerarioId, USUARIO_ID, false);
+
+        assertThat(respuesta.isFavorito()).isFalse();
+        assertThat(itinerario.isFavorito()).isFalse();
+        verify(itinerarioRepository).save(itinerario);
+    }
+
+    @Test
+    void actualizarFavoritoConItinerarioInexistenteOAjenoLanza403AntesDeGuardar() {
+        UUID itinerarioId = UUID.randomUUID();
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.actualizarFavorito(itinerarioId, USUARIO_ID, true))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> {
+                    assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.FORBIDDEN);
+                    assertThat(ex.getMessage()).isEqualTo("No tienes permiso para modificar este itinerario.");
+                });
+
+        verify(itinerarioRepository, never()).save(any());
+    }
+
+    // --- eliminar (PP-89, fuera del AC — pedido explícito del equipo) ---
+
+    @Test
+    void eliminarConItinerarioPropioLoBorra() {
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioResumen(itinerarioId);
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+
+        service.eliminar(itinerarioId, USUARIO_ID);
+
+        verify(itinerarioRepository).delete(itinerario);
+    }
+
+    @Test
+    void eliminarConItinerarioInexistenteOAjenoLanza403ConMensajeExacto() {
+        UUID itinerarioId = UUID.randomUUID();
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.eliminar(itinerarioId, USUARIO_ID))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> {
+                    assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.FORBIDDEN);
+                    assertThat(ex.getMessage()).isEqualTo(
+                            "No tienes permiso para modificar este itinerario.");
+                });
+
+        verify(itinerarioRepository, never()).delete(any());
     }
 }

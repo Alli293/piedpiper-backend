@@ -1,7 +1,11 @@
 package com.piedpiper.carbonhub.ecoruta.controller;
 
 import com.piedpiper.carbonhub.common.Autenticaciones;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.ActualizarFavoritoItinerarioRequestDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.FiltrarItinerariosRequestDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioFavoritoResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioResponseDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.PaginaItinerariosResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoItinerarioRequestDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoItinerarioResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.service.EcoRutaItinerarioService;
@@ -15,9 +19,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -51,12 +58,40 @@ public class EcoRutaItinerarioController {
         return ResponseEntity.ok(service.obtener(id, usuarioId));
     }
 
+    /** Listado paginado de "Mis itinerarios" (PP-89). */
+    @GetMapping
+    public ResponseEntity<PaginaItinerariosResponseDTO> listar(
+            @ModelAttribute FiltrarItinerariosRequestDTO filtros, Authentication authentication) {
+        UUID usuarioId = Autenticaciones.usuarioId(authentication);
+        return ResponseEntity.ok(service.listar(usuarioId, filtros));
+    }
+
+    @PutMapping("/{id}/favorito")
+    public ResponseEntity<ItinerarioFavoritoResponseDTO> actualizarFavorito(
+            @PathVariable UUID id,
+            @Valid @RequestBody ActualizarFavoritoItinerarioRequestDTO request,
+            Authentication authentication) {
+        UUID usuarioId = Autenticaciones.usuarioId(authentication);
+        return ResponseEntity.ok(service.actualizarFavorito(id, usuarioId, request.getFavorito()));
+    }
+
     /**
-     * Conversación continua de refinamiento del itinerario (PP-88). A diferencia de {@link #obtener},
-     * no hace un chequeo de ownership previo en el controlador: {@code service.refinar(...)} ya
-     * hace su propia consulta por {@code itinerarioId + usuarioId} y devuelve el 403 con el mensaje
-     * correcto — agregar una verificación acá sería una segunda consulta idéntica para la misma
-     * comprobación, y CONVENTIONS.md §3.7 pide no meter esa lógica en el controlador.
+     * Eliminar itinerario (PP-89) — fuera del AC de la historia, pedido explícito del equipo. La
+     * propiedad se resuelve dentro de {@link EcoRutaItinerarioService#eliminar}, con una sola
+     * consulta — sin chequeo de ownership acá, para no repetir la misma comprobación dos veces
+     * (detalle señalado en revisión, mismo criterio que {@link #refinar}).
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminar(@PathVariable UUID id, Authentication authentication) {
+        UUID usuarioId = Autenticaciones.usuarioId(authentication);
+        service.eliminar(id, usuarioId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Conversación continua de refinamiento del itinerario (PP-88). La propiedad se resuelve
+     * dentro de {@link EcoRutaItinerarioService#refinar}, con una sola consulta — sin chequeo de
+     * ownership acá, para no repetir la misma comprobación dos veces.
      */
     @PostMapping("/{id}/mensajes")
     public ResponseEntity<RefinamientoItinerarioResponseDTO> refinar(
@@ -77,20 +112,6 @@ public class EcoRutaItinerarioController {
         if (!service.perteneceAlUsuario(itinerarioId, usuarioId)) {
             log.warn("Acceso denegado a itinerario {} por usuario {}: no es el propietario", itinerarioId, usuarioId);
             throw ApiException.accesoDenegado("No tienes permiso para acceder a este itinerario.");
-        }
-    }
-
-    /**
-     * Misma validación que {@link #verificarPropiedadItinerario}, con el mensaje específico de
-     * "modificar" en vez de "acceder". Ya no la usa {@link #refinar} (esa ownership vive ahora en
-     * {@code EcoRutaItinerarioService.refinar}, una sola consulta en vez de dos) — queda acá porque
-     * la rama de PP-89 (que arranca desde esta y ya está abierta como PR dependiente) la reutiliza
-     * para el endpoint de eliminar itinerario.
-     */
-    private void verificarPropiedadItinerarioParaModificar(UUID itinerarioId, UUID usuarioId) {
-        if (!service.perteneceAlUsuario(itinerarioId, usuarioId)) {
-            log.warn("Intento de modificar itinerario {} por usuario {}: no es el propietario", itinerarioId, usuarioId);
-            throw ApiException.accesoDenegado("No tienes permiso para modificar este itinerario.");
         }
     }
 }

@@ -4,9 +4,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.piedpiper.carbonhub.auth.config.CorsConfig;
 import com.piedpiper.carbonhub.auth.config.JwtAuthenticationFilter;
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.ActualizarFavoritoItinerarioRequestDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.EstablecimientoEcoScoreResponseDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.FiltrarItinerariosRequestDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioFavoritoResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioResponseDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioResumenResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.MensajeConversacionDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.PaginaItinerariosResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.PuntuacionAmbientalResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoItinerarioRequestDTO;
 import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoItinerarioResponseDTO;
@@ -32,10 +37,18 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentCaptor.forClass;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -75,6 +88,7 @@ class EcoRutaItinerarioControllerTest {
         response.setClasificacionAmbiental("BUENA");
         response.setEcoScoreParcial(false);
         response.setEcoScoreCalculadoEn(Instant.now());
+        response.setFavorito(false);
         response.setFechaGeneracion(Instant.now());
         response.setGeneradoParcial(false);
         response.setDias(List.of());
@@ -254,12 +268,28 @@ class EcoRutaItinerarioControllerTest {
         UUID itinerarioId = UUID.randomUUID();
         List<MensajeConversacionDTO> historialEnorme = new java.util.ArrayList<>();
         for (int i = 0; i < 201; i++) {
-            historialEnorme.add(new MensajeConversacionDTO("USUARIO", "Mensaje " + i));
+            historialEnorme.add(new MensajeConversacionDTO("USUARIO", "mensaje " + i));
         }
-        RefinamientoItinerarioRequestDTO request = new RefinamientoItinerarioRequestDTO(
-                "Quiero más playas.",
-                new com.piedpiper.carbonhub.ecoruta.models.dtos.ConversacionContextoDTO(
-                        itinerarioId, historialEnorme, 1));
+        var contexto = new com.piedpiper.carbonhub.ecoruta.models.dtos.ConversacionContextoDTO(
+                itinerarioId, historialEnorme, null);
+        RefinamientoItinerarioRequestDTO request =
+                new RefinamientoItinerarioRequestDTO("Quiero más playas.", contexto);
+
+        mockMvc.perform(post("/api/ecoruta/itinerarios/" + itinerarioId + "/mensajes")
+                        .principal(authentication("ROLE_USUARIO_INDIVIDUAL"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_USUARIO_INDIVIDUAL")
+    void postMensajesConRolInvalidoEnHistorialDevuelve400() throws Exception {
+        UUID itinerarioId = UUID.randomUUID();
+        var contexto = new com.piedpiper.carbonhub.ecoruta.models.dtos.ConversacionContextoDTO(
+                itinerarioId, List.of(new MensajeConversacionDTO("MODERADOR", "hola")), null);
+        RefinamientoItinerarioRequestDTO request =
+                new RefinamientoItinerarioRequestDTO("Quiero más playas.", contexto);
 
         mockMvc.perform(post("/api/ecoruta/itinerarios/" + itinerarioId + "/mensajes")
                         .principal(authentication("ROLE_USUARIO_INDIVIDUAL"))
@@ -283,6 +313,153 @@ class EcoRutaItinerarioControllerTest {
                         .principal(authentication("ROLE_USUARIO_INDIVIDUAL"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("No tienes permiso para modificar este itinerario."));
+    }
+
+    // --- GET /api/ecoruta/itinerarios (listado, PP-89) ---
+
+    private PaginaItinerariosResponseDTO paginaDePrueba() {
+        ItinerarioResumenResponseDTO resumen = new ItinerarioResumenResponseDTO(
+                UUID.randomUUID(), 3, LocalDate.now().plusDays(5), "INDIVIDUAL",
+                new BigDecimal("70.0"), "BUENA", false, true, List.of("PUNTARENAS"),
+                Instant.now(), Instant.now());
+        return new PaginaItinerariosResponseDTO(List.of(resumen), 1, 1, 1, 12);
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_USUARIO_INDIVIDUAL")
+    void getListadoDevuelve200ConLaFormaEsperada() throws Exception {
+        UUID usuarioId = UUID.fromString(USUARIO_ID);
+        when(service.listar(eq(usuarioId), any())).thenReturn(paginaDePrueba());
+
+        mockMvc.perform(get("/api/ecoruta/itinerarios")
+                        .principal(authentication("ROLE_USUARIO_INDIVIDUAL")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido.length()").value(1))
+                .andExpect(jsonPath("$.contenido[0].provinciasVisitadas[0]").value("PUNTARENAS"))
+                .andExpect(jsonPath("$.totalResultados").value(1))
+                .andExpect(jsonPath("$.paginaActual").value(1))
+                .andExpect(jsonPath("$.tamanioPagina").value(12));
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_USUARIO_INDIVIDUAL")
+    void getListadoConSoloFavoritosPropagaElFiltroAlServicio() throws Exception {
+        UUID usuarioId = UUID.fromString(USUARIO_ID);
+        when(service.listar(eq(usuarioId), any())).thenReturn(paginaDePrueba());
+        var captor = forClass(FiltrarItinerariosRequestDTO.class);
+
+        mockMvc.perform(get("/api/ecoruta/itinerarios")
+                        .param("soloFavoritos", "true")
+                        .principal(authentication("ROLE_USUARIO_INDIVIDUAL")))
+                .andExpect(status().isOk());
+
+        verify(service).listar(eq(usuarioId), captor.capture());
+        org.assertj.core.api.Assertions.assertThat(captor.getValue().getSoloFavoritos()).isTrue();
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_ADMINISTRADOR_EMPRESA")
+    void getListadoConRolNoAutorizadoDevuelve403() throws Exception {
+        mockMvc.perform(get("/api/ecoruta/itinerarios")
+                        .principal(authentication("ROLE_ADMINISTRADOR_EMPRESA")))
+                .andExpect(status().isForbidden());
+    }
+
+    // --- PUT /api/ecoruta/itinerarios/{id}/favorito (PP-90) ---
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_USUARIO_INDIVIDUAL")
+    void putFavoritoValidoDevuelve200() throws Exception {
+        UUID itinerarioId = UUID.randomUUID();
+        UUID usuarioId = UUID.fromString(USUARIO_ID);
+        when(service.actualizarFavorito(eq(itinerarioId), eq(usuarioId), eq(true)))
+                .thenReturn(new ItinerarioFavoritoResponseDTO(itinerarioId, true));
+
+        mockMvc.perform(put("/api/ecoruta/itinerarios/" + itinerarioId + "/favorito")
+                        .principal(authentication("ROLE_USUARIO_INDIVIDUAL"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new ActualizarFavoritoItinerarioRequestDTO(true))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(itinerarioId.toString()))
+                .andExpect(jsonPath("$.favorito").value(true));
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_USUARIO_INDIVIDUAL")
+    void putFavoritoConItinerarioAjenoDevuelve403() throws Exception {
+        UUID itinerarioId = UUID.randomUUID();
+        UUID usuarioId = UUID.fromString(USUARIO_ID);
+        when(service.actualizarFavorito(eq(itinerarioId), eq(usuarioId), eq(true)))
+                .thenThrow(ApiException.accesoDenegado("No tienes permiso para modificar este itinerario."));
+
+        mockMvc.perform(put("/api/ecoruta/itinerarios/" + itinerarioId + "/favorito")
+                        .principal(authentication("ROLE_USUARIO_INDIVIDUAL"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new ActualizarFavoritoItinerarioRequestDTO(true))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("No tienes permiso para modificar este itinerario."));
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_USUARIO_INDIVIDUAL")
+    void putFavoritoConItinerarioInexistenteDevuelve403() throws Exception {
+        UUID itinerarioId = UUID.randomUUID();
+        UUID usuarioId = UUID.fromString(USUARIO_ID);
+        when(service.actualizarFavorito(eq(itinerarioId), eq(usuarioId), eq(true)))
+                .thenThrow(ApiException.accesoDenegado("No tienes permiso para modificar este itinerario."));
+
+        mockMvc.perform(put("/api/ecoruta/itinerarios/" + itinerarioId + "/favorito")
+                        .principal(authentication("ROLE_USUARIO_INDIVIDUAL"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new ActualizarFavoritoItinerarioRequestDTO(true))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message")
+                        .value("No tienes permiso para modificar este itinerario."));
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_USUARIO_INDIVIDUAL")
+    void putFavoritoSinCampoFavoritoDevuelve400() throws Exception {
+        UUID itinerarioId = UUID.randomUUID();
+
+        mockMvc.perform(put("/api/ecoruta/itinerarios/" + itinerarioId + "/favorito")
+                        .principal(authentication("ROLE_USUARIO_INDIVIDUAL"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+
+        verify(service, never()).actualizarFavorito(any(), any(), anyBoolean());
+    }
+
+    // --- DELETE /api/ecoruta/itinerarios/{id} (PP-89, fuera del AC — pedido explícito del equipo) ---
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_USUARIO_INDIVIDUAL")
+    void deleteConItinerarioPropioDevuelve204() throws Exception {
+        UUID itinerarioId = UUID.randomUUID();
+        UUID usuarioId = UUID.fromString(USUARIO_ID);
+        doNothing().when(service).eliminar(eq(itinerarioId), eq(usuarioId));
+
+        mockMvc.perform(delete("/api/ecoruta/itinerarios/" + itinerarioId)
+                        .principal(authentication("ROLE_USUARIO_INDIVIDUAL")))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, authorities = "ROLE_USUARIO_INDIVIDUAL")
+    void deleteConItinerarioInexistenteOAjenoDevuelve403ConMensajeExacto() throws Exception {
+        UUID itinerarioId = UUID.randomUUID();
+        UUID usuarioId = UUID.fromString(USUARIO_ID);
+        doThrow(ApiException.accesoDenegado("No tienes permiso para modificar este itinerario."))
+                .when(service).eliminar(eq(itinerarioId), eq(usuarioId));
+
+        mockMvc.perform(delete("/api/ecoruta/itinerarios/" + itinerarioId)
+                        .principal(authentication("ROLE_USUARIO_INDIVIDUAL")))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value("No tienes permiso para modificar este itinerario."));
     }

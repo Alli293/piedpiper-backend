@@ -10,26 +10,27 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Fila liviana para el listado de "Mis itinerarios" (PP-89) — a diferencia de
+ * {@link ItinerarioResponseDTO}, nunca trae {@code dias} completo.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class ItinerarioResponseDTO {
+public class ItinerarioResumenResponseDTO {
 
     private UUID id;
     private Integer cantidadDias;
     private LocalDate fechaInicio;
     private String tipoViaje;
-    private String estado;
-    private Integer version;
-    private BigDecimal puntuacionAmbientalPreliminar;
     private BigDecimal ecoScore;
     private String clasificacionAmbiental;
     private boolean ecoScoreParcial;
-    private Instant ecoScoreCalculadoEn;
     private boolean favorito;
+
+    /** Distinct de las provincias de todas las actividades — el frontend arma el título de la tarjeta con esto. */
+    private List<String> provinciasVisitadas;
+
     private Instant fechaGeneracion;
-    private boolean generadoParcial;
-    private String mensajeParcial;
-    private List<ItinerarioDiaResponseDTO> dias;
-    private List<EstablecimientoEcoScoreResponseDTO> establecimientosEvaluados;
+    private Instant actualizadoEn;
 }

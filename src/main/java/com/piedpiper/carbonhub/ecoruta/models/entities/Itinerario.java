@@ -88,6 +88,10 @@ public class Itinerario {
     @Column(name = "eco_score_calculado_en")
     private Instant ecoScoreCalculadoEn;
 
+    @Column(name = "favorito", nullable = false, columnDefinition = "boolean default false")
+    @Builder.Default
+    private boolean favorito = false;
+
     @Column(name = "generado_parcial", nullable = false)
     private boolean generadoParcial;
 

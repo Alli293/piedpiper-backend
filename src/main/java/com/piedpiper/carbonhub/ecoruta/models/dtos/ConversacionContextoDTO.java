@@ -11,9 +11,15 @@ import java.util.UUID;
 
 /**
  * Contexto de la conversación de refinamiento que el cliente reenvía en cada mensaje. El historial
- * vive únicamente del lado del cliente durante la sesión (PP-89, persistencia entre sesiones, no
- * existe todavía) — el backend nunca lo guarda, solo lo usa para armar el prompt de esta llamada
- * y devuelve la versión actualizada para que el cliente la reenvíe en el próximo mensaje.
+ * vive únicamente del lado del cliente durante la sesión — el backend nunca lo guarda, solo lo usa
+ * para armar el prompt de esta llamada y devuelve la versión actualizada para que el cliente la
+ * reenvíe en el próximo mensaje.
+ *
+ * <p>{@code itinerarioId} y {@code versionItinerario}, si vienen, se validan en
+ * {@code EcoRutaItinerarioService#refinar} contra el itinerario cargado (400 si el id no coincide
+ * con el de la ruta, 409 si la versión quedó desactualizada) para que un contexto de otro
+ * itinerario o de una versión vieja no se use para armar el prompt ni termine pisando cambios
+ * más recientes.
  */
 @Data
 @NoArgsConstructor

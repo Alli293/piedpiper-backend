@@ -17,11 +17,11 @@ public class MensajeConversacionDTO {
     private String rol;
 
     /**
-     * El backend nunca persiste el historial (vive del lado del cliente hasta que exista PP-89),
-     * así que este mensaje pudo haber sido inventado por el cliente antes de llegar acá. El tope
-     * es un piso barato de defensa, mismo límite que {@code mensajeUsuario} en
-     * {@link RefinamientoItinerarioRequestDTO} — no es una validación de negocio real, solo evita
-     * que un historial manipulado infle el prompt sin límite.
+     * El backend nunca persiste el historial (vive del lado del cliente hasta que exista
+     * persistencia entre sesiones), así que este mensaje pudo haber sido inventado por el cliente
+     * antes de llegar acá. El tope es un piso barato de defensa, mismo límite que
+     * {@code mensajeUsuario} en {@link RefinamientoItinerarioRequestDTO} — no es una validación de
+     * negocio real, solo evita que un historial manipulado infle el prompt sin límite.
      */
     @Size(max = 1000, message = "El contenido del mensaje no puede superar 1.000 caracteres.")
     private String contenido;
