@@ -5,6 +5,7 @@ import com.piedpiper.carbonhub.certificacion.repository.CertificacionRepository;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.empresa.models.enums.EstadoEmpresa;
 import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
+import com.piedpiper.carbonhub.ima.repository.ImaSnapshotRepository;
 import com.piedpiper.carbonhub.insignia.repository.InsigniaEmpresaRepository;
 import com.piedpiper.carbonhub.perfilpublico.exceptions.PerfilNoEncontradoException;
 import com.piedpiper.carbonhub.perfilpublico.models.dtos.BusquedaPerfilPublicoDTO;
@@ -16,23 +17,35 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 
 @Service
 public class PerfilPublicoConsultaService {
 
+    // PLACEHOLDER: cuartiles parejos sobre el IMA (0-100), pendientes de que producto/diseño
+    // defina los cortes reales por nivel. No mover sin actualizar este comentario.
+    private static final BigDecimal UMBRAL_PLATINO = BigDecimal.valueOf(90);
+    private static final BigDecimal UMBRAL_ORO = BigDecimal.valueOf(75);
+    private static final BigDecimal UMBRAL_PLATA = BigDecimal.valueOf(60);
+    private static final BigDecimal UMBRAL_BRONCE = BigDecimal.valueOf(40);
+
     private final EmpresaRepository empresaRepository;
     private final CertificacionRepository certificacionRepository;
     private final InsigniaEmpresaRepository insigniaEmpresaRepository;
+    private final ImaSnapshotRepository imaSnapshotRepository;
     private final SlugResolverService slugResolver;
 
     public PerfilPublicoConsultaService(EmpresaRepository empresaRepository,
                                         CertificacionRepository certificacionRepository,
                                         InsigniaEmpresaRepository insigniaEmpresaRepository,
+                                        ImaSnapshotRepository imaSnapshotRepository,
                                         SlugResolverService slugResolver) {
         this.empresaRepository = empresaRepository;
         this.certificacionRepository = certificacionRepository;
         this.insigniaEmpresaRepository = insigniaEmpresaRepository;
+        this.imaSnapshotRepository = imaSnapshotRepository;
         this.slugResolver = slugResolver;
     }
 
@@ -48,7 +61,7 @@ public class PerfilPublicoConsultaService {
                 .findByEmpresaIdOrderByFechaObtencionDesc(empresa.getId()).size();
 
         // 6. Ensamblar DTO
-        String nivelEcologico = resolverNivelEcologico(empresa.getNivelEcologico());
+        NivelEcologicoInfo nivelInfo = resolverNivelEcologico(empresa);
 
         return new PerfilPublicoResponseDTO(
                 empresa.getNombreEmpresa(),
@@ -57,8 +70,8 @@ public class PerfilPublicoConsultaService {
                         ? empresa.getSectorIndustrial().name()
                         : null,
                 empresa.getPais(),
-                nivelEcologico,
-                null, // fechaActualizacionNivel - no existe campo en entidad aún
+                nivelInfo.nivel(),
+                nivelInfo.fechaActualizacion(),
                 certificacionesVigentes,
                 insigniasActivas
         );
@@ -96,14 +109,42 @@ public class PerfilPublicoConsultaService {
                 empresa.getNombreEmpresa(),
                 empresa.getSlug(),
                 empresa.getSectorIndustrial() != null ? empresa.getSectorIndustrial().name() : null,
-                resolverNivelEcologico(empresa.getNivelEcologico())
+                resolverNivelEcologico(empresa).nivel()
         );
     }
 
-    private String resolverNivelEcologico(String nivelEcologico) {
-        if (nivelEcologico == null || nivelEcologico.isBlank()) {
-            return "Sin nivel";
+    /**
+     * {@code Empresa.nivelEcologico} nunca lo asigna ningún flujo hoy (ver conversación de fix);
+     * se conserva como override manual por compatibilidad, pero el caso real es el nivel derivado
+     * del último IMA calculado para la empresa.
+     */
+    private NivelEcologicoInfo resolverNivelEcologico(Empresa empresa) {
+        String nivelManual = empresa.getNivelEcologico();
+        if (nivelManual != null && !nivelManual.isBlank()) {
+            return new NivelEcologicoInfo(nivelManual, null);
         }
-        return nivelEcologico;
+
+        return imaSnapshotRepository.findFirstByEmpresaIdOrderByAnioDescMesDesc(empresa.getId())
+                .map(snapshot -> new NivelEcologicoInfo(nivelDesdeIma(snapshot.getIma()), snapshot.getCalculatedAt()))
+                .orElseGet(() -> new NivelEcologicoInfo("Sin nivel", null));
+    }
+
+    private String nivelDesdeIma(BigDecimal ima) {
+        if (ima.compareTo(UMBRAL_PLATINO) >= 0) {
+            return "Platino";
+        }
+        if (ima.compareTo(UMBRAL_ORO) >= 0) {
+            return "Oro";
+        }
+        if (ima.compareTo(UMBRAL_PLATA) >= 0) {
+            return "Plata";
+        }
+        if (ima.compareTo(UMBRAL_BRONCE) >= 0) {
+            return "Bronce";
+        }
+        return "Sin nivel";
+    }
+
+    private record NivelEcologicoInfo(String nivel, Instant fechaActualizacion) {
     }
 }
