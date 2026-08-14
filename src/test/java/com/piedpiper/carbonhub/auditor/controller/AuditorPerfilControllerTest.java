@@ -30,6 +30,7 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -68,6 +69,51 @@ class AuditorPerfilControllerTest {
                 "descripcionProfesional": "Auditor con experiencia en huella de carbono."
             }
             """;
+
+    /**
+     * El GET faltaba: la ruta estaba mapeada solo para PUT, así que la pantalla recibia 405 y
+     * abria el formulario en blanco aunque el auditor tuviera datos guardados.
+     */
+    @Test
+    @WithMockUser(username = AUDITOR_ID, roles = "AUDITOR_CERTIFICADO")
+    void auditorCertificadoConsultaSuPerfilDevuelve200() throws Exception {
+        PerfilAuditorResponseDTO responseDTO = new PerfilAuditorResponseDTO(
+                UUID.fromString(AUDITOR_ID),
+                List.of("AGROINDUSTRIA"),
+                List.of("CARTAGO"),
+                true,
+                "Perfil ya guardado.",
+                Instant.now());
+
+        when(auditorPerfilService.obtener(any(), any())).thenReturn(responseDTO);
+
+        mockMvc.perform(get(BASE_URL)
+                        .principal(new TestingAuthenticationToken(AUDITOR_ID, null, "ROLE_AUDITOR_CERTIFICADO")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.auditorId").value(AUDITOR_ID))
+                .andExpect(jsonPath("$.especialidades[0]").value("AGROINDUSTRIA"))
+                .andExpect(jsonPath("$.zonasCobertura[0]").value("CARTAGO"));
+    }
+
+    /** Sin perfil todavia, el front necesita un 404 para abrir el formulario vacio sin mostrar error. */
+    @Test
+    @WithMockUser(username = AUDITOR_ID, roles = "AUDITOR_CERTIFICADO")
+    void consultarSinPerfilTodaviaDevuelve404() throws Exception {
+        when(auditorPerfilService.obtener(any(), any()))
+                .thenThrow(ApiException.recursoNoEncontrado("Todavía no has configurado tu perfil de auditor."));
+
+        mockMvc.perform(get(BASE_URL)
+                        .principal(new TestingAuthenticationToken(AUDITOR_ID, null, "ROLE_AUDITOR_CERTIFICADO")))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUser(username = AUDITOR_ID, roles = "ADMINISTRADOR_EMPRESA")
+    void consultarPerfilConRolNoAutorizadoDevuelve403() throws Exception {
+        mockMvc.perform(get(BASE_URL)
+                        .principal(new TestingAuthenticationToken(AUDITOR_ID, null, "ROLE_ADMINISTRADOR_EMPRESA")))
+                .andExpect(status().isForbidden());
+    }
 
     @Test
     @WithMockUser(username = AUDITOR_ID, roles = "AUDITOR_CERTIFICADO")

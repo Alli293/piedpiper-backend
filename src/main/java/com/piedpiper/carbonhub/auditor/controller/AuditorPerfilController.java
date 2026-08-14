@@ -14,6 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -29,6 +30,20 @@ public class AuditorPerfilController {
 
     public AuditorPerfilController(AuditorPerfilService auditorPerfilService) {
         this.auditorPerfilService = auditorPerfilService;
+    }
+
+    /**
+     * Lo que la pantalla de perfil necesita para mostrar lo ya guardado antes de dejar editar.
+     *
+     * <p>Sin este endpoint el cliente pedía un {@code GET} sobre una ruta mapeada solo para
+     * {@code PUT}, así que recibía 405 y mostraba un error de carga: el formulario abría en blanco
+     * aunque el auditor tuviera especialidades y zonas guardadas, y al guardar las pisaba.</p>
+     */
+    @GetMapping
+    public ResponseEntity<PerfilAuditorResponseDTO> obtener(
+            @PathVariable UUID auditorId, Authentication authentication) {
+        UUID usuarioId = Autenticaciones.usuarioId(authentication);
+        return ResponseEntity.ok(auditorPerfilService.obtener(usuarioId, auditorId));
     }
 
     @PutMapping

@@ -76,7 +76,73 @@ class AuditorPerfilServiceTest {
                 .build();
     }
 
+
+    // --- Lectura del perfil (GET) ---
+
+    /**
+     * El caso que motivó agregar la lectura: la pantalla pedía un GET sobre una ruta mapeada solo
+     * para PUT, recibía 405 y abría el formulario en blanco pese a haber datos guardados.
+     */
+    @Test
+    void obtenerDevuelveElPerfilGuardadoDelAuditor() {
+        when(usuarioRepository.findById(AUDITOR_ID)).thenReturn(Optional.of(auditorActivo()));
+        PerfilAuditor perfil = PerfilAuditor.builder()
+                .id(UUID.randomUUID())
+                .auditor(auditorActivo())
+                .especialidades(new HashSet<>(Set.of(EspecialidadAuditor.AGROINDUSTRIA)))
+                .zonasCobertura(new HashSet<>(Set.of(ProvinciaCR.CARTAGO)))
+                .disponible(true)
+                .descripcionProfesional("Perfil ya guardado.")
+                .build();
+        when(perfilAuditorRepository.findByAuditorId(AUDITOR_ID)).thenReturn(Optional.of(perfil));
+
+        var dto = service().obtener(AUDITOR_ID, AUDITOR_ID);
+
+        assertThat(dto.getEspecialidades()).containsExactly("AGROINDUSTRIA");
+        assertThat(dto.getZonasCobertura()).containsExactly("CARTAGO");
+        assertThat(dto.getDescripcionProfesional()).isEqualTo("Perfil ya guardado.");
+    }
+
+    /** Sin perfil todavía la pantalla abre el formulario vacío, y para eso necesita un 404. */
+    @Test
+    void obtenerSinPerfilTodaviaDevuelve404() {
+        when(usuarioRepository.findById(AUDITOR_ID)).thenReturn(Optional.of(auditorActivo()));
+        when(perfilAuditorRepository.findByAuditorId(AUDITOR_ID)).thenReturn(Optional.empty());
+        AuditorPerfilService servicio = service();
+
+        assertThatThrownBy(() -> servicio.obtener(AUDITOR_ID, AUDITOR_ID))
+                .isInstanceOf(ApiException.class)
+                .extracting(ex -> ((ApiException) ex).getStatus())
+                .isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    /** Leer el perfil de otro auditor se rechaza igual que escribirlo: el id de la ruta no manda. */
+    @Test
+    void obtenerElPerfilDeOtroAuditorSeRechaza() {
+        UUID otroUsuarioId = UUID.randomUUID();
+        AuditorPerfilService servicio = service();
+
+        assertThatThrownBy(() -> servicio.obtener(otroUsuarioId, AUDITOR_ID))
+                .isInstanceOf(ApiException.class)
+                .extracting(ex -> ((ApiException) ex).getStatus())
+                .isEqualTo(HttpStatus.FORBIDDEN);
+        verify(perfilAuditorRepository, never()).findByAuditorId(any());
+    }
+
+    /** Una cuenta que todavía no pasó la validación no puede leer su perfil, igual que no puede guardarlo. */
+    @Test
+    void obtenerConLaCuentaSinValidarSeRechaza() {
+        when(usuarioRepository.findById(AUDITOR_ID))
+                .thenReturn(Optional.of(auditorConEstado(EstadoUsuario.PENDIENTE_VALIDACION)));
+        AuditorPerfilService servicio = service();
+
+        assertThatThrownBy(() -> servicio.obtener(AUDITOR_ID, AUDITOR_ID))
+                .isInstanceOf(ApiException.class);
+        verify(perfilAuditorRepository, never()).findByAuditorId(any());
+    }
+
     // --- 1. Ownership check: mismatched IDs → ApiException FORBIDDEN ---
+
 
     @Test
     void ownershipCheck_idsMismatch_lanzaForbidden() {
