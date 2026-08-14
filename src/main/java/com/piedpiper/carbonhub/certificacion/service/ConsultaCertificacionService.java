@@ -192,6 +192,7 @@ public class ConsultaCertificacionService {
         dto.setUrlVerificacion(generadorCredencialOpenBadges.urlVerificacion(certificacion.getId()));
         catalogoTiposCertificacion.buscar(certificacion.getTipo())
                 .ifPresent(definicion -> dto.setNombreCertificacion(definicion.nombre()));
+        dto.setNombreAuditor(certificacion.getAuditor().nombreCompleto());
         return dto;
     }
 

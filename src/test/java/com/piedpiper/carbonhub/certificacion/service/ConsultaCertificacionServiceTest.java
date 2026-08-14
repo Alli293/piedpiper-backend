@@ -186,6 +186,7 @@ class ConsultaCertificacionServiceTest {
         // El VC-JWT vence a medianoche UTC del dia de fechaVencimiento: ese
         // mismo dia ya no es vigente.
         assertThat(resultado.isVigente()).isFalse();
+        assertThat(resultado.getNombreAuditor()).isEqualTo("Ana Mora");
     }
 
     @Test
