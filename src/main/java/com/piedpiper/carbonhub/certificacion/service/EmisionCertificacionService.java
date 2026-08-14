@@ -119,8 +119,8 @@ public class EmisionCertificacionService implements EmisionCertificacionPort {
      *
      * <p>Con {@code REQUIRES_NEW} la emisión corre en su propia transacción, que es lo que
      * corresponde: es una unidad de trabajo independiente de la aprobación que ya se confirmó, y si
-     * falla no debe arrastrar nada de aquello. Es el mismo motivo por el que
-     * {@link CertificacionPersistenciaService#guardar} ya usaba esa propagación.
+     * falla no debe arrastrar nada de aquello. {@link CertificacionPersistenciaService#guardar} usa
+     * la misma propagación por un motivo distinto: aislar el rollback ante una emisión concurrente.
      */
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
