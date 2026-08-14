@@ -23,6 +23,9 @@ public class ItinerarioActividadResponseDTO {
     private BigDecimal costoAproximado;
     private String moneda;
     private String establecimientoRecomendado;
+    /** No nulo solo cuando {@code establecimientoRecomendado} coincide con una empresa activa
+     *  registrada en CarbonHub. */
+    private UUID empresaId;
     private String provincia;
     private PuntuacionAmbientalResponseDTO puntuacionAmbiental;
     private Integer puntuacionAmbientalEstimada;

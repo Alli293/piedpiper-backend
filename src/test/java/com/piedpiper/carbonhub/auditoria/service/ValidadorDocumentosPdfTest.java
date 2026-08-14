@@ -109,6 +109,39 @@ class ValidadorDocumentosPdfTest {
         assertThat(ValidadorDocumentosPdf.TAMANIO_MAXIMO_BYTES).isEqualTo(15L * 1024 * 1024);
     }
 
+    @Test
+    void rechazaListaVaciaDeDocumentosCredencialesConMensajeDeCredencial() {
+        assertThatThrownBy(() -> validador.validar(List.of(), TipoDocumentoAdjunto.CREDENCIAL_AUDITOR))
+                .isInstanceOf(ApiException.class)
+                .hasMessage("Debes adjuntar al menos un documento de credencial.");
+    }
+
+    @Test
+    void rechazaDocumentoCredencialInvalidoConMensajeDeCredencial() {
+        MultipartFile falso = new MockMultipartFile("documentos", "credencial.pdf",
+                MediaType.APPLICATION_PDF_VALUE, "PK esto es un zip".getBytes(StandardCharsets.UTF_8));
+
+        assertThatThrownBy(() -> validador.validar(List.of(falso), TipoDocumentoAdjunto.CREDENCIAL_AUDITOR))
+                .isInstanceOf(ApiException.class)
+                .hasMessage("Solo se aceptan archivos en formato PDF.");
+    }
+
+    @Test
+    void validarYLeerDevuelveLosBytesEnElMismoOrdenQueLosDocumentos() {
+        byte[] contenidoUno = contenidoPdf();
+        MultipartFile uno = new MockMultipartFile("documentos", "uno.pdf",
+                MediaType.APPLICATION_PDF_VALUE, contenidoUno);
+        byte[] contenidoDos = contenidoPdf();
+        MultipartFile dos = new MockMultipartFile("documentos", "dos.pdf",
+                MediaType.APPLICATION_PDF_VALUE, contenidoDos);
+
+        List<byte[]> contenidos = validador.validarYLeer(List.of(uno, dos), TipoDocumentoAdjunto.CREDENCIAL_AUDITOR);
+
+        assertThat(contenidos).hasSize(2);
+        assertThat(contenidos.get(0)).isEqualTo(contenidoUno);
+        assertThat(contenidos.get(1)).isEqualTo(contenidoDos);
+    }
+
     static MockMultipartFile pdf(String nombre) {
         return new MockMultipartFile("documentos", nombre, MediaType.APPLICATION_PDF_VALUE, contenidoPdf());
     }

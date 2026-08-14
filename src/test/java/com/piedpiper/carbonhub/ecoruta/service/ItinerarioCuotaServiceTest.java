@@ -93,4 +93,53 @@ class ItinerarioCuotaServiceTest {
         org.mockito.Mockito.verify(preferenciasViajeRepository, org.mockito.Mockito.never())
                 .saveAndFlush(any());
     }
+
+    // --- reservarRefinamiento (PP-88, chat de refinamiento) ---
+
+    @Test
+    void refinamientoSinPreferenciasGuardadasLanza404() {
+        when(preferenciasViajeRepository.findByUsuario_IdForUpdate(USUARIO_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.reservarRefinamiento(USUARIO_ID))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.NOT_FOUND));
+    }
+
+    @Test
+    void primerMensajeIncrementaElContadorDeRefinamientoYGuarda() {
+        PreferenciasViaje preferencias = preferencias();
+        when(preferenciasViajeRepository.findByUsuario_IdForUpdate(USUARIO_ID)).thenReturn(Optional.of(preferencias));
+
+        service.reservarRefinamiento(USUARIO_ID);
+
+        assertThat(preferencias.getItinerarioRefinamientoContador()).isEqualTo(1);
+        org.mockito.Mockito.verify(preferenciasViajeRepository).saveAndFlush(preferencias);
+    }
+
+    @Test
+    void reinicializaLaVentanaDeRefinamientoPasadaUnaHora() {
+        PreferenciasViaje preferencias = preferencias();
+        preferencias.setItinerarioRefinamientoContador(20);
+        preferencias.setItinerarioRefinamientoVentanaInicio(Instant.now().minus(2, ChronoUnit.HOURS));
+        when(preferenciasViajeRepository.findByUsuario_IdForUpdate(USUARIO_ID)).thenReturn(Optional.of(preferencias));
+
+        service.reservarRefinamiento(USUARIO_ID);
+
+        assertThat(preferencias.getItinerarioRefinamientoContador()).isEqualTo(1);
+    }
+
+    @Test
+    void mensaje21EnLaMismaHoraLanza429() {
+        PreferenciasViaje preferencias = preferencias();
+        preferencias.setItinerarioRefinamientoContador(20);
+        preferencias.setItinerarioRefinamientoVentanaInicio(Instant.now());
+        when(preferenciasViajeRepository.findByUsuario_IdForUpdate(USUARIO_ID)).thenReturn(Optional.of(preferencias));
+
+        assertThatThrownBy(() -> service.reservarRefinamiento(USUARIO_ID))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS));
+
+        org.mockito.Mockito.verify(preferenciasViajeRepository, org.mockito.Mockito.never())
+                .saveAndFlush(any());
+    }
 }

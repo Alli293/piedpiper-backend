@@ -155,6 +155,32 @@ class DecisionAuditorControllerTest {
         verify(decisionAuditorService, never()).responder(any(), any(), any());
     }
 
+    // Regresion: un auditor RECHAZADO solo tiene ROLE_AUDITOR_RECHAZADO (no ROLE_AUDITOR_CERTIFICADO,
+    // ver JwtAuthenticationFilter.autoridadesPara), asi que la clase entera queda fuera de su alcance
+    // y no puede aceptar una asignacion previa ni emitir un resultado con ella.
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_RECHAZADO")
+    void auditorRechazadoNoPuedeResponderUnaAsignacion() throws Exception {
+        mockMvc.perform(peticion("""
+                        {"decision":"aceptada"}"""))
+                .andExpect(status().isForbidden());
+
+        verify(decisionAuditorService, never()).responder(any(), any(), any());
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_RECHAZADO")
+    void auditorRechazadoNoPuedeEmitirUnResultado() throws Exception {
+        mockMvc.perform(post("/api/auditorias/{idSolicitud}/resultado", SOLICITUD_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"resultado":"aprobada"}""")
+                        .principal(principal()))
+                .andExpect(status().isForbidden());
+
+        verify(resultadoAuditoriaService, never()).emitir(any(), any(), any());
+    }
+
     @Test
     @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
     void resultadoValidoDevuelve200() throws Exception {

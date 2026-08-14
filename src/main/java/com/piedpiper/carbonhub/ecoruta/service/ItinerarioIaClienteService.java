@@ -1,6 +1,7 @@
 package com.piedpiper.carbonhub.ecoruta.service;
 
 import com.piedpiper.carbonhub.ecoruta.models.dtos.ItinerarioIaResponseDTO;
+import com.piedpiper.carbonhub.ecoruta.models.dtos.RefinamientoIaResponseDTO;
 import com.piedpiper.carbonhub.ecoruta.models.enums.ResultadoValidacionItinerario;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 
@@ -49,6 +50,31 @@ public class ItinerarioIaClienteService {
             + "- categoriaTuristica (por actividad): exactamente uno de estos valores: "
             + "NATURALEZA, VIDA_SILVESTRE, AVENTURA, GASTRONOMIA_LOCAL, CULTURA, PLAYAS, BIENESTAR, "
             + "DEPORTES_EXTREMOS, HISTORIA. Asignar según la naturaleza de la actividad.";
+
+    static final String SYSTEM_MESSAGE_REFINAMIENTO = "Eres el mismo planificador turístico experto "
+            + "en Costa Rica de EcoRuta, ahora conversando con un usuario que ya tiene un itinerario "
+            + "generado y quiere ajustarlo. Recibirás el itinerario actual completo (con el id de "
+            + "cada actividad), el historial de la conversación y el mensaje nuevo del usuario. "
+            + "Decide exactamente uno de estos tres casos:\n"
+            + "1. AMBIGUO O IMPOSIBLE: si el mensaje no da información suficiente para actuar, o pide "
+            + "algo que no se puede satisfacer con el itinerario disponible, responde con "
+            + "requiereAclaracion=true, respuestaTexto pidiendo la aclaración o explicando la "
+            + "limitación, y deja itinerarioActualizado y actividadParaComparar en null. NUNCA "
+            + "modifiques el itinerario en este caso.\n"
+            + "2. QUIERE VER OTRAS OPCIONES para una actividad/establecimiento puntual (ej. \"¿hay "
+            + "opciones de hospedaje con menor huella cerca de Monteverde?\"): responde con "
+            + "actividadParaComparar = el id exacto de esa actividad en el itinerario recibido, "
+            + "respuestaTexto confirmando que vas a mostrar alternativas, y deja "
+            + "itinerarioActualizado en null. NUNCA modifiques el itinerario en este caso.\n"
+            + "3. CUALQUIER OTRA SOLICITUD DE AJUSTE (actividades, horarios, presupuesto, duración, "
+            + "accesibilidad, ubicación): modifica el itinerario respetando las mismas reglas de "
+            + "formato de campos que usas para generar itinerarios nuevos (horario HH:mm, provincia, "
+            + "moneda, puntuacionAmbientalEstimada, categoriaTuristica), y devuelve el itinerario "
+            + "COMPLETO actualizado (todos los días, no solo los que cambiaron) en "
+            + "itinerarioActualizado, explicando en respuestaTexto qué cambiaste y por qué. Conserva "
+            + "intactos los días/actividades que el usuario no pidió modificar.\n"
+            + "En los tres casos, respuestaTexto siempre debe tener contenido, en español, dirigido "
+            + "al usuario.";
 
     private final ChatClient chatClient;
     private final ItinerarioValidador validador;
@@ -102,8 +128,60 @@ public class ItinerarioIaClienteService {
         }
     }
 
+    /**
+     * Interpreta un mensaje de refinamiento (PP-88), reintentando hasta {@value #MAX_REINTENTOS_IA}
+     * veces solo cuando la respuesta trae un itinerario actualizado estructuralmente inválido. Una
+     * respuesta que pide aclaración o señala una actividad para comparar no pasa por
+     * {@link ItinerarioValidador} — no hay itinerario que validar en esos casos.
+     *
+     * @throws ApiException {@code itinerarioRefinamientoFallido()} si la llamada en sí falla
+     *                       (timeout, red, proveedor no disponible) sin reintento, o si se agotan
+     *                       los reintentos por respuesta inválida.
+     */
+    public ResultadoRefinamientoIA refinar(String promptUsuario, int cantidadDiasEsperados) {
+        if (geminiApiKey == null || geminiApiKey.isBlank()) {
+            log.error("GEMINI_API_KEY no está configurada");
+            throw ApiException.itinerarioRefinamientoFallido();
+        }
+
+        for (int intento = 1; intento <= MAX_REINTENTOS_IA; intento++) {
+            RefinamientoIaResponseDTO respuesta = invocarChatClientRefinamiento(promptUsuario);
+
+            if (respuesta.isRequiereAclaracion() || respuesta.getActividadParaComparar() != null) {
+                return new ResultadoRefinamientoIA(respuesta, ResultadoValidacionItinerario.VALIDO_COMPLETO);
+            }
+
+            ResultadoValidacionItinerario resultado =
+                    validador.validar(respuesta.getItinerarioActualizado(), cantidadDiasEsperados);
+            if (resultado != ResultadoValidacionItinerario.INVALIDO) {
+                return new ResultadoRefinamientoIA(respuesta, resultado);
+            }
+            log.warn("Respuesta de IA invalida al refinar itinerario (intento {}/{})",
+                    intento, MAX_REINTENTOS_IA);
+        }
+        throw ApiException.itinerarioRefinamientoFallido();
+    }
+
+    private RefinamientoIaResponseDTO invocarChatClientRefinamiento(String promptUsuario) {
+        try {
+            return chatClient.prompt()
+                    .system(SYSTEM_MESSAGE_REFINAMIENTO)
+                    .user(promptUsuario)
+                    .call()
+                    .entity(RefinamientoIaResponseDTO.class);
+        } catch (Exception e) {
+            log.error("Error al comunicarse con Gemini para refinar itinerario: {}", e.getMessage(), e);
+            throw ApiException.itinerarioRefinamientoFallido();
+        }
+    }
+
     public record ResultadoGeneracionIA(
             ItinerarioIaResponseDTO respuesta,
+            ResultadoValidacionItinerario resultado
+    ) {}
+
+    public record ResultadoRefinamientoIA(
+            RefinamientoIaResponseDTO respuesta,
             ResultadoValidacionItinerario resultado
     ) {}
 }

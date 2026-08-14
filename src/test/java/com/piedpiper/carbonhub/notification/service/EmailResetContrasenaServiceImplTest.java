@@ -69,14 +69,14 @@ class EmailResetContrasenaServiceImplTest {
         String html = extraerParte(mensaje.getContent(), "text/html");
         assertThat(html)
                 .contains("Ana Perez")
-                .contains("http://localhost:4200/reset-contrasena?token=token-123")
+                .contains("http://localhost:4200/reset-contrasena#token=token-123")
                 .contains("Restablecer contraseña")
                 .contains("#1f8a5b");
 
         String textoPlano = extraerParte(mensaje.getContent(), "text/plain");
         assertThat(textoPlano)
                 .contains("Ana Perez")
-                .contains("http://localhost:4200/reset-contrasena?token=token-123");
+                .contains("http://localhost:4200/reset-contrasena#token=token-123");
     }
 
     @Test

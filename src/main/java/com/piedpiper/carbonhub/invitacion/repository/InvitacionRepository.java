@@ -20,4 +20,6 @@ public interface InvitacionRepository extends JpaRepository<Invitacion, UUID> {
 
     boolean existsByEmpresaIdAndEmailIgnoreCaseAndEstadoAndFechaExpiracionAfter(
             UUID empresaId, String email, EstadoInvitacion estado, Instant fecha);
+
+    long countByEmpresaIdAndFechaEmisionGreaterThanEqual(UUID empresaId, Instant fecha);
 }

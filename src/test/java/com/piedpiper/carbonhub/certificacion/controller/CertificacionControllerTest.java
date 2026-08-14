@@ -73,16 +73,16 @@ class CertificacionControllerTest {
 
     private CertificacionResponseDTO respuesta(String nombre) {
         return new CertificacionResponseDTO(UUID.randomUUID(), UUID.randomUUID(),
-                UUID.randomUUID(), UUID.randomUUID(), "CARBONO_NEUTRAL", nombre,
+                UUID.randomUUID(), UUID.randomUUID(), "CARBONO_NEUTRAL", nombre, "Ana Mora",
                 Instant.now(), LocalDate.of(2027, 1, 10), "ACTIVA", true, "jwt.firmado.aqui", false,
-                "https://carbonhub.example/api/certificaciones/verificar");
+                "https://carbonhub.example/api/certificaciones/verificar", "CH-2027-8F4A19KD");
     }
 
     private CertificacionResumenResponseDTO resumen(String nombre) {
         return new CertificacionResumenResponseDTO(UUID.randomUUID(), UUID.randomUUID(),
                 UUID.randomUUID(), UUID.randomUUID(), "CARBONO_NEUTRAL", nombre,
                 Instant.now(), LocalDate.of(2027, 1, 10), "ACTIVA", true,
-                "https://carbonhub.example/api/certificaciones/verificar");
+                "https://carbonhub.example/api/certificaciones/verificar", "CH-2027-8F4A19KD");
     }
 
     @Test
@@ -94,6 +94,7 @@ class CertificacionControllerTest {
         mockMvc.perform(get("/api/certificaciones").principal(ADMIN_EMPRESA))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].nombreCertificacion").value("Carbono Neutral"))
+                .andExpect(jsonPath("$[0].codigoVerificacion").value("CH-2027-8F4A19KD"))
                 .andExpect(jsonPath("$[0].credencialJwt").doesNotExist())
                 .andExpect(jsonPath("$[1].nombreCertificacion").value("Inventario de GEI"));
     }

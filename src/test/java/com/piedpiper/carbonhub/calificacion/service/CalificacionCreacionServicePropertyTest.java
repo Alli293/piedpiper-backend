@@ -1,6 +1,5 @@
 package com.piedpiper.carbonhub.calificacion.service;
 
-import com.piedpiper.carbonhub.auditor.models.entities.PerfilAuditor;
 import com.piedpiper.carbonhub.auditor.repository.PerfilAuditorRepository;
 import com.piedpiper.carbonhub.auditoria.models.entities.SolicitudAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.EstadoSolicitudAuditoria;
@@ -16,17 +15,13 @@ import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
 import net.jqwik.api.*;
 
-import org.mockito.ArgumentCaptor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -38,17 +33,21 @@ import static org.mockito.Mockito.*;
 class CalificacionCreacionServicePropertyTest {
 
     /**
-     * Property 1: Cálculo del promedio como media aritmética
+     * Property 1: Recalculo de metricas del auditor tras cada calificacion creada
      *
-     * For any lista no vacía de calificaciones (valores enteros entre 1 y 5) asociadas a un auditor,
-     * la calificacionPromedio almacenada en perfiles_auditor SHALL ser igual a la media aritmética
-     * de todos esos valores, redondeada a 1 decimal (half-up).
+     * El promedio y el conteo de reseñas ya no se calculan ni se redondean en memoria — la media
+     * aritmética (HALF_UP a 1 decimal) queda a cargo de la columna NUMERIC(2,1) en Postgres, vía el
+     * UPDATE atómico de {@code PerfilAuditorRepository.actualizarMetricasCalificacion}. Lo que esta
+     * property verifica en el nivel de servicio es que, para cualquier lista no vacía de
+     * calificaciones válidas, crear() siempre dispara ese recálculo exactamente una vez, con el id
+     * del auditor correcto — la matemática real vive en la DB y se cubre por separado en un test de
+     * integración.
      *
      * **Validates: Requirements 1.2, 8.1, 8.5**
      */
     @Property(tries = 100)
-    @Tag("Feature: PP-56-calificacion-verificada-auditores, Property 1: Cálculo del promedio como media aritmética")
-    void promedioEsMediaAritmeticaRedondeadaA1Decimal(
+    @Tag("Feature: PP-56-calificacion-verificada-auditores, Property 1: Recálculo de métricas del auditor")
+    void crearSiempreDisparaRecalculoAtomicoDeMetricasDelAuditor(
             @ForAll("calificacionesValidas") List<Integer> calificaciones) {
 
         // Arrange
@@ -56,12 +55,6 @@ class CalificacionCreacionServicePropertyTest {
         UUID empresaId = UUID.randomUUID();
         UUID auditoriaId = UUID.randomUUID();
         UUID usuarioId = UUID.randomUUID();
-
-        // Calculate expected average: arithmetic mean of all ratings, rounded to 1 decimal HALF_UP
-        double sum = calificaciones.stream().mapToInt(Integer::intValue).sum();
-        double rawAverage = sum / calificaciones.size();
-        BigDecimal expectedPromedio = BigDecimal.valueOf(rawAverage)
-                .setScale(1, RoundingMode.HALF_UP);
 
         // Mock repositories
         CalificacionRepository calificacionRepository = mock(CalificacionRepository.class);
@@ -82,14 +75,6 @@ class CalificacionCreacionServicePropertyTest {
                 .estado(EstadoSolicitudAuditoria.CERTIFICACION_EMITIDA)
                 .build();
 
-        PerfilAuditor perfilAuditor = PerfilAuditor.builder()
-                .id(UUID.randomUUID())
-                .auditor(auditor)
-                .build();
-
-        // Mock the repository to return the average that the DB would calculate for this set
-        when(calificacionRepository.promedioByAuditorId(auditorId))
-                .thenReturn(Optional.of(rawAverage));
         when(calificacionRepository.existsByAuditoriaIdAndEmpresaId(auditoriaId, empresaId))
                 .thenReturn(false);
         when(calificacionRepository.save(any(Calificacion.class)))
@@ -97,10 +82,6 @@ class CalificacionCreacionServicePropertyTest {
 
         when(solicitudAuditoriaRepository.findById(auditoriaId))
                 .thenReturn(Optional.of(auditoria));
-        when(perfilAuditorRepository.findByAuditorId(auditorId))
-                .thenReturn(Optional.of(perfilAuditor));
-        when(perfilAuditorRepository.save(any(PerfilAuditor.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
         when(usuarioRepository.findById(usuarioId))
                 .thenReturn(Optional.of(usuario));
         when(calificacionMapper.toDto(any(Calificacion.class)))
@@ -127,15 +108,8 @@ class CalificacionCreacionServicePropertyTest {
         // Act
         service.crear(request, authentication);
 
-        // Assert: capture the perfil saved and verify the promedio matches expected
-        ArgumentCaptor<PerfilAuditor> perfilCaptor = ArgumentCaptor.forClass(PerfilAuditor.class);
-        verify(perfilAuditorRepository).save(perfilCaptor.capture());
-
-        BigDecimal actualPromedio = perfilCaptor.getValue().getCalificacionPromedio();
-        assertThat(actualPromedio)
-                .as("Promedio para calificaciones %s debe ser %s (media aritmética redondeada HALF_UP a 1 decimal)",
-                        calificaciones, expectedPromedio)
-                .isEqualByComparingTo(expectedPromedio);
+        // Assert: el recálculo atómico se dispara exactamente una vez, para el auditor correcto
+        verify(perfilAuditorRepository, times(1)).actualizarMetricasCalificacion(auditorId);
     }
 
     /**

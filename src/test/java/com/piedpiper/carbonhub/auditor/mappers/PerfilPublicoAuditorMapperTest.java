@@ -7,6 +7,7 @@ import com.piedpiper.carbonhub.auditor.models.dtos.PerfilPublicoAuditorResponseD
 import com.piedpiper.carbonhub.auditor.models.dtos.ResenaVerificadaDTO;
 import com.piedpiper.carbonhub.auditor.models.entities.PerfilAuditor;
 import com.piedpiper.carbonhub.auditor.models.enums.EspecialidadAuditor;
+import com.piedpiper.carbonhub.auditor.models.enums.ProvinciaCR;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
 import com.piedpiper.carbonhub.user.models.enums.MetodoAuth;
@@ -49,6 +50,7 @@ class PerfilPublicoAuditorMapperTest {
                         EspecialidadAuditor.MANUFACTURA,
                         EspecialidadAuditor.AGROINDUSTRIA,
                         EspecialidadAuditor.ENERGIA_RENOVABLE))
+                .provincia(ProvinciaCR.HEREDIA)
                 .descripcionProfesional("Auditora con experiencia en manufactura")
                 .build();
 
@@ -60,7 +62,7 @@ class PerfilPublicoAuditorMapperTest {
                         LocalDate.of(2027, 3, 1), false));
 
         List<DistribucionSectorDTO> distribucion = List.of(
-                new DistribucionSectorDTO("MANUFACTURA", new BigDecimal("75.0")));
+                new DistribucionSectorDTO("MANUFACTURA", 6, new BigDecimal("75.0")));
 
         List<ResenaVerificadaDTO> resenas = List.of(
                 new ResenaVerificadaDTO(UUID.randomUUID(), UUID.randomUUID(),
@@ -87,6 +89,7 @@ class PerfilPublicoAuditorMapperTest {
         // Assert — campos directos
         assertThat(result.getAuditorId()).isEqualTo(auditor.getId());
         assertThat(result.getFotoPerfil()).isEqualTo("https://cdn.example.com/maria.png");
+        assertThat(result.getProvincia()).isEqualTo("HEREDIA");
         assertThat(result.getDescripcionProfesional()).isEqualTo("Auditora con experiencia en manufactura");
         assertThat(result.isDisponible()).isTrue();
 

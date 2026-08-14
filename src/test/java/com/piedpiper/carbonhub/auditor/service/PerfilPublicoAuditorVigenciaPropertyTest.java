@@ -3,7 +3,6 @@ package com.piedpiper.carbonhub.auditor.service;
 import com.piedpiper.carbonhub.auditor.mappers.PerfilPublicoAuditorMapper;
 import com.piedpiper.carbonhub.auditor.models.dtos.CertificacionPublicaDTO;
 import com.piedpiper.carbonhub.auditor.repository.PerfilAuditorRepository;
-import com.piedpiper.carbonhub.auditoria.repository.SolicitudAuditoriaRepository;
 import com.piedpiper.carbonhub.calificacion.repository.CalificacionRepository;
 import com.piedpiper.carbonhub.certificacion.config.CatalogoTiposCertificacion;
 import com.piedpiper.carbonhub.certificacion.config.DefinicionCertificacion;
@@ -47,7 +46,6 @@ class PerfilPublicoAuditorVigenciaPropertyTest {
     PerfilPublicoAuditorVigenciaPropertyTest() {
         PerfilAuditorRepository perfilRepo = mock(PerfilAuditorRepository.class);
         CertificacionRepository certRepo = mock(CertificacionRepository.class);
-        SolicitudAuditoriaRepository solicitudRepo = mock(SolicitudAuditoriaRepository.class);
         CalificacionRepository calificacionRepo = mock(CalificacionRepository.class);
         CatalogoTiposCertificacion catalogo = mock(CatalogoTiposCertificacion.class);
         PerfilPublicoAuditorMapper mapper = mock(PerfilPublicoAuditorMapper.class);
@@ -64,7 +62,7 @@ class PerfilPublicoAuditorVigenciaPropertyTest {
         when(catalogo.buscar(any())).thenReturn(Optional.of(defMock));
 
         this.service = new PerfilPublicoAuditorService(
-                perfilRepo, certRepo, solicitudRepo, calificacionRepo, catalogo, mapper, FIXED_CLOCK
+                perfilRepo, certRepo, calificacionRepo, catalogo, mapper, FIXED_CLOCK
         );
     }
 
@@ -165,6 +163,29 @@ class PerfilPublicoAuditorVigenciaPropertyTest {
         assertThat(resultado.get(0).getFechaVigencia())
                 .as("fechaVigencia en el DTO debe ser null cuando fechaVencimiento es null")
                 .isNull();
+    }
+
+    /**
+     * Una certificación REVOCADA debe considerarse vencida sin importar su
+     * fechaVencimiento, aunque esta sea futura.
+     */
+    @Property(tries = 100)
+    @Tag("Feature: PP-56-calificacion-verificada-auditores")
+    void vigencia_certificacionRevocadaSiempreVencidaAunqueFechaSeaFutura(
+            @ForAll("tipoCertificacionArbitrario") TipoCertificacion tipo) {
+
+        Certificacion cert = Certificacion.builder()
+                .tipo(tipo)
+                .estado(com.piedpiper.carbonhub.certificacion.models.enums.EstadoCertificacion.REVOCADA)
+                .fechaVencimiento(HOY.plusYears(1))
+                .build();
+
+        List<CertificacionPublicaDTO> resultado = service.calcularCertificacionesPublicas(List.of(cert));
+
+        assertThat(resultado).hasSize(1);
+        assertThat(resultado.get(0).isVencida())
+                .as("estado REVOCADA → vencida debe ser true aunque fechaVencimiento sea futura")
+                .isTrue();
     }
 
     // ========================================================================

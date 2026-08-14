@@ -138,4 +138,22 @@ class LoginServiceTest {
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.FORBIDDEN);
     }
+
+    /**
+     * RECHAZADO tiene que poder iniciar sesion: es la unica forma de que vea el motivo de su
+     * rechazo en /auditor/validacion-pendiente en vez de quedar bloqueado sin explicacion.
+     */
+    @Test
+    void cuentaRechazadaPuedeIniciarSesionParaVerElMotivo() {
+        Usuario usuario = usuarioCorreo();
+        usuario.setEstado(EstadoUsuario.RECHAZADO);
+        when(usuarioRepository.findByEmailIgnoreCaseForUpdate("ana@gmail.com")).thenReturn(Optional.of(usuario));
+        when(passwordEncoder.matches("secreta", "hash")).thenReturn(true);
+        when(jwtService.generar(usuario)).thenReturn("jwt-rechazado");
+
+        AuthResponseDTO response = service.login(
+                new LoginRequestDTO(MetodoAuth.CORREO, null, "ana@gmail.com", "secreta"));
+
+        assertThat(response.getToken()).isEqualTo("jwt-rechazado");
+    }
 }

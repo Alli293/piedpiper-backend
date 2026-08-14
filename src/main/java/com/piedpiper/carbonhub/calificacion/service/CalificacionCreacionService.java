@@ -1,6 +1,5 @@
 package com.piedpiper.carbonhub.calificacion.service;
 
-import com.piedpiper.carbonhub.auditor.models.entities.PerfilAuditor;
 import com.piedpiper.carbonhub.auditor.repository.PerfilAuditorRepository;
 import com.piedpiper.carbonhub.auditoria.models.entities.SolicitudAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.EstadoSolicitudAuditoria;
@@ -15,12 +14,11 @@ import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -52,7 +50,7 @@ public class CalificacionCreacionService {
                 .orElseThrow(() -> ApiException.accesoDenegado("No tiene permiso para calificar esta auditoría."));
 
         SolicitudAuditoria auditoria = solicitudAuditoriaRepository.findById(request.getAuditoriaId())
-                .orElseThrow(() -> ApiException.valorNoSoportado("La auditoría no fue encontrada."));
+                .orElseThrow(ApiException::solicitudAuditoriaNoEncontrada);
 
         verificarPermisoEmpresa(usuario, auditoria);
         verificarEstadoAuditoria(auditoria);
@@ -70,16 +68,26 @@ public class CalificacionCreacionService {
                 .actualizadoEn(ahora)
                 .build();
 
-        Calificacion persistida = calificacionRepository.save(calificacion);
+        Calificacion persistida;
+        try {
+            persistida = calificacionRepository.save(calificacion);
+        } catch (DataIntegrityViolationException e) {
+            // La constraint unica (auditoria_id, empresa_id) es la garantia real de unicidad;
+            // el existsBy de verificarUnicidad es solo un fast-path que no cubre la carrera
+            // entre dos requests concurrentes para la misma auditoria.
+            throw ApiException.cuentaDuplicada("Ya existe una calificación para esta auditoría.");
+        }
 
-        recalcularPromedio(auditoria.getAuditor().getId());
+        perfilAuditorRepository.actualizarMetricasCalificacion(auditoria.getAuditor().getId());
 
         return calificacionMapper.toDto(persistida);
     }
 
     private void verificarPermisoEmpresa(Usuario usuario, SolicitudAuditoria auditoria) {
-        if (usuario.getEmpresa() == null
-                || !usuario.getEmpresa().getId().equals(auditoria.getEmpresa().getId())) {
+        if (usuario.getEmpresa() == null) {
+            throw ApiException.empresaNoConfigurada();
+        }
+        if (!usuario.getEmpresa().getId().equals(auditoria.getEmpresa().getId())) {
             throw ApiException.accesoDenegado("No tiene permiso para calificar esta auditoría.");
         }
     }
@@ -92,24 +100,7 @@ public class CalificacionCreacionService {
 
     private void verificarUnicidad(UUID auditoriaId, UUID empresaId) {
         if (calificacionRepository.existsByAuditoriaIdAndEmpresaId(auditoriaId, empresaId)) {
-            throw ApiException.calificacionDuplicada();
-        }
-    }
-
-    private void recalcularPromedio(UUID auditorId) {
-        Double promedio = calificacionRepository.promedioByAuditorId(auditorId).orElse(null);
-        if (promedio == null) {
-            return;
-        }
-
-        BigDecimal promedioRedondeado = BigDecimal.valueOf(promedio)
-                .setScale(1, RoundingMode.HALF_UP);
-
-        PerfilAuditor perfil = perfilAuditorRepository.findByAuditorId(auditorId)
-                .orElse(null);
-        if (perfil != null) {
-            perfil.setCalificacionPromedio(promedioRedondeado);
-            perfilAuditorRepository.save(perfil);
+            throw ApiException.cuentaDuplicada("Ya existe una calificación para esta auditoría.");
         }
     }
 }

@@ -12,9 +12,11 @@ import java.util.regex.Pattern;
 public final class TokenVerificacionGenerator {
 
     private static final int LONGITUD_BYTES = 32;
+    public static final int LONGITUD_TOKEN_CODIFICADO = 43;
+    public static final String PATRON_TOKEN = "^[A-Za-z0-9_-]{" + LONGITUD_TOKEN_CODIFICADO + "}$";
     private static final long HORAS_EXPIRACION = 24;
     private static final SecureRandom RANDOM = new SecureRandom();
-    private static final Pattern FORMATO_TOKEN = Pattern.compile("^[A-Za-z0-9_-]{43}$");
+    private static final Pattern FORMATO_TOKEN = Pattern.compile(PATRON_TOKEN);
 
     private TokenVerificacionGenerator() {
     }

@@ -16,8 +16,13 @@ public interface CalificacionRepository extends JpaRepository<Calificacion, UUID
 
     Optional<Calificacion> findByAuditoriaIdAndEmpresaId(UUID auditoriaId, UUID empresaId);
 
-    List<Calificacion> findByAuditorIdOrderByCreadoEnDesc(UUID auditorId);
-
-    @Query("SELECT AVG(c.calificacion) FROM Calificacion c WHERE c.auditor.id = :auditorId")
-    Optional<Double> promedioByAuditorId(@Param("auditorId") UUID auditorId);
+    // join fetch de empresa: el perfil público arma una reseña por fila con nombreEmpresa, así que
+    // sin esto cada reseña dispara una carga perezosa adicional (N+1) para un auditor con varias.
+    @Query("""
+            select c from Calificacion c
+            join fetch c.empresa
+            where c.auditor.id = :auditorId
+            order by c.creadoEn desc
+            """)
+    List<Calificacion> findByAuditorIdOrderByCreadoEnDesc(@Param("auditorId") UUID auditorId);
 }

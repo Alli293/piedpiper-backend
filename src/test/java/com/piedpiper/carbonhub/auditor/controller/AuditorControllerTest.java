@@ -174,6 +174,7 @@ class AuditorControllerTest {
                 "Carlos Ramírez",
                 "https://cdn.example.com/foto.png",
                 "Auditor certificado con 10 años de experiencia.",
+                "SAN_JOSE",
                 List.of("AGROINDUSTRIA", "MANUFACTURA"),
                 List.of(new CertificacionPublicaDTO("Carbono Neutral", "CarbonHub",
                         LocalDate.of(2027, 6, 15), false)),
@@ -182,7 +183,7 @@ class AuditorControllerTest {
                 15,
                 42,
                 new BigDecimal("2.3"),
-                List.of(new DistribucionSectorDTO("AGROINDUSTRIA", new BigDecimal("60.0"))),
+                List.of(new DistribucionSectorDTO("AGROINDUSTRIA", 25, new BigDecimal("60.0"))),
                 Collections.emptyList()
         );
 
@@ -195,6 +196,7 @@ class AuditorControllerTest {
                 .andExpect(jsonPath("$.nombre").value("Carlos Ramírez"))
                 .andExpect(jsonPath("$.fotoPerfil").value("https://cdn.example.com/foto.png"))
                 .andExpect(jsonPath("$.descripcionProfesional").value("Auditor certificado con 10 años de experiencia."))
+                .andExpect(jsonPath("$.provincia").value("SAN_JOSE"))
                 .andExpect(jsonPath("$.especialidades[0]").value("AGROINDUSTRIA"))
                 .andExpect(jsonPath("$.especialidades[1]").value("MANUFACTURA"))
                 .andExpect(jsonPath("$.certificaciones[0].nombre").value("Carbono Neutral"))

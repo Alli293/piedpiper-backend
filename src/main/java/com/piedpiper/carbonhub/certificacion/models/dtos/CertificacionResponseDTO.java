@@ -19,6 +19,7 @@ public class CertificacionResponseDTO {
     private UUID idAuditor;
     private String tipo;
     private String nombreCertificacion;
+    private String nombreAuditor;
     private Instant fechaEmision;
     private LocalDate fechaVencimiento;
     private String estado;
@@ -39,4 +40,12 @@ public class CertificacionResponseDTO {
 
     /** URL publica de verificacion, sin autenticacion (ver CertificacionEmisorController). */
     private String urlVerificacion;
+
+    /**
+     * Codigo publico de verificacion de la certificacion (ver
+     * {@code Certificacion.codigoVerificacion} / {@code GeneradorCodigoVerificacionService}).
+     * Puede ser {@code null} en certificaciones emitidas antes de que el
+     * codigo existiera (columna nullable, ver docs/CONVENTIONS.md #11).
+     */
+    private String codigoVerificacion;
 }

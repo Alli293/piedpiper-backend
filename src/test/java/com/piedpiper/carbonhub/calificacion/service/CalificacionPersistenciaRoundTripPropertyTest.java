@@ -1,6 +1,5 @@
 package com.piedpiper.carbonhub.calificacion.service;
 
-import com.piedpiper.carbonhub.auditor.models.entities.PerfilAuditor;
 import com.piedpiper.carbonhub.auditor.repository.PerfilAuditorRepository;
 import com.piedpiper.carbonhub.auditoria.models.entities.SolicitudAuditoria;
 import com.piedpiper.carbonhub.auditoria.models.enums.EstadoSolicitudAuditoria;
@@ -127,15 +126,8 @@ class CalificacionPersistenciaRoundTripPropertyTest {
                     return entity;
                 });
 
-        // Promedio calculation (not relevant for this property but needed for flow)
-        when(calificacionRepository.promedioByAuditorId(any(UUID.class)))
-                .thenReturn(Optional.of(3.0));
-
-        PerfilAuditor perfil = new PerfilAuditor();
-        when(perfilAuditorRepository.findByAuditorId(any(UUID.class)))
-                .thenReturn(Optional.of(perfil));
-        when(perfilAuditorRepository.save(any(PerfilAuditor.class)))
-                .thenAnswer(i -> i.getArgument(0));
+        // El recálculo de métricas del auditor (perfilAuditorRepository.actualizarMetricasCalificacion)
+        // es un UPDATE atómico de retorno void; no necesita stub, el mock no-opea por defecto.
 
         // Mapper delegates to a real-like implementation that preserves calificacion and comentario
         when(calificacionMapper.toDto(any(Calificacion.class))).thenAnswer(invocation -> {

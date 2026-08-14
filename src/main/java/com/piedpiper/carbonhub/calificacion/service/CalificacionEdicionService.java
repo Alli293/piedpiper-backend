@@ -1,6 +1,5 @@
 package com.piedpiper.carbonhub.calificacion.service;
 
-import com.piedpiper.carbonhub.auditor.models.entities.PerfilAuditor;
 import com.piedpiper.carbonhub.auditor.repository.PerfilAuditorRepository;
 import com.piedpiper.carbonhub.calificacion.mappers.CalificacionMapper;
 import com.piedpiper.carbonhub.calificacion.models.dtos.CalificacionResponseDTO;
@@ -16,8 +15,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -43,7 +40,7 @@ public class CalificacionEdicionService {
     public CalificacionResponseDTO editar(UUID calificacionId, EditarCalificacionRequestDTO request,
                                           Authentication authentication) {
         Calificacion calificacion = calificacionRepository.findById(calificacionId)
-                .orElseThrow(ApiException::calificacionNoEncontrada);
+                .orElseThrow(() -> ApiException.recursoNoEncontrado("La calificación no fue encontrada."));
 
         UUID usuarioId = Autenticaciones.usuarioId(authentication);
         Usuario usuario = usuarioRepository.findById(usuarioId)
@@ -57,32 +54,17 @@ public class CalificacionEdicionService {
 
         Calificacion actualizada = calificacionRepository.save(calificacion);
 
-        recalcularPromedio(calificacion.getAuditor().getId());
+        perfilAuditorRepository.actualizarMetricasCalificacion(calificacion.getAuditor().getId());
 
         return calificacionMapper.toDto(actualizada);
     }
 
     private void verificarPermisoEmpresa(Usuario usuario, Calificacion calificacion) {
-        if (usuario.getEmpresa() == null
-                || !usuario.getEmpresa().getId().equals(calificacion.getEmpresa().getId())) {
+        if (usuario.getEmpresa() == null) {
+            throw ApiException.empresaNoConfigurada();
+        }
+        if (!usuario.getEmpresa().getId().equals(calificacion.getEmpresa().getId())) {
             throw ApiException.accesoDenegado("No tiene permiso para editar esta calificación.");
-        }
-    }
-
-    private void recalcularPromedio(UUID auditorId) {
-        Double promedio = calificacionRepository.promedioByAuditorId(auditorId).orElse(null);
-        if (promedio == null) {
-            return;
-        }
-
-        BigDecimal promedioRedondeado = BigDecimal.valueOf(promedio)
-                .setScale(1, RoundingMode.HALF_UP);
-
-        PerfilAuditor perfil = perfilAuditorRepository.findByAuditorId(auditorId)
-                .orElse(null);
-        if (perfil != null) {
-            perfil.setCalificacionPromedio(promedioRedondeado);
-            perfilAuditorRepository.save(perfil);
         }
     }
 }

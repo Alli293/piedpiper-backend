@@ -109,6 +109,35 @@ public class MetaService {
         return aDto(guardada, huellaActualT, hoy);
     }
 
+    @Transactional
+    public MetaResponseDTO actualizar(UUID usuarioId, UUID id, CrearMetaRequestDTO request) {
+        LocalDate hoy = LocalDate.now(ZonasHorarias.COSTA_RICA);
+        if (request.getFechaLimite().isBefore(hoy)) {
+            throw ApiException.fechaLimiteMetaInvalida();
+        }
+
+        UUID empresaId = emisionEmpresaService.empresaId(usuarioId);
+        Meta meta = metaRepository.findByIdAndEmpresaId(id, empresaId)
+                .orElseThrow(() -> ApiException.recursoNoEncontrado("No se encontró la meta solicitada."));
+
+        meta.setNombreMeta(request.getNombreMeta());
+        meta.setValorObjetivoHuellaT(request.getValorObjetivoHuellaT());
+        meta.setFechaLimite(request.getFechaLimite());
+        Meta actualizada = metaRepository.save(meta);
+
+        BigDecimal huellaActualT = huellaActualToneladas(
+                empresaId, PeriodoDashboard.POR_DEFECTO, hoy.getYear(), hoy);
+        return aDto(actualizada, huellaActualT, hoy);
+    }
+
+    @Transactional
+    public void eliminar(UUID usuarioId, UUID id) {
+        UUID empresaId = emisionEmpresaService.empresaId(usuarioId);
+        Meta meta = metaRepository.findByIdAndEmpresaId(id, empresaId)
+                .orElseThrow(() -> ApiException.recursoNoEncontrado("No se encontró la meta solicitada."));
+        metaRepository.delete(meta);
+    }
+
     @Transactional(readOnly = true)
     public List<MetaResponseDTO> listar(UUID usuarioId, String periodo, Integer anio) {
         UUID empresaId = emisionEmpresaService.empresaId(usuarioId);
