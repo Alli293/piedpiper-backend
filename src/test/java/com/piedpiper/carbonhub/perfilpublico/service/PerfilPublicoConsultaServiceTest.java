@@ -7,6 +7,8 @@ import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.empresa.models.enums.EstadoEmpresa;
 import com.piedpiper.carbonhub.empresa.models.enums.SectorIndustrial;
 import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
+import com.piedpiper.carbonhub.ima.models.entities.ImaSnapshot;
+import com.piedpiper.carbonhub.ima.repository.ImaSnapshotRepository;
 import com.piedpiper.carbonhub.insignia.repository.InsigniaEmpresaRepository;
 import com.piedpiper.carbonhub.perfilpublico.exceptions.PerfilNoEncontradoException;
 import com.piedpiper.carbonhub.perfilpublico.models.dtos.PerfilPublicoResponseDTO;
@@ -51,6 +53,9 @@ class PerfilPublicoConsultaServiceTest {
 
     @Mock
     private InsigniaEmpresaRepository insigniaEmpresaRepository;
+
+    @Mock
+    private ImaSnapshotRepository imaSnapshotRepository;
 
     @Mock
     private SlugResolverService slugResolver;
@@ -129,7 +134,7 @@ class PerfilPublicoConsultaServiceTest {
     }
 
     @Test
-    @DisplayName("NivelEcologico null → 'Sin nivel' en DTO")
+    @DisplayName("NivelEcologico null y sin snapshot IMA → 'Sin nivel' en DTO")
     void obtenerPorSlug_nivelEcologicoNull_retornaSinNivel() {
         // Arrange
         Empresa empresa = buildEmpresaActiva("empresa-sin-nivel", "Empresa Sin Nivel", null);
@@ -144,6 +149,131 @@ class PerfilPublicoConsultaServiceTest {
 
         // Assert
         assertThat(dto.getNivelEcologico()).isEqualTo("Sin nivel");
+        assertThat(dto.getFechaActualizacionNivel()).isNull();
+    }
+
+    @Test
+    @DisplayName("NivelEcologico null con snapshot IMA → nivel derivado del IMA y su fecha")
+    void obtenerPorSlug_nivelEcologicoNullConSnapshotIma_derivaNivelDeIma() {
+        // Arrange
+        Empresa empresa = buildEmpresaActiva("empresa-ima", "Empresa Ima", null);
+        Instant calculatedAt = Instant.parse("2026-03-01T00:00:00Z");
+        ImaSnapshot snapshot = ImaSnapshot.builder()
+                .empresaId(empresa.getId())
+                .anio(2026)
+                .mes(3)
+                .ima(new java.math.BigDecimal("82.0"))
+                .cobertura(new java.math.BigDecimal("100.0"))
+                .consistencia(new java.math.BigDecimal("100.0"))
+                .parcial(false)
+                .calculatedAt(calculatedAt)
+                .build();
+
+        when(slugResolver.resolver("empresa-ima")).thenReturn(empresa);
+        when(certificacionRepository
+                .findByEmpresaIdAndEstadoAndFechaVencimientoGreaterThanOrderByFechaEmisionDesc(
+                        eq(empresa.getId()), eq(EstadoCertificacion.ACTIVA), any(LocalDate.class)))
+                .thenReturn(Collections.emptyList());
+        when(imaSnapshotRepository.findFirstByEmpresaIdOrderByAnioDescMesDesc(empresa.getId()))
+                .thenReturn(Optional.of(snapshot));
+
+        // Act
+        PerfilPublicoResponseDTO dto = service.obtenerPorSlug("empresa-ima");
+
+        // Assert — IMA 82.0 cae en el umbral de Oro (>= 75 y < 90)
+        assertThat(dto.getNivelEcologico()).isEqualTo("Oro");
+        assertThat(dto.getFechaActualizacionNivel()).isEqualTo(calculatedAt);
+    }
+
+    @Test
+    @DisplayName("NivelEcologico con valor manual explícito → se respeta tal cual, sin consultar IMA")
+    void obtenerPorSlug_nivelEcologicoManual_ignoraIma() {
+        // Arrange
+        Empresa empresa = buildEmpresaActiva("empresa-manual", "Empresa Manual", "Oro");
+        when(slugResolver.resolver("empresa-manual")).thenReturn(empresa);
+        when(certificacionRepository
+                .findByEmpresaIdAndEstadoAndFechaVencimientoGreaterThanOrderByFechaEmisionDesc(
+                        eq(empresa.getId()), eq(EstadoCertificacion.ACTIVA), any(LocalDate.class)))
+                .thenReturn(Collections.emptyList());
+
+        // Act
+        PerfilPublicoResponseDTO dto = service.obtenerPorSlug("empresa-manual");
+
+        // Assert
+        assertThat(dto.getNivelEcologico()).isEqualTo("Oro");
+        verify(imaSnapshotRepository, never()).findFirstByEmpresaIdOrderByAnioDescMesDesc(any());
+    }
+
+    @Test
+    @DisplayName("NivelEcologico null con snapshot IMA bajo el umbral de Bronce → 'Sin nivel' sin fecha")
+    void obtenerPorSlug_nivelEcologicoNullConSnapshotBajoUmbral_retornaSinNivelSinFecha() {
+        // Arrange
+        Empresa empresa = buildEmpresaActiva("empresa-ima-bajo", "Empresa Ima Bajo", null);
+        ImaSnapshot snapshot = ImaSnapshot.builder()
+                .empresaId(empresa.getId())
+                .anio(2026)
+                .mes(3)
+                .ima(new java.math.BigDecimal("20.0"))
+                .cobertura(new java.math.BigDecimal("100.0"))
+                .consistencia(new java.math.BigDecimal("100.0"))
+                .parcial(false)
+                .calculatedAt(Instant.parse("2026-03-01T00:00:00Z"))
+                .build();
+
+        when(slugResolver.resolver("empresa-ima-bajo")).thenReturn(empresa);
+        when(certificacionRepository
+                .findByEmpresaIdAndEstadoAndFechaVencimientoGreaterThanOrderByFechaEmisionDesc(
+                        eq(empresa.getId()), eq(EstadoCertificacion.ACTIVA), any(LocalDate.class)))
+                .thenReturn(Collections.emptyList());
+        when(imaSnapshotRepository.findFirstByEmpresaIdOrderByAnioDescMesDesc(empresa.getId()))
+                .thenReturn(Optional.of(snapshot));
+
+        // Act
+        PerfilPublicoResponseDTO dto = service.obtenerPorSlug("empresa-ima-bajo");
+
+        // Assert — IMA 20.0 está por debajo del umbral de Bronce (40): "Sin nivel" pero
+        // sin fechaActualizacionNivel, porque "Sin nivel" no es un nivel vigente desde una fecha.
+        assertThat(dto.getNivelEcologico()).isEqualTo("Sin nivel");
+        assertThat(dto.getFechaActualizacionNivel()).isNull();
+    }
+
+    @Test
+    @DisplayName("buscarPorNombre → resuelve los niveles de la página con una sola consulta bulk de snapshots")
+    void buscarPorNombre_resuelveNivelesConUnaSolaConsultaBulk() {
+        // Arrange
+        Empresa empresaConIma = buildEmpresaActiva("empresa-a", "Empresa A", null);
+        Empresa empresaManual = buildEmpresaActiva("empresa-b", "Empresa B", "Plata");
+        Empresa empresaSinSnapshot = buildEmpresaActiva("empresa-c", "Empresa C", null);
+
+        ImaSnapshot snapshot = ImaSnapshot.builder()
+                .empresaId(empresaConIma.getId())
+                .anio(2026)
+                .mes(3)
+                .ima(new java.math.BigDecimal("82.0"))
+                .cobertura(new java.math.BigDecimal("100.0"))
+                .consistencia(new java.math.BigDecimal("100.0"))
+                .parcial(false)
+                .calculatedAt(Instant.parse("2026-03-01T00:00:00Z"))
+                .build();
+
+        List<Empresa> contenido = List.of(empresaConIma, empresaManual, empresaSinSnapshot);
+        when(empresaRepository.findByEstado(eq(EstadoEmpresa.ACTIVO), any()))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(contenido));
+        when(imaSnapshotRepository.findUltimosPorEmpresaIds(any()))
+                .thenReturn(List.of(snapshot));
+
+        // Act
+        var resultado = service.buscarPorNombre(null, 0, 12);
+
+        // Assert
+        List<String> niveles = resultado.getContent().stream()
+                .map(com.piedpiper.carbonhub.perfilpublico.models.dtos.BusquedaPerfilPublicoDTO::getNivelEcologico)
+                .toList();
+        assertThat(niveles).containsExactly("Oro", "Plata", "Sin nivel");
+
+        // La consulta bulk se llama una única vez para toda la página, nunca una por empresa.
+        verify(imaSnapshotRepository, times(1)).findUltimosPorEmpresaIds(any());
+        verify(imaSnapshotRepository, never()).findFirstByEmpresaIdOrderByAnioDescMesDesc(any());
     }
 
     // ========================================================================
@@ -162,7 +292,7 @@ class PerfilPublicoConsultaServiceTest {
         EmpresaRepository mockRepo = mock(EmpresaRepository.class);
         CertificacionRepository mockCertRepo = mock(CertificacionRepository.class);
         SlugResolverService mockSlugResolver = mock(SlugResolverService.class);
-        PerfilPublicoConsultaService svc = new PerfilPublicoConsultaService(mockRepo, mockCertRepo, mock(InsigniaEmpresaRepository.class), mockSlugResolver);
+        PerfilPublicoConsultaService svc = new PerfilPublicoConsultaService(mockRepo, mockCertRepo, mock(InsigniaEmpresaRepository.class), mock(ImaSnapshotRepository.class), mockSlugResolver);
 
         Empresa empresa = buildEmpresaActiva(slug, "Empresa Test", nivelEcologico);
         when(mockSlugResolver.resolver(slug)).thenReturn(empresa);
@@ -203,7 +333,7 @@ class PerfilPublicoConsultaServiceTest {
         EmpresaRepository mockRepo = mock(EmpresaRepository.class);
         CertificacionRepository mockCertRepo = mock(CertificacionRepository.class);
         SlugResolverService mockSlugResolver = mock(SlugResolverService.class);
-        PerfilPublicoConsultaService svc = new PerfilPublicoConsultaService(mockRepo, mockCertRepo, mock(InsigniaEmpresaRepository.class), mockSlugResolver);
+        PerfilPublicoConsultaService svc = new PerfilPublicoConsultaService(mockRepo, mockCertRepo, mock(InsigniaEmpresaRepository.class), mock(ImaSnapshotRepository.class), mockSlugResolver);
 
         String normalizedSlug = baseSlug.toLowerCase();
         Empresa empresa = buildEmpresaActiva(normalizedSlug, "Empresa Test", "Plata");
@@ -251,7 +381,7 @@ class PerfilPublicoConsultaServiceTest {
         EmpresaRepository mockRepo = mock(EmpresaRepository.class);
         CertificacionRepository mockCertRepo = mock(CertificacionRepository.class);
         SlugResolverService mockSlugResolver = mock(SlugResolverService.class);
-        PerfilPublicoConsultaService svc = new PerfilPublicoConsultaService(mockRepo, mockCertRepo, mock(InsigniaEmpresaRepository.class), mockSlugResolver);
+        PerfilPublicoConsultaService svc = new PerfilPublicoConsultaService(mockRepo, mockCertRepo, mock(InsigniaEmpresaRepository.class), mock(ImaSnapshotRepository.class), mockSlugResolver);
 
         when(mockSlugResolver.resolver(invalidSlug))
                 .thenThrow(new PerfilNoEncontradoException("El perfil que buscas no existe o ya no está disponible."));
@@ -297,7 +427,7 @@ class PerfilPublicoConsultaServiceTest {
         EmpresaRepository mockRepo = mock(EmpresaRepository.class);
         CertificacionRepository mockCertRepo = mock(CertificacionRepository.class);
         SlugResolverService mockSlugResolver = mock(SlugResolverService.class);
-        PerfilPublicoConsultaService svc = new PerfilPublicoConsultaService(mockRepo, mockCertRepo, mock(InsigniaEmpresaRepository.class), mockSlugResolver);
+        PerfilPublicoConsultaService svc = new PerfilPublicoConsultaService(mockRepo, mockCertRepo, mock(InsigniaEmpresaRepository.class), mock(ImaSnapshotRepository.class), mockSlugResolver);
 
         Empresa empresa = buildEmpresaActiva(slug, "Empresa Certs", "Bronce");
 
