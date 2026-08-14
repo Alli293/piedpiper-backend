@@ -532,6 +532,11 @@ public class ApiException extends RuntimeException {
                 "La fecha límite debe ser una fecha futura.");
     }
 
+    public static ApiException auditoriaNoCalificable() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "Solo se pueden calificar auditorías con certificación emitida.");
+    }
+
     public static ApiException ecoScoreNoDisponible() {
         return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
                 "Aún no se ha calculado un EcoScore para este itinerario.");

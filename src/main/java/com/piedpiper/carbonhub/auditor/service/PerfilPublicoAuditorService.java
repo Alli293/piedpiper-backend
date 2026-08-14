@@ -9,8 +9,10 @@ import com.piedpiper.carbonhub.auditor.models.dtos.ResenaVerificadaDTO;
 import com.piedpiper.carbonhub.auditor.models.entities.DistribucionSectorAuditor;
 import com.piedpiper.carbonhub.auditor.models.entities.PerfilAuditor;
 import com.piedpiper.carbonhub.auditor.repository.PerfilAuditorRepository;
+import com.piedpiper.carbonhub.calificacion.repository.CalificacionRepository;
 import com.piedpiper.carbonhub.certificacion.config.CatalogoTiposCertificacion;
 import com.piedpiper.carbonhub.certificacion.models.entities.Certificacion;
+import com.piedpiper.carbonhub.certificacion.models.enums.EstadoCertificacion;
 import com.piedpiper.carbonhub.certificacion.repository.CertificacionRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
@@ -18,9 +20,10 @@ import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
-import java.util.Collections;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
@@ -31,17 +34,20 @@ public class PerfilPublicoAuditorService {
 
     private final PerfilAuditorRepository perfilAuditorRepository;
     private final CertificacionRepository certificacionRepository;
+    private final CalificacionRepository calificacionRepository;
     private final CatalogoTiposCertificacion catalogoTiposCertificacion;
     private final PerfilPublicoAuditorMapper mapper;
     private final Clock clock;
 
     public PerfilPublicoAuditorService(PerfilAuditorRepository perfilAuditorRepository,
                                        CertificacionRepository certificacionRepository,
+                                       CalificacionRepository calificacionRepository,
                                        CatalogoTiposCertificacion catalogoTiposCertificacion,
                                        PerfilPublicoAuditorMapper mapper,
                                        Clock clock) {
         this.perfilAuditorRepository = perfilAuditorRepository;
         this.certificacionRepository = certificacionRepository;
+        this.calificacionRepository = calificacionRepository;
         this.catalogoTiposCertificacion = catalogoTiposCertificacion;
         this.mapper = mapper;
         this.clock = clock;
@@ -67,13 +73,27 @@ public class PerfilPublicoAuditorService {
         // 5. Leer distribución persistida por PP-55
         List<DistribucionSectorDTO> distribucionSectores = distribucionPersistida(perfil);
 
-        // 6. Obtener reseñas verificadas
-        // TODO: Implementar cuando PP-56 cree la entidad Calificacion
-        List<ResenaVerificadaDTO> resenas = Collections.emptyList();
+        // 6. Obtener reseñas verificadas desde calificaciones_auditoria
+        List<ResenaVerificadaDTO> resenas = calificacionRepository.findByAuditorIdOrderByCreadoEnDesc(auditorId)
+                .stream()
+                .map(cal -> new ResenaVerificadaDTO(
+                        cal.getId(),
+                        cal.getEmpresa().getId(),
+                        BigDecimal.valueOf(cal.getCalificacion()),
+                        cal.getComentario(),
+                        cal.getCreadoEn().atZone(ZoneId.systemDefault()).toLocalDate(),
+                        cal.getNombreCalificador() != null ? cal.getNombreCalificador() : cal.getEmpresa().getNombreEmpresa(),
+                        cal.getEmpresa().getNombreEmpresa()))
+                .toList();
 
         // 7. Ensamblar y retornar el DTO
-        return mapper.aPerfilPublicoDto(perfil, metricas, certificacionesPublicas,
-                distribucionSectores, resenas);
+        PerfilPublicoAuditorResponseDTO dto = mapper.aPerfilPublicoDto(perfil, metricas,
+                certificacionesPublicas, distribucionSectores, resenas);
+
+        // Usar el conteo real de calificaciones en lugar del valor cacheado en perfil
+        dto.setTotalResenas(resenas.size());
+
+        return dto;
     }
 
     private MetricasAuditor metricasPersistidas(PerfilAuditor perfil) {
@@ -92,7 +112,8 @@ public class PerfilPublicoAuditorService {
                             .map(def -> def.nombre())
                             .orElse(cert.getTipo() != null ? cert.getTipo().name() : "Certificación");
                     LocalDate fechaVigencia = cert.getFechaVencimiento();
-                    boolean vencida = fechaVigencia == null || fechaVigencia.isBefore(hoy);
+                    boolean vencida = cert.getEstado() == EstadoCertificacion.REVOCADA
+                            || fechaVigencia == null || fechaVigencia.isBefore(hoy);
                     return new CertificacionPublicaDTO(
                             nombre,
                             ENTIDAD_CERTIFICADORA_CARBONHUB,

@@ -65,7 +65,9 @@ class PerfilPublicoAuditorMapperTest {
                 new DistribucionSectorDTO("MANUFACTURA", 6, new BigDecimal("75.0")));
 
         List<ResenaVerificadaDTO> resenas = List.of(
-                new ResenaVerificadaDTO(new BigDecimal("5.0"), "Excelente", LocalDate.of(2024, 10, 5)));
+                new ResenaVerificadaDTO(UUID.randomUUID(), UUID.randomUUID(),
+                        new BigDecimal("5.0"), "Excelente", LocalDate.of(2024, 10, 5),
+                        "Carlos López", "Empresa Test"));
 
         // Act
         PerfilPublicoAuditorResponseDTO result = mapper.aPerfilPublicoDto(
