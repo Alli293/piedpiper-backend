@@ -311,6 +311,40 @@ class ComparacionAlternativasServiceTest {
     }
 
     @Test
+    void sustituirActividadConConflictoDeVersionLanza409() {
+        ItinerarioActividad actividad = actividadOriginal();
+        Itinerario itinerario = crearItinerarioConActividad(actividad);
+
+        SustitucionRequestDTO request = new SustitucionRequestDTO(
+                "Kayak en manglar", "Recorrido guiado",
+                new BigDecimal("15000"), "CRC", "EcoTours CR", 85,
+                "AVENTURA", "PUNTARENAS");
+
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, usuarioId))
+                .thenReturn(Optional.of(itinerario));
+        when(itinerarioActividadRepository.findByIdAndItinerarioDia_Itinerario_Id(actividadId, itinerarioId))
+                .thenReturn(Optional.of(actividad));
+        when(itinerarioActividadRepository.save(any(ItinerarioActividad.class))).thenReturn(actividad);
+        // A diferencia de itinerarioRepository (Spring Data), entityManager se usa directo, así que
+        // un conflicto real de versión llega acá como jakarta.persistence.OptimisticLockException,
+        // no como el ObjectOptimisticLockingFailureException envuelto de Spring.
+        doAnswer(invocation -> {
+            throw new jakarta.persistence.OptimisticLockException("version conflict");
+        }).when(entityManager).lock(eq(itinerario), eq(LockModeType.OPTIMISTIC_FORCE_INCREMENT));
+
+        assertThatThrownBy(() -> service.sustituirActividad(itinerarioId, actividadId, request, usuarioId))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> {
+                    assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.CONFLICT);
+                    assertThat(ex.getMessage()).isEqualTo(
+                            "Este itinerario cambió en otra sesión. Recargalo para ver los cambios más "
+                                    + "recientes antes de seguir editando.");
+                });
+
+        verify(mapper, never()).toDto(any(Itinerario.class));
+    }
+
+    @Test
     void sustituirActividadMantieneOrdenYDia() {
         ItinerarioActividad actividad = actividadOriginal();
         actividad.setOrden(3);

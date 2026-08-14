@@ -15,11 +15,14 @@ import com.piedpiper.carbonhub.ecoruta.repository.ItinerarioActividadRepository;
 import com.piedpiper.carbonhub.ecoruta.repository.ItinerarioRepository;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
+import jakarta.persistence.OptimisticLockException;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -28,6 +31,8 @@ import java.util.UUID;
 
 @Service
 public class ComparacionAlternativasService {
+
+    private static final Logger log = LoggerFactory.getLogger(ComparacionAlternativasService.class);
 
     private static final int ECO_SCORE_DEFAULT = 50;
 
@@ -174,8 +179,21 @@ public class ComparacionAlternativasService {
         // para justamente este caso. El incremento en sí ocurre recién en el flush (no al llamar
         // a lock()), así que se fuerza el flush acá mismo — si no, el DTO de respuesta de abajo
         // todavía leería la versión vieja, antes de que Hibernate la suba.
-        entityManager.lock(itinerario, LockModeType.OPTIMISTIC_FORCE_INCREMENT);
-        entityManager.flush();
+        //
+        // A diferencia de itinerarioRepository (Spring Data, @Repository con traducción de
+        // excepciones automática), este EntityManager se usa directo, así que un conflicto acá
+        // sale como jakarta.persistence.OptimisticLockException — la excepción nativa de JPA, no
+        // la envuelta de Spring (ObjectOptimisticLockingFailureException) que atrapa refinar() —
+        // y sin capturarla llegaba a GlobalExceptionHandler como 500 genérico en vez de 409
+        // (señalado en revisión).
+        try {
+            entityManager.lock(itinerario, LockModeType.OPTIMISTIC_FORCE_INCREMENT);
+            entityManager.flush();
+        } catch (OptimisticLockException e) {
+            log.warn("Conflicto de versión al sustituir la actividad {} del itinerario {}",
+                    actividadId, itinerarioId);
+            throw ApiException.itinerarioVersionDesactualizada();
+        }
 
         return mapper.toDto(itinerario);
     }
