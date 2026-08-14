@@ -17,6 +17,19 @@ public interface ImaSnapshotRepository extends JpaRepository<ImaSnapshot, UUID> 
 
     Optional<ImaSnapshot> findFirstByEmpresaIdOrderByAnioDescMesDesc(UUID empresaId);
 
+    /**
+     * Último snapshot por cada empresa de {@code empresaIds}, en una sola consulta.
+     * Evita el N+1 de resolver el nivel ecológico empresa por empresa en listados paginados.
+     */
+    @Query("""
+            SELECT s FROM ImaSnapshot s
+            WHERE s.empresaId IN :empresaIds
+              AND (s.anio * 12 + s.mes) = (
+                  SELECT MAX(s2.anio * 12 + s2.mes) FROM ImaSnapshot s2 WHERE s2.empresaId = s.empresaId
+              )
+            """)
+    List<ImaSnapshot> findUltimosPorEmpresaIds(@Param("empresaIds") Collection<UUID> empresaIds);
+
     List<ImaSnapshot> findByInterpretacion(String interpretacion);
 
     void deleteAllByEmpresaId(UUID empresaId);

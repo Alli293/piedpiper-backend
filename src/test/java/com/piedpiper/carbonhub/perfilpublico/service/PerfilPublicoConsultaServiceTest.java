@@ -204,6 +204,78 @@ class PerfilPublicoConsultaServiceTest {
         verify(imaSnapshotRepository, never()).findFirstByEmpresaIdOrderByAnioDescMesDesc(any());
     }
 
+    @Test
+    @DisplayName("NivelEcologico null con snapshot IMA bajo el umbral de Bronce → 'Sin nivel' sin fecha")
+    void obtenerPorSlug_nivelEcologicoNullConSnapshotBajoUmbral_retornaSinNivelSinFecha() {
+        // Arrange
+        Empresa empresa = buildEmpresaActiva("empresa-ima-bajo", "Empresa Ima Bajo", null);
+        ImaSnapshot snapshot = ImaSnapshot.builder()
+                .empresaId(empresa.getId())
+                .anio(2026)
+                .mes(3)
+                .ima(new java.math.BigDecimal("20.0"))
+                .cobertura(new java.math.BigDecimal("100.0"))
+                .consistencia(new java.math.BigDecimal("100.0"))
+                .parcial(false)
+                .calculatedAt(Instant.parse("2026-03-01T00:00:00Z"))
+                .build();
+
+        when(slugResolver.resolver("empresa-ima-bajo")).thenReturn(empresa);
+        when(certificacionRepository
+                .findByEmpresaIdAndEstadoAndFechaVencimientoGreaterThanOrderByFechaEmisionDesc(
+                        eq(empresa.getId()), eq(EstadoCertificacion.ACTIVA), any(LocalDate.class)))
+                .thenReturn(Collections.emptyList());
+        when(imaSnapshotRepository.findFirstByEmpresaIdOrderByAnioDescMesDesc(empresa.getId()))
+                .thenReturn(Optional.of(snapshot));
+
+        // Act
+        PerfilPublicoResponseDTO dto = service.obtenerPorSlug("empresa-ima-bajo");
+
+        // Assert — IMA 20.0 está por debajo del umbral de Bronce (40): "Sin nivel" pero
+        // sin fechaActualizacionNivel, porque "Sin nivel" no es un nivel vigente desde una fecha.
+        assertThat(dto.getNivelEcologico()).isEqualTo("Sin nivel");
+        assertThat(dto.getFechaActualizacionNivel()).isNull();
+    }
+
+    @Test
+    @DisplayName("buscarPorNombre → resuelve los niveles de la página con una sola consulta bulk de snapshots")
+    void buscarPorNombre_resuelveNivelesConUnaSolaConsultaBulk() {
+        // Arrange
+        Empresa empresaConIma = buildEmpresaActiva("empresa-a", "Empresa A", null);
+        Empresa empresaManual = buildEmpresaActiva("empresa-b", "Empresa B", "Plata");
+        Empresa empresaSinSnapshot = buildEmpresaActiva("empresa-c", "Empresa C", null);
+
+        ImaSnapshot snapshot = ImaSnapshot.builder()
+                .empresaId(empresaConIma.getId())
+                .anio(2026)
+                .mes(3)
+                .ima(new java.math.BigDecimal("82.0"))
+                .cobertura(new java.math.BigDecimal("100.0"))
+                .consistencia(new java.math.BigDecimal("100.0"))
+                .parcial(false)
+                .calculatedAt(Instant.parse("2026-03-01T00:00:00Z"))
+                .build();
+
+        List<Empresa> contenido = List.of(empresaConIma, empresaManual, empresaSinSnapshot);
+        when(empresaRepository.findByEstado(eq(EstadoEmpresa.ACTIVO), any()))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(contenido));
+        when(imaSnapshotRepository.findUltimosPorEmpresaIds(any()))
+                .thenReturn(List.of(snapshot));
+
+        // Act
+        var resultado = service.buscarPorNombre(null, 0, 12);
+
+        // Assert
+        List<String> niveles = resultado.getContent().stream()
+                .map(com.piedpiper.carbonhub.perfilpublico.models.dtos.BusquedaPerfilPublicoDTO::getNivelEcologico)
+                .toList();
+        assertThat(niveles).containsExactly("Oro", "Plata", "Sin nivel");
+
+        // La consulta bulk se llama una única vez para toda la página, nunca una por empresa.
+        verify(imaSnapshotRepository, times(1)).findUltimosPorEmpresaIds(any());
+        verify(imaSnapshotRepository, never()).findFirstByEmpresaIdOrderByAnioDescMesDesc(any());
+    }
+
     // ========================================================================
     // Property Tests (jqwik) — Tasks 2.2, 2.3, 2.4, 2.5
     // ========================================================================

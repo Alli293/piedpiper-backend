@@ -5,6 +5,7 @@ import com.piedpiper.carbonhub.certificacion.repository.CertificacionRepository;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.empresa.models.enums.EstadoEmpresa;
 import com.piedpiper.carbonhub.empresa.repository.EmpresaRepository;
+import com.piedpiper.carbonhub.ima.models.entities.ImaSnapshot;
 import com.piedpiper.carbonhub.ima.repository.ImaSnapshotRepository;
 import com.piedpiper.carbonhub.insignia.repository.InsigniaEmpresaRepository;
 import com.piedpiper.carbonhub.perfilpublico.exceptions.PerfilNoEncontradoException;
@@ -20,6 +21,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 public class PerfilPublicoConsultaService {
@@ -101,15 +107,22 @@ public class PerfilPublicoConsultaService {
             empresas = empresaRepository.findByNombreEmpresaContainingIgnoreCaseAndEstado(
                     nombre.trim(), EstadoEmpresa.ACTIVO, pageable);
         }
-        return empresas.map(this::mapToBusquedaDTO);
+
+        // Últimos snapshots de la página en una sola consulta: evita pegarle a
+        // imaSnapshotRepository una vez por empresa (N+1 en un endpoint público).
+        List<UUID> empresaIds = empresas.getContent().stream().map(Empresa::getId).toList();
+        Map<UUID, ImaSnapshot> ultimosSnapshots = imaSnapshotRepository.findUltimosPorEmpresaIds(empresaIds).stream()
+                .collect(Collectors.toMap(ImaSnapshot::getEmpresaId, Function.identity()));
+
+        return empresas.map(empresa -> mapToBusquedaDTO(empresa, ultimosSnapshots.get(empresa.getId())));
     }
 
-    private BusquedaPerfilPublicoDTO mapToBusquedaDTO(Empresa empresa) {
+    private BusquedaPerfilPublicoDTO mapToBusquedaDTO(Empresa empresa, ImaSnapshot ultimoSnapshot) {
         return new BusquedaPerfilPublicoDTO(
                 empresa.getNombreEmpresa(),
                 empresa.getSlug(),
                 empresa.getSectorIndustrial() != null ? empresa.getSectorIndustrial().name() : null,
-                resolverNivelEcologico(empresa).nivel()
+                resolverNivelEcologico(empresa.getNivelEcologico(), ultimoSnapshot).nivel()
         );
     }
 
@@ -124,9 +137,29 @@ public class PerfilPublicoConsultaService {
             return new NivelEcologicoInfo(nivelManual, null);
         }
 
-        return imaSnapshotRepository.findFirstByEmpresaIdOrderByAnioDescMesDesc(empresa.getId())
-                .map(snapshot -> new NivelEcologicoInfo(nivelDesdeIma(snapshot.getIma()), snapshot.getCalculatedAt()))
-                .orElseGet(() -> new NivelEcologicoInfo("Sin nivel", null));
+        ImaSnapshot ultimoSnapshot = imaSnapshotRepository
+                .findFirstByEmpresaIdOrderByAnioDescMesDesc(empresa.getId())
+                .orElse(null);
+        return resolverNivelDesdeSnapshot(ultimoSnapshot);
+    }
+
+    private NivelEcologicoInfo resolverNivelEcologico(String nivelManual, ImaSnapshot ultimoSnapshot) {
+        if (nivelManual != null && !nivelManual.isBlank()) {
+            return new NivelEcologicoInfo(nivelManual, null);
+        }
+        return resolverNivelDesdeSnapshot(ultimoSnapshot);
+    }
+
+    private NivelEcologicoInfo resolverNivelDesdeSnapshot(ImaSnapshot ultimoSnapshot) {
+        if (ultimoSnapshot == null) {
+            return new NivelEcologicoInfo("Sin nivel", null);
+        }
+
+        String nivel = nivelDesdeIma(ultimoSnapshot.getIma());
+        // "Sin nivel" no es un nivel alcanzado en una fecha: no le adjuntamos fechaActualizacion
+        // para no dar a entender que hay una "vigencia" de un nivel que en realidad no existe.
+        Instant fechaActualizacion = "Sin nivel".equals(nivel) ? null : ultimoSnapshot.getCalculatedAt();
+        return new NivelEcologicoInfo(nivel, fechaActualizacion);
     }
 
     private String nivelDesdeIma(BigDecimal ima) {
