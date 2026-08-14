@@ -72,7 +72,7 @@ public class EcoRutaItinerarioController {
             @Valid @RequestBody ActualizarFavoritoItinerarioRequestDTO request,
             Authentication authentication) {
         UUID usuarioId = Autenticaciones.usuarioId(authentication);
-        return ResponseEntity.ok(service.actualizarFavorito(id, usuarioId, request.isFavorito()));
+        return ResponseEntity.ok(service.actualizarFavorito(id, usuarioId, request.getFavorito()));
     }
 
     /**

@@ -943,7 +943,8 @@ class EcoRutaItinerarioServiceTest {
     void actualizarFavoritoMarcaElItinerario() {
         UUID itinerarioId = UUID.randomUUID();
         Itinerario itinerario = itinerarioResumen(itinerarioId);
-        when(itinerarioRepository.findById(itinerarioId)).thenReturn(Optional.of(itinerario));
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
         when(itinerarioRepository.save(any(Itinerario.class))).thenAnswer(i -> i.getArgument(0));
 
         ItinerarioFavoritoResponseDTO respuesta = service.actualizarFavorito(itinerarioId, USUARIO_ID, true);
@@ -959,7 +960,8 @@ class EcoRutaItinerarioServiceTest {
         UUID itinerarioId = UUID.randomUUID();
         Itinerario itinerario = itinerarioResumen(itinerarioId);
         itinerario.setFavorito(true);
-        when(itinerarioRepository.findById(itinerarioId)).thenReturn(Optional.of(itinerario));
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
         when(itinerarioRepository.save(any(Itinerario.class))).thenAnswer(i -> i.getArgument(0));
 
         ItinerarioFavoritoResponseDTO respuesta = service.actualizarFavorito(itinerarioId, USUARIO_ID, false);
@@ -970,36 +972,17 @@ class EcoRutaItinerarioServiceTest {
     }
 
     @Test
-    void actualizarFavoritoConItinerarioAjenoLanza403AntesDeGuardar() {
+    void actualizarFavoritoConItinerarioInexistenteOAjenoLanza403AntesDeGuardar() {
         UUID itinerarioId = UUID.randomUUID();
-        Usuario otroUsuario = Usuario.builder()
-                .id(UUID.randomUUID())
-                .email("otro@example.com")
-                .nombre("Otro")
-                .rol(Rol.USUARIO_INDIVIDUAL)
-                .estado(EstadoUsuario.ACTIVO)
-                .metodoAuth(MetodoAuth.CORREO)
-                .fechaRegistro(Instant.now())
-                .build();
-        Itinerario itinerario = itinerarioResumen(itinerarioId);
-        itinerario.setUsuario(otroUsuario);
-        when(itinerarioRepository.findById(itinerarioId)).thenReturn(Optional.of(itinerario));
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.actualizarFavorito(itinerarioId, USUARIO_ID, true))
                 .isInstanceOf(ApiException.class)
-                .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.FORBIDDEN));
-
-        verify(itinerarioRepository, never()).save(any());
-    }
-
-    @Test
-    void actualizarFavoritoConItinerarioInexistenteLanza404() {
-        UUID itinerarioId = UUID.randomUUID();
-        when(itinerarioRepository.findById(itinerarioId)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> service.actualizarFavorito(itinerarioId, USUARIO_ID, true))
-                .isInstanceOf(ApiException.class)
-                .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.NOT_FOUND));
+                .satisfies(ex -> {
+                    assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.FORBIDDEN);
+                    assertThat(ex.getMessage()).isEqualTo("No tienes permiso para modificar este itinerario.");
+                });
 
         verify(itinerarioRepository, never()).save(any());
     }

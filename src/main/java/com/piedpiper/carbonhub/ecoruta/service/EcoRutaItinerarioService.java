@@ -249,12 +249,12 @@ public class EcoRutaItinerarioService {
     @Transactional
     public ItinerarioFavoritoResponseDTO actualizarFavorito(
             UUID itinerarioId, UUID usuarioId, boolean favorito) {
-        Itinerario itinerario = itinerarioRepository.findById(itinerarioId)
-                .orElseThrow(ApiException::itinerarioNoDisponible);
-
-        if (!usuarioId.equals(itinerario.getUsuario().getId())) {
-            throw ApiException.itinerarioNoPropio();
-        }
+        Itinerario itinerario = itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, usuarioId)
+                .orElseThrow(() -> {
+                    log.warn("Intento de modificar favorito de itinerario {} por usuario {}: no es el propietario o no existe",
+                            itinerarioId, usuarioId);
+                    return ApiException.accesoDenegado("No tienes permiso para modificar este itinerario.");
+                });
 
         try {
             itinerario.setFavorito(favorito);
