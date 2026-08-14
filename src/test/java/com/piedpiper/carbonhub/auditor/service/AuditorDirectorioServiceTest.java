@@ -162,6 +162,7 @@ class AuditorDirectorioServiceTest {
         Sort.Order orden = pageableCaptor.getValue().getSort().getOrderFor("auditoriasCompletadas");
         assertThat(orden).isNotNull();
         assertThat(orden.getDirection()).isEqualTo(Sort.Direction.DESC);
+        assertThat(orden.getNullHandling()).isEqualTo(Sort.NullHandling.NULLS_LAST);
     }
 
     @Test
@@ -174,7 +175,7 @@ class AuditorDirectorioServiceTest {
 
         servicio().listar(f);
 
-        Sort.Order orden = pageableCaptor.getValue().getSort().getOrderFor("tiempoRespuestaHoras");
+        Sort.Order orden = pageableCaptor.getValue().getSort().getOrderFor("tiempoPromedioRespuestaDias");
         assertThat(orden).isNotNull();
         assertThat(orden.getDirection()).isEqualTo(Sort.Direction.ASC);
         assertThat(orden.getNullHandling()).isEqualTo(Sort.NullHandling.NULLS_LAST);
@@ -199,8 +200,9 @@ class AuditorDirectorioServiceTest {
     void ordenamientoInvalidoLanza400() {
         FiltrarAuditoresRequestDTO f = filtros();
         f.setOrdenamiento("POR_PRECIO");
+        AuditorDirectorioService servicio = servicio();
 
-        assertThatThrownBy(() -> servicio().listar(f))
+        assertThatThrownBy(() -> servicio.listar(f))
                 .isInstanceOf(ApiException.class)
                 .satisfies(e -> assertThat(((ApiException) e).getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
     }
@@ -289,8 +291,9 @@ class AuditorDirectorioServiceTest {
     void zonaInvalidaLanza400() {
         FiltrarAuditoresRequestDTO f = filtros();
         f.setZonaGeografica("MARTE");
+        AuditorDirectorioService servicio = servicio();
 
-        assertThatThrownBy(() -> servicio().listar(f))
+        assertThatThrownBy(() -> servicio.listar(f))
                 .isInstanceOf(ApiException.class)
                 .satisfies(e -> assertThat(((ApiException) e).getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
     }
@@ -299,8 +302,9 @@ class AuditorDirectorioServiceTest {
     void especialidadInvalidaLanza400() {
         FiltrarAuditoresRequestDTO f = filtros();
         f.setEspecialidades(List.of("NUCLEAR"));
+        AuditorDirectorioService servicio = servicio();
 
-        assertThatThrownBy(() -> servicio().listar(f))
+        assertThatThrownBy(() -> servicio.listar(f))
                 .isInstanceOf(ApiException.class)
                 .satisfies(e -> assertThat(((ApiException) e).getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
     }

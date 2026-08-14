@@ -20,11 +20,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 public class AuditorPerfilService {
@@ -41,51 +38,42 @@ public class AuditorPerfilService {
         this.perfilAuditorMapper = perfilAuditorMapper;
     }
 
+    /**
+     * Devuelve el perfil del auditor para que la pantalla lo muestre antes de editarlo.
+     *
+     * <p><b>404 cuando todavía no hay perfil.</b> El auditor recién validado que nunca guardó llega
+     * acá sin fila, y eso no es un error: la pantalla lo interpreta como "primera vez" y abre el
+     * formulario vacío. Devolver 200 con un cuerpo vacío obligaría al cliente a distinguir "sin
+     * datos" de "sin perfil" mirando los campos.</p>
+     *
+     * <p>Las mismas comprobaciones que {@link #actualizar}: se lee el perfil propio y nada más. El
+     * identificador de la ruta no puede apuntar a otro auditor aunque el rol sea el correcto.</p>
+     */
+    @Transactional(readOnly = true)
+    public PerfilAuditorResponseDTO obtener(UUID usuarioId, UUID auditorId) {
+        verificarAccesoAlPerfil(usuarioId, auditorId);
+
+        return perfilAuditorRepository.findByAuditorId(auditorId)
+                .map(perfilAuditorMapper::aResponseDto)
+                .orElseThrow(() -> ApiException.recursoNoEncontrado(
+                        "Todavía no has configurado tu perfil de auditor."));
+    }
+
     @Transactional
     public ResultadoPerfil actualizar(UUID usuarioId, UUID auditorId,
                                       ActualizarPerfilAuditorRequestDTO request) {
-        // 1. Verificar propiedad: usuarioId == auditorId
-        if (!usuarioId.equals(auditorId)) {
-            throw ApiException.perfilNoPropio();
-        }
+        Usuario auditor = verificarAccesoAlPerfil(usuarioId, auditorId);
 
-        // 2. Buscar usuario, verificar estado ACTIVO
-        Usuario auditor = usuarioRepository.findById(auditorId)
-                .orElseThrow(() -> ApiException.recursoNoEncontrado("Auditor no encontrado."));
+        // 4-5. Validar duplicados y membership en catálogos (dedup normaliza mayúsculas/espacios)
+        Set<EspecialidadAuditor> especialidades = Catalogos.resolverConjunto(
+                EspecialidadAuditor.class, request.getEspecialidades(),
+                () -> ApiException.datosInvalidos("La lista de especialidades contiene duplicados."),
+                ApiException::especialidadesInvalidas);
 
-        if (auditor.getEstado() != EstadoUsuario.ACTIVO) {
-            throw ApiException.cuentaNoValidada();
-        }
-
-        // 3. Verificar rol AUDITOR_CERTIFICADO
-        if (auditor.getRol() != Rol.AUDITOR_CERTIFICADO) {
-            throw ApiException.accesoDenegado("Solo usuarios con rol AUDITOR_CERTIFICADO pueden gestionar su perfil.");
-        }
-
-        // 4. Validar duplicados en listas
-        if (request.getEspecialidades().size() != new HashSet<>(request.getEspecialidades()).size()) {
-            throw ApiException.datosInvalidos("La lista de especialidades contiene duplicados.");
-        }
-        if (request.getZonasCobertura().size() != new HashSet<>(request.getZonasCobertura()).size()) {
-            throw ApiException.datosInvalidos("La lista de zonas de cobertura contiene duplicados.");
-        }
-
-        // 5. Validar membership en catálogos usando Catalogos.desde()
-        List<String> especialidadesInvalidas = request.getEspecialidades().stream()
-                .filter(e -> Catalogos.desde(EspecialidadAuditor.class, e).isEmpty())
-                .collect(Collectors.toList());
-
-        if (!especialidadesInvalidas.isEmpty()) {
-            throw ApiException.especialidadesInvalidas(especialidadesInvalidas);
-        }
-
-        List<String> zonasInvalidas = request.getZonasCobertura().stream()
-                .filter(z -> Catalogos.desde(ProvinciaCR.class, z).isEmpty())
-                .collect(Collectors.toList());
-
-        if (!zonasInvalidas.isEmpty()) {
-            throw ApiException.zonasInvalidas(zonasInvalidas);
-        }
+        Set<ProvinciaCR> zonas = Catalogos.resolverConjunto(
+                ProvinciaCR.class, request.getZonasCobertura(),
+                () -> ApiException.datosInvalidos("La lista de zonas de cobertura contiene duplicados."),
+                ApiException::zonasInvalidas);
 
         // 6. Upsert PerfilAuditor — determinar si es creación o actualización
         var existente = perfilAuditorRepository.findByAuditorId(auditorId);
@@ -95,14 +83,7 @@ public class AuditorPerfilService {
                 .auditor(auditor)
                 .build());
 
-        Set<EspecialidadAuditor> especialidades = request.getEspecialidades().stream()
-                .map(e -> Catalogos.desde(EspecialidadAuditor.class, e).orElseThrow())
-                .collect(Collectors.toCollection(HashSet::new));
         perfil.setEspecialidades(especialidades);
-
-        Set<ProvinciaCR> zonas = request.getZonasCobertura().stream()
-                .map(z -> Catalogos.desde(ProvinciaCR.class, z).orElseThrow())
-                .collect(Collectors.toCollection(HashSet::new));
         perfil.setZonasCobertura(zonas);
 
         perfil.setDisponible(request.getDisponible());
@@ -126,5 +107,29 @@ public class AuditorPerfilService {
 
         // 7. Retornar resultado con flag de creación
         return new ResultadoPerfil(perfilAuditorMapper.aResponseDto(perfil), creado);
+    }
+
+    /**
+     * Precondiciones compartidas por la lectura y la escritura del perfil: que sea el propio, que la
+     * cuenta esté validada y que el rol sea el correcto. Vive en un solo lugar para que las dos
+     * operaciones no puedan divergir, que es como se abren los huecos de autorización.
+     */
+    private Usuario verificarAccesoAlPerfil(UUID usuarioId, UUID auditorId) {
+        if (!usuarioId.equals(auditorId)) {
+            throw ApiException.perfilNoPropio();
+        }
+
+        Usuario auditor = usuarioRepository.findById(auditorId)
+                .orElseThrow(() -> ApiException.recursoNoEncontrado("Auditor no encontrado."));
+
+        if (auditor.getEstado() != EstadoUsuario.ACTIVO) {
+            throw ApiException.cuentaNoValidada();
+        }
+
+        if (auditor.getRol() != Rol.AUDITOR_CERTIFICADO) {
+            throw ApiException.accesoDenegado("Solo usuarios con rol AUDITOR_CERTIFICADO pueden gestionar su perfil.");
+        }
+
+        return auditor;
     }
 }

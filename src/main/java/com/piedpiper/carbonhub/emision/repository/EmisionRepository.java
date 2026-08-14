@@ -15,6 +15,8 @@ import java.util.UUID;
 
 public interface EmisionRepository extends JpaRepository<Emision, UUID> {
 
+    boolean existsByEmpresaIdAndFechaActividadLessThanEqual(UUID empresaId, LocalDate fecha);
+
     @Query("""
             select distinct e
             from Emision e
@@ -114,6 +116,15 @@ public interface EmisionRepository extends JpaRepository<Emision, UUID> {
             """)
     List<Object[]> sumarCarbonKgPorMes(@Param("empresaId") UUID empresaId,
                                        @Param("anio") int anio);
+
+    @Query("""
+            select year(e.fechaActividad), sum(e.carbonKg)
+            from Emision e
+            where e.empresaId = :empresaId
+            group by year(e.fechaActividad)
+            order by year(e.fechaActividad) asc
+            """)
+    List<Object[]> sumarCarbonKgPorAnio(@Param("empresaId") UUID empresaId);
 
     @Query("""
             select count(distinct type(e))

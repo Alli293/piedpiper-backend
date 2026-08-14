@@ -28,11 +28,21 @@ git clone https://github.com/Alli293/piedpiper-backend.git
 
 El proyecto incluye un `docker-compose.yml` para levantar PostgreSQL localmente.
 
-Ejecutar:
+Primero hay que tener el `.env` con `DB_PASSWORD` (ver el paso 3): el compose ya no
+trae una contraseña por defecto, la toma de ahí.
+
+Ejecutar, desde la raíz del repo:
 
 ```
-docker compose -f docker/docker-compose.yml up -d
+docker compose --env-file .env -f docker/docker-compose.yml up -d
 ```
+
+El `--env-file .env` no es opcional: Compose busca el `.env` en el directorio del
+propio archivo (`docker/`), no en la raíz del repo, así que sin eso falla con
+*"required variable DB_PASSWORD is missing a value"*.
+
+Postgres queda escuchando solo en `127.0.0.1`. La aplicación conecta por localhost,
+así que funciona igual, pero deja de aceptar conexiones desde otras máquinas de la red.
 
 ---
 
@@ -58,7 +68,7 @@ GMAIL_APP_PASSWORD
 |---|---|---|
 | `DB_URL` | URL de conexión JDBC a PostgreSQL | `jdbc:postgresql://localhost:5432/carbonhub` |
 | `DB_USER` | Usuario de la base de datos | `carbonhub` |
-| `DB_PASSWORD` | Password del usuario de la base de datos | `carbonhub` |
+| `DB_PASSWORD` | Password del usuario de la base de datos. Poner una larga y aleatoria, no un valor adivinable | `(generar una propia)` |
 | `JWT_SECRET` | Clave secreta para firmar los JWT (Base64, mínimo 256 bits) | `your_jwt_secret_here` |
 | `JWT_EXPIRATION` | Tiempo de expiración del token en milisegundos (se renueva en cada petición autenticada, ver `X-Refresh-Token`) | `1800000` (30 minutos) |
 | `GEMINI_API_KEY` | API Key de Google Gemini (Spring AI) | `your_gemini_api_key_here` |
@@ -89,7 +99,7 @@ Como la mayoría del equipo usa IntelliJ, hay dos formas de configurar estas var
    ```
    DB_URL=jdbc:postgresql://localhost:5432/carbonhub
    DB_USER=carbonhub
-   DB_PASSWORD=carbonhub
+   DB_PASSWORD=<la que hayas puesto en la base, ver paso 2>
    JWT_EXPIRATION=1800000
    JWT_SECRET=<valor real, pedirlo al equipo>
    GEMINI_API_KEY=<valor real, pedirlo al equipo>
@@ -107,7 +117,7 @@ Como la mayoría del equipo usa IntelliJ, hay dos formas de configurar estas var
    ```
    DB_URL=jdbc:postgresql://localhost:5432/carbonhub
    DB_USER=carbonhub
-   DB_PASSWORD=carbonhub
+   DB_PASSWORD=<la que hayas puesto en la base, ver paso 2>
    JWT_EXPIRATION=1800000
    JWT_SECRET=<valor real, pedirlo al equipo>
    GEMINI_API_KEY=<valor real, pedirlo al equipo>

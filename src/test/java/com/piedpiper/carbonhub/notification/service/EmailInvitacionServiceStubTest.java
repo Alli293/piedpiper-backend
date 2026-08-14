@@ -40,7 +40,7 @@ class EmailInvitacionServiceStubTest {
     }
 
     @Test
-    void enviarCorreoInvitacion_registraElEnvioEnElLogConLaUrlCompleta() {
+    void enviarCorreoInvitacion_noExponeElTokenEnLogs() {
         servicio.enviarCorreoInvitacion("ana.perez@example.com", "Consultora Verde CR", "token-123");
 
         assertThat(logAppender.list)
@@ -49,7 +49,8 @@ class EmailInvitacionServiceStubTest {
                     assertThat(evento.getFormattedMessage())
                             .contains("Consultora Verde CR")
                             .contains("ana.perez@example.com")
-                            .contains("http://localhost:4200/registro/invitacion?token=token-123");
+                            .doesNotContain("token-123")
+                            .doesNotContain("?token=");
                 });
     }
 }

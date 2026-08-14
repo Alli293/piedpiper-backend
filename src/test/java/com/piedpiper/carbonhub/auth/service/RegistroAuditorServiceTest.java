@@ -3,8 +3,8 @@ package com.piedpiper.carbonhub.auth.service;
 import com.piedpiper.carbonhub.auth.models.dtos.AuthResponseDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.RegistroAuditorRequestDTO;
 import com.piedpiper.carbonhub.auth.models.dtos.GoogleClaims;
-import com.piedpiper.carbonhub.auditor.service.PerfilAuditorService;
 import com.piedpiper.carbonhub.exceptions.ApiException;
+import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
 import com.piedpiper.carbonhub.user.models.enums.Rol;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
@@ -32,8 +32,6 @@ class RegistroAuditorServiceTest {
     private UsuarioRepository usuarioRepository;
     @Mock
     private JwtService jwtService;
-    @Mock
-    private PerfilAuditorService perfilAuditorService;
 
     @InjectMocks
     private RegistroAuditorService service;
@@ -56,9 +54,9 @@ class RegistroAuditorServiceTest {
         ArgumentCaptor<Usuario> captor = ArgumentCaptor.forClass(Usuario.class);
         verify(usuarioRepository).save(captor.capture());
         assertThat(captor.getValue().getRol()).isEqualTo(Rol.AUDITOR_CERTIFICADO);
+        assertThat(captor.getValue().getEstado()).isEqualTo(EstadoUsuario.PENDIENTE_VALIDACION);
         assertThat(captor.getValue().isConfiguracionCompleta()).isFalse();
-        assertThat(response.getRedirect()).isEqualTo("/perfil/configuracion-inicial");
-        verify(perfilAuditorService).asegurarPerfil(captor.getValue());
+        assertThat(response.getRedirect()).isEqualTo("/auditor/configuracion-inicial");
     }
 
     @Test
@@ -67,7 +65,8 @@ class RegistroAuditorServiceTest {
                 .thenReturn(new GoogleClaims("sub-1", "ana@gmail.com", true, "Ana", "Ana", "Perez"));
         when(usuarioRepository.existsByGoogleSub("sub-1")).thenReturn(true);
 
-        assertThatThrownBy(() -> service.registrar(request()))
+        RegistroAuditorRequestDTO solicitud = request();
+        assertThatThrownBy(() -> service.registrar(solicitud))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.CONFLICT);
@@ -79,7 +78,8 @@ class RegistroAuditorServiceTest {
         when(googleTokenVerifier.verificar("token"))
                 .thenReturn(new GoogleClaims("sub-1", "ana@gmail.com", false, "Ana", "Ana", "Perez"));
 
-        assertThatThrownBy(() -> service.registrar(request()))
+        RegistroAuditorRequestDTO solicitud = request();
+        assertThatThrownBy(() -> service.registrar(solicitud))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);

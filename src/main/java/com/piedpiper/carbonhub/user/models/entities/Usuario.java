@@ -30,6 +30,8 @@ import lombok.Setter;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Entity
 @Table(name = "usuarios")
@@ -132,11 +134,49 @@ public class Usuario {
     @Builder.Default
     private String unidades = UnidadesMedida.POR_DEFECTO.name();
 
+    /**
+     * Nombre para mostrar, nunca nulo: nombre y apellidos, con {@code nombreVisible} como respaldo
+     * cuando el usuario no tiene esos campos (por ejemplo si entro por Google) y, si ese tampoco
+     * esta, la parte local del correo.
+     *
+     * <p>Vive aca para que los correos y las respuestas de la API no armen el nombre cada uno a su
+     * manera y muestren al mismo auditor con dos formatos distintos, y para que la garantia de no
+     * ser nulo sea del contrato: los consumidores lo meten en DTOs y en cuerpos de correo, donde un
+     * nulo se vuelve un "null" impreso o una linea vacia.</p>
+     */
+    public String nombreCompleto() {
+        String armado = Stream.of(nombre, apellidos)
+                .filter(parte -> parte != null && !parte.isBlank())
+                .collect(Collectors.joining(" "));
+        if (!armado.isBlank()) {
+            return armado;
+        }
+        if (nombreVisible != null && !nombreVisible.isBlank()) {
+            return nombreVisible;
+        }
+        return email == null ? "" : email.split("@")[0];
+    }
+
     public static String recortarNombre(String nombre) {
         if (nombre == null) {
             return null;
         }
         return nombre.length() > NOMBRE_MAX ? nombre.substring(0, NOMBRE_MAX) : nombre;
+    }
+
+    /**
+     * Intencionalmente permisivo: solo bloquea DESHABILITADO. Un auditor en PENDIENTE_VALIDACION
+     * necesita loguearse para completar su configuracion inicial y consultar su solicitud, y uno en
+     * RECHAZADO lo necesita para ver el motivo de su rechazo en {@code /auditor/validacion-pendiente}
+     * en vez de quedar bloqueado sin explicacion tras el correo de notificacion.
+     *
+     * <p>Fuente unica de esta regla: {@code JwtAuthenticationFilter} y {@code LoginService} delegan
+     * aca en vez de reimplementarla, para que no puedan divergir. Un endpoint de auditor certificado
+     * que requiera estado ACTIVO tiene que validarlo explicitamente — ver
+     * {@code com.piedpiper.carbonhub.common.ValidacionesAuditor}.</p>
+     */
+    public boolean estaHabilitado() {
+        return estado != EstadoUsuario.DESHABILITADO;
     }
 
     @PrePersist

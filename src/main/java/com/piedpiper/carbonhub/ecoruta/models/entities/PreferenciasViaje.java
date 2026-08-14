@@ -95,6 +95,29 @@ public class PreferenciasViaje {
     @Column(name = "requiere_hospedaje", nullable = false)
     private boolean requiereHospedaje;
 
+    // Rate limiting de generación de itinerarios vive aquí (no en Usuario.java, como en PP-29)
+    // porque es un límite específico del dominio EcoRuta, no una propiedad general de la cuenta.
+    /** Contador del rate limit de generación de itinerarios (PP-85). Ventana fija de 1 hora. */
+    @Column(name = "itinerario_generacion_contador", nullable = false, columnDefinition = "integer default 0")
+    @Builder.Default
+    private int itinerarioGeneracionContador = 0;
+
+    @Column(name = "itinerario_generacion_ventana_inicio")
+    private Instant itinerarioGeneracionVentanaInicio;
+
+    /**
+     * Rate limit del chat de refinamiento (PP-88), separado del de generación: cada mensaje libre
+     * dispara su propia llamada a Gemini y, a diferencia de {@code generar()}, no tenía ningún
+     * techo — un usuario (o un script) podía mandar mensajes sin límite. Mismo patrón de ventana
+     * fija de 1 hora que el de arriba.
+     */
+    @Column(name = "itinerario_refinamiento_contador", nullable = false, columnDefinition = "integer default 0")
+    @Builder.Default
+    private int itinerarioRefinamientoContador = 0;
+
+    @Column(name = "itinerario_refinamiento_ventana_inicio")
+    private Instant itinerarioRefinamientoVentanaInicio;
+
     @Column(name = "creado_en", nullable = false, updatable = false)
     private Instant creadoEn;
 

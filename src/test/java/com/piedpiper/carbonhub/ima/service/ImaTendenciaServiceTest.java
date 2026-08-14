@@ -1,5 +1,6 @@
 package com.piedpiper.carbonhub.ima.service;
 
+import com.piedpiper.carbonhub.emision.repository.EmisionRepository;
 import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.empresa.models.enums.SectorIndustrial;
 import com.piedpiper.carbonhub.exceptions.ApiException;
@@ -21,7 +22,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.UUID;
@@ -32,6 +32,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -46,9 +47,13 @@ class ImaTendenciaServiceTest {
     @Mock
     private AgregadoSectorialRepository agregadoSectorialRepository;
     @Mock
+    private EmisionRepository emisionRepository;
+    @Mock
     private ImaService imaService;
     @Mock
     private ImaEventosService imaEventosService;
+    @Mock
+    private ImaTendenciaBackfillService imaTendenciaBackfillService;
 
     @InjectMocks
     private ImaTendenciaService imaTendenciaService;
@@ -57,10 +62,15 @@ class ImaTendenciaServiceTest {
 
     @BeforeEach
     void setUp() {
-        mesActual = YearMonth.from(LocalDate.now());
+        mesActual = YearMonth.now();
         // Por defecto la detección no aporta eventos: los tests de serie/sector no dependen de ella.
         // Es lenient porque algunos tests fallan en la validación antes de invocar la detección.
         lenient().when(imaEventosService.detectar(any(), any(), any(), any())).thenReturn(List.of());
+        // Por defecto la empresa no tiene emisiones previas en ningún mes: no se completa ningún
+        // snapshot faltante, que es el comportamiento que ya asumían los tests existentes.
+        lenient()
+                .when(emisionRepository.existsByEmpresaIdAndFechaActividadLessThanEqual(any(), any()))
+                .thenReturn(false);
     }
 
     /**
@@ -153,6 +163,42 @@ class ImaTendenciaServiceTest {
 
         assertThat(respuesta.getSerie().getFirst().getImaEmpresa()).isNull();
         assertThat(respuesta.getSerie().getLast().getImaEmpresa()).isEqualByComparingTo("70.0");
+    }
+
+    @Test
+    void marcaCompletandoYDisparaElBackfillEnSegundoPlanoCuandoHayEmisionesSinSnapshot() {
+        // La empresa tiene emisiones registradas para mesActual pero nadie abrió GET /api/ima
+        // para ese mes puntual, así que imaSnapshotRepository no tiene esa fila todavía. El
+        // backfill corre async (ImaTendenciaBackfillService): esta respuesta no lo espera, solo
+        // lo dispara y avisa con completando=true para que el cliente vuelva a consultar.
+        mockEmpresa();
+        when(imaSnapshotRepository.findVentana(any(), anyInt(), anyInt(), anyInt(), anyInt()))
+                .thenReturn(List.of());
+        when(emisionRepository.existsByEmpresaIdAndFechaActividadLessThanEqual(eq(EMPRESA_ID), any()))
+                .thenReturn(true);
+        mockAgregados();
+
+        ImaTendenciaResponseDTO respuesta = imaTendenciaService.obtenerTendencia(1, USUARIO_ID);
+
+        verify(imaTendenciaBackfillService).completarMesesPendientes(USUARIO_ID, List.of(mesActual));
+        assertThat(respuesta.getSerie().getLast().getImaEmpresa()).isNull();
+        assertThat(respuesta.isCompletando()).isTrue();
+    }
+
+    @Test
+    void noDisparaElBackfillNiMarcaCompletandoSinNingunaEmisionPrevia() {
+        // Sin emisiones registradas en ningún mes de la ventana: son meses previos a que la
+        // empresa existiera, así que deben quedar como hueco y no como un IMA calculado en cero.
+        mockEmpresa();
+        when(imaSnapshotRepository.findVentana(any(), anyInt(), anyInt(), anyInt(), anyInt()))
+                .thenReturn(List.of());
+        mockAgregados();
+
+        ImaTendenciaResponseDTO respuesta = imaTendenciaService.obtenerTendencia(3, USUARIO_ID);
+
+        verify(imaTendenciaBackfillService, never()).completarMesesPendientes(any(), any());
+        assertThat(respuesta.getSerie()).allSatisfy(punto -> assertThat(punto.getImaEmpresa()).isNull());
+        assertThat(respuesta.isCompletando()).isFalse();
     }
 
     @Test

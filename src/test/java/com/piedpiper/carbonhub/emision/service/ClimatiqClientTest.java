@@ -80,9 +80,9 @@ class ClimatiqClientTest {
         String cuerpoError = "{\"error\":\"unauthorized\",\"error_code\":\"401\",\"message\":\"Invalid API key\"}";
         ClimatiqClient cliente = clienteApuntandoA(401, cuerpoError);
 
-        ApiException excepcion = catchThrowableOfType(() -> cliente.estimar(
-                selectorElectricidadCR(),
-                Map.of("energy", new BigDecimal("500"), "energy_unit", "kWh")), ApiException.class);
+        ClimatiqEmissionFactorSelector selector = selectorElectricidadCR();
+        Map<String, Object> parametros = Map.of("energy", new BigDecimal("500"), "energy_unit", "kWh");
+        ApiException excepcion = catchThrowableOfType(() -> cliente.estimar(selector, parametros), ApiException.class);
 
         assertThat(excepcion).isNotNull();
         assertThat(excepcion.getStatus()).isEqualTo(HttpStatus.BAD_GATEWAY);

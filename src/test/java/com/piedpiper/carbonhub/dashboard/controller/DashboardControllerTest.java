@@ -10,9 +10,22 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.piedpiper.carbonhub.auth.config.JwtAuthenticationFilter;
 import com.piedpiper.carbonhub.auth.config.SecurityConfig;
+import com.piedpiper.carbonhub.dashboard.models.dtos.AlertaVencimientoResponseDTO;
+import com.piedpiper.carbonhub.dashboard.models.dtos.CalendarioVencimientosResponseDTO;
+import com.piedpiper.carbonhub.dashboard.models.dtos.CertificacionVencimientoDTO;
+import com.piedpiper.carbonhub.dashboard.models.dtos.RecomendacionRenovacionResponseDTO;
+import com.piedpiper.carbonhub.dashboard.models.dtos.ResumenCertificacionesDashboardResponseDTO;
 import com.piedpiper.carbonhub.dashboard.models.dtos.ResumenHuellaDashboardResponseDTO;
+import com.piedpiper.carbonhub.dashboard.service.CalendarioVencimientosService;
+import com.piedpiper.carbonhub.dashboard.service.DashboardAlertasService;
+import com.piedpiper.carbonhub.dashboard.service.DashboardCertificacionesService;
 import com.piedpiper.carbonhub.dashboard.service.DashboardHuellaService;
+import com.piedpiper.carbonhub.dashboard.service.DashboardRecomendacionService;
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,6 +66,14 @@ class DashboardControllerTest {
 
     @MockitoBean
     private DashboardHuellaService dashboardHuellaService;
+    @MockitoBean
+    private DashboardCertificacionesService dashboardCertificacionesService;
+    @MockitoBean
+    private CalendarioVencimientosService calendarioVencimientosService;
+    @MockitoBean
+    private DashboardAlertasService dashboardAlertasService;
+    @MockitoBean
+    private DashboardRecomendacionService dashboardRecomendacionService;
 
     private TestingAuthenticationToken principal(String authority) {
         return new TestingAuthenticationToken(USUARIO_ID, "password", authority);
@@ -126,6 +147,143 @@ class DashboardControllerTest {
         mockMvc.perform(get("/api/dashboard/huella")
                         .principal(principal("ROLE_AUDITOR_CERTIFICADO"))
                         .param("periodo", "mes_actual"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("No tiene permisos para realizar esta acción."));
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
+    void obtenerCertificacionesDevuelve200ConLosTresConteos() throws Exception {
+        when(dashboardCertificacionesService.obtenerResumen(UUID.fromString(USUARIO_ID)))
+                .thenReturn(new ResumenCertificacionesDashboardResponseDTO(5, 3, 1));
+
+        mockMvc.perform(get("/api/dashboard/certificaciones")
+                        .principal(principal("ROLE_ADMINISTRADOR_EMPRESA")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.activas").value(5))
+                .andExpect(jsonPath("$.proximasAVencer").value(3))
+                .andExpect(jsonPath("$.vencidas").value(1));
+
+        verify(dashboardCertificacionesService).obtenerResumen(UUID.fromString(USUARIO_ID));
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
+    void obtenerCertificacionesRolNoAutorizadoDevuelve403() throws Exception {
+        mockMvc.perform(get("/api/dashboard/certificaciones")
+                        .principal(principal("ROLE_AUDITOR_CERTIFICADO")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("No tiene permisos para realizar esta acción."));
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
+    void obtenerCalendarioDevuelve200ConElMapaDeVencimientos() throws Exception {
+        CertificacionVencimientoDTO vencimiento = new CertificacionVencimientoDTO(
+                UUID.fromString("11111111-1111-1111-1111-111111111111"), "Carbono Neutral", "30_dias");
+        when(calendarioVencimientosService.obtenerCalendario(UUID.fromString(USUARIO_ID), "2026-07"))
+                .thenReturn(new CalendarioVencimientosResponseDTO(
+                        "2026-07", Map.of("2026-07-18", List.of(vencimiento))));
+
+        mockMvc.perform(get("/api/dashboard/calendario")
+                        .principal(principal("ROLE_ADMINISTRADOR_EMPRESA"))
+                        .param("mes", "2026-07"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mesVisualizado").value("2026-07"))
+                .andExpect(jsonPath("$.vencimientosPorFecha['2026-07-18'][0].nombre").value("Carbono Neutral"))
+                .andExpect(jsonPath("$.vencimientosPorFecha['2026-07-18'][0].urgencia").value("30_dias"));
+
+        verify(calendarioVencimientosService).obtenerCalendario(UUID.fromString(USUARIO_ID), "2026-07");
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
+    void obtenerCalendarioSinParametroMesLoPasaComoNull() throws Exception {
+        when(calendarioVencimientosService.obtenerCalendario(UUID.fromString(USUARIO_ID), null))
+                .thenReturn(new CalendarioVencimientosResponseDTO("2026-07", Map.of()));
+
+        mockMvc.perform(get("/api/dashboard/calendario")
+                        .principal(principal("ROLE_ADMINISTRADOR_EMPRESA")))
+                .andExpect(status().isOk());
+
+        verify(calendarioVencimientosService).obtenerCalendario(eq(UUID.fromString(USUARIO_ID)), isNull());
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
+    void obtenerCalendarioRolNoAutorizadoDevuelve403() throws Exception {
+        mockMvc.perform(get("/api/dashboard/calendario")
+                        .principal(principal("ROLE_AUDITOR_CERTIFICADO")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("No tiene permisos para realizar esta acción."));
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
+    void obtenerAlertasDevuelve200ConLaListaOrdenada() throws Exception {
+        AlertaVencimientoResponseDTO vencida = new AlertaVencimientoResponseDTO(
+                UUID.fromString("11111111-1111-1111-1111-111111111111"), "Bandera Azul Ecológica 2025",
+                LocalDate.of(2026, 6, 4), -24, "vencida");
+        AlertaVencimientoResponseDTO urgente = new AlertaVencimientoResponseDTO(
+                UUID.fromString("22222222-2222-2222-2222-222222222222"), "GHG Protocol — Corporate Standard",
+                LocalDate.of(2026, 7, 3), 5, "7_dias");
+        when(dashboardAlertasService.obtenerAlertas(UUID.fromString(USUARIO_ID)))
+                .thenReturn(List.of(vencida, urgente));
+
+        mockMvc.perform(get("/api/dashboard/alertas")
+                        .principal(principal("ROLE_ADMINISTRADOR_EMPRESA")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].urgencia").value("vencida"))
+                .andExpect(jsonPath("$[0].diasRestantes").value(-24))
+                .andExpect(jsonPath("$[1].urgencia").value("7_dias"))
+                .andExpect(jsonPath("$[1].diasRestantes").value(5));
+
+        verify(dashboardAlertasService).obtenerAlertas(UUID.fromString(USUARIO_ID));
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
+    void obtenerAlertasRolNoAutorizadoDevuelve403() throws Exception {
+        mockMvc.perform(get("/api/dashboard/alertas")
+                        .principal(principal("ROLE_AUDITOR_CERTIFICADO")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("No tiene permisos para realizar esta acción."));
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
+    void obtenerRecomendacionDevuelve200ConLaCertificacionPrioritaria() throws Exception {
+        RecomendacionRenovacionResponseDTO recomendacion = new RecomendacionRenovacionResponseDTO(
+                UUID.fromString("11111111-1111-1111-1111-111111111111"),
+                "GHG Protocol — Corporate Standard", LocalDate.of(2026, 7, 3), 5,
+                new BigDecimal("120.5000"),
+                "Vence en 5 días y tiene un impacto relevante.", "Renovarla esta semana.");
+        when(dashboardRecomendacionService.obtenerRecomendacion(UUID.fromString(USUARIO_ID)))
+                .thenReturn(Optional.of(recomendacion));
+
+        mockMvc.perform(get("/api/dashboard/recomendacion")
+                        .principal(principal("ROLE_ADMINISTRADOR_EMPRESA")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nombreCertificacion").value("GHG Protocol — Corporate Standard"))
+                .andExpect(jsonPath("$.justificacion").value("Vence en 5 días y tiene un impacto relevante."));
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "ADMINISTRADOR_EMPRESA")
+    void obtenerRecomendacionDevuelve204SiNoHayAlertas() throws Exception {
+        when(dashboardRecomendacionService.obtenerRecomendacion(UUID.fromString(USUARIO_ID)))
+                .thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/api/dashboard/recomendacion")
+                        .principal(principal("ROLE_ADMINISTRADOR_EMPRESA")))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    @WithMockUser(username = USUARIO_ID, roles = "AUDITOR_CERTIFICADO")
+    void obtenerRecomendacionRolNoAutorizadoDevuelve403() throws Exception {
+        mockMvc.perform(get("/api/dashboard/recomendacion")
+                        .principal(principal("ROLE_AUDITOR_CERTIFICADO")))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value("No tiene permisos para realizar esta acción."));
     }

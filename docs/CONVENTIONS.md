@@ -28,7 +28,7 @@ Everything hangs off `com.piedpiper.carbonhub`, organized **by domain**, not by 
     enums/             Domain enums
 ```
 
-Current domains: `auditor`, `auth`, `emision`, `empresa`, `ima`, `invitacion`, `limite`, `notification`, `user`.
+Current domains: `auditor`, `auth`, `dashboard`, `ecoruta`, `emision`, `empresa`, `ima`, `invitacion`, `limite`, `notification`, `reconocimiento`, `user`, `validacion`.
 
 Cross-cutting packages:
 - `common/` — shared utilities (`Autenticaciones`, `Catalogos`, `ApiErrorDTO`)
@@ -43,7 +43,7 @@ Cross-cutting packages:
 ### Classes
 | Type | Pattern | Example |
 |---|---|---|
-| Controller | `<Domain>Controller` | `EmisionController` |
+| Controller | `<Domain>Controller` | `EmisionConsultaController` |
 | Service | `<Domain><Action>Service` | `EmisionEnvioService` |
 | Repository | `<Entity>Repository` | `LimiteEmisionesRepository` |
 | Mapper | `<Entity>Mapper` | `EmisionVueloMapper` |
@@ -73,11 +73,11 @@ Never rely on Hibernate's inferred name: `Empresa` had no `@Table` and resolved 
 @RestController
 @RequestMapping("/api/emisiones")
 @PreAuthorize("hasAnyRole('ADMINISTRADOR_EMPRESA', 'USUARIO_GENERAL')")
-public class EmisionController {
+public class EmisionConsultaController {
 
     private final EmisionConsultaService emisionConsultaService;
 
-    public EmisionController(EmisionConsultaService emisionConsultaService) {
+    public EmisionConsultaController(EmisionConsultaService emisionConsultaService) {
         this.emisionConsultaService = emisionConsultaService;
     }
 
@@ -122,6 +122,20 @@ public class EmisionController {
    });
    ```
    See `InvitacionService.enviarTrasCommit(...)` as the reference.
+
+   **When `afterCommit` is not enough.** The hook lives in memory: if the process restarts between
+   the commit and the side effect, the side effect is lost with no trace. That is acceptable when
+   losing it is harmless (a welcome email nobody is waiting for), and unacceptable when the outcome
+   itself is domain state that has to be auditable and recoverable.
+
+   In that second case, persist the pending state in the table and drive it from a scheduled sweep
+   instead. `PP-71` (`AlertaPendienteReintentoService`) is the reference: an alert stays `PENDIENTE`
+   with its own attempt counter, the sweep picks it up after a restart, and each transition is a
+   **conditional `UPDATE`** (`where ... and estado = :pendiente`) so the database — not the number of
+   threads or instances — decides who gets to act. Never use read-modify-write for that state.
+
+   This is a deliberate deviation from the `afterCommit` pattern, not an oversight. Pick between the
+   two by asking whether losing the side effect on a restart is acceptable.
 6. **Shared preconditions belong in a collaborator**, not duplicated per domain. E.g. the "user has a configured empresa" check uses `ApiException.empresaNoConfigurada()` uniformly.
 7. **Don't add defensive guards for cases an earlier layer already guarantees.** E.g. `ClimatiqClient.validarRespuesta()` guarantees `co2e()` is never null; re-checking downstream is dead code.
 
@@ -186,7 +200,7 @@ public class Invitacion {
    private String titulo;
    ```
 2. **Custom validators** live in `<domain>/validation/`, as an annotation + `ConstraintValidator` pair (see `@AnioLimiteValido` / `AnioLimiteValidoValidator`).
-3. **Validate in the service only when Bean Validation can't express it**, and document why on the DTO. Only current case: `PreferenciasUsuarioRequestDTO` takes `String` instead of enums on purpose, to return `422` rather than the `400` Jackson would produce on a deserialization failure.
+3. **Validate in the service only when Bean Validation can't express it**, and document why on the DTO. Current cases: `PreferenciasUsuarioRequestDTO` takes `String` instead of enums on purpose, to return `422` rather than the `400` Jackson would produce on a deserialization failure; `CrearMetaRequestDTO.fechaLimite` skips `@FutureOrPresent` for the same reason — `GlobalExceptionHandler` always maps Bean Validation failures to `400`, so the past-date check happens in `MetaService` to return `422` instead.
 
 ---
 
@@ -228,8 +242,8 @@ public class Invitacion {
 2. **Controller tests:** `@WebMvcTest` + `@AutoConfigureMockMvc(addFilters = false)`.
 3. **For `@PreAuthorize` to actually be evaluated in a slice test**, import a config with `@EnableMethodSecurity`:
    ```java
-   @Import(EmisionControllerTest.MethodSecurityTestConfig.class)
-   class EmisionControllerTest {
+   @Import(EmisionConsultaControllerTest.MethodSecurityTestConfig.class)
+   class EmisionConsultaControllerTest {
        @TestConfiguration
        @EnableMethodSecurity
        static class MethodSecurityTestConfig { }
@@ -253,6 +267,11 @@ public class Invitacion {
 - [ ] Check local coverage if touching logic-heavy code: `./mvnw test` also generates a JaCoCo report at `target/site/jacoco/index.html`. There is no hard coverage gate yet; this is a self-check, not a blocker.
 - [ ] PR title and body **in Spanish**, following `.github/PULL_REQUEST_TEMPLATE.md`.
 - [ ] Touched an entity? Consider the schema impact: the project runs `ddl-auto=update` **with no migration tool**. Hibernate does not rename tables or columns — a rename creates a new structure and orphans the old data.
+- [ ] **New `nullable = false` column on a table that already has rows?** `@Builder.Default` (Lombok) only affects the Java-side default — it does not generate a SQL `DEFAULT`. With `ddl-auto=update`, Hibernate emits `ALTER TABLE ... ADD COLUMN ... NOT NULL` with no default, which Postgres rejects once the table has rows — and Hibernate only logs this as a warning and keeps starting, so the app comes up with the column missing and every later query against that table fails with a confusing "column does not exist" error. Always pair `nullable = false` with an explicit `columnDefinition` carrying a SQL default, e.g.:
+  ```java
+  @Column(name = "eco_score_parcial", nullable = false, columnDefinition = "boolean default false")
+  ```
+  See `Usuario.reenvioVerificacionContador` / `resetContrasenaContador` (`integer default 0`) for the same pattern. This has recurred three times (`catalogo_insignias`, `codigo_verificacion`, `eco_score_parcial`) — check it explicitly, don't rely on remembering it.
 
 ### Local SonarQube analysis (optional)
 

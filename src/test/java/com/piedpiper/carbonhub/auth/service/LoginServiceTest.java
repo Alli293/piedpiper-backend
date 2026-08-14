@@ -57,7 +57,7 @@ class LoginServiceTest {
     void loginCorreoExitosoEmiteTokenYReseteaIntentos() {
         Usuario usuario = usuarioCorreo();
         usuario.setIntentosFallidos(3);
-        when(usuarioRepository.findByEmailIgnoreCase("ana@gmail.com")).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByEmailIgnoreCaseForUpdate("ana@gmail.com")).thenReturn(Optional.of(usuario));
         when(passwordEncoder.matches("secreta", "hash")).thenReturn(true);
         when(jwtService.generar(usuario)).thenReturn("jwt-app");
 
@@ -71,11 +71,11 @@ class LoginServiceTest {
     @Test
     void credencialesIncorrectasLanza401Uniforme() {
         Usuario usuario = usuarioCorreo();
-        when(usuarioRepository.findByEmailIgnoreCase("ana@gmail.com")).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByEmailIgnoreCaseForUpdate("ana@gmail.com")).thenReturn(Optional.of(usuario));
         when(passwordEncoder.matches("mala", "hash")).thenReturn(false);
 
-        assertThatThrownBy(() -> service.login(
-                new LoginRequestDTO(MetodoAuth.CORREO, null, "ana@gmail.com", "mala")))
+        var loginRequest = new LoginRequestDTO(MetodoAuth.CORREO, null, "ana@gmail.com", "mala");
+        assertThatThrownBy(() -> service.login(loginRequest))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.UNAUTHORIZED);
@@ -85,11 +85,11 @@ class LoginServiceTest {
     void quintoIntentoFallidoBloqueaCuenta() {
         Usuario usuario = usuarioCorreo();
         usuario.setIntentosFallidos(4);
-        when(usuarioRepository.findByEmailIgnoreCase("ana@gmail.com")).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByEmailIgnoreCaseForUpdate("ana@gmail.com")).thenReturn(Optional.of(usuario));
         when(passwordEncoder.matches("mala", "hash")).thenReturn(false);
 
-        assertThatThrownBy(() -> service.login(
-                new LoginRequestDTO(MetodoAuth.CORREO, null, "ana@gmail.com", "mala")))
+        var loginRequest = new LoginRequestDTO(MetodoAuth.CORREO, null, "ana@gmail.com", "mala");
+        assertThatThrownBy(() -> service.login(loginRequest))
                 .isInstanceOf(ApiException.class);
 
         ArgumentCaptor<Usuario> captor = ArgumentCaptor.forClass(Usuario.class);
@@ -103,39 +103,57 @@ class LoginServiceTest {
         Usuario usuario = usuarioCorreo();
         usuario.setIntentosFallidos(5);
         usuario.setBloqueadoHasta(Instant.now().plusSeconds(600));
-        when(usuarioRepository.findByEmailIgnoreCase("ana@gmail.com")).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByEmailIgnoreCaseForUpdate("ana@gmail.com")).thenReturn(Optional.of(usuario));
 
-        assertThatThrownBy(() -> service.login(
-                new LoginRequestDTO(MetodoAuth.CORREO, null, "ana@gmail.com", "secreta")))
+        var loginRequest = new LoginRequestDTO(MetodoAuth.CORREO, null, "ana@gmail.com", "secreta");
+        assertThatThrownBy(() -> service.login(loginRequest))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
     }
 
     @Test
-    void googleSinCuentaLanza404() {
+    void googleSinCuentaLanza401Uniforme() {
         when(googleTokenVerifier.verificar("token"))
                 .thenReturn(new GoogleClaims("sub-x", "nuevo@gmail.com", true, "Nuevo", "Nuevo", "Perez"));
         when(usuarioRepository.findByGoogleSub("sub-x")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.login(
-                new LoginRequestDTO(MetodoAuth.GOOGLE, "token", null, null)))
+        var loginRequest = new LoginRequestDTO(MetodoAuth.GOOGLE, "token", null, null);
+        assertThatThrownBy(() -> service.login(loginRequest))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
-                .isEqualTo(HttpStatus.NOT_FOUND);
+                .isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 
     @Test
     void cuentaDeshabilitadaLanza403() {
         Usuario usuario = usuarioCorreo();
         usuario.setEstado(EstadoUsuario.DESHABILITADO);
-        when(usuarioRepository.findByEmailIgnoreCase("ana@gmail.com")).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByEmailIgnoreCaseForUpdate("ana@gmail.com")).thenReturn(Optional.of(usuario));
         when(passwordEncoder.matches("secreta", "hash")).thenReturn(true);
 
-        assertThatThrownBy(() -> service.login(
-                new LoginRequestDTO(MetodoAuth.CORREO, null, "ana@gmail.com", "secreta")))
+        var loginRequest = new LoginRequestDTO(MetodoAuth.CORREO, null, "ana@gmail.com", "secreta");
+        assertThatThrownBy(() -> service.login(loginRequest))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    /**
+     * RECHAZADO tiene que poder iniciar sesion: es la unica forma de que vea el motivo de su
+     * rechazo en /auditor/validacion-pendiente en vez de quedar bloqueado sin explicacion.
+     */
+    @Test
+    void cuentaRechazadaPuedeIniciarSesionParaVerElMotivo() {
+        Usuario usuario = usuarioCorreo();
+        usuario.setEstado(EstadoUsuario.RECHAZADO);
+        when(usuarioRepository.findByEmailIgnoreCaseForUpdate("ana@gmail.com")).thenReturn(Optional.of(usuario));
+        when(passwordEncoder.matches("secreta", "hash")).thenReturn(true);
+        when(jwtService.generar(usuario)).thenReturn("jwt-rechazado");
+
+        AuthResponseDTO response = service.login(
+                new LoginRequestDTO(MetodoAuth.CORREO, null, "ana@gmail.com", "secreta"));
+
+        assertThat(response.getToken()).isEqualTo("jwt-rechazado");
     }
 }

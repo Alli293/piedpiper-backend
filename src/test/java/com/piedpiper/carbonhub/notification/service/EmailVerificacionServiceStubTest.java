@@ -40,7 +40,7 @@ class EmailVerificacionServiceStubTest {
     }
 
     @Test
-    void enviarCorreoVerificacion_registraElEnvioEnElLogConLaUrlCompleta() {
+    void enviarCorreoVerificacion_noExponeElTokenEnLogs() {
         servicio.enviarCorreoVerificacion("Ana Perez", "ana.perez@example.com", "token-123");
 
         assertThat(logAppender.list)
@@ -49,7 +49,8 @@ class EmailVerificacionServiceStubTest {
                     assertThat(evento.getFormattedMessage())
                             .contains("Ana Perez")
                             .contains("ana.perez@example.com")
-                            .contains("http://localhost:4200/verificar-correo?token=token-123");
+                            .doesNotContain("token-123")
+                            .doesNotContain("?token=");
                 });
     }
 }

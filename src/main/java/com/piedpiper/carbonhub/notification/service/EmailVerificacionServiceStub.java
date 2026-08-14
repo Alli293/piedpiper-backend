@@ -21,7 +21,7 @@ public class EmailVerificacionServiceStub implements EmailVerificacionService {
 
     @Override
     public void enviarCorreoVerificacion(String nombreDestinatario, String email, String token) {
-        String enlace = verificarCorreoUrl + "?token=" + token;
-        logger.info("Correo de verificacion (stub) para {} <{}>: {}", nombreDestinatario, email, enlace);
+        logger.info("Correo de verificacion simulado para {} <{}>; token omitido por seguridad",
+                nombreDestinatario, email);
     }
 }

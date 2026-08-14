@@ -1,8 +1,7 @@
 package com.piedpiper.carbonhub.auditor.service;
 
-import com.piedpiper.carbonhub.auditor.mappers.PerfilAuditorMapper;
+import com.piedpiper.carbonhub.auditor.mappers.PerfilAuditorMapperImpl;
 import com.piedpiper.carbonhub.auditor.models.dtos.ActualizarPerfilAuditorRequestDTO;
-import com.piedpiper.carbonhub.auditor.models.dtos.PerfilAuditorResponseDTO;
 import com.piedpiper.carbonhub.auditor.models.dtos.ResultadoPerfil;
 import com.piedpiper.carbonhub.auditor.models.entities.PerfilAuditor;
 import com.piedpiper.carbonhub.auditor.models.enums.EspecialidadAuditor;
@@ -17,7 +16,6 @@ import com.piedpiper.carbonhub.user.repository.UsuarioRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -44,11 +42,10 @@ class AuditorPerfilServiceTest {
     private PerfilAuditorRepository perfilAuditorRepository;
     @Mock
     private UsuarioRepository usuarioRepository;
-    @Mock
-    private PerfilAuditorMapper perfilAuditorMapper;
 
-    @InjectMocks
-    private AuditorPerfilService service;
+    private AuditorPerfilService service() {
+        return new AuditorPerfilService(perfilAuditorRepository, usuarioRepository, new PerfilAuditorMapperImpl());
+    }
 
     private static final UUID AUDITOR_ID = UUID.randomUUID();
 
@@ -79,24 +76,81 @@ class AuditorPerfilServiceTest {
                 .build();
     }
 
-    private PerfilAuditorResponseDTO responseEsperado() {
-        return new PerfilAuditorResponseDTO(
-                AUDITOR_ID,
-                List.of("AGROINDUSTRIA", "ENERGIA_RENOVABLE"),
-                List.of("HEREDIA", "SAN_JOSE"),
-                true,
-                "Auditor con experiencia en energía renovable.",
-                Instant.now()
-        );
+
+    // --- Lectura del perfil (GET) ---
+
+    /**
+     * El caso que motivó agregar la lectura: la pantalla pedía un GET sobre una ruta mapeada solo
+     * para PUT, recibía 405 y abría el formulario en blanco pese a haber datos guardados.
+     */
+    @Test
+    void obtenerDevuelveElPerfilGuardadoDelAuditor() {
+        when(usuarioRepository.findById(AUDITOR_ID)).thenReturn(Optional.of(auditorActivo()));
+        PerfilAuditor perfil = PerfilAuditor.builder()
+                .id(UUID.randomUUID())
+                .auditor(auditorActivo())
+                .especialidades(new HashSet<>(Set.of(EspecialidadAuditor.AGROINDUSTRIA)))
+                .zonasCobertura(new HashSet<>(Set.of(ProvinciaCR.CARTAGO)))
+                .disponible(true)
+                .descripcionProfesional("Perfil ya guardado.")
+                .build();
+        when(perfilAuditorRepository.findByAuditorId(AUDITOR_ID)).thenReturn(Optional.of(perfil));
+
+        var dto = service().obtener(AUDITOR_ID, AUDITOR_ID);
+
+        assertThat(dto.getEspecialidades()).containsExactly("AGROINDUSTRIA");
+        assertThat(dto.getZonasCobertura()).containsExactly("CARTAGO");
+        assertThat(dto.getDescripcionProfesional()).isEqualTo("Perfil ya guardado.");
+    }
+
+    /** Sin perfil todavía la pantalla abre el formulario vacío, y para eso necesita un 404. */
+    @Test
+    void obtenerSinPerfilTodaviaDevuelve404() {
+        when(usuarioRepository.findById(AUDITOR_ID)).thenReturn(Optional.of(auditorActivo()));
+        when(perfilAuditorRepository.findByAuditorId(AUDITOR_ID)).thenReturn(Optional.empty());
+        AuditorPerfilService servicio = service();
+
+        assertThatThrownBy(() -> servicio.obtener(AUDITOR_ID, AUDITOR_ID))
+                .isInstanceOf(ApiException.class)
+                .extracting(ex -> ((ApiException) ex).getStatus())
+                .isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    /** Leer el perfil de otro auditor se rechaza igual que escribirlo: el id de la ruta no manda. */
+    @Test
+    void obtenerElPerfilDeOtroAuditorSeRechaza() {
+        UUID otroUsuarioId = UUID.randomUUID();
+        AuditorPerfilService servicio = service();
+
+        assertThatThrownBy(() -> servicio.obtener(otroUsuarioId, AUDITOR_ID))
+                .isInstanceOf(ApiException.class)
+                .extracting(ex -> ((ApiException) ex).getStatus())
+                .isEqualTo(HttpStatus.FORBIDDEN);
+        verify(perfilAuditorRepository, never()).findByAuditorId(any());
+    }
+
+    /** Una cuenta que todavía no pasó la validación no puede leer su perfil, igual que no puede guardarlo. */
+    @Test
+    void obtenerConLaCuentaSinValidarSeRechaza() {
+        when(usuarioRepository.findById(AUDITOR_ID))
+                .thenReturn(Optional.of(auditorConEstado(EstadoUsuario.PENDIENTE_VALIDACION)));
+        AuditorPerfilService servicio = service();
+
+        assertThatThrownBy(() -> servicio.obtener(AUDITOR_ID, AUDITOR_ID))
+                .isInstanceOf(ApiException.class);
+        verify(perfilAuditorRepository, never()).findByAuditorId(any());
     }
 
     // --- 1. Ownership check: mismatched IDs → ApiException FORBIDDEN ---
 
+
     @Test
     void ownershipCheck_idsMismatch_lanzaForbidden() {
         UUID otroUsuarioId = UUID.randomUUID();
+        AuditorPerfilService servicio = service();
+        ActualizarPerfilAuditorRequestDTO request = requestValido();
 
-        assertThatThrownBy(() -> service.actualizar(otroUsuarioId, AUDITOR_ID, requestValido()))
+        assertThatThrownBy(() -> servicio.actualizar(otroUsuarioId, AUDITOR_ID, request))
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> {
                     ApiException apiEx = (ApiException) ex;
@@ -114,8 +168,10 @@ class AuditorPerfilServiceTest {
     void stateCheck_pendienteValidacion_lanzaForbidden() {
         when(usuarioRepository.findById(AUDITOR_ID))
                 .thenReturn(Optional.of(auditorConEstado(EstadoUsuario.PENDIENTE_VALIDACION)));
+        AuditorPerfilService servicio = service();
+        ActualizarPerfilAuditorRequestDTO request = requestValido();
 
-        assertThatThrownBy(() -> service.actualizar(AUDITOR_ID, AUDITOR_ID, requestValido()))
+        assertThatThrownBy(() -> servicio.actualizar(AUDITOR_ID, AUDITOR_ID, request))
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> {
                     ApiException apiEx = (ApiException) ex;
@@ -133,8 +189,10 @@ class AuditorPerfilServiceTest {
     void stateCheck_rechazado_lanzaForbidden() {
         when(usuarioRepository.findById(AUDITOR_ID))
                 .thenReturn(Optional.of(auditorConEstado(EstadoUsuario.RECHAZADO)));
+        AuditorPerfilService servicio = service();
+        ActualizarPerfilAuditorRequestDTO request = requestValido();
 
-        assertThatThrownBy(() -> service.actualizar(AUDITOR_ID, AUDITOR_ID, requestValido()))
+        assertThatThrownBy(() -> servicio.actualizar(AUDITOR_ID, AUDITOR_ID, request))
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> {
                     ApiException apiEx = (ApiException) ex;
@@ -158,8 +216,10 @@ class AuditorPerfilServiceTest {
 
         when(usuarioRepository.findById(AUDITOR_ID))
                 .thenReturn(Optional.of(usuarioGeneral));
+        AuditorPerfilService servicio = service();
+        ActualizarPerfilAuditorRequestDTO request = requestValido();
 
-        assertThatThrownBy(() -> service.actualizar(AUDITOR_ID, AUDITOR_ID, requestValido()))
+        assertThatThrownBy(() -> servicio.actualizar(AUDITOR_ID, AUDITOR_ID, request))
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> {
                     ApiException apiEx = (ApiException) ex;
@@ -184,8 +244,9 @@ class AuditorPerfilServiceTest {
                 true,
                 null
         );
+        AuditorPerfilService servicio = service();
 
-        assertThatThrownBy(() -> service.actualizar(AUDITOR_ID, AUDITOR_ID, request))
+        assertThatThrownBy(() -> servicio.actualizar(AUDITOR_ID, AUDITOR_ID, request))
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> {
                     ApiException apiEx = (ApiException) ex;
@@ -209,8 +270,9 @@ class AuditorPerfilServiceTest {
                 true,
                 null
         );
+        AuditorPerfilService servicio = service();
 
-        assertThatThrownBy(() -> service.actualizar(AUDITOR_ID, AUDITOR_ID, request))
+        assertThatThrownBy(() -> servicio.actualizar(AUDITOR_ID, AUDITOR_ID, request))
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> {
                     ApiException apiEx = (ApiException) ex;
@@ -232,10 +294,7 @@ class AuditorPerfilServiceTest {
         when(perfilAuditorRepository.save(any()))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        PerfilAuditorResponseDTO expected = responseEsperado();
-        when(perfilAuditorMapper.aResponseDto(any())).thenReturn(expected);
-
-        ResultadoPerfil result = service.actualizar(AUDITOR_ID, AUDITOR_ID, requestValido());
+        ResultadoPerfil result = service().actualizar(AUDITOR_ID, AUDITOR_ID, requestValido());
 
         ArgumentCaptor<PerfilAuditor> captor = ArgumentCaptor.forClass(PerfilAuditor.class);
         verify(perfilAuditorRepository).save(captor.capture());
@@ -250,7 +309,12 @@ class AuditorPerfilServiceTest {
         assertThat(saved.getActualizadoEn()).isNotNull();
         assertThat(saved.getAuditor().getId()).isEqualTo(AUDITOR_ID);
 
-        assertThat(result.dto()).isEqualTo(expected);
+        assertThat(result.dto().getAuditorId()).isEqualTo(AUDITOR_ID);
+        assertThat(result.dto().getEspecialidades()).containsExactlyInAnyOrder("AGROINDUSTRIA", "ENERGIA_RENOVABLE");
+        assertThat(result.dto().getZonasCobertura()).containsExactlyInAnyOrder("HEREDIA", "SAN_JOSE");
+        assertThat(result.dto().isDisponible()).isTrue();
+        assertThat(result.dto().getDescripcionProfesional())
+                .isEqualTo("Auditor con experiencia en energía renovable.");
         assertThat(result.creado()).isTrue();
     }
 
@@ -276,10 +340,7 @@ class AuditorPerfilServiceTest {
         when(perfilAuditorRepository.save(any()))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        PerfilAuditorResponseDTO expected = responseEsperado();
-        when(perfilAuditorMapper.aResponseDto(any())).thenReturn(expected);
-
-        ResultadoPerfil result = service.actualizar(AUDITOR_ID, AUDITOR_ID, requestValido());
+        ResultadoPerfil result = service().actualizar(AUDITOR_ID, AUDITOR_ID, requestValido());
 
         ArgumentCaptor<PerfilAuditor> captor = ArgumentCaptor.forClass(PerfilAuditor.class);
         verify(perfilAuditorRepository).save(captor.capture());
@@ -295,7 +356,9 @@ class AuditorPerfilServiceTest {
         assertThat(saved.getDescripcionProfesional()).isEqualTo("Auditor con experiencia en energía renovable.");
         assertThat(saved.getActualizadoEn()).isNotNull();
 
-        assertThat(result.dto()).isEqualTo(expected);
+        assertThat(result.dto().getAuditorId()).isEqualTo(AUDITOR_ID);
+        assertThat(result.dto().getEspecialidades()).containsExactlyInAnyOrder("AGROINDUSTRIA", "ENERGIA_RENOVABLE");
+        assertThat(result.dto().getZonasCobertura()).containsExactlyInAnyOrder("HEREDIA", "SAN_JOSE");
         assertThat(result.creado()).isFalse();
     }
 
@@ -318,12 +381,11 @@ class AuditorPerfilServiceTest {
                 .thenThrow(new DataIntegrityViolationException("Unique constraint violation"))
                 .thenAnswer(invocation -> invocation.getArgument(0)); // second save succeeds
 
-        PerfilAuditorResponseDTO expected = responseEsperado();
-        when(perfilAuditorMapper.aResponseDto(any())).thenReturn(expected);
+        ResultadoPerfil result = service().actualizar(AUDITOR_ID, AUDITOR_ID, requestValido());
 
-        ResultadoPerfil result = service.actualizar(AUDITOR_ID, AUDITOR_ID, requestValido());
-
-        assertThat(result.dto()).isEqualTo(expected);
+        assertThat(result.dto().getAuditorId()).isEqualTo(AUDITOR_ID);
+        assertThat(result.dto().getEspecialidades()).containsExactlyInAnyOrder("AGROINDUSTRIA", "ENERGIA_RENOVABLE");
+        assertThat(result.dto().getZonasCobertura()).containsExactlyInAnyOrder("HEREDIA", "SAN_JOSE");
         assertThat(result.creado()).isFalse(); // treated as update after race condition
     }
 
@@ -340,8 +402,9 @@ class AuditorPerfilServiceTest {
                 true,
                 null
         );
+        AuditorPerfilService servicio = service();
 
-        assertThatThrownBy(() -> service.actualizar(AUDITOR_ID, AUDITOR_ID, request))
+        assertThatThrownBy(() -> servicio.actualizar(AUDITOR_ID, AUDITOR_ID, request))
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> {
                     ApiException apiEx = (ApiException) ex;
@@ -365,8 +428,9 @@ class AuditorPerfilServiceTest {
                 true,
                 null
         );
+        AuditorPerfilService servicio = service();
 
-        assertThatThrownBy(() -> service.actualizar(AUDITOR_ID, AUDITOR_ID, request))
+        assertThatThrownBy(() -> servicio.actualizar(AUDITOR_ID, AUDITOR_ID, request))
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> {
                     ApiException apiEx = (ApiException) ex;

@@ -41,9 +41,10 @@ class HttpCertificacionEventosClientTest {
     void urlNoConfiguradaLanzaCertificacionNoDisponible() {
         HttpCertificacionEventosClient client = new HttpCertificacionEventosClient(
                 "", "/api/certificacion/eventos", 2000, HEADER_API_KEY, API_KEY);
+        EventoCertificacionRequestDTO request = requestValido();
 
         CertificacionNoDisponibleException exception = catchThrowableOfType(
-                () -> client.enviar(requestValido()),
+                () -> client.enviar(request),
                 CertificacionNoDisponibleException.class);
 
         assertThat(exception).isNotNull();
@@ -59,9 +60,10 @@ class HttpCertificacionEventosClientTest {
                 1000,
                 HEADER_API_KEY,
                 "");
+        EventoCertificacionRequestDTO request = requestValido();
 
         CertificacionNoDisponibleException exception = catchThrowableOfType(
-                () -> client.enviar(requestValido()),
+                () -> client.enviar(request),
                 CertificacionNoDisponibleException.class);
 
         assertThat(exception).isNotNull();
@@ -86,9 +88,10 @@ class HttpCertificacionEventosClientTest {
     @Test
     void errorHttpLanzaCertificacionNoDisponible() throws IOException {
         HttpCertificacionEventosClient client = clientApuntandoA(503);
+        EventoCertificacionRequestDTO request = requestValido();
 
         CertificacionNoDisponibleException exception = catchThrowableOfType(
-                () -> client.enviar(requestValido()),
+                () -> client.enviar(request),
                 CertificacionNoDisponibleException.class);
 
         assertThat(exception).isNotNull();
@@ -105,9 +108,10 @@ class HttpCertificacionEventosClientTest {
                 200,
                 HEADER_API_KEY,
                 API_KEY);
+        EventoCertificacionRequestDTO request = requestValido();
 
         CertificacionNoDisponibleException exception = catchThrowableOfType(
-                () -> client.enviar(requestValido()),
+                () -> client.enviar(request),
                 CertificacionNoDisponibleException.class);
 
         assertThat(exception).isNotNull();
