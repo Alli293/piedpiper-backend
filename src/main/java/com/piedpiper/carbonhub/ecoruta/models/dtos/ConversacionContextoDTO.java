@@ -1,6 +1,7 @@
 package com.piedpiper.carbonhub.ecoruta.models.dtos;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -34,10 +35,15 @@ public class ConversacionContextoDTO {
      * el backend igual solo usa los últimos turnos al armar el prompt
      * ({@code EcoRutaItinerarioService.MAX_TURNOS_HISTORIAL_EN_PROMPT}), esto es una cota dura
      * independiente de esa poda.
+     *
+     * <p>{@code List<@Valid @NotNull ...>} en vez de solo {@code @Valid} en el campo: {@code @Valid}
+     * cascadea la validación a los elementos no nulos de la lista, pero no rechaza un elemento
+     * {@code null} en sí — un historial como {@code [null, {...}]} pasaba entero (señalado en
+     * revisión). Anotar el argumento de tipo hace que Hibernate Validator valide cada elemento,
+     * nulo incluido.
      */
-    @Valid
     @Size(max = 200, message = "El historial de la conversación es demasiado largo.")
-    private List<MensajeConversacionDTO> historialMensajes;
+    private List<@Valid @NotNull(message = "El historial no puede contener mensajes vacíos.") MensajeConversacionDTO> historialMensajes;
 
     private Integer versionItinerario;
 }

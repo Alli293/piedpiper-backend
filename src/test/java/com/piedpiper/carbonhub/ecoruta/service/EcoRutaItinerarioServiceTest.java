@@ -572,7 +572,14 @@ class EcoRutaItinerarioServiceTest {
                 false, "Agregué una caminata al aire libre.", null, respuestaValida(2));
         when(itinerarioIaClienteService.refinar(any(), eq(2))).thenReturn(
                 new ResultadoRefinamientoIA(respuestaIa, ResultadoValidacionItinerario.VALIDO_COMPLETO));
-        when(itinerarioRepository.saveAndFlush(any(Itinerario.class))).thenAnswer(i -> i.getArgument(0));
+        // itinerario.version es un @Version real de JPA: en producción Hibernate lo sube solo al
+        // detectar la entidad modificada en el flush. El mock del repositorio no corre Hibernate
+        // de verdad, así que acá se simula ese efecto explícitamente.
+        when(itinerarioRepository.saveAndFlush(any(Itinerario.class))).thenAnswer(i -> {
+            Itinerario guardado = i.getArgument(0);
+            guardado.setVersion(guardado.getVersion() + 1);
+            return guardado;
+        });
 
         RefinamientoItinerarioResponseDTO response = service.refinar(
                 itinerarioId, USUARIO_ID, mensaje("Quiero más actividades al aire libre."));
@@ -661,6 +668,30 @@ class EcoRutaItinerarioServiceTest {
                     assertThat(ex.getMessage()).isEqualTo(
                             "No fue posible guardar los cambios del itinerario. Intenta nuevamente.");
                 });
+    }
+
+    @Test
+    void refinarConConflictoDeVersionConcurrenteEnElFlushLanza409() {
+        // A diferencia de refinarConVersionDesactualizadaLanza409 (que detecta que el CLIENTE
+        // mandó una versionItinerario vieja, antes de llamar a Gemini): esto simula que otra
+        // sesión guardó una versión más nueva DESPUÉS de que este request cargó el itinerario y
+        // ANTES de este saveAndFlush — la carrera real que motiva el @Version de JPA, señalada en
+        // revisión (PR #93) como algo que la validación manual del contexto no cubre por sí sola.
+        UUID itinerarioId = UUID.randomUUID();
+        Itinerario itinerario = itinerarioExistente(itinerarioId);
+        when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, USUARIO_ID))
+                .thenReturn(Optional.of(itinerario));
+        RefinamientoIaResponseDTO respuestaIa = new RefinamientoIaResponseDTO(
+                false, "Listo.", null, respuestaValida(2));
+        when(itinerarioIaClienteService.refinar(any(), eq(2))).thenReturn(
+                new ResultadoRefinamientoIA(respuestaIa, ResultadoValidacionItinerario.VALIDO_COMPLETO));
+        when(itinerarioRepository.saveAndFlush(any(Itinerario.class)))
+                .thenThrow(new org.springframework.orm.ObjectOptimisticLockingFailureException(
+                        Itinerario.class, itinerarioId));
+
+        assertThatThrownBy(() -> service.refinar(itinerarioId, USUARIO_ID, mensaje("Quiero más playas.")))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> assertThat(((ApiException) ex).getStatus()).isEqualTo(HttpStatus.CONFLICT));
     }
 
     @Test

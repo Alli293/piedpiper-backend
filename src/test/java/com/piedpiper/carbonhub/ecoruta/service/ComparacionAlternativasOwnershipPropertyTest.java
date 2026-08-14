@@ -57,7 +57,7 @@ class ComparacionAlternativasOwnershipPropertyTest {
         ItinerarioMapper mapper = mock(ItinerarioMapper.class);
 
         ComparacionAlternativasService service = new ComparacionAlternativasService(
-                itinerarioRepository, actividadRepository, iaService, mapper);
+                itinerarioRepository, actividadRepository, iaService, mapper, mock(jakarta.persistence.EntityManager.class));
 
         // Itinerario does not belong to this user
         when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, usuarioId))
@@ -95,7 +95,7 @@ class ComparacionAlternativasOwnershipPropertyTest {
         ItinerarioMapper mapper = mock(ItinerarioMapper.class);
 
         ComparacionAlternativasService service = new ComparacionAlternativasService(
-                itinerarioRepository, actividadRepository, iaService, mapper);
+                itinerarioRepository, actividadRepository, iaService, mapper, mock(jakarta.persistence.EntityManager.class));
 
         // Itinerario DOES belong to user (returns a non-empty Itinerario)
         com.piedpiper.carbonhub.ecoruta.models.entities.Itinerario itinerario =
@@ -142,7 +142,7 @@ class ComparacionAlternativasOwnershipPropertyTest {
         ItinerarioMapper mapper = mock(ItinerarioMapper.class);
 
         ComparacionAlternativasService service = new ComparacionAlternativasService(
-                itinerarioRepository, actividadRepository, iaService, mapper);
+                itinerarioRepository, actividadRepository, iaService, mapper, mock(jakarta.persistence.EntityManager.class));
 
         // Itinerario does not belong to this user
         when(itinerarioRepository.findByIdAndUsuario_Id(itinerarioId, usuarioId))
@@ -180,7 +180,7 @@ class ComparacionAlternativasOwnershipPropertyTest {
         ItinerarioMapper mapper = mock(ItinerarioMapper.class);
 
         ComparacionAlternativasService service = new ComparacionAlternativasService(
-                itinerarioRepository, actividadRepository, iaService, mapper);
+                itinerarioRepository, actividadRepository, iaService, mapper, mock(jakarta.persistence.EntityManager.class));
 
         // Itinerario DOES belong to user
         com.piedpiper.carbonhub.ecoruta.models.entities.Itinerario itinerario =

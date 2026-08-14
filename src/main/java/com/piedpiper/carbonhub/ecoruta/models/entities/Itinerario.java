@@ -21,6 +21,7 @@ import jakarta.persistence.OrderBy;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -65,7 +66,24 @@ public class Itinerario {
     @Column(name = "estado", nullable = false, length = 20)
     private EstadoItinerario estado;
 
-    /** Se incrementa en cada regeneración/ajuste (PP-88 la usa para sustituir la versión anterior). */
+    /**
+     * {@code @Version} real de JPA (antes un {@code @Column} plano incrementado a mano en cada
+     * regeneración/ajuste): Hibernate la incrementa solo y la valida en cada
+     * {@code UPDATE ... WHERE id = ? AND version = ?} — si otra sesión ya guardó una versión más
+     * nueva entre el load y el save de esta, el UPDATE afecta 0 filas y Hibernate lanza
+     * {@code ObjectOptimisticLockingFailureException} en vez de pisar el cambio en silencio. Esto
+     * cierra la ventana de carrera que la validación manual contra
+     * {@code ConversacionContextoDTO.versionItinerario} (chequeada antes de llamar a Gemini, más
+     * barata porque falla rápido) no puede cubrir por sí sola: esa validación solo detecta que el
+     * *cliente* mandó una versión vieja, no una modificación concurrente que ocurra durante esta
+     * misma petición. Señalado en revisión (PR #93) junto con el pedido de separar refinar() en
+     * transacciones cortas de snapshot/guardado — esta es la mitigación específica del riesgo de
+     * escritura perdida que motivaba ese pedido; la separación transaccional en sí (que apunta al
+     * uso de open-in-view, deuda ya documentada en CONVENTIONS.md §12 para todo el codebase) queda
+     * fuera de esta ronda a propósito, no en silencio: es un cambio de mayor alcance sobre código
+     * ya frágil (ver el bug de orphanRemoval en refinar()) y toca a generar() por el mismo patrón.
+     */
+    @Version
     @Column(nullable = false)
     @Builder.Default
     private Integer version = 1;

@@ -73,7 +73,7 @@ class ComparacionAlternativasSustitucionPropertyTest {
         ItinerarioMapper mapper = mock(ItinerarioMapper.class);
 
         ComparacionAlternativasService service = new ComparacionAlternativasService(
-                itinerarioRepository, actividadRepository, iaService, mapper);
+                itinerarioRepository, actividadRepository, iaService, mapper, mock(jakarta.persistence.EntityManager.class));
 
         // Build itinerario structure
         Usuario usuario = new Usuario();
@@ -184,7 +184,7 @@ class ComparacionAlternativasSustitucionPropertyTest {
         ItinerarioMapper mapper = mock(ItinerarioMapper.class);
 
         ComparacionAlternativasService service = new ComparacionAlternativasService(
-                itinerarioRepository, actividadRepository, iaService, mapper);
+                itinerarioRepository, actividadRepository, iaService, mapper, mock(jakarta.persistence.EntityManager.class));
 
         // Build itinerario structure
         Usuario usuario = new Usuario();
@@ -284,7 +284,7 @@ class ComparacionAlternativasSustitucionPropertyTest {
         ItinerarioMapper mapper = mock(ItinerarioMapper.class);
 
         ComparacionAlternativasService service = new ComparacionAlternativasService(
-                itinerarioRepository, actividadRepository, iaService, mapper);
+                itinerarioRepository, actividadRepository, iaService, mapper, mock(jakarta.persistence.EntityManager.class));
 
         // Build itinerario structure
         Usuario usuario = new Usuario();

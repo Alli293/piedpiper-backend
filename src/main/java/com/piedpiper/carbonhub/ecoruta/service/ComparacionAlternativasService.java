@@ -18,6 +18,9 @@ import com.piedpiper.carbonhub.exceptions.ApiException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -32,15 +35,18 @@ public class ComparacionAlternativasService {
     private final ItinerarioActividadRepository itinerarioActividadRepository;
     private final AlternativasIaClienteService alternativasIaClienteService;
     private final ItinerarioMapper mapper;
+    private final EntityManager entityManager;
 
     public ComparacionAlternativasService(ItinerarioRepository itinerarioRepository,
                                           ItinerarioActividadRepository itinerarioActividadRepository,
                                           AlternativasIaClienteService alternativasIaClienteService,
-                                          ItinerarioMapper mapper) {
+                                          ItinerarioMapper mapper,
+                                          EntityManager entityManager) {
         this.itinerarioRepository = itinerarioRepository;
         this.itinerarioActividadRepository = itinerarioActividadRepository;
         this.alternativasIaClienteService = alternativasIaClienteService;
         this.mapper = mapper;
+        this.entityManager = entityManager;
     }
 
     @Transactional(readOnly = true)
@@ -160,7 +166,16 @@ public class ComparacionAlternativasService {
 
         // Toda modificación real del itinerario incrementa la versión (PP-88 depende de esto
         // para reflejar correctamente cada ajuste, sea vía chat o vía esta sustitución puntual).
-        itinerario.setVersion(itinerario.getVersion() + 1);
+        // itinerario.version es ahora un @Version real de JPA: no se puede escribir a mano (eso
+        // rompería el manejo interno de Hibernate). Como esta sustitución solo modifica la
+        // actividad hija (fila propia en itinerario_actividades) y no toca ningún campo del
+        // itinerario en sí, Hibernate no generaría un UPDATE sobre itinerarios y la versión no
+        // subiría sola — forzamos el incremento explícitamente con el mecanismo que ofrece JPA
+        // para justamente este caso. El incremento en sí ocurre recién en el flush (no al llamar
+        // a lock()), así que se fuerza el flush acá mismo — si no, el DTO de respuesta de abajo
+        // todavía leería la versión vieja, antes de que Hibernate la suba.
+        entityManager.lock(itinerario, LockModeType.OPTIMISTIC_FORCE_INCREMENT);
+        entityManager.flush();
 
         return mapper.toDto(itinerario);
     }

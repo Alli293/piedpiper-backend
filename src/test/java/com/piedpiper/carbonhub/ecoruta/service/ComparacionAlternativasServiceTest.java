@@ -23,6 +23,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -34,6 +37,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -49,6 +53,8 @@ class ComparacionAlternativasServiceTest {
     private AlternativasIaClienteService alternativasIaClienteService;
     @Mock
     private ItinerarioMapper mapper;
+    @Mock
+    private EntityManager entityManager;
 
     private ComparacionAlternativasService service;
 
@@ -60,7 +66,7 @@ class ComparacionAlternativasServiceTest {
     void setUp() {
         service = new ComparacionAlternativasService(
                 itinerarioRepository, itinerarioActividadRepository,
-                alternativasIaClienteService, mapper);
+                alternativasIaClienteService, mapper, entityManager);
         usuarioId = UUID.randomUUID();
         itinerarioId = UUID.randomUUID();
         actividadId = UUID.randomUUID();
@@ -288,9 +294,19 @@ class ComparacionAlternativasServiceTest {
                 .thenReturn(Optional.of(actividad));
         when(itinerarioActividadRepository.save(any(ItinerarioActividad.class))).thenReturn(actividad);
         when(mapper.toDto(itinerario)).thenReturn(new ItinerarioResponseDTO());
+        // itinerario.version es un @Version real de JPA: en producción Hibernate lo sube solo al
+        // detectar el OPTIMISTIC_FORCE_INCREMENT en el flush. El mock de EntityManager no corre
+        // Hibernate de verdad, así que acá se simula ese efecto explícitamente.
+        doAnswer(invocation -> {
+            Itinerario it = invocation.getArgument(0);
+            it.setVersion(it.getVersion() + 1);
+            return null;
+        }).when(entityManager).lock(eq(itinerario), eq(LockModeType.OPTIMISTIC_FORCE_INCREMENT));
 
         service.sustituirActividad(itinerarioId, actividadId, request, usuarioId);
 
+        verify(entityManager).lock(itinerario, LockModeType.OPTIMISTIC_FORCE_INCREMENT);
+        verify(entityManager).flush();
         assertThat(itinerario.getVersion()).isEqualTo(2);
     }
 

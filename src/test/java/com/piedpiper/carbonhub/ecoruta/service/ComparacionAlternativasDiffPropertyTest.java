@@ -70,7 +70,7 @@ class ComparacionAlternativasDiffPropertyTest {
         ItinerarioMapper mapper = mock(ItinerarioMapper.class);
 
         ComparacionAlternativasService service = new ComparacionAlternativasService(
-                itinerarioRepository, actividadRepository, iaService, mapper);
+                itinerarioRepository, actividadRepository, iaService, mapper, mock(jakarta.persistence.EntityManager.class));
 
         // Build itinerario with a single activity (the original)
         Usuario usuario = new Usuario();
@@ -171,7 +171,7 @@ class ComparacionAlternativasDiffPropertyTest {
         ItinerarioMapper mapper = mock(ItinerarioMapper.class);
 
         ComparacionAlternativasService service = new ComparacionAlternativasService(
-                itinerarioRepository, actividadRepository, iaService, mapper);
+                itinerarioRepository, actividadRepository, iaService, mapper, mock(jakarta.persistence.EntityManager.class));
 
         // Build itinerario with original activity that has null puntuacionAmbientalEstimada
         Usuario usuario = new Usuario();

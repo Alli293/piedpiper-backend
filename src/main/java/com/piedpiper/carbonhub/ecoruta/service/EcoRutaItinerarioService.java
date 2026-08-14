@@ -53,6 +53,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -360,7 +361,8 @@ public class EcoRutaItinerarioService {
                 itinerario.getFechaInicio(), empresasActivas);
         itinerario.getDias().clear();
         itinerario.getDias().addAll(diasNuevos);
-        itinerario.setVersion(itinerario.getVersion() + 1);
+        // Version ya no se incrementa a mano: es un @Version real de JPA, Hibernate la sube sola
+        // al detectar la entidad modificada en el flush de abajo.
 
         // Igual que en generar(): si la IA devolvió menos días de los que tiene el itinerario
         // actual, el ajuste se aplicó parcial — antes esto no se distinguía acá y el día faltante
@@ -378,6 +380,13 @@ public class EcoRutaItinerarioService {
 
         try {
             itinerarioRepository.saveAndFlush(itinerario);
+        } catch (ObjectOptimisticLockingFailureException e) {
+            // Alguien más (otra pestaña, otra sesión) guardó una versión más nueva de este
+            // itinerario entre el load de arriba y este saveAndFlush — el UPDATE con
+            // WHERE version = ? de Hibernate no afectó ninguna fila. 409, no 500: no es un error
+            // real, es la carrera que motiva el @Version en primer lugar.
+            log.warn("Conflicto de versión al guardar el itinerario {} tras refinamiento", itinerarioId);
+            throw ApiException.itinerarioVersionDesactualizada();
         } catch (DataAccessException e) {
             log.error("Error al guardar los cambios del itinerario {} tras refinamiento", itinerarioId, e);
             throw ApiException.errorInterno(
