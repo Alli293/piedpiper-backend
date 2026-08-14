@@ -24,6 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -100,8 +101,29 @@ public class EmisionCertificacionService implements EmisionCertificacionPort {
         this.generadorCodigoVerificacionService = generadorCodigoVerificacionService;
     }
 
+    /**
+     * <b>{@code REQUIRES_NEW} y no {@code @Transactional} a secas.</b> El único llamador real
+     * invoca este método desde el {@code afterCommit} de la transacción que aprueba la auditoría
+     * ({@code ResultadoAuditoriaService.publicarAprobacionTrasCommit}). Dentro de ese enganche la
+     * transacción original ya se confirmó, pero la sincronización sigue activa y sus recursos
+     * siguen ligados al hilo, así que una propagación {@code REQUIRED} <b>se une a esa transacción
+     * ya terminada</b> en vez de abrir una nueva.
+     *
+     * <p>El síntoma no era un error claro sino uno a dos pasos de distancia: la reserva del índice
+     * de estado ({@code IndiceEstadoCertificacion}, con identidad autoincremental) no llegaba a
+     * ejecutar su {@code INSERT}, {@code getIndice()} devolvía nulo, y la certificación fallaba al
+     * insertarse con {@code null value in column "indice_estado"}. Al reintentar, la entidad ya
+     * tenía id asignado, así que el {@code save} pasaba a ser un {@code merge} y terminaba en
+     * {@code StaleObjectStateException} y un 500. La auditoría quedaba en
+     * {@code CERTIFICACION_EMITIDA} sin ninguna certificación detrás.
+     *
+     * <p>Con {@code REQUIRES_NEW} la emisión corre en su propia transacción, que es lo que
+     * corresponde: es una unidad de trabajo independiente de la aprobación que ya se confirmó, y si
+     * falla no debe arrastrar nada de aquello. {@link CertificacionPersistenciaService#guardar} usa
+     * la misma propagación por un motivo distinto: aislar el rollback ante una emisión concurrente.
+     */
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public CertificacionResponseDTO emitirPorAuditoriaAprobada(
             EmitirCertificacionRequestDTO comando) {
 

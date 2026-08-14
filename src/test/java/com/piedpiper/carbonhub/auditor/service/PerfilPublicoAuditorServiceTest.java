@@ -4,12 +4,16 @@ import com.piedpiper.carbonhub.auditor.mappers.PerfilPublicoAuditorMapper;
 import com.piedpiper.carbonhub.auditor.models.dtos.DistribucionSectorDTO;
 import com.piedpiper.carbonhub.auditor.models.dtos.MetricasAuditor;
 import com.piedpiper.carbonhub.auditor.models.dtos.PerfilPublicoAuditorResponseDTO;
+import com.piedpiper.carbonhub.auditor.models.dtos.ResenaVerificadaDTO;
 import com.piedpiper.carbonhub.auditor.models.entities.DistribucionSectorAuditor;
 import com.piedpiper.carbonhub.auditor.models.entities.PerfilAuditor;
 import com.piedpiper.carbonhub.auditor.models.enums.EspecialidadAuditor;
 import com.piedpiper.carbonhub.auditor.repository.PerfilAuditorRepository;
+import com.piedpiper.carbonhub.calificacion.models.entities.Calificacion;
+import com.piedpiper.carbonhub.calificacion.repository.CalificacionRepository;
 import com.piedpiper.carbonhub.certificacion.config.CatalogoTiposCertificacion;
 import com.piedpiper.carbonhub.certificacion.repository.CertificacionRepository;
+import com.piedpiper.carbonhub.empresa.models.entities.Empresa;
 import com.piedpiper.carbonhub.exceptions.ApiException;
 import com.piedpiper.carbonhub.user.models.entities.Usuario;
 import com.piedpiper.carbonhub.user.models.enums.EstadoUsuario;
@@ -53,6 +57,9 @@ class PerfilPublicoAuditorServiceTest {
     @Mock
     private CertificacionRepository certificacionRepository;
     @Mock
+    private CalificacionRepository calificacionRepository;
+
+    @Mock
     private CatalogoTiposCertificacion catalogoTiposCertificacion;
     @Mock
     private PerfilPublicoAuditorMapper mapper;
@@ -64,6 +71,7 @@ class PerfilPublicoAuditorServiceTest {
         service = new PerfilPublicoAuditorService(
                 perfilAuditorRepository,
                 certificacionRepository,
+                calificacionRepository,
                 catalogoTiposCertificacion,
                 mapper,
                 FIXED_CLOCK);
@@ -186,5 +194,43 @@ class PerfilPublicoAuditorServiceTest {
                 .distribucionSectores(new ArrayList<>(List.of(
                         new DistribucionSectorAuditor("AGROINDUSTRIA", 3, new BigDecimal("60.0")))))
                 .build();
+    }
+
+    @Test
+    void auditorActivoIncluyeResenasVerificadasYTotalResenasReal() {
+        Usuario auditor = auditorActivo();
+        PerfilAuditor perfil = perfilConMetricas(auditor);
+        Empresa empresa = Empresa.builder()
+                .id(UUID.randomUUID())
+                .nombreEmpresa("Café del Valle S.A.")
+                .build();
+        Calificacion calificacion = Calificacion.builder()
+                .id(UUID.randomUUID())
+                .empresa(empresa)
+                .calificacion(5)
+                .comentario("Excelente proceso de auditoría.")
+                .nombreCalificador("María Pérez")
+                .creadoEn(Instant.parse("2025-01-10T10:00:00Z"))
+                .build();
+        when(perfilAuditorRepository.findByAuditorIdAndAuditorEstadoConDistribucion(
+                AUDITOR_ID, EstadoUsuario.ACTIVO))
+                .thenReturn(Optional.of(perfil));
+        when(certificacionRepository.findByAuditorId(AUDITOR_ID))
+                .thenReturn(Collections.emptyList());
+        when(calificacionRepository.findByAuditorIdOrderByCreadoEnDesc(AUDITOR_ID))
+                .thenReturn(List.of(calificacion));
+        when(mapper.aPerfilPublicoDto(any(), any(), any(), any(), any()))
+                .thenReturn(new PerfilPublicoAuditorResponseDTO());
+
+        service.obtenerPerfilPublico(AUDITOR_ID);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<ResenaVerificadaDTO>> resenasCaptor = ArgumentCaptor.forClass(List.class);
+        verify(mapper).aPerfilPublicoDto(eq(perfil), any(), any(), any(), resenasCaptor.capture());
+        assertThat(resenasCaptor.getValue()).singleElement().satisfies(resena -> {
+            assertThat(resena.getNombreCalificador()).isEqualTo("María Pérez");
+            assertThat(resena.getNombreEmpresa()).isEqualTo("Café del Valle S.A.");
+            assertThat(resena.getCalificacion()).isEqualByComparingTo("5");
+        });
     }
 }

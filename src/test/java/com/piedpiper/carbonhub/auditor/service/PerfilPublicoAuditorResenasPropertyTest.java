@@ -8,6 +8,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -91,6 +92,6 @@ class PerfilPublicoAuditorResenasPropertyTest {
                 .map(base::plusDays));
 
         return Combinators.combine(calificacion, comentario, fecha)
-                .as(ResenaVerificadaDTO::new);
+                .as((cal, com, f) -> new ResenaVerificadaDTO(UUID.randomUUID(), UUID.randomUUID(), cal, com, f, "Empresa Test", "Empresa Test"));
     }
 }

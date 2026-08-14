@@ -29,7 +29,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.lang.reflect.Method;
 import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
@@ -455,5 +458,22 @@ class EmisionCertificacionServiceTest {
                 .isInstanceOf(IllegalStateException.class);
 
         verify(notificacionPanelRepository, never()).save(any());
+    }
+
+    /**
+     * Vigila el metodo real, no un espejo. {@code EmisionEnAfterCommitIntegrationTest} demuestra por
+     * que la propagacion propia hace falta cuando se invoca desde un {@code afterCommit}, pero lo
+     * hace con un servicio de prueba: si alguien devolviera este metodo a {@code REQUIRED}, aquel
+     * test seguiria pasando. Este falla.
+     */
+    @Test
+    void laEmisionExigeTransaccionPropiaPorInvocarseDesdeAfterCommit() throws NoSuchMethodException {
+        Method emitir = EmisionCertificacionService.class.getMethod(
+                "emitirPorAuditoriaAprobada", EmitirCertificacionRequestDTO.class);
+
+        Transactional transaccional = emitir.getAnnotation(Transactional.class);
+
+        assertThat(transaccional).isNotNull();
+        assertThat(transaccional.propagation()).isEqualTo(Propagation.REQUIRES_NEW);
     }
 }

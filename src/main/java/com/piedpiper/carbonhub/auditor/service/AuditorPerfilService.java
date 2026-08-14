@@ -2,6 +2,7 @@ package com.piedpiper.carbonhub.auditor.service;
 
 import com.piedpiper.carbonhub.auditor.mappers.PerfilAuditorMapper;
 import com.piedpiper.carbonhub.auditor.models.dtos.ActualizarPerfilAuditorRequestDTO;
+import com.piedpiper.carbonhub.auditor.models.dtos.PerfilAuditorResponseDTO;
 import com.piedpiper.carbonhub.auditor.models.dtos.ResultadoPerfil;
 import com.piedpiper.carbonhub.auditor.models.entities.PerfilAuditor;
 import com.piedpiper.carbonhub.auditor.models.enums.EspecialidadAuditor;
@@ -37,26 +38,31 @@ public class AuditorPerfilService {
         this.perfilAuditorMapper = perfilAuditorMapper;
     }
 
+    /**
+     * Devuelve el perfil del auditor para que la pantalla lo muestre antes de editarlo.
+     *
+     * <p><b>404 cuando todavía no hay perfil.</b> El auditor recién validado que nunca guardó llega
+     * acá sin fila, y eso no es un error: la pantalla lo interpreta como "primera vez" y abre el
+     * formulario vacío. Devolver 200 con un cuerpo vacío obligaría al cliente a distinguir "sin
+     * datos" de "sin perfil" mirando los campos.</p>
+     *
+     * <p>Las mismas comprobaciones que {@link #actualizar}: se lee el perfil propio y nada más. El
+     * identificador de la ruta no puede apuntar a otro auditor aunque el rol sea el correcto.</p>
+     */
+    @Transactional(readOnly = true)
+    public PerfilAuditorResponseDTO obtener(UUID usuarioId, UUID auditorId) {
+        verificarAccesoAlPerfil(usuarioId, auditorId);
+
+        return perfilAuditorRepository.findByAuditorId(auditorId)
+                .map(perfilAuditorMapper::aResponseDto)
+                .orElseThrow(() -> ApiException.recursoNoEncontrado(
+                        "Todavía no has configurado tu perfil de auditor."));
+    }
+
     @Transactional
     public ResultadoPerfil actualizar(UUID usuarioId, UUID auditorId,
                                       ActualizarPerfilAuditorRequestDTO request) {
-        // 1. Verificar propiedad: usuarioId == auditorId
-        if (!usuarioId.equals(auditorId)) {
-            throw ApiException.perfilNoPropio();
-        }
-
-        // 2. Buscar usuario, verificar estado ACTIVO
-        Usuario auditor = usuarioRepository.findById(auditorId)
-                .orElseThrow(() -> ApiException.recursoNoEncontrado("Auditor no encontrado."));
-
-        if (auditor.getEstado() != EstadoUsuario.ACTIVO) {
-            throw ApiException.cuentaNoValidada();
-        }
-
-        // 3. Verificar rol AUDITOR_CERTIFICADO
-        if (auditor.getRol() != Rol.AUDITOR_CERTIFICADO) {
-            throw ApiException.accesoDenegado("Solo usuarios con rol AUDITOR_CERTIFICADO pueden gestionar su perfil.");
-        }
+        Usuario auditor = verificarAccesoAlPerfil(usuarioId, auditorId);
 
         // 4-5. Validar duplicados y membership en catálogos (dedup normaliza mayúsculas/espacios)
         Set<EspecialidadAuditor> especialidades = Catalogos.resolverConjunto(
@@ -101,5 +107,29 @@ public class AuditorPerfilService {
 
         // 7. Retornar resultado con flag de creación
         return new ResultadoPerfil(perfilAuditorMapper.aResponseDto(perfil), creado);
+    }
+
+    /**
+     * Precondiciones compartidas por la lectura y la escritura del perfil: que sea el propio, que la
+     * cuenta esté validada y que el rol sea el correcto. Vive en un solo lugar para que las dos
+     * operaciones no puedan divergir, que es como se abren los huecos de autorización.
+     */
+    private Usuario verificarAccesoAlPerfil(UUID usuarioId, UUID auditorId) {
+        if (!usuarioId.equals(auditorId)) {
+            throw ApiException.perfilNoPropio();
+        }
+
+        Usuario auditor = usuarioRepository.findById(auditorId)
+                .orElseThrow(() -> ApiException.recursoNoEncontrado("Auditor no encontrado."));
+
+        if (auditor.getEstado() != EstadoUsuario.ACTIVO) {
+            throw ApiException.cuentaNoValidada();
+        }
+
+        if (auditor.getRol() != Rol.AUDITOR_CERTIFICADO) {
+            throw ApiException.accesoDenegado("Solo usuarios con rol AUDITOR_CERTIFICADO pueden gestionar su perfil.");
+        }
+
+        return auditor;
     }
 }

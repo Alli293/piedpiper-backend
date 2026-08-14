@@ -9,6 +9,7 @@ import com.piedpiper.carbonhub.user.models.enums.Rol;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -46,6 +47,27 @@ public interface PerfilAuditorRepository extends JpaRepository<PerfilAuditor, UU
     List<UUID> listarAuditorIdsConPerfil();
 
     boolean existsByAuditorId(UUID auditorId);
+
+    /**
+     * Recalcula {@code calificacionPromedio} y {@code totalResenas} en una sola sentencia
+     * atómica (UPDATE condicional con subconsultas), en vez de leer el perfil, mutarlo en
+     * memoria y guardarlo — ese patrón read-modify-write pierde actualizaciones si dos
+     * calificaciones del mismo auditor se crean/editan concurrentemente (ver docs/CONVENTIONS.md
+     * §4.5, mismo criterio que {@code AlertaRepository}). Nativo porque Hibernate no soporta de
+     * forma portable subconsultas correlacionadas al alias de destino dentro de un UPDATE JPQL.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(nativeQuery = true, value = """
+            update perfiles_auditor p
+               set calificacion_promedio = (
+                       select avg(c.calificacion) from calificaciones_auditoria c
+                       where c.auditor_id = p.auditor_id),
+                   total_resenas = (
+                       select count(*) from calificaciones_auditoria c
+                       where c.auditor_id = p.auditor_id)
+             where p.auditor_id = :auditorId
+            """)
+    void actualizarMetricasCalificacion(@Param("auditorId") UUID auditorId);
 
     /**
      * Candidatos para la recomendación (PP-57): auditores certificados y activos que tienen la
